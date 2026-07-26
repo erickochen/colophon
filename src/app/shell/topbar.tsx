@@ -56,6 +56,36 @@ function StatChip({
   )
 }
 
+/* MAM reports connectability per protocol; show both, like the site does. */
+function ClientChip({ client }: { client: ShellData['client'] }) {
+  const dot = (state: boolean | null) =>
+    state == null ? 'bg-muted-foreground/40' : state ? 'bg-ok' : 'bg-warn'
+  const word = (state: boolean | null) =>
+    state == null ? 'unknown' : state ? 'connectable' : 'offline'
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <a
+          href="/userClientDetails.php"
+          className="hidden items-center gap-2 rounded-md px-1.5 py-1 text-[12.5px] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground md:flex"
+        >
+          <span className="flex items-center gap-1.5">
+            <span className={'size-1.5 rounded-full ' + dot(client.ipv4)} />
+            v4
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className={'size-1.5 rounded-full ' + dot(client.ipv6)} />
+            v6
+          </span>
+        </a>
+      </TooltipTrigger>
+      <TooltipContent>
+        IPv4 {word(client.ipv4)} · IPv6 {word(client.ipv6)} · client details
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
 export function Topbar({ page, onOpenSearch }: { page: ShellData; onOpenSearch: () => void }) {
   const [theme, setTheme] = useState<Theme>(getTheme)
   const [dark, setDark] = useState(() => isDark())
@@ -76,7 +106,7 @@ export function Topbar({ page, onOpenSearch }: { page: ShellData; onOpenSearch: 
   }
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center gap-3 bg-background/85 px-4 backdrop-blur lg:px-6">
+    <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b bg-background/85 px-4 backdrop-blur lg:px-6">
       <SidebarTrigger />
       <button
         onClick={onOpenSearch}
@@ -87,7 +117,7 @@ export function Topbar({ page, onOpenSearch }: { page: ShellData; onOpenSearch: 
         <Kbd className="ml-auto">⌘K</Kbd>
       </button>
       <div className="ml-auto flex items-center gap-4">
-        <StatChip label="" value={page.client.ipv4 ? 'Connectable' : page.client.ipv4 === false ? 'Not connectable' : null} tone={page.client.ipv4 ? 'ok' : 'warn'} />
+        <ClientChip client={page.client} />
         <StatChip label="Bonus" value={page.stats.bonus} href="/store.php" hint="Spend bonus points in the store" />
         <StatChip label="Wedges" value={page.stats.wedges} />
         <StatChip

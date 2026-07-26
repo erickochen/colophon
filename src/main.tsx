@@ -80,15 +80,58 @@ function onReady(fn: () => void) {
   }
 }
 
-onReady(() => {
-  try {
-    // Only take over real, logged-in MAM pages; anything else stays untouched.
-    const loggedIn = document.querySelector('#mainmenu #menu') !== null
-    if (!loggedIn || window.top !== window.self) {
-      abort()
-      return
-    }
+const BOOT_T0 = performance.now()
+const MENU_SELECTOR = '#mainmenu #menu'
 
+/* The menu is the logged-in gate, but it can arrive after DOMContentLoaded,
+ * so observe until it lands instead of checking once. */
+function whenMenu(fn: (found: boolean) => void) {
+  if (document.querySelector(MENU_SELECTOR)) return fn(true)
+  let settled = false
+  const done = (found: boolean) => {
+    if (settled) return
+    settled = true
+    obs.disconnect()
+    window.clearTimeout(timer)
+    fn(found)
+  }
+  const obs = new MutationObserver(() => {
+    if (document.querySelector(MENU_SELECTOR)) done(true)
+  })
+  obs.observe(document.documentElement, { childList: true, subtree: true })
+  const timer = window.setTimeout(() => done(document.querySelector(MENU_SELECTOR) !== null), 10_000)
+}
+
+function start() {
+  onReady(() => {
+    whenMenu((found) => {
+      console.info('[colophon boot]', {
+        readyState: document.readyState,
+        menuAfterMs: Math.round(performance.now() - BOOT_T0),
+        found,
+      })
+      if (!found || window.top !== window.self) {
+        abort()
+        return
+      }
+      boot()
+    })
+  })
+}
+
+if ((document as Document & { prerendering?: boolean }).prerendering) {
+  document.addEventListener('prerenderingchange', start, { once: true })
+} else {
+  start()
+}
+
+// bfcache restores keep the DOM but our host may be gone after an abort.
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted && !document.getElementById(HOST_ID)) start()
+})
+
+function boot() {
+  try {
     const page = capturePage(document)
     // Remember MAM's "Disable WYSIWYG" choice while we are on the page that has it.
     cacheWysiwygPref(document)
@@ -157,7 +200,7 @@ onReady(() => {
     console.error('[MAM Remaster] boot failed, restoring original page', err)
     abort()
   }
-})
+}
 
 export type Theme = 'light' | 'dark' | 'auto'
 
