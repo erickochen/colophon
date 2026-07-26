@@ -59,10 +59,10 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') }
   },
-  // keepNames keeps __insertCSS findable for the post-build CSS patch.
-  esbuild: { keepNames: true },
   build: {
     target: 'es2022',
-    minify: 'esbuild'
+    // Anyone installing this runs it against their own logged-in session, so the
+    // published script stays readable.
+    minify: false
   }
 })
