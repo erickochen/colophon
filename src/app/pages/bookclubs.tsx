@@ -1,0 +1,164 @@
+import { useMemo } from 'react'
+import { ArrowUpRight, BookOpen, Sparkles } from 'lucide-react'
+import type { PageProps } from '@/app/router'
+import { coverUrl } from '@/lib/mam-api'
+import { LegacyView } from '@/app/pages/legacy'
+import { PageHeader } from '@/app/shell/bits'
+import { BlurFade } from '@/components/ui/blur-fade'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
+
+interface Club { name: string; href: string | null; desc: string; inactive: boolean }
+interface Pick { tid: number | null; title: string; author: string; format: string; href: string }
+interface PickCat { name: string; picks: Pick[] }
+interface ClubsData { clubs: Club[]; cats: PickCat[]; suggestHref: string | null }
+
+function parseClubs(block: Element): Club[] {
+  const clubs: Club[] = []
+  let cur: Club | null = null
+  const walk = (el: Element) => {
+    for (const n of el.childNodes) {
+      if (n.nodeType === 1) {
+        const e = n as HTMLElement
+        if (e.matches('a.altlink_blue')) {
+          const name = (e.textContent ?? '').replace(/\s+/g, ' ').replace(/:\s*$/, '').trim()
+          cur = { name, href: e.getAttribute('href'), desc: '', inactive: false }
+          clubs.push(cur)
+        } else {
+          walk(e)
+        }
+      } else if (n.nodeType === 3 && cur) {
+        cur.desc += n.nodeValue ?? ''
+      }
+    }
+  }
+  walk(block)
+  for (const c of clubs) {
+    c.desc = c.desc.replace(/\s+/g, ' ').replace(/^[\s:.–-]+/, '').trim()
+    c.inactive = /inactive/i.test(c.name) || /^\s*\(?currently inactive/i.test(c.desc)
+    c.name = c.name.replace(/^\d+\.\s*/, '').replace(/\(currently inactive\)/i, '').trim()
+  }
+  return clubs.filter((c) => c.name.length > 2)
+}
+
+function parsePicks(block: Element): PickCat[] {
+  const cats: PickCat[] = []
+  let cur: PickCat | null = null
+  for (const el of block.querySelectorAll<HTMLElement>('a.biglink, a.fLeech')) {
+    if (el.classList.contains('biglink')) {
+      cur = { name: (el.textContent ?? '').replace(/\s+/g, ' ').trim(), picks: [] }
+      cats.push(cur)
+    } else if (cur) {
+      const href = el.getAttribute('href') ?? ''
+      const tid = Number(href.match(/\/t\/(\d+)/)?.[1]) || null
+      const author = el.querySelector('.green')?.textContent?.replace(/^By:\s*/i, '').trim() ?? ''
+      const format = el.querySelector('.copyright')?.textContent?.trim() ?? ''
+      const clone = el.cloneNode(true) as HTMLElement
+      clone.querySelectorAll('.green, .copyright').forEach((x) => x.remove())
+      const title = (clone.textContent ?? '').replace(/\(\s*\)/g, '').replace(/\s+/g, ' ').trim()
+      if (title) cur.picks.push({ tid, title, author, format, href })
+    }
+  }
+  return cats.filter((c) => c.picks.length)
+}
+
+function extract(doc: Document): ClubsData | null {
+  const main = doc.querySelector('#mainBody')
+  if (!main) return null
+  const blocks = [...main.querySelectorAll('.blockCon')]
+  const clubsBlock = blocks.find((b) => /club/i.test(b.querySelector('.blockHeadCon')?.textContent ?? '')) ?? blocks[0]
+  const picksBlock = blocks.find((b) => /pick/i.test(b.querySelector('.blockHeadCon')?.textContent ?? '')) ?? blocks[1]
+  if (!clubsBlock && !picksBlock) return null
+  const clubs = clubsBlock ? parseClubs(clubsBlock.querySelector('.blockBodyCon') ?? clubsBlock) : []
+  const cats = picksBlock ? parsePicks(picksBlock) : []
+  const suggestHref = main.querySelector<HTMLAnchorElement>('a[href*="/f/t/72126"], a[href*="/f/t/"]')?.getAttribute('href') ?? null
+  if (!clubs.length && !cats.length) return null
+  return { clubs, cats, suggestHref }
+}
+
+function PickCard({ p }: { p: Pick }) {
+  return (
+    <a href={p.href} className="group grid content-start gap-2">
+      <div className="relative aspect-[3/4.4] overflow-hidden rounded-md border bg-muted shadow-sm transition-transform group-hover:-translate-y-0.5">
+        {p.tid ? (
+          <img src={coverUrl(p.tid)} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+        ) : null}
+        <span className="absolute inset-0 -z-10 flex items-center justify-center p-2 text-center font-display text-[12px] leading-tight text-muted-foreground">{p.title}</span>
+        {p.format && (
+          <span className="absolute right-1.5 top-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">{p.format}</span>
+        )}
+        <span className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-gradient-to-t from-ok/90 to-transparent px-1.5 pb-1 pt-4 text-[9px] font-semibold uppercase tracking-wide text-white">
+          <Sparkles className="size-2.5" /> Freeleech
+        </span>
+      </div>
+      <div className="grid gap-0.5">
+        <span className="line-clamp-2 text-[12.5px] font-medium leading-snug group-hover:underline">{p.title}</span>
+        {p.author && <span className="line-clamp-1 text-[11px] text-muted-foreground">{p.author}</span>}
+      </div>
+    </a>
+  )
+}
+
+export function BookClubsView(props: PageProps) {
+  const data = useMemo(() => extract(document), [])
+  if (!data) return <LegacyView {...props} />
+
+  return (
+    <div className="grid gap-6">
+      <PageHeader
+        title="Book clubs"
+        sub={`${data.clubs.length} clubs reading together. This month's picks are all freeleech and refresh on the 1st.`}
+      />
+
+      {data.clubs.length > 0 && (
+        <section className="grid gap-3">
+          <h2 className="font-display text-[15px] font-semibold">The clubs</h2>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {data.clubs.map((c, i) => (
+              <BlurFade key={c.href ?? c.name} delay={0.03 * i} direction="up" offset={8}>
+                <Card className="h-full py-0 transition-colors hover:border-brand/40">
+                  <CardContent className="flex h-full flex-col gap-1.5 py-5">
+                    <div className="flex items-start justify-between gap-2">
+                      <a href={c.href ?? '#'} className="font-display text-[15px] font-semibold leading-snug hover:text-brand hover:underline">
+                        {c.name}
+                      </a>
+                      {c.inactive ? (
+                        <Badge variant="outline" className="shrink-0 text-[10px] text-muted-foreground">inactive</Badge>
+                      ) : (
+                        <ArrowUpRight className="size-4 shrink-0 text-muted-foreground" />
+                      )}
+                    </div>
+                    {c.desc && <p className="line-clamp-4 text-[12.5px] leading-normal text-muted-foreground">{c.desc}</p>}
+                  </CardContent>
+                </Card>
+              </BlurFade>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {data.cats.length > 0 && (
+        <section className="grid gap-4">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <h2 className="font-display text-[15px] font-semibold">This month's picks</h2>
+            {data.suggestHref && (
+              <a href={data.suggestHref} className="inline-flex items-center gap-1 text-[12.5px] font-medium text-brand hover:underline">
+                Suggestion &amp; discussion threads <ArrowUpRight className="size-3.5" />
+              </a>
+            )}
+          </div>
+          {data.cats.map((cat) => (
+            <div key={cat.name} className="grid gap-2.5">
+              <h3 className="flex items-center gap-2 text-[13.5px] font-semibold text-muted-foreground">
+                <BookOpen className="size-3.5" /> {cat.name}
+              </h3>
+              <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+                {cat.picks.map((p, i) => <PickCard key={p.href + i} p={p} />)}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+    </div>
+  )
+}

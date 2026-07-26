@@ -1,0 +1,13 @@
+node_modules/
+dist/
+*.local
+
+# Real deploy credentials. Never commit. See .env.deploy.example for the shape.
+.env.deploy
+.env*.local
+
+# Local working files
+.scratch/
+tsconfig.tsbuildinfo
+.DS_Store
+*.log

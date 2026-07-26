@@ -1,0 +1,76 @@
+// Upload dist/ to the storage zone and purge the CDN so auto-updates land at once.
+// Credentials and hosting paths come from .env.deploy (git-ignored).
+import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs'
+import { join, relative, extname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { loadDeployEnv } from './env.mjs'
+
+loadDeployEnv()
+
+const {
+  BUNNY_STORAGE_ZONE,
+  BUNNY_STORAGE_PASSWORD,
+  BUNNY_STORAGE_HOST = 'storage.bunnycdn.com',
+  BUNNY_API_KEY,
+  SITE_URL,
+  BASE_PATH,
+} = process.env
+
+// Must match BASE_PATH as vite.config.ts reads it or update checks 404.
+const basePath = (BASE_PATH ?? '').replace(/^\/|\/$/g, '')
+const publicUrl = (name) => [SITE_URL?.replace(/\/$/, ''), basePath, name].filter(Boolean).join('/')
+
+const missing = ['BUNNY_STORAGE_ZONE', 'BUNNY_STORAGE_PASSWORD', 'SITE_URL', 'BASE_PATH'].filter((k) => !process.env[k])
+if (missing.length) {
+  console.error(`[deploy] missing env: ${missing.join(', ')} (set them in userscript/.env.deploy)`)
+  process.exit(1)
+}
+
+const DIST = fileURLToPath(new URL('./dist/', import.meta.url))
+if (!existsSync(DIST)) {
+  console.error('[deploy] dist/ not found, run `pnpm build` first')
+  process.exit(1)
+}
+
+const MIME = {
+  '.js': 'application/javascript', '.html': 'text/html', '.css': 'text/css',
+  '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+}
+
+const walk = (dir) => readdirSync(dir).flatMap((name) => {
+  const p = join(dir, name)
+  return statSync(p).isDirectory() ? walk(p) : [p]
+})
+
+const base = `https://${BUNNY_STORAGE_HOST}/${BUNNY_STORAGE_ZONE}`
+for (const abs of walk(DIST)) {
+  const rel = relative(DIST, abs).split('\\').join('/')
+  const body = readFileSync(abs)
+  const res = await fetch([base, basePath, rel].filter(Boolean).join('/'), {
+    method: 'PUT',
+    headers: { AccessKey: BUNNY_STORAGE_PASSWORD, 'Content-Type': MIME[extname(abs)] || 'application/octet-stream' },
+    body,
+  })
+  if (!res.ok) {
+    console.error(`[deploy] upload failed ${rel}: ${res.status} ${await res.text()}`)
+    process.exit(1)
+  }
+  console.log(`[deploy] uploaded ${rel} (${body.length} B)`)
+}
+
+// Purge the two files that must never serve stale, so the userscript manager sees updates.
+if (BUNNY_API_KEY) {
+  for (const name of ['colophon.user.js', 'colophon.meta.js']) {
+    const url = publicUrl(name)
+    const res = await fetch(`https://api.bunny.net/purge?url=${encodeURIComponent(url)}&async=false`, {
+      method: 'POST',
+      headers: { AccessKey: BUNNY_API_KEY },
+    })
+    console.log(`[deploy] purge ${url}: ${res.status}`)
+  }
+} else {
+  console.warn('[deploy] BUNNY_API_KEY not set, skipped purge (updates lag until the CDN cache expires)')
+}
+
+console.log('[deploy] done')
