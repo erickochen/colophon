@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 const file = 'dist/colophon.user.js'
 const src = readFileSync(file, 'utf8')
 
-const INJECTOR = /function\s+(\w+)\s*\(\s*(\w+)\s*\)\s*\{\s*if\s*\(\s*typeof document\s*[=>]=?\s*"u(?:ndefined)?"\s*\)\s*return;[\s\S]*?createTextNode\(\s*\2\s*\)\s*\)\s*;?\s*\}/
+const INJECTOR = /function\s+(\w+)\s*\(\s*(\w+)\s*\)\s*\{\s*if\s*\(\s*(?:!\s*\2\s*\|\|\s*)?typeof document\s*[=!]==?\s*"u(?:ndefined)?"\s*\)\s*return;[\s\S]*?createTextNode\(\s*\2\s*\)\s*\)\s*;?\s*\}/
 const match = src.match(INJECTOR)
 
 if (!match) {
