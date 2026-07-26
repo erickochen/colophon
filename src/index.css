@@ -10,7 +10,7 @@
  */
 :root,
 :host {
-  --background: oklch(0.965 0.004 80);
+  --background: oklch(0.985 0.003 80);
   --foreground: oklch(0.205 0.006 56);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.205 0.006 56);
@@ -18,21 +18,28 @@
   --popover-foreground: oklch(0.205 0.006 56);
   --primary: oklch(0.216 0.006 56);
   --primary-foreground: oklch(0.985 0.001 106);
-  --secondary: oklch(0.945 0.003 90);
+  --secondary: oklch(0.955 0.003 90);
   --secondary-foreground: oklch(0.216 0.006 56);
-  --muted: oklch(0.935 0.005 85);
+  --muted: oklch(0.945 0.005 85);
   --muted-foreground: oklch(0.455 0.015 58);
-  --accent: oklch(0.94 0.025 78);
+  --accent: oklch(0.95 0.022 78);
   --accent-foreground: oklch(0.38 0.075 46);
   --destructive: oklch(0.577 0.215 27);
   --destructive-foreground: oklch(0.985 0.001 106);
-  --border: oklch(0.87 0.006 75);
-  --input: oklch(0.79 0.011 70);
+  --border: oklch(0.915 0.006 75);
+  --input: oklch(0.875 0.008 72);
   --ring: oklch(0.62 0.02 56);
   --brand: oklch(0.473 0.078 46);
-  --brand-soft: oklch(0.954 0.02 78);
-  --ok: oklch(0.55 0.16 149);
-  --warn: oklch(0.57 0.16 55);
+  --brand-soft: oklch(0.955 0.018 78);
+  --ok: oklch(0.5 0.09 150);
+  --warn: oklch(0.55 0.13 60);
+  --user-1: oklch(0.48 0.1 40);
+  --user-2: oklch(0.5 0.07 240);
+  --user-3: oklch(0.48 0.09 320);
+  --user-4: oklch(0.5 0.09 150);
+  --shadow-card: 0 1px 2px oklch(0.2 0.01 60 / 0.05);
+  --shadow-book: 0 1px 1.5px oklch(0.2 0.02 50 / 0.15), 0 3px 4px oklch(0.2 0.02 50 / 0.1), 0 6px 8px oklch(0.2 0.02 50 / 0.08), 0 12px 16px oklch(0.2 0.02 50 / 0.06), 0 33px 45px oklch(0.2 0.02 50 / 0.04);
+  --shadow-book-lift: 0 2px 3px oklch(0.2 0.02 50 / 0.16), 0 5px 7px oklch(0.2 0.02 50 / 0.11), 0 10px 14px oklch(0.2 0.02 50 / 0.09), 0 20px 26px oklch(0.2 0.02 50 / 0.07), 0 44px 60px oklch(0.2 0.02 50 / 0.05);
   --chart-1: oklch(0.473 0.078 46);
   --chart-2: oklch(0.55 0.11 220);
   --chart-3: oklch(0.627 0.17 149);
@@ -81,11 +88,11 @@
 }
 
 .dark {
-  --background: oklch(0.184 0.006 56);
+  --background: oklch(0.172 0.005 56);
   --foreground: oklch(0.945 0.001 106);
-  --card: oklch(0.216 0.006 56);
+  --card: oklch(0.212 0.006 56);
   --card-foreground: oklch(0.945 0.001 106);
-  --popover: oklch(0.216 0.006 56);
+  --popover: oklch(0.212 0.006 56);
   --popover-foreground: oklch(0.945 0.001 106);
   --primary: oklch(0.923 0.003 48);
   --primary-foreground: oklch(0.216 0.006 56);
@@ -97,13 +104,20 @@
   --accent-foreground: oklch(0.78 0.08 70);
   --destructive: oklch(0.704 0.191 22);
   --destructive-foreground: oklch(0.985 0.001 106);
-  --border: oklch(0.295 0.007 56);
-  --input: oklch(0.36 0.008 56);
+  --border: oklch(0.28 0.007 56);
+  --input: oklch(0.33 0.008 56);
   --ring: oklch(0.553 0.013 58);
   --brand: oklch(0.75 0.09 70);
-  --brand-soft: oklch(0.28 0.03 60);
-  --ok: oklch(0.74 0.17 149);
-  --warn: oklch(0.78 0.15 70);
+  --brand-soft: oklch(0.27 0.028 62);
+  --ok: oklch(0.72 0.1 150);
+  --warn: oklch(0.76 0.12 65);
+  --user-1: oklch(0.72 0.09 45);
+  --user-2: oklch(0.72 0.07 240);
+  --user-3: oklch(0.72 0.08 320);
+  --user-4: oklch(0.72 0.1 150);
+  --shadow-card: 0 0 #0000;
+  --shadow-book: 0 1px 2px oklch(0 0 0 / 0.5), 0 10px 22px -8px oklch(0 0 0 / 0.55);
+  --shadow-book-lift: 0 2px 4px oklch(0 0 0 / 0.5), 0 18px 34px -10px oklch(0 0 0 / 0.6);
   --sidebar: oklch(0.162 0.005 56);
   --sidebar-foreground: oklch(0.945 0.001 106);
   --sidebar-primary: oklch(0.923 0.003 48);
@@ -138,6 +152,13 @@
   --color-brand-soft: var(--brand-soft);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
+  --color-user-1: var(--user-1);
+  --color-user-2: var(--user-2);
+  --color-user-3: var(--user-3);
+  --color-user-4: var(--user-4);
+  --shadow-card: var(--shadow-card);
+  --shadow-book: var(--shadow-book);
+  --shadow-book-lift: var(--shadow-book-lift);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -197,17 +218,11 @@
   scrollbar-color: var(--border) transparent;
 }
 
-/* No outlines anywhere: this design separates with fill, spacing and shadow.
- * A blanket reset also catches borders inside sanitized MAM markup and any
- * component we have not touched. Focus rings use box-shadow, so they survive.
- *
- * Exception: .user-html marks content people authored themselves (forum posts,
- * torrent descriptions). MAM allows full HTML with style attributes there and an
- * !important reset outranks an inline style, so the subtree is excluded to let
- * those author styles keep winning. */
-#mam-root *:not(.user-html, .user-html *),
-#mam-root *:not(.user-html, .user-html *)::before,
-#mam-root *:not(.user-html, .user-html *)::after {
+/* Sanitized MAM fragments carry presentational borders; strip them there
+ * only. .user-html keeps author styles (inline styles must keep winning). */
+#mam-root .legacy-html *:not(.user-html, .user-html *),
+#mam-root .legacy-html *:not(.user-html, .user-html *)::before,
+#mam-root .legacy-html *:not(.user-html, .user-html *)::after {
   border-width: 0 !important;
 }
 
