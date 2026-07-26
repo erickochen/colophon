@@ -82,10 +82,7 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
         showCloseButton={false}
         // Focus the input regardless of trigger source; a mouse-open otherwise
         // lands focus on the dialog container, not the search field.
-        onOpenAutoFocus={(e) => {
-          e.preventDefault()
-          inputRef.current?.focus()
-        }}
+        initialFocus={inputRef}
       >
         <Command shouldFilter={false} className="**:data-[slot=command-input-wrapper]:h-13">
           <CommandInput

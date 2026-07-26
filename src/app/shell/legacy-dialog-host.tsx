@@ -47,10 +47,7 @@ export function LegacyDialogHost({ host }: { host: HTMLElement }) {
       <DialogContent
         className="max-h-[85vh] gap-3 sm:max-w-xl"
         // Land on the committing action, not on Cancel.
-        onOpenAutoFocus={(e) => {
-          e.preventDefault()
-          primaryRef.current?.focus()
-        }}
+        initialFocus={primaryRef}
       >
         <DialogHeader>
           <DialogTitle className="font-display">{state?.title || 'MyAnonaMouse'}</DialogTitle>
