@@ -3,6 +3,7 @@ import { ArrowRight, Megaphone, Plus, Send, X } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { extractHome, extractShouts, type HomeTorrent, type Shout } from '@/lib/extract/home'
 import { searchTorrents, parsePeople, coverUrl } from '@/lib/mam-api'
+import { mutedUserColor } from '@/lib/colors'
 import { fmtInt, relTime } from '@/lib/format'
 import { useHiddenSections, type HiddenSections } from '@/lib/hidden-sections'
 import { cn } from '@/lib/utils'
@@ -149,7 +150,6 @@ function shelfFromDom(torrents: HomeTorrent[]): ShelfItem[] {
   }))
 }
 
-const FALLBACK_SHOUT_COLOR = 'var(--brand)'
 
 function ShoutList({ shouts }: { shouts: Shout[] }) {
   return (
@@ -161,7 +161,7 @@ function ShoutList({ shouts }: { shouts: Shout[] }) {
             <a
               href={s.user.uid ? `/u/${s.user.uid}` : '#'}
               className="shrink-0 font-semibold"
-              style={{ color: s.user.color ?? FALLBACK_SHOUT_COLOR }}
+              style={{ color: mutedUserColor(s.user.color) }}
             >
               {s.user.name}
             </a>
@@ -188,7 +188,7 @@ export function HomeView({ page }: PageProps) {
     searchTorrents({ sortType: 'dateDesc', perpage: 5, srchIn: ['title'] })
       .then((res) => {
         if (!res.data.length) return
-        setShelf(
+        setShelf((cur) =>
           res.data.map((t) => ({
             id: t.id,
             href: `/t/${t.id}`,
@@ -196,7 +196,8 @@ export function HomeView({ page }: PageProps) {
             authorsText: parsePeople(t.author_info).map((a) => a.name).join(', '),
             fileType: t.filetype?.split(' ')[0] ?? null,
             vip: t.vip === 1,
-            explicit: false,
+            // The search API carries no explicit flag; keep what the page said.
+            explicit: cur.find((c) => c.id === t.id)?.explicit ?? false,
             poster: t.poster_type ? coverUrl(t.id) : null,
           }))
         )

@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, Download, Filter, Loader2, Search, X } from 'lucide-react'
+import { AlignJustify, ChevronDown, Download, Filter, LayoutGrid, Loader2, Search, X } from 'lucide-react'
 import type { PageProps } from '@/app/router'
-import { searchTorrents, parsePeople, downloadUrl, coverUrl, type SearchQuery, type SearchResult, type SearchTorrent } from '@/lib/mam-api'
+import { searchTorrents, parsePeople, downloadUrl, coverUrl, torrentUrl, type SearchQuery, type SearchTorrent } from '@/lib/mam-api'
 import { CONTENT_FLAGS, LANGUAGES, MAIN_CATS, SORT_OPTIONS } from '@/lib/mam-facets'
 import { fmtInt, relTime } from '@/lib/format'
+import { cn } from '@/lib/utils'
+import { Book } from '@/components/book'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
@@ -23,6 +25,19 @@ const SRCH_FIELDS = [
   ['title', 'Title'], ['author', 'Author'], ['narrator', 'Narrator'], ['series', 'Series'],
   ['description', 'Description'], ['tags', 'Tags'], ['fileTypes', 'Filetype'], ['filenames', 'Filenames'],
 ] as const
+
+const SEARCH_TYPES = [
+  ['all', 'All torrents'], ['active', 'Active only'], ['inactive', 'Inactive only'],
+  ['fl', 'Freeleech'], ['VIP', 'VIP'], ['fl-VIP', 'Freeleech or VIP'], ['nVIP', 'Not VIP'],
+] as const
+
+const SEARCH_INS = [
+  ['torrents', 'Everywhere'], ['bookmarks', 'My bookmarks'], ['new', 'Flagged new'],
+  ['mine', 'My uploads'], ['allReseed', 'All reseed requests'], ['myReseed', 'I could reseed'],
+] as const
+
+const VIEW_KEY = 'muisstil:browse-view'
+type ViewMode = 'list' | 'grid'
 
 type SrchField = (typeof SRCH_FIELDS)[number][0]
 
@@ -125,111 +140,218 @@ function catName(id: number): string {
   return `cat ${id}`
 }
 
+/** Row cover with a large natural-ratio peek beside it while hovered. */
+function RowCover({ t }: { t: SearchTorrent }) {
+  const poster = t.poster_type ? coverUrl(t.id) : null
+  const cover = (
+    <a href={torrentUrl(t.id)} tabIndex={-1} className="block text-[9px]">
+      <Book poster={poster} title={t.title} size="row" className="transition-shadow group-hover:shadow-book-lift" />
+    </a>
+  )
+  if (!poster) return cover
+  return (
+    <HoverCard>
+      <HoverCardTrigger asChild delay={250} closeDelay={100}>{cover}</HoverCardTrigger>
+      <HoverCardContent side="right" sideOffset={16} className="w-[230px] rounded-none border-0 bg-transparent p-0 shadow-none">
+        <span className="block rounded-[6px_10px_10px_6px] shadow-book-lift">
+          <Book poster={poster} title={t.title} naturalRatio size="hero" className="rounded-[6px_10px_10px_6px]" />
+        </span>
+      </HoverCardContent>
+    </HoverCard>
+  )
+}
+
 function TorrentRow({ t }: { t: SearchTorrent }) {
   const authors = parsePeople(t.author_info)
   const narrators = parsePeople(t.narrator_info)
   const series = parsePeople(t.series_info)
   return (
-    <TableRow className="group">
-      <TableCell className="w-14 align-top">
-        <a href={`/t/${t.id}`} className="flex h-16 w-11 items-center justify-center overflow-hidden rounded-[4px] border bg-muted shadow-sm">
-          {t.poster_type ? (
-            <img src={coverUrl(t.id)} alt="" loading="lazy" className="size-full object-cover" onError={(e) => e.currentTarget.remove()} />
-          ) : (
-            <BookOpen className="size-4 text-muted-foreground/60" />
-          )}
-        </a>
-      </TableCell>
-      <TableCell className="whitespace-normal align-top">
-        <a href={`/t/${t.id}`} className="grid gap-1">
-          <span className="font-display text-[14px] font-medium leading-snug group-hover:underline">{t.title}</span>
-          <span className="text-[12px] leading-snug text-muted-foreground">
-            {authors.length > 0 && <>by {authors.map((a) => a.name).join(', ')}</>}
-            {narrators.length > 0 && <> · read by {narrators.map((a) => a.name).join(', ')}</>}
-            {series.length > 0 && (
-              <> · {series.map((s) => s.name + (s.part ? ` #${s.part}` : '')).join(', ')}</>
+    <div className="group grid grid-cols-[76px_1fr_auto_auto] items-center gap-[18px] px-[22px] py-3.5 transition-colors hover:bg-foreground/[0.028]">
+      <RowCover t={t} />
+      <a href={torrentUrl(t.id)} className="min-w-0">
+        <h3 className="font-display text-[15px] font-medium leading-[1.3] transition-colors group-hover:text-brand">{t.title}</h3>
+        {(authors.length > 0 || narrators.length > 0 || series.length > 0) && (
+          <p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">
+            {authors.map((a) => a.name).join(', ')}
+            {narrators.length > 0 && (
+              <span className="text-muted-foreground/75">
+                {authors.length > 0 && ' · '}read by {narrators.map((n) => n.name).join(', ')}
+              </span>
             )}
-          </span>
-          <span className="flex flex-wrap items-center gap-1 pt-0.5">
-            {t.vip === 1 && <Badge className="bg-brand-soft text-accent-foreground" variant="secondary">VIP</Badge>}
-            {(t.free === 1 || t.personal_freeleech === 1) && <Badge className="bg-ok/15 text-ok" variant="secondary">Freeleech</Badge>}
-            {t.my_snatched === 1 && <Badge variant="secondary">Snatched</Badge>}
-            <Badge variant="outline">{t.catname || catName(t.category)}</Badge>
-            {t.lang_code && t.lang_code !== 'ENG' && <Badge variant="outline">{t.lang_code}</Badge>}
-          </span>
-        </a>
-      </TableCell>
-      <TableCell className="text-center align-top">
-        <Badge variant="outline" className="font-mono text-[10.5px] uppercase">{t.filetype?.split(' ')[0] ?? '–'}</Badge>
-      </TableCell>
-      <TableCell className="whitespace-nowrap text-right align-top font-mono text-[12.5px] tabular-nums">
-        {t.size}
-        <div className="text-muted-foreground">{fmtInt(t.numfiles)} file{t.numfiles === 1 ? '' : 's'}</div>
-      </TableCell>
-      <TableCell className="whitespace-nowrap text-right align-top font-mono text-[12.5px] tabular-nums">
-        <span className="text-ok" title="Seeders">{fmtInt(t.seeders)}</span>
-        <span className="text-muted-foreground"> / </span>
-        <span className="text-warn" title="Leechers">{fmtInt(t.leechers)}</span>
-        <div className="font-sans text-[11px] text-muted-foreground">{fmtInt(t.times_completed)} snatched</div>
-      </TableCell>
-      <TableCell className="whitespace-nowrap text-right align-top text-[12.5px] text-muted-foreground">
-        {relTime(t.added)}
-      </TableCell>
-      <TableCell className="text-right align-top">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button asChild size="icon" variant="ghost" className="size-8">
-              <a href={downloadUrl(t.id)} title="">
-                <Download className="size-4" />
-              </a>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Download .torrent</TooltipContent>
-        </Tooltip>
-      </TableCell>
-    </TableRow>
+            {series.length > 0 && (
+              <span className="italic text-muted-foreground/75">
+                {(authors.length > 0 || narrators.length > 0) && ' · '}
+                {series.map((s) => s.name + (s.part ? ` #${s.part}` : '')).join(', ')}
+              </span>
+            )}
+          </p>
+        )}
+        <span className="mt-1.5 flex flex-wrap items-center gap-1">
+          {t.vip === 1 && <Badge className="bg-brand-soft text-accent-foreground" variant="secondary">VIP</Badge>}
+          {(t.free === 1 || t.personal_freeleech === 1) && <Badge className="bg-ok/15 text-ok" variant="secondary">Freeleech</Badge>}
+          {t.my_snatched === 1 && <Badge variant="secondary">Snatched</Badge>}
+          <Badge variant="outline">{t.catname || catName(t.category)}</Badge>
+          {t.lang_code && t.lang_code !== 'ENG' && <Badge variant="outline">{t.lang_code}</Badge>}
+        </span>
+      </a>
+      <div className="grid grid-cols-[52px_84px_88px_76px] items-baseline gap-x-[18px] text-right tabular-nums">
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+          {t.filetype?.split(' ')[0] ?? '–'}
+        </span>
+        <span className="font-mono text-[12.5px] text-muted-foreground">
+          {t.size}
+          <span className="block font-sans text-[11px] text-muted-foreground/75">{fmtInt(t.numfiles)} file{t.numfiles === 1 ? '' : 's'}</span>
+        </span>
+        <span className="font-mono text-[12.5px]">
+          <span className="text-ok" title="Seeders">{fmtInt(t.seeders)}</span>
+          <span className="text-muted-foreground/60"> / </span>
+          <span className="text-warn" title="Leechers">{fmtInt(t.leechers)}</span>
+          <span className="block font-sans text-[11px] text-muted-foreground/75" title="Times snatched">{fmtInt(t.times_completed)} snatched</span>
+        </span>
+        <span className="font-mono text-[12px] text-muted-foreground/80">{relTime(t.added)}</span>
+      </div>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <a
+            href={downloadUrl(t.id)}
+            aria-label="Download .torrent"
+            className="grid size-[34px] place-items-center rounded-full border border-input text-muted-foreground opacity-0 outline-none transition-opacity duration-200 group-hover:opacity-100 hover:border-transparent hover:bg-primary hover:text-primary-foreground focus-visible:border-ring focus-visible:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
+            <Download className="size-[15px]" />
+          </a>
+        </TooltipTrigger>
+        <TooltipContent>Download .torrent</TooltipContent>
+      </Tooltip>
+    </div>
+  )
+}
+
+function GalleryItem({ t }: { t: SearchTorrent }) {
+  const authors = parsePeople(t.author_info)
+  const authorsText = authors.map((a) => a.name).join(', ')
+  return (
+    <a href={torrentUrl(t.id)} className="group block">
+      <span className="block text-[11px] transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1.5 motion-reduce:transition-none">
+        <Book
+          poster={t.poster_type ? coverUrl(t.id) : null}
+          title={t.title}
+          author={authorsText || undefined}
+          naturalRatio
+          size="shelf"
+          className="group-hover:shadow-book-lift"
+        />
+      </span>
+      <span className="font-display mt-2.5 line-clamp-2 block text-[13px] font-medium leading-[1.35]">{t.title}</span>
+      {authorsText && <span className="mt-0.5 line-clamp-1 block text-[11.5px] text-muted-foreground">{authorsText}</span>}
+    </a>
+  )
+}
+
+function ViewToggle({ view, onChange }: { view: ViewMode; onChange: (v: ViewMode) => void }) {
+  const base = 'grid h-[26px] w-7 place-items-center border transition-colors outline-none focus-visible:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50'
+  const off = 'border-input bg-card text-muted-foreground hover:text-foreground'
+  const on = 'border-transparent bg-brand-soft text-accent-foreground'
+  return (
+    <span className="inline-flex">
+      <button
+        type="button"
+        aria-label="List view"
+        aria-pressed={view === 'list'}
+        onClick={() => onChange('list')}
+        className={cn(base, 'rounded-l-[7px]', view === 'list' ? on : off)}
+      >
+        <AlignJustify className="size-[13px]" />
+      </button>
+      <button
+        type="button"
+        aria-label="Gallery view"
+        aria-pressed={view === 'grid'}
+        onClick={() => onChange('grid')}
+        className={cn(base, '-ml-px rounded-r-[7px]', view === 'grid' ? on : off)}
+      >
+        <LayoutGrid className="size-[13px]" />
+      </button>
+    </span>
   )
 }
 
 export function BrowseView(props: PageProps) {
   const [state, setState] = useState<BrowseState>(() => stateFromUrl(props.page.user.uid != null ? String(props.page.user.uid) : null))
-  const [result, setResult] = useState<SearchResult | null>(null)
+  const [items, setItems] = useState<SearchTorrent[]>([])
+  const [found, setFound] = useState(0)
+  const [baseStart, setBaseStart] = useState(state.start)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [view, setView] = useState<ViewMode>(() => {
+    try {
+      return localStorage.getItem(VIEW_KEY) === 'grid' ? 'grid' : 'list'
+    } catch {
+      return 'list'
+    }
+  })
   const seq = useRef(0)
 
-  const run = useCallback(async (s: BrowseState, push = true) => {
+  const setViewMode = (v: ViewMode) => {
+    setView(v)
+    try {
+      localStorage.setItem(VIEW_KEY, v)
+    } catch {
+      // storage may be unavailable
+    }
+  }
+
+  const run = useCallback(async (s: BrowseState, opts: { append?: boolean; push?: boolean } = {}) => {
+    const { append = false, push = true } = opts
     const mine = ++seq.current
-    setLoading(true)
+    if (append) {
+      setLoadingMore(true)
+    } else {
+      setLoading(true)
+      setItems([])
+    }
     setError(null)
     if (push) history.replaceState(null, '', urlFromState(s))
     try {
       const res = await searchTorrents(toQuery(s))
-      if (seq.current === mine) setResult(res)
+      if (seq.current !== mine) return
+      setFound(res.found)
+      setItems((prev) => (append ? [...prev, ...res.data] : res.data))
+      if (!append) setBaseStart(s.start)
     } catch (e) {
       if (seq.current === mine) setError(e instanceof Error ? e.message : 'Search failed')
     } finally {
-      if (seq.current === mine) setLoading(false)
+      if (seq.current === mine) {
+        setLoading(false)
+        setLoadingMore(false)
+      }
     }
   }, [])
 
   useEffect(() => {
-    void run(state, false)
+    void run(state, { push: false })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const apply = (patch: Partial<BrowseState>, resetStart = true) => {
-    const next = { ...state, ...patch, ...(resetStart ? { start: 0 } : {}) }
+  const apply = (patch: Partial<BrowseState>) => {
+    const next = { ...state, ...patch, start: 0 }
     setState(next)
     void run(next)
   }
 
+  const loadMore = () => {
+    const next = { ...state, start: state.start + state.perpage }
+    setState(next)
+    void run(next, { append: true })
+  }
+
   const toggle = <T,>(list: T[], v: T): T[] => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
 
-  const found = result?.found ?? 0
-  const from = found === 0 ? 0 : state.start + 1
-  const to = Math.min(found, state.start + (result?.data.length ?? 0))
+  const from = items.length === 0 ? 0 : baseStart + 1
+  const to = Math.min(found, baseStart + items.length)
+  const remaining = Math.max(0, found - to)
   const activeFilters = state.cat.length + state.langs.length + state.flags.length
+  const sortLabel = SORT_OPTIONS.find((o) => o.value === state.sort)?.label ?? state.sort
 
   const facetSummary = useMemo(() => {
     const parts: string[] = []
@@ -238,6 +360,29 @@ export function BrowseView(props: PageProps) {
     if (state.langs.length) parts.push(`${state.langs.length} languages`)
     return parts.join(' · ')
   }, [state.mainCat, state.cat, state.langs])
+
+  const chips: { key: string; label: string; onRemove: () => void }[] = [
+    ...state.cat.map((c) => ({ key: `c${c}`, label: catName(c), onRemove: () => apply({ cat: toggle(state.cat, c) }) })),
+    ...state.langs.map((l) => ({
+      key: `l${l}`,
+      label: LANGUAGES.find((x) => x.id === l)?.name ?? String(l),
+      onRemove: () => apply({ langs: toggle(state.langs, l) }),
+    })),
+    ...(state.searchType !== 'all'
+      ? [{
+          key: 'searchType',
+          label: SEARCH_TYPES.find(([v]) => v === state.searchType)?.[1] ?? state.searchType,
+          onRemove: () => apply({ searchType: 'all' }),
+        }]
+      : []),
+    ...(state.searchIn !== 'torrents'
+      ? [{
+          key: 'searchIn',
+          label: SEARCH_INS.find(([v]) => v === state.searchIn)?.[1] ?? state.searchIn,
+          onRemove: () => apply({ searchIn: 'torrents' }),
+        }]
+      : []),
+  ]
 
   return (
     <div className="grid gap-4">
@@ -275,7 +420,7 @@ export function BrowseView(props: PageProps) {
               <button
                 key={key}
                 type="button"
-                onClick={() => apply({ srchIn: toggle(state.srchIn, key) }, false)}
+                onClick={() => apply({ srchIn: toggle(state.srchIn, key) })}
                 className={
                   'rounded-md border px-2.5 py-1 text-[12px] font-medium transition-colors ' +
                   (state.srchIn.includes(key)
@@ -391,25 +536,18 @@ export function BrowseView(props: PageProps) {
             <Select value={state.searchType} onValueChange={(v) => apply({ searchType: v as BrowseState['searchType'] })}>
               <SelectTrigger size="sm" className="h-8 w-auto text-[12.5px]"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All torrents</SelectItem>
-                <SelectItem value="active">Active only</SelectItem>
-                <SelectItem value="inactive">Inactive only</SelectItem>
-                <SelectItem value="fl">Freeleech</SelectItem>
-                <SelectItem value="VIP">VIP</SelectItem>
-                <SelectItem value="fl-VIP">Freeleech or VIP</SelectItem>
-                <SelectItem value="nVIP">Not VIP</SelectItem>
+                {SEARCH_TYPES.map(([value, label]) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
             <Select value={state.searchIn} onValueChange={(v) => apply({ searchIn: v as BrowseState['searchIn'] })}>
               <SelectTrigger size="sm" className="h-8 w-auto text-[12.5px]"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="torrents">Everywhere</SelectItem>
-                <SelectItem value="bookmarks">My bookmarks</SelectItem>
-                <SelectItem value="new">Flagged new</SelectItem>
-                <SelectItem value="mine">My uploads</SelectItem>
-                <SelectItem value="allReseed">All reseed requests</SelectItem>
-                <SelectItem value="myReseed">I could reseed</SelectItem>
+                {SEARCH_INS.map(([value, label]) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
@@ -424,105 +562,113 @@ export function BrowseView(props: PageProps) {
               </Select>
             </div>
           </div>
-
-          {(state.cat.length > 0 || state.langs.length > 0) && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              {state.cat.map((c) => (
-                <Badge key={`c${c}`} variant="secondary" className="gap-1">
-                  {catName(c)}
-                  <button onClick={() => apply({ cat: toggle(state.cat, c) })}><X className="size-3" /></button>
-                </Badge>
-              ))}
-              {state.langs.map((l) => (
-                <Badge key={`l${l}`} variant="secondary" className="gap-1">
-                  {LANGUAGES.find((x) => x.id === l)?.name ?? l}
-                  <button onClick={() => apply({ langs: toggle(state.langs, l) })}><X className="size-3" /></button>
-                </Badge>
-              ))}
-            </div>
-          )}
         </CardContent>
       </Card>
 
+      <div className="flex flex-wrap items-center gap-2 px-1">
+        {chips.map((c) => (
+          <span key={c.key} className="inline-flex items-center gap-1.5 rounded-full border border-input bg-card py-[3px] pl-2.5 pr-2 text-[12px] text-muted-foreground">
+            {c.label}
+            <button
+              type="button"
+              aria-label={`Remove ${c.label}`}
+              onClick={c.onRemove}
+              className="text-muted-foreground/70 transition-colors hover:text-foreground"
+            >
+              <X className="size-3" />
+            </button>
+          </span>
+        ))}
+        {chips.length > 0 && (
+          <button type="button" onClick={() => apply({ cat: [], langs: [], searchType: 'all', searchIn: 'torrents' })} className="text-[12px] text-brand hover:underline">
+            Clear all
+          </button>
+        )}
+        <span className="ml-auto text-[12px] tabular-nums text-muted-foreground">
+          {loading ? 'Searching…' : `${fmtInt(found)} results · ${sortLabel}`}
+        </span>
+        <ViewToggle view={view} onChange={setViewMode} />
+      </div>
+
       <Card className="overflow-hidden py-0">
-        <Table className="[&_th:first-child]:pl-6 [&_td:first-child]:pl-6 [&_th:last-child]:pr-6 [&_td:last-child]:pr-6">
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="w-14" />
-              <TableHead>Title</TableHead>
-              <TableHead className="text-center">Format</TableHead>
-              <TableHead className="text-right">Size</TableHead>
-              <TableHead className="text-right">
-                <Tooltip><TooltipTrigger className="cursor-default">Seed / Leech</TooltipTrigger><TooltipContent>Seeders / leechers, then times snatched</TooltipContent></Tooltip>
-              </TableHead>
-              <TableHead className="text-right">Added</TableHead>
-              <TableHead className="w-10" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading &&
-              Array.from({ length: 8 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><Skeleton className="h-16 w-11 rounded-[4px]" /></TableCell>
-                  <TableCell><Skeleton className="mb-1.5 h-4 w-2/3" /><Skeleton className="h-3 w-1/3" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-10" /></TableCell>
-                  <TableCell><Skeleton className="ml-auto h-4 w-14" /></TableCell>
-                  <TableCell><Skeleton className="ml-auto h-4 w-12" /></TableCell>
-                  <TableCell><Skeleton className="ml-auto h-4 w-14" /></TableCell>
-                  <TableCell />
-                </TableRow>
-              ))}
-            {!loading && error && (
-              <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-sm text-destructive">
-                  {error}. <button className="underline" onClick={() => run(state)}>try again</button>
-                </TableCell>
-              </TableRow>
+        {loading && view === 'list' && (
+          <div className="divide-y divide-border">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="grid grid-cols-[76px_1fr_auto] items-center gap-[18px] px-[22px] py-3.5">
+                <Skeleton className="aspect-[3/4.5] w-[76px] rounded-[4px_7px_7px_4px]" />
+                <div className="min-w-0">
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="mt-2 h-3 w-2/5" />
+                  <Skeleton className="mt-2.5 h-4 w-28" />
+                </div>
+                <Skeleton className="h-4 w-72 max-w-full" />
+              </div>
+            ))}
+          </div>
+        )}
+        {loading && view === 'grid' && (
+          <div className="grid grid-cols-3 items-end gap-x-[22px] gap-y-7 p-[26px] sm:grid-cols-4 lg:grid-cols-6">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i}>
+                <Skeleton className="aspect-[3/4.5] w-full rounded-[4px_7px_7px_4px]" />
+                <Skeleton className="mt-2.5 h-3.5 w-3/4" />
+                <Skeleton className="mt-1.5 h-3 w-1/2" />
+              </div>
+            ))}
+          </div>
+        )}
+        {!loading && error && items.length === 0 && (
+          <div className="py-10 text-center text-sm text-destructive">
+            {error}. <button className="underline" onClick={() => void run(state)}>try again</button>
+          </div>
+        )}
+        {!loading && !error && items.length === 0 && (
+          <div className="py-12 text-center text-sm text-muted-foreground">
+            {state.searchIn === 'bookmarks'
+              ? 'No bookmarks yet. Bookmark a torrent and it shows up here.'
+              : state.searchIn === 'mine'
+                ? "You haven't uploaded any torrents yet."
+                : 'Nothing on these shelves. Loosen a filter or try different words.'}
+          </div>
+        )}
+        {!loading && items.length > 0 && view === 'list' && (
+          <div className="divide-y divide-border">
+            {items.map((t) => <TorrentRow key={t.id} t={t} />)}
+          </div>
+        )}
+        {!loading && items.length > 0 && view === 'grid' && (
+          <div className="grid grid-cols-3 items-end gap-x-[22px] gap-y-7 p-[26px] sm:grid-cols-4 lg:grid-cols-6">
+            {items.map((t) => <GalleryItem key={t.id} t={t} />)}
+          </div>
+        )}
+        {!loading && items.length > 0 && (remaining > 0 || loadingMore || error) && (
+          <div className="flex items-center justify-center border-t py-4">
+            {error ? (
+              <span className="text-sm text-destructive">
+                {error}. <button className="underline" onClick={() => void run(state, { append: true })}>try again</button>
+              </span>
+            ) : (
+              <Button variant="outline" disabled={loadingMore} onClick={loadMore}>
+                {loadingMore && <Loader2 className="size-4 animate-spin" />}
+                Load {fmtInt(Math.min(state.perpage, remaining))} more
+              </Button>
             )}
-            {!loading && !error && result?.data.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
-                  {state.searchIn === 'bookmarks'
-                    ? 'No bookmarks yet. Bookmark a torrent and it shows up here.'
-                    : state.searchIn === 'mine'
-                      ? "You haven't uploaded any torrents yet."
-                      : 'Nothing on these shelves. Loosen a filter or try different words.'}
-                </TableCell>
-              </TableRow>
-            )}
-            {!loading && !error && result?.data.map((t) => <TorrentRow key={t.id} t={t} />)}
-          </TableBody>
-        </Table>
+          </div>
+        )}
       </Card>
 
       <div className="flex items-center justify-between">
-        <span className="text-[12.5px] text-muted-foreground">
+        <span className="text-[12.5px] tabular-nums text-muted-foreground">
           {loading ? <Loader2 className="size-3.5 animate-spin" /> : `Showing ${fmtInt(from)}–${fmtInt(to)} of ${fmtInt(found)}`}
         </span>
-        <div className="flex items-center gap-2">
-          <Select value={String(state.perpage)} onValueChange={(v) => apply({ perpage: Number(v) })}>
-            <SelectTrigger size="sm" className="h-8 w-auto text-[12.5px]"><SelectValue /></SelectTrigger>
-            <SelectContent align="end">
-              {[25, 50, 100].map((n) => (
-                <SelectItem key={n} value={String(n)}>{n} / page</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="outline" size="sm" className="h-8"
-            disabled={state.start === 0 || loading}
-            onClick={() => apply({ start: Math.max(0, state.start - state.perpage) }, false)}
-          >
-            <ChevronLeft className="size-4" /> Prev
-          </Button>
-          <Button
-            variant="outline" size="sm" className="h-8"
-            disabled={loading || to >= found}
-            onClick={() => apply({ start: state.start + state.perpage }, false)}
-          >
-            Next <ChevronRight className="size-4" />
-          </Button>
-        </div>
+        <Select value={String(state.perpage)} onValueChange={(v) => apply({ perpage: Number(v) })}>
+          <SelectTrigger size="sm" className="h-8 w-auto text-[12.5px]"><SelectValue /></SelectTrigger>
+          <SelectContent align="end">
+            {[25, 50, 100].map((n) => (
+              <SelectItem key={n} value={String(n)}>{n} / page</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
     </div>
   )
