@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react'
+import { ChevronRight } from 'lucide-react'
 import {
   BookOpen,
   Bookmark,
   CircleDollarSign,
-  Clock3,
   Compass,
   Download,
   Gift,
@@ -15,16 +14,19 @@ import {
   MessagesSquare,
   Search,
   Sparkles,
-  Star,
   Store,
   Ticket,
   TrendingUp,
   Upload,
-  UsersRound,
   Vault,
 } from 'lucide-react'
 import type { ShellData } from '@/lib/extract/shell'
 import { isActive } from '@/app/router'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import {
   Sidebar,
   SidebarContent,
@@ -45,74 +47,125 @@ import { UserMenu } from '@/app/shell/user-menu'
 interface NavItem {
   title: string
   href: string
-  icon: typeof Search
+  icon?: typeof Search
   badge?: string | number | null
-  pin?: boolean // always visible, even on short screens
 }
 interface NavGroup {
-  label: string | null
+  label: string
   items: NavItem[]
+  more: NavItem[]
 }
 
-function groups(page: ShellData): NavGroup[] {
-  return [
-    { label: null, items: [{ title: 'Dashboard', href: '/', icon: LayoutDashboard, pin: true }] },
-    {
-      label: 'Discover',
-      items: [
-        { title: 'Browse', href: '/tor/browse.php', icon: Search, pin: true },
-        { title: 'Freeleech picks', href: '/freeleech.php', icon: Sparkles, pin: true },
-        { title: 'Top 10', href: '/stats/top10Tor.php', icon: TrendingUp, pin: true },
-        { title: 'Book clubs', href: '/tor/bookclubs.php', icon: BookOpen },
-        { title: 'Requests', href: '/tor/requests2.php', icon: Gift },
-        { title: 'New members', href: '/newUsers.php', icon: UsersRound },
-      ],
-    },
-    {
-      label: 'My library',
-      items: [
-        { title: 'Snatched', href: '/snatch_summary.php', icon: Download, badge: page.stats.unsats || null, pin: true },
-        { title: 'Bookmarks', href: '/tor/browse.php?tor[searchIn]=bookmarks&tor[sortType]=bmkaDesc&action=search', icon: Bookmark, pin: true },
-        { title: 'My uploads', href: '/tor/browse.php?tor[searchIn]=mine&tor[sortType]=dateDesc&action=search', icon: Upload },
-        { title: 'Upload torrent', href: '/tor/requestUpload.php', icon: Compass },
-        { title: 'RSS feeds', href: '/getrss.php', icon: Clock3 },
-      ],
-    },
-    {
-      label: 'Community',
-      items: [
-        { title: 'Forum', href: '/f', icon: MessagesSquare, pin: true },
-        { title: 'Messages', href: '/messages.php?action=viewmailbox', icon: Mail, badge: page.pmCount || null, pin: true },
-        { title: 'Shoutbox', href: '/shoutbox/index.php', icon: LifeBuoy, pin: true },
-        { title: 'Friends', href: '/friends.php', icon: Star },
-      ],
-    },
-    {
-      label: 'Rewards',
-      items: [
-        { title: 'Store', href: '/store.php', icon: Store, pin: true },
-        { title: "Millionaire's vault", href: '/millionaires/pot.php', icon: Vault },
-        { title: 'Lotto', href: '/play_lotto.php', icon: Ticket },
-        { title: 'Donate', href: '/don/index.php', icon: HandCoins, badge: page.donationPct, pin: true },
-      ],
-    },
-    {
-      label: 'Support',
-      items: [
-        { title: 'Rules', href: '/rules.php', icon: CircleDollarSign, pin: true },
-        { title: 'FAQ & guides', href: '/faq.php', icon: HelpCircle, pin: true },
-      ],
-    },
-  ]
+/* Every MAM destination lives here: basics visible, the rest one hover away
+ * in the group flyout. Source of truth: dom/home-fresh-2026-07-26.html. */
+function groups(page: ShellData): { dashboard: NavItem; groups: NavGroup[] } {
+  return {
+    dashboard: { title: 'Dashboard', href: '/', icon: LayoutDashboard },
+    groups: [
+      {
+        label: 'Discover',
+        items: [
+          { title: 'Browse', href: '/tor/browse.php', icon: Search },
+          { title: 'Freeleech picks', href: '/freeleech.php', icon: Sparkles },
+          { title: 'Top 10', href: '/stats/top10Tor.php', icon: TrendingUp },
+          { title: 'Requests', href: '/tor/requests2.php', icon: Gift },
+          { title: 'Book clubs', href: '/tor/bookclubs.php', icon: BookOpen },
+        ],
+        more: [
+          { title: 'Reseed requests', href: '/tor/search.php?s=%7B%22tor%22%3A%7B%22rr%22%3A%22reseed%22%7D%2C%22searchType%22%3A%22Torrents%22%7D' },
+          { title: 'Recently deleted', href: '/tor/recentlyDeleted.php' },
+          { title: 'RSS feeds', href: '/getrss.php' },
+          { title: 'New search', href: '/tor/search.php', badge: 'beta' },
+        ],
+      },
+      {
+        label: 'My library',
+        items: [
+          { title: 'Snatched', href: '/snatch_summary.php', icon: Download, badge: page.stats.unsats || null },
+          { title: 'Bookmarks', href: '/tor/browse.php?tor[searchIn]=bookmarks&tor[sortType]=bmkaDesc&action=search', icon: Bookmark },
+          { title: 'My uploads', href: '/tor/browse.php?tor[searchIn]=mine&tor[sortType]=dateDesc&action=search', icon: Upload },
+        ],
+        more: [
+          { title: 'Upload torrent', href: '/tor/requestUpload.php' },
+          { title: 'Unsats', href: '/snatch_summary.php#unsat', badge: page.stats.unsats || null },
+          { title: 'History graph', href: '/stats/userBonusPointHistory.php' },
+          { title: 'Client status', href: '/userClientDetails.php' },
+          { title: 'Invites', href: '/invite/unconfirmed.php', badge: page.stats.invites || null },
+        ],
+      },
+      {
+        label: 'Community',
+        items: [
+          { title: 'Forum', href: '/f', icon: MessagesSquare },
+          { title: 'Messages', href: '/messages.php?action=viewmailbox', icon: Mail, badge: page.pmCount || null },
+          { title: 'Shoutbox', href: '/shoutbox/index.php', icon: LifeBuoy },
+        ],
+        more: [
+          { title: 'Friends & blocked', href: '/friends.php' },
+          { title: 'Forum subscriptions', href: '/forums/subscriptions.php' },
+          { title: 'New members', href: '/newUsers.php' },
+          { title: 'IRC chat', href: '/chat.php' },
+          { title: 'IRC client help', href: '/chathelp.php' },
+        ],
+      },
+      {
+        label: 'Games',
+        items: [
+          { title: 'Lotto', href: '/play_lotto.php', icon: Ticket },
+          { title: 'Hunts', href: '/games/hunts.php', icon: Compass },
+        ],
+        more: [
+          { title: 'Daily challenge', href: '/f/t/11186/p/1' },
+          { title: 'Banner competition', href: '/banner/index.php' },
+          { title: 'Previous banners', href: '/banner/winners.php' },
+          { title: 'Lotto winners', href: '/lotto/winners.php' },
+          { title: 'More games', href: '/f/b/9' },
+        ],
+      },
+      {
+        label: 'Rewards',
+        items: [
+          { title: 'Store', href: '/store.php', icon: Store },
+          { title: "Millionaire's vault", href: '/millionaires/pot.php', icon: Vault },
+          { title: 'Donate', href: '/don/index.php', icon: HandCoins, badge: page.donationPct },
+        ],
+        more: [
+          { title: 'Seedbox donation', href: '/don/index.php?seedbox' },
+        ],
+      },
+      {
+        label: 'Support',
+        items: [
+          { title: 'Rules', href: '/rules.php', icon: CircleDollarSign },
+          { title: 'FAQ & guides', href: '/faq.php', icon: HelpCircle },
+        ],
+        more: [
+          { title: 'Guides', href: '/guides/' },
+          { title: 'Allowed clients', href: '/tor/allowed_clients.php' },
+          { title: 'Contact staff', href: '/ticket.php/myTickets' },
+          { title: 'Bug reports', href: '/f/b/78' },
+          { title: 'Feature requests', href: '/f/b/18' },
+          { title: 'Staff', href: '/staff.php' },
+          { title: 'Site update notes', href: '/updateNotes.php' },
+          { title: 'Server status', href: 'https://status.myanonamouse.net' },
+          { title: 'API', href: '/api/list.php' },
+        ],
+      },
+    ],
+  }
 }
 
-// Active row: fill + a short terracotta accent bar (no border, per Reading Room).
+// Active row: soft fill plus accent text only.
 const ITEM_ACTIVE =
-  'relative transition-colors duration-150 data-[active=true]:bg-brand-soft data-[active=true]:font-medium data-[active=true]:text-brand data-[active=true]:before:absolute data-[active=true]:before:left-0 data-[active=true]:before:top-1/2 data-[active=true]:before:h-4 data-[active=true]:before:w-[3px] data-[active=true]:before:-translate-y-1/2 data-[active=true]:before:rounded-full data-[active=true]:before:bg-brand'
+  'transition-colors duration-150 data-[active=true]:bg-brand-soft data-[active=true]:font-medium data-[active=true]:text-brand'
 
 function Badge({ value }: { value: NavItem['badge'] }) {
   if (value == null || value === 0) return null
-  return <SidebarMenuBadge className="bg-brand-soft text-accent-foreground">{value}</SidebarMenuBadge>
+  return (
+    <SidebarMenuBadge className="bg-transparent font-mono text-[11px] font-normal text-sidebar-foreground/60">
+      {value}
+    </SidebarMenuBadge>
+  )
 }
 
 function ItemRow({ item }: { item: NavItem }) {
@@ -120,7 +173,7 @@ function ItemRow({ item }: { item: NavItem }) {
     <SidebarMenuItem>
       <SidebarMenuButton asChild isActive={isActive(item.href)} tooltip={item.title} className={ITEM_ACTIVE}>
         <a href={item.href}>
-          <item.icon />
+          {item.icon && <item.icon />}
           <span>{item.title}</span>
         </a>
       </SidebarMenuButton>
@@ -129,80 +182,63 @@ function ItemRow({ item }: { item: NavItem }) {
   )
 }
 
-/** How many NON-pinned items each labelled group reveals, from viewport height.
- * Pinned items always show; on tall screens everything shows (returns null); on
- * short screens only pins remain and the rest fold behind hover. */
-function useReveal(groups: { pinned: number; nonPinned: number }[]): number[] | null {
-  const [reveal, setReveal] = useState<number[] | null>(null)
-  const key = groups.map((g) => `${g.pinned}/${g.nonPinned}`).join(',')
-  useEffect(() => {
-    const compute = () => {
-      const ROW = 34, LABEL = 36, DASHBOARD = 40, CHROME = 196 // header + footer + paddings
-      const avail = window.innerHeight - CHROME - DASHBOARD
-      const totalItems = groups.reduce((a, g) => a + g.pinned + g.nonPinned, 0)
-      if (groups.length * LABEL + totalItems * ROW <= avail) { setReveal(null); return } // all fit
-      const totalPins = groups.reduce((a, g) => a + g.pinned, 0)
-      let extra = Math.max(0, Math.floor((avail - groups.length * LABEL) / ROW) - totalPins)
-      const r = groups.map(() => 0)
-      for (let i = 0, guard = 0; extra > 0 && guard < 999; i++, guard++) {
-        const k = i % groups.length
-        if (r[k] < groups[k].nonPinned) { r[k]++; extra-- }
-        if (r.every((v, j) => v === groups[j].nonPinned)) break
-      }
-      setReveal(r)
-    }
-    compute()
-    window.addEventListener('resize', compute)
-    return () => window.removeEventListener('resize', compute)
-  }, [key])
-  return reveal
+/* Group header opens a flyout with the rest of the section: everything stays
+ * one hover or click away without accordion state or a hub page. */
+function GroupFlyout({ group }: { group: NavGroup }) {
+  return (
+    <Popover>
+      <PopoverTrigger
+        openOnHover
+        delay={120}
+        className="group/head flex w-full items-center justify-between rounded-md px-2 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
+        <SidebarGroupLabel className="px-0 group-hover/head:text-sidebar-foreground">
+          {group.label}
+        </SidebarGroupLabel>
+        <ChevronRight className="size-3 text-sidebar-foreground/35 transition-[opacity,translate,color] duration-200 group-hover/head:translate-x-0.5 group-hover/head:text-brand" />
+      </PopoverTrigger>
+      <PopoverContent side="right" align="start" sideOffset={10} className="w-52 p-1.5">
+        <div className="px-2 pt-1.5 pb-1 text-[10px] font-semibold tracking-[0.09em] text-muted-foreground uppercase">
+          More in {group.label}
+        </div>
+        {group.more.map((item) => (
+          <a
+            key={item.href}
+            href={item.href}
+            className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors hover:bg-accent/60"
+          >
+            {item.title}
+            {item.badge != null && item.badge !== 0 && (
+              <span className="font-mono text-[11px] text-muted-foreground">{item.badge}</span>
+            )}
+          </a>
+        ))}
+      </PopoverContent>
+    </Popover>
+  )
 }
 
-/** Pinned items always render; non-pinned render up to `reveal` (Infinity = all);
- * the active item is always kept visible. The rest fold behind a hover overlay. */
-function AdaptiveGroup({ group, reveal }: { group: NavGroup; reveal: number }) {
-  let np = -1
-  const visible = group.items.filter((it) => {
-    if (it.pin) return true
-    np += 1
-    return np < reveal || isActive(it.href)
-  })
-  const hidden = group.items.length - visible.length
-
+function NavSection({ group }: { group: NavGroup }) {
   return (
-    <SidebarGroup className="group/sec relative py-1">
-      <SidebarGroupLabel className="flex items-center justify-between">
-        <span>{group.label}</span>
-        {hidden > 0 && <span className="tabular-nums text-sidebar-foreground/45 transition-opacity group-hover/sec:opacity-0">+{hidden}</span>}
-      </SidebarGroupLabel>
+    <SidebarGroup className="py-1">
+      <GroupFlyout group={group} />
       <SidebarGroupContent>
         <SidebarMenu>
-          {visible.map((item) => <ItemRow key={item.href} item={item} />)}
+          {group.items.map((item) => <ItemRow key={item.href} item={item} />)}
         </SidebarMenu>
       </SidebarGroupContent>
-
-      {/* Reveal the section on hover as an overlay, so nothing shifts. Uses the
-       * popover surface plus ring-border: bg-sidebar was invisible in dark mode
-       * and shadows alone vanish against a near-black panel. */}
-      {hidden > 0 && (
-        <div className="invisible absolute inset-x-1 top-0 z-40 rounded-xl bg-popover p-1 text-popover-foreground opacity-0 shadow-xl ring-1 ring-border transition-opacity duration-150 group-hover/sec:visible group-hover/sec:opacity-100">
-          <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
-          <SidebarMenu>
-            {group.items.map((item) => <ItemRow key={item.href} item={item} />)}
-          </SidebarMenu>
-        </div>
-      )}
     </SidebarGroup>
   )
 }
 
 /** Icon-rail fallback when the sidebar is collapsed to icons. */
-function IconRail({ all }: { all: NavGroup[] }) {
+function IconRail({ dashboard, sections }: { dashboard: NavItem; sections: NavGroup[] }) {
   return (
     <SidebarGroup>
       <SidebarGroupContent>
         <SidebarMenu>
-          {all.flatMap((g) => g.items).map((item) => <ItemRow key={item.href} item={item} />)}
+          <ItemRow item={dashboard} />
+          {sections.flatMap((g) => g.items).map((item) => <ItemRow key={item.href} item={item} />)}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
@@ -211,11 +247,7 @@ function IconRail({ all }: { all: NavGroup[] }) {
 
 export function AppSidebar({ page }: { page: ShellData }) {
   const { state } = useSidebar()
-  const all = groups(page)
-  const [dashboard, ...labelled] = all
-  const reveal = useReveal(
-    labelled.map((g) => ({ pinned: g.items.filter((it) => it.pin).length, nonPinned: g.items.filter((it) => !it.pin).length }))
-  )
+  const nav = groups(page)
   const iconMode = state === 'collapsed'
 
   return (
@@ -242,19 +274,17 @@ export function AppSidebar({ page }: { page: ShellData }) {
 
       <SidebarContent>
         {iconMode ? (
-          <IconRail all={all} />
+          <IconRail dashboard={nav.dashboard} sections={nav.groups} />
         ) : (
           <>
             <SidebarGroup className="py-1">
               <SidebarGroupContent>
                 <SidebarMenu>
-                  <ItemRow item={dashboard.items[0]} />
+                  <ItemRow item={nav.dashboard} />
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
-            {labelled.map((g, i) => (
-              <AdaptiveGroup key={g.label} group={g} reveal={reveal ? reveal[i] : Number.POSITIVE_INFINITY} />
-            ))}
+            {nav.groups.map((g) => <NavSection key={g.label} group={g} />)}
           </>
         )}
       </SidebarContent>
