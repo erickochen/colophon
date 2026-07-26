@@ -260,6 +260,26 @@
   letter-spacing: -0.01em;
 }
 
+/* Reading measure for descriptions, posts and long-form text. */
+.prose-read {
+  max-width: 65ch;
+  text-wrap: pretty;
+}
+.prose-read blockquote,
+.prose-read q {
+  hanging-punctuation: first;
+}
+@supports (initial-letter: 2) or (-webkit-initial-letter: 2) {
+  .prose-read.prose-dropcap > p:first-of-type::first-letter {
+    -webkit-initial-letter: 3 3;
+    initial-letter: 3 3;
+    font-family: var(--font-serif);
+    font-weight: 600;
+    color: var(--brand);
+    margin-right: 10px;
+  }
+}
+
 /* Legacy frame: adopted original MAM content (light DOM, styled by MAM's own CSS). */
 ::slotted(*) {
   display: block;

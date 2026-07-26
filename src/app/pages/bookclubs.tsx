@@ -92,7 +92,7 @@ function PickCard({ p }: { p: Pick }) {
         </span>
       </div>
       <div className="grid gap-0.5">
-        <span className="line-clamp-2 text-[12.5px] font-medium leading-snug group-hover:underline">{p.title}</span>
+        <span className="font-display line-clamp-2 text-[13px] font-medium leading-snug group-hover:underline">{p.title}</span>
         {p.author && <span className="line-clamp-1 text-[11px] text-muted-foreground">{p.author}</span>}
       </div>
     </a>

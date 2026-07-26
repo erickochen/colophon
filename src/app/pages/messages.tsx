@@ -92,7 +92,7 @@ export function MessagesView(props: PageProps) {
                         <UserLink name={m.from?.name ?? 'system'} color={m.from?.color} className={cn('truncate text-[12.5px]', unread && 'font-semibold')} />
                         <span className="shrink-0 text-[11px] text-muted-foreground">{relTime(m.date)}</span>
                       </span>
-                      <span className={cn('block truncate text-[13px]', unread ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground')}>{m.subject}</span>
+                      <span className={cn('font-display block truncate text-[13.5px]', unread ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground')}>{m.subject}</span>
                     </span>
                   </button>
                 )

@@ -49,7 +49,7 @@ export function ForumIndexView(props: PageProps) {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     {b.hasNew && <span className="size-2 shrink-0 rounded-full bg-brand" title="new posts" />}
-                    <a href={b.href} className="truncate text-[14px] font-semibold hover:underline">{b.name}</a>
+                    <a href={b.href} className="font-display truncate text-[14.5px] font-semibold hover:underline">{b.name}</a>
                     {b.locked && <Lock className="size-3.5 shrink-0 text-muted-foreground" />}
                   </div>
                   {b.desc && <p className="mt-0.5 line-clamp-1 text-[12.5px] text-muted-foreground">{b.desc}</p>}

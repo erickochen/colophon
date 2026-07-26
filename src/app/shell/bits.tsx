@@ -6,7 +6,7 @@ export function PageHeader({ title, sub, action }: { title: ReactNode; sub?: Rea
   return (
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="font-display text-[26px] font-semibold tracking-tight">{title}</h1>
+        <h1 className="font-display text-[26px] font-semibold tracking-tight text-balance">{title}</h1>
         {sub && <p className="mt-0.5 text-[13px] text-muted-foreground">{sub}</p>}
       </div>
       {action}

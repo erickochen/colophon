@@ -87,17 +87,6 @@ function HiddenBar({ sections }: { sections: HiddenSections }) {
   )
 }
 
-/** Deterministic warm gradient per media type (1 audiobook … 8 periodical). */
-function spine(mediaClass: string | null): string {
-  const m = mediaClass?.match(/media(\d+)/)?.[1] ?? '0'
-  const hues: Record<string, [number, number]> = {
-    '1': [50, 40], '2': [155, 165], '3': [280, 300], '4': [220, 240],
-    '5': [20, 10], '6': [330, 345], '7': [190, 200], '8': [80, 95], '0': [60, 50],
-  }
-  const [h1, h2] = hues[m] ?? hues['0']
-  return `linear-gradient(160deg, oklch(0.55 0.07 ${h1}), oklch(0.35 0.06 ${h2}))`
-}
-
 function greeting(name: string): string {
   const h = new Date().getHours()
   const part = h < 6 ? 'Good night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
@@ -112,7 +101,6 @@ interface ShelfItem {
   fileType: string | null
   vip: boolean
   explicit: boolean
-  mediaClass: string | null
   poster: string | null
 }
 
@@ -155,7 +143,6 @@ function shelfFromDom(torrents: HomeTorrent[]): ShelfItem[] {
     fileType: t.fileTypes[0] ?? null,
     vip: t.vip,
     explicit: t.explicit,
-    mediaClass: t.mediaClass,
     // The front-page table carries no poster URLs; covers arrive via the
     // search API refresh below.
     poster: null,
@@ -210,7 +197,6 @@ export function HomeView({ page }: PageProps) {
             fileType: t.filetype?.split(' ')[0] ?? null,
             vip: t.vip === 1,
             explicit: false,
-            mediaClass: `media${t.mediatype ?? 0}-${t.main_cat ?? 0}`,
             poster: t.poster_type ? coverUrl(t.id) : null,
           }))
         )
@@ -364,7 +350,7 @@ export function HomeView({ page }: PageProps) {
                   className="-mx-2 flex items-center justify-between gap-4 rounded-md px-2 py-2 hover:bg-accent/50"
                 >
                   <span className="min-w-0">
-                    <span className="block truncate text-[13.5px] font-medium">{p.title}</span>
+                    <span className="font-display block truncate text-[14px] font-medium">{p.title}</span>
                     <span className="block text-[12px] text-muted-foreground">
                       {p.board} · last by {p.lastBy ?? p.author} · {relTime(p.lastAt)}
                     </span>

@@ -170,8 +170,8 @@ function SnatchRow({ s }: { s: SnatchItem }) {
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           {s.href ? (
-            <a href={s.href} className="text-[13.5px] font-medium leading-snug hover:text-brand hover:underline">{s.title}</a>
-          ) : <span className="text-[13.5px] font-medium">{s.title}</span>}
+            <a href={s.href} className="font-display text-[14px] font-medium leading-snug hover:text-brand hover:underline">{s.title}</a>
+          ) : <span className="font-display text-[14px] font-medium">{s.title}</span>}
           {s.freeleech && <Badge className="h-4 bg-ok/15 px-1.5 text-[10px] font-medium text-ok">Freeleech</Badge>}
           {s.vip && <Badge className="h-4 bg-brand-soft px-1.5 text-[10px] font-medium text-accent-foreground">VIP</Badge>}
         </div>

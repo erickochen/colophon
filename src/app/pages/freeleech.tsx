@@ -67,7 +67,7 @@ export function FreeleechView(props: PageProps) {
                   <img src={coverUrl(Number(i.tid))} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
                 </span>
                 <span className="min-w-0">
-                  <span className="block truncate text-[13px] font-medium group-hover:underline">{i.title}</span>
+                  <span className="font-display block truncate text-[13px] font-medium group-hover:underline">{i.title}</span>
                   <span className="mt-0.5 flex flex-wrap items-center gap-1">
                     {i.author && <span className="truncate text-[11.5px] text-muted-foreground">{i.author}</span>}
                     {i.language && <Badge variant="outline" className="h-4 px-1 text-[9.5px]">{i.language}</Badge>}
