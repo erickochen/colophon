@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react'
-import { Moon, Search, Sun } from 'lucide-react'
+import { Moon, Search, Sun, SunMoon } from 'lucide-react'
 import type { ShellData } from '@/lib/extract/shell'
-import { applyTheme, type Theme } from '@/main'
+import { applyTheme, getTheme, isDark, type Theme } from '@/main'
 import { Button } from '@/components/ui/button'
 import { SidebarTrigger } from '@/components/ui/sidebar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Kbd } from '@/components/ui/kbd'
 
@@ -50,20 +57,22 @@ function StatChip({
 }
 
 export function Topbar({ page, onOpenSearch }: { page: ShellData; onOpenSearch: () => void }) {
-  const [dark, setDark] = useState(() => document.querySelector('#mam-root')?.classList.contains('dark') ?? false)
+  const [theme, setTheme] = useState<Theme>(getTheme)
+  const [dark, setDark] = useState(() => isDark())
 
+  // On auto the icon has to follow the system, so track the media query.
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const sync = () => setDark(document.querySelector('#mam-root')?.classList.contains('dark') ?? false)
+    const sync = () => setDark(isDark())
     mq.addEventListener('change', sync)
     return () => mq.removeEventListener('change', sync)
   }, [])
 
-  function toggleTheme() {
-    const next: Theme = dark ? 'light' : 'dark'
+  function chooseTheme(next: Theme) {
     const rootEl = document.querySelector<HTMLElement>('#mam-remaster-host')?.shadowRoot?.getElementById('mam-root')
     if (rootEl) applyTheme(rootEl, next)
-    setDark(next === 'dark')
+    setTheme(next)
+    setDark(isDark(next))
   }
 
   return (
@@ -88,14 +97,20 @@ export function Topbar({ page, onOpenSearch }: { page: ShellData; onOpenSearch: 
           href="/snatch_summary.php#unsat"
           hint="Review your unsatisfied snatches"
         />
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="size-8" onClick={toggleTheme}>
-              {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="size-8" aria-label={`Appearance: ${theme}`}>
+              {dark ? <Moon className="size-4" /> : <Sun className="size-4" />}
             </Button>
-          </TooltipTrigger>
-          <TooltipContent>Switch to {dark ? 'light' : 'dark'} mode</TooltipContent>
-        </Tooltip>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuRadioGroup value={theme} onValueChange={(v) => chooseTheme(v as Theme)}>
+              <DropdownMenuRadioItem value="light"><Sun className="size-3.5" /> Light</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="dark"><Moon className="size-3.5" /> Dark</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="auto"><SunMoon className="size-3.5" /> Auto</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   )
