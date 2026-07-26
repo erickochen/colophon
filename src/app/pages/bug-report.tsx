@@ -150,7 +150,7 @@ export function BugReportView(props: PageProps) {
       </Card>
 
       {f.userScriptFree && (
-        <Label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-card px-4 py-3.5 text-[13px] leading-snug has-[[data-state=checked]]:border-ok/50 has-[[data-state=checked]]:bg-ok/5">
+        <Label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-card px-4 py-3.5 text-[13px] leading-snug has-data-checked:border-ok/50 has-data-checked:bg-ok/5">
           <Checkbox checked={state.certified} onCheckedChange={(v) => setCertified(v === true)} className="mt-0.5" />
           <span className="flex items-center gap-1.5">
             <ShieldCheck className="size-4 shrink-0 text-ok" />

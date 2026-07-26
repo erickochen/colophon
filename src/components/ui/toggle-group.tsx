@@ -1,6 +1,7 @@
 import * as React from "react"
 import { type VariantProps } from "class-variance-authority"
-import { ToggleGroup as ToggleGroupPrimitive } from "radix-ui"
+import { ToggleGroup as ToggleGroupPrimitive } from "@base-ui/react/toggle-group"
+import { Toggle as ToggleItemPrimitive } from "@base-ui/react/toggle"
 
 import { cn } from "@/lib/utils"
 import { toggleVariants } from "@/components/ui/toggle"
@@ -15,23 +16,63 @@ const ToggleGroupContext = React.createContext<
   spacing: 0,
 })
 
+// Radix-shaped API (type single/multiple, scalar value) mapped onto Base UI's array API.
+type ToggleGroupValueProps =
+  | {
+      type?: "single"
+      value?: string
+      defaultValue?: string
+      onValueChange?: (value: string) => void
+    }
+  | {
+      type: "multiple"
+      value?: string[]
+      defaultValue?: string[]
+      onValueChange?: (value: string[]) => void
+    }
+
+function toArray(v: string | string[] | undefined): string[] | undefined {
+  if (v === undefined) return undefined
+  if (Array.isArray(v)) return v
+  return v === "" ? [] : [v]
+}
+
 function ToggleGroup({
   className,
   variant,
   size,
   spacing = 0,
+  type = "single",
+  value,
+  defaultValue,
+  onValueChange,
   children,
   ...props
-}: React.ComponentProps<typeof ToggleGroupPrimitive.Root> &
-  VariantProps<typeof toggleVariants> & {
+}: Omit<
+  React.ComponentProps<typeof ToggleGroupPrimitive>,
+  "value" | "defaultValue" | "onValueChange"
+> &
+  VariantProps<typeof toggleVariants> &
+  ToggleGroupValueProps & {
     spacing?: number
   }) {
+  const handleValueChange = onValueChange
+    ? (groupValue: string[]) => {
+        const next = type === "multiple" ? groupValue : (groupValue[0] ?? "")
+        ;(onValueChange as (value: string | string[]) => void)(next)
+      }
+    : undefined
+
   return (
-    <ToggleGroupPrimitive.Root
+    <ToggleGroupPrimitive
       data-slot="toggle-group"
       data-variant={variant}
       data-size={size}
       data-spacing={spacing}
+      multiple={type === "multiple"}
+      value={toArray(value)}
+      defaultValue={toArray(defaultValue)}
+      onValueChange={handleValueChange}
       style={{ "--gap": spacing } as React.CSSProperties}
       className={cn(
         "group/toggle-group flex w-fit items-center gap-[--spacing(var(--gap))] rounded-md data-[spacing=default]:data-[variant=outline]:shadow-xs",
@@ -42,7 +83,7 @@ function ToggleGroup({
       <ToggleGroupContext.Provider value={{ variant, size, spacing }}>
         {children}
       </ToggleGroupContext.Provider>
-    </ToggleGroupPrimitive.Root>
+    </ToggleGroupPrimitive>
   )
 }
 
@@ -52,12 +93,12 @@ function ToggleGroupItem({
   variant,
   size,
   ...props
-}: React.ComponentProps<typeof ToggleGroupPrimitive.Item> &
+}: React.ComponentProps<typeof ToggleItemPrimitive> &
   VariantProps<typeof toggleVariants>) {
   const context = React.useContext(ToggleGroupContext)
 
   return (
-    <ToggleGroupPrimitive.Item
+    <ToggleItemPrimitive
       data-slot="toggle-group-item"
       data-variant={context.variant || variant}
       data-size={context.size || size}
@@ -74,7 +115,7 @@ function ToggleGroupItem({
       {...props}
     >
       {children}
-    </ToggleGroupPrimitive.Item>
+    </ToggleItemPrimitive>
   )
 }
 

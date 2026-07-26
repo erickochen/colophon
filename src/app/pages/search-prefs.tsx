@@ -93,7 +93,7 @@ function CategoryFacet({ groups, onChange }: { groups: CatGroup[]; onChange: () 
         return (
           <div key={g.id}>
             <label className="flex items-center gap-2 pb-2.5 text-[13.5px] font-medium">
-              <Checkbox checked={state} onCheckedChange={(v) => { g.cats.forEach((c) => (c.el.checked = v === true)); onChange() }} />
+              <Checkbox checked={state === true} indeterminate={state === 'indeterminate'} onCheckedChange={(v) => { g.cats.forEach((c) => (c.el.checked = v === true)); onChange() }} />
               {g.name}
               <span className="text-[12px] font-normal text-muted-foreground">{s}/{g.cats.length}</span>
             </label>

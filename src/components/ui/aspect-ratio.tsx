@@ -1,11 +1,21 @@
 "use client"
 
-import { AspectRatio as AspectRatioPrimitive } from "radix-ui"
+import * as React from "react"
 
 function AspectRatio({
+  ratio = 1,
+  style,
   ...props
-}: React.ComponentProps<typeof AspectRatioPrimitive.Root>) {
-  return <AspectRatioPrimitive.Root data-slot="aspect-ratio" {...props} />
+}: React.ComponentProps<"div"> & { ratio?: number }) {
+  return (
+    <div style={{ position: "relative", width: "100%", aspectRatio: String(ratio) }}>
+      <div
+        data-slot="aspect-ratio"
+        style={{ ...style, position: "absolute", inset: 0 }}
+        {...props}
+      />
+    </div>
+  )
 }
 
 export { AspectRatio }

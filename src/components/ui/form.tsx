@@ -1,8 +1,7 @@
 "use client"
 
 import * as React from "react"
-import type { Label as LabelPrimitive } from "radix-ui"
-import { Slot } from "radix-ui"
+import { Slot } from "@/lib/base-ui"
 import {
   Controller,
   FormProvider,
@@ -90,7 +89,7 @@ function FormItem({ className, ...props }: React.ComponentProps<"div">) {
 function FormLabel({
   className,
   ...props
-}: React.ComponentProps<typeof LabelPrimitive.Root>) {
+}: React.ComponentProps<typeof Label>) {
   const { error, formItemId } = useFormField()
 
   return (
