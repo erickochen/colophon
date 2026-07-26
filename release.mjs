@@ -82,6 +82,7 @@ if (live !== next) {
 
 git('add', '-A')
 git('commit', '-m', `Release ${next}`)
-git('tag', `v${next}`)
+// Annotated: tag.gpgsign is on here and a signed tag carries a message.
+git('tag', '-m', `Release ${next}`, `v${next}`)
 say(`committed and tagged v${next} as ${identity}`)
 say(`done. Push when you want to: git push --follow-tags`)
