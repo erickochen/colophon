@@ -6,6 +6,7 @@ import { searchTorrents, parsePeople, coverUrl } from '@/lib/mam-api'
 import { fmtInt, relTime } from '@/lib/format'
 import { useHiddenSections, type HiddenSections } from '@/lib/hidden-sections'
 import { cn } from '@/lib/utils'
+import { Book } from '@/components/book'
 import { Badge } from '@/components/ui/badge'
 import { BlurFade } from '@/components/ui/blur-fade'
 import { Button } from '@/components/ui/button'
@@ -117,36 +118,23 @@ interface ShelfItem {
 
 function Shelf({ items }: { items: ShelfItem[] }) {
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 items-end gap-5 sm:grid-cols-3 lg:grid-cols-5">
       {items.slice(0, 5).map((t, i) => (
         <BlurFade key={t.id} delay={0.06 * i} direction="up" offset={10}>
-        <a href={t.href} className="group grid content-start gap-2">
-          <div
-            className="relative aspect-[3/4.4] overflow-hidden rounded-md shadow-md transition-transform group-hover:-translate-y-0.5"
-            style={{ background: spine(t.mediaClass) }}
-          >
-            {t.poster ? (
-              <img
-                src={t.poster}
-                alt=""
-                loading="lazy"
-                className="absolute inset-0 size-full object-cover"
-                onError={(e) => e.currentTarget.remove()}
-              />
-            ) : (
-              <span className="absolute inset-y-0 left-1.5 w-px bg-white/25" />
-            )}
+        <a href={t.href} className="group grid content-end gap-2.5">
+          <span className="relative block transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1.5 motion-reduce:transition-none">
+            <Book poster={t.poster} title={t.title} author={t.authorsText} naturalRatio size="shelf" className="group-hover:shadow-book-lift" />
             {t.fileType && (
-              <span className="absolute right-1.5 top-1.5 rounded bg-black/55 px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wide text-white">
+              <span className="absolute right-1.5 top-1.5 z-3 rounded bg-black/55 px-1.5 py-0.5 font-mono text-[9.5px] font-semibold uppercase tracking-wide text-white backdrop-blur-[2px]">
                 {t.fileType}
               </span>
             )}
             {(t.vip || t.explicit) && (
-              <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 pb-1.5 pt-4 text-[10px] font-semibold text-amber-200">
-                {[t.vip ? 'VIP' : null, t.explicit ? '🔥' : null].filter(Boolean).join(' · ')}
+              <span className="absolute bottom-2 left-2 z-3 rounded-full bg-[oklch(0.97_0.02_85/0.9)] px-2 py-0.5 text-[9.5px] font-semibold tracking-wide text-[oklch(0.4_0.07_50)]">
+                {[t.vip ? 'VIP' : null, t.explicit ? '18+' : null].filter(Boolean).join(' · ')}
               </span>
             )}
-          </div>
+          </span>
           <div className="grid gap-0.5">
             <span className="font-display line-clamp-2 text-[13px] font-medium leading-snug">{t.title}</span>
             <span className="line-clamp-1 text-[11.5px] text-muted-foreground">{t.authorsText}</span>
