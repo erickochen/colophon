@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { toast } from 'sonner'
+import { toast } from '@/components/ui/toast'
 
 function Post({ p, onQuote }: { p: TopicPost; onQuote: (p: TopicPost) => void }) {
   return (

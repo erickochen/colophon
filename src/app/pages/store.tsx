@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { NumberTicker } from '@/components/ui/number-ticker'
 import { cn } from '@/lib/utils'
-import { toast } from 'sonner'
+import { toast } from '@/components/ui/toast'
 
 function sectionIcon(title: string) {
   const t = title.toLowerCase()

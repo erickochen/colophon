@@ -5,7 +5,7 @@ import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { toast } from 'sonner'
+import { toast } from '@/components/ui/toast'
 
 /** IRC gateway: our buttons submit the original form; the live chat iframe is
  * adopted into our shell via a slot. */

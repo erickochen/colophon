@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { cn } from '@/lib/utils'
-import { toast } from 'sonner'
+import { toast } from '@/components/ui/toast'
 
 const clean = (s: string | null | undefined) => s?.replace(/\s+/g, ' ').trim() ?? ''
 

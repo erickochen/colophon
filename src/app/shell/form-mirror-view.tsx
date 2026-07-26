@@ -13,7 +13,7 @@ import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { toast } from 'sonner'
+import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 
 /** Help for settings MAM itself leaves unexplained, keyed by input name. Only

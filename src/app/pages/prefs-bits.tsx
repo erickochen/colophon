@@ -6,7 +6,7 @@ import { RotateCcw, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
-import { toast } from 'sonner'
+import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 
 /** Sticky footer: submit resubmits the original form, revert resets it. Matches

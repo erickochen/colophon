@@ -35,7 +35,7 @@ export function UserMenu({ page }: { page: ShellData }) {
             <SidebarMenuButton
               size="lg"
               tooltip={page.user.name}
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center"
+              className="data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center"
             >
               {/* Collapsed rail: just the status dot as the affordance. */}
               <StatusDot page={page} className="hidden group-data-[collapsible=icon]:block" />

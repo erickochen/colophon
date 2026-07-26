@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label'
 import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { toast } from 'sonner'
+import { toast } from '@/components/ui/toast'
 
 interface JumpOption { value: string; label: string; group?: string }
 

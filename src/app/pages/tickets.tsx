@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { BBComposer } from '@/components/bb-composer'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
-import { toast } from 'sonner'
+import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 
 interface Ticket {

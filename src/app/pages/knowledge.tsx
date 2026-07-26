@@ -91,7 +91,7 @@ function SectionBody({ section, mode, needle }: { section: KbSectionK; mode: 'do
   return (
     <Card className="py-0">
       <CardContent className="px-6 py-0">
-        <Accordion type="single" collapsible className="w-full" defaultValue={needle ? section.items[0]?.key : undefined}>
+        <Accordion className="w-full" defaultValue={needle && section.items[0] ? [section.items[0].key] : undefined}>
           {section.items.map((it) => (
             <AccordionItem key={it.key} value={it.key} id={it.key} className="scroll-mt-24">
               <AccordionTrigger className="py-4 text-left text-[14px] font-medium hover:no-underline">
@@ -192,7 +192,7 @@ function KnowledgeBase({ title, sub, sections: raw, mode }: { title: string; sub
                 key={s.key}
                 value={s.key}
                 title={s.title}
-                className="h-auto flex-none rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] text-muted-foreground shadow-none transition-colors hover:bg-accent/50 data-[state=active]:border-brand/40 data-[state=active]:bg-brand-soft data-[state=active]:font-medium data-[state=active]:text-brand data-[state=active]:shadow-none"
+                className="h-auto flex-none rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] text-muted-foreground shadow-none transition-colors hover:bg-accent/50 data-active:border-brand/40 data-active:bg-brand-soft data-active:font-medium data-active:text-brand data-active:shadow-none"
               >
                 {shortLabel(s.title)}
                 <span className="ml-1.5 rounded-full bg-muted px-1.5 text-[10px] tabular-nums">{s.items.length}</span>

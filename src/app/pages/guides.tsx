@@ -108,7 +108,7 @@ export function GuidesView(props: PageProps) {
                 <TabsTrigger
                   key={c.key}
                   value={c.key}
-                  className="h-auto flex-none gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] text-muted-foreground shadow-none transition-colors hover:bg-accent/50 data-[state=active]:border-brand/40 data-[state=active]:bg-brand-soft data-[state=active]:font-medium data-[state=active]:text-brand data-[state=active]:shadow-none"
+                  className="h-auto flex-none gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] text-muted-foreground shadow-none transition-colors hover:bg-accent/50 data-active:border-brand/40 data-active:bg-brand-soft data-active:font-medium data-active:text-brand data-active:shadow-none"
                 >
                   <Icon className="size-3.5" /> {c.name.trim()}
                   <span className="ml-0.5 rounded-full bg-muted px-1.5 text-[10px] tabular-nums">{c.guides.length}</span>

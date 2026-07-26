@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { toast } from 'sonner'
+import { toast } from '@/components/ui/toast'
 
 interface SessionAction { label: string; secact: string; el: HTMLInputElement }
 interface Session {

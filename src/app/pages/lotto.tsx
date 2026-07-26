@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { NumberTicker } from '@/components/ui/number-ticker'
 import { ShineBorder } from '@/components/ui/shine-border'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { toast } from 'sonner'
+import { toast } from '@/components/ui/toast'
 
 interface LottoData {
   potGiB: number

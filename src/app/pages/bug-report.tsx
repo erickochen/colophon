@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ShineBorder } from '@/components/ui/shine-border'
-import { toast } from 'sonner'
+import { toast } from '@/components/ui/toast'
 
 /** Module-scope so it is not recreated each render (which would remount the
  * inputs and drop focus on every keystroke). */

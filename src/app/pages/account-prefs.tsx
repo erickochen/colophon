@@ -6,7 +6,7 @@ import { PrefCard, SaveBar } from '@/app/pages/prefs-bits'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { toast } from 'sonner'
+import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 
 interface AccountData {

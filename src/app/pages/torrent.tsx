@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input'
 import { NumberTicker } from '@/components/ui/number-ticker'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Spinner } from '@/components/ui/spinner'
-import { toast } from 'sonner'
+import { toast } from '@/components/ui/toast'
 
 function MetaRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -189,7 +189,7 @@ function RemotePanel({ title, icon, url }: { title: string; icon: React.ReactNod
     <Card className="gap-0 py-0">
       <Collapsible onOpenChange={(open) => open && r.load()}>
         <CollapsibleTrigger asChild>
-          <button className="flex w-full items-center justify-between px-6 py-4 text-left [&[data-state=open]_.chev]:rotate-180">
+          <button className="flex w-full items-center justify-between px-6 py-4 text-left [&[data-panel-open]_.chev]:rotate-180">
             <span className="flex items-center gap-2 font-display text-[17px]">{icon} {title}</span>
             <ChevronDown className="chev size-4 text-muted-foreground transition-transform" />
           </button>

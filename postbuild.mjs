@@ -11,6 +11,12 @@ const INJECTOR = /function\s+(\w+)\s*\(\s*(\w+)\s*\)\s*\{\s*if\s*\(\s*(?:!\s*\2\
 const match = src.match(INJECTOR)
 
 if (!match) {
+  // react-dom also calls createTextNode; only a typeof-document guard right
+  // before it marks a dependency CSS injector.
+  if (!/typeof document[\s\S]{0,300}?createTextNode/.test(src)) {
+    console.log('[postbuild] no dependency CSS injector in the bundle; nothing to patch')
+    process.exit(0)
+  }
   console.error('[postbuild] CSS injector not found. Without the rewrite, dependency styles')
   console.error('[postbuild] land in document.head and never reach the shadow root. Aborting.')
   process.exit(1)

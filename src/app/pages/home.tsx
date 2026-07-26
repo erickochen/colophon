@@ -14,7 +14,7 @@ import { NumberTicker } from '@/components/ui/number-ticker'
 import { Progress } from '@/components/ui/progress'
 import { ShineBorder } from '@/components/ui/shine-border'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { toast } from 'sonner'
+import { toast } from '@/components/ui/toast'
 
 const VAULT_GOAL = 20_000_000
 

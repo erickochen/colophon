@@ -13,7 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { toast } from 'sonner'
+import { toast } from '@/components/ui/toast'
 
 interface ShoutItem { id: string; numId: string; time: string | null; html: string | null; text: string; editable: boolean }
 interface ShoutGroup { key: string; user: Shout['user']; own: boolean; items: ShoutItem[] }
