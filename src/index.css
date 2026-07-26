@@ -260,6 +260,24 @@
   letter-spacing: -0.01em;
 }
 
+/* The topbar condenses a touch as the page scrolls; pure CSS, silent
+ * fallback where scroll timelines are missing. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: scroll()) {
+    .topbar-condense {
+      animation: topbar-condense linear both;
+      animation-timeline: scroll();
+      animation-range: 0 140px;
+    }
+    @keyframes topbar-condense {
+      to {
+        height: 3rem;
+        background: color-mix(in oklab, var(--background) 96%, transparent);
+      }
+    }
+  }
+}
+
 /* Reading measure for descriptions, posts and long-form text. */
 .prose-read {
   max-width: 65ch;

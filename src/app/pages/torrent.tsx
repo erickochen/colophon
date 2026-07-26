@@ -1,41 +1,42 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Bookmark, BookmarkCheck, ChevronDown, Copy, Download, FilePenLine, FileText, Flag, Gift, Info, MessageSquarePlus, Users } from 'lucide-react'
 import type { PageProps } from '@/app/router'
-import { extractTorrent, type MediaNode, type TorrentComment } from '@/lib/extract/torrent'
+import { extractTorrent, type MediaNode, type TorrentComment, type TorrentDetail } from '@/lib/extract/torrent'
 import { LegacyView } from '@/app/pages/legacy'
 import { RichHtml } from '@/app/shell/bits'
 import { cleanHtml } from '@/lib/sanitize'
-import { initials, relTime } from '@/lib/format'
+import { mutedUserColor } from '@/lib/colors'
+import { fmtInt, initials, relTime } from '@/lib/format'
+import { searchTorrents, parsePeople, coverUrl, torrentUrl } from '@/lib/mam-api'
+import { cn } from '@/lib/utils'
+import { Book, Book3D, BookAmbilight } from '@/components/book'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { BlurFade } from '@/components/ui/blur-fade'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
-import { NumberTicker } from '@/components/ui/number-ticker'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Spinner } from '@/components/ui/spinner'
 import { toast } from '@/components/ui/toast'
 
-function MetaRow({ label, children }: { label: string; children: React.ReactNode }) {
+/** One statline figure: serif number over a small-caps label. */
+function Stat({ label, value, title }: { label: string; value: string; title?: string }) {
   return (
-    <div className="grid grid-cols-[130px_1fr] gap-3 py-2.5 text-[13.5px]">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="min-w-0">{children}</span>
+    <div>
+      <b className="block font-display text-[17px] font-semibold tabular-nums" title={title}>{value}</b>
+      <span className="text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground">{label}</span>
     </div>
   )
 }
 
-function StatTile({ label, value }: { label: string; value: string | null }) {
-  if (!value) return null
-  const num = /^[\d,]+$/.test(value) ? Number(value.replace(/,/g, '')) : null
+/** A24-grid entry for the details sidebar: small-caps label above the value. */
+function KV({ label, full = false, children }: { label: string; full?: boolean; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg bg-muted/50 px-3.5 py-2.5">
-      <div className="text-[10.5px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="pt-0.5 font-display text-[16px] font-semibold tabular-nums">
-        {num != null && num > 0 ? <NumberTicker value={num} /> : value}
-      </div>
+    <div className={cn('min-w-0', full && 'col-span-2')}>
+      <dt className="mb-1 text-[10px] font-semibold uppercase tracking-[0.11em] text-muted-foreground">{label}</dt>
+      <dd className="text-[13.5px] leading-relaxed">{children}</dd>
     </div>
   )
 }
@@ -96,11 +97,11 @@ function BookmarkButton() {
   }
 
   return bookmarked ? (
-    <Button variant="outline" size="sm" disabled={busy} onClick={remove} className="text-brand">
+    <Button variant="outline" disabled={busy} onClick={remove} className="text-brand">
       <BookmarkCheck /> Bookmarked
     </Button>
   ) : (
-    <Button variant="outline" size="sm" disabled={busy} onClick={add}>
+    <Button variant="outline" disabled={busy} onClick={add}>
       <Bookmark /> Bookmark
     </Button>
   )
@@ -118,11 +119,11 @@ function Comment({ c }: { c: TorrentComment }) {
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           {c.author && (
-            <a href={c.author.href} className="text-[13px] font-semibold hover:underline" style={{ color: c.author.color ?? undefined }}>
+            <a href={c.author.href} className="text-[13px] font-semibold hover:underline" style={{ color: mutedUserColor(c.author.color) }}>
               {c.author.name}
             </a>
           )}
-          {c.authorClass && <span className="text-[11px] text-muted-foreground">{c.authorClass}</span>}
+          {c.authorClass && <span className="text-[11px] text-muted-foreground">({c.authorClass})</span>}
           {c.donor && <span title="Donor" className="text-[11px] text-warn">★</span>}
           <span className="ml-auto text-[11px] text-muted-foreground" title={c.at ?? ''}>{relTime(c.at)}</span>
         </div>
@@ -140,11 +141,11 @@ export function MediaInfoTree({ nodes, depth = 0 }: { nodes: MediaNode[]; depth?
         n.children.length > 0 ? (
           <div key={n.label + i}>
             <div className={depth === 0
-              ? 'text-[11px] font-semibold uppercase tracking-wide text-brand'
+              ? 'text-[10px] font-semibold uppercase tracking-[0.11em] text-muted-foreground'
               : 'text-[12.5px] font-medium'}>
               {n.label}
             </div>
-            <div className={n.children.length > 12 ? 'mt-1 max-h-64 overflow-y-auto rounded-lg bg-muted/40 p-2.5' : 'mt-1 pl-0.5'}>
+            <div className={n.children.length > 12 ? 'mt-1.5 max-h-64 overflow-y-auto rounded-lg bg-muted/40 p-2.5' : 'mt-1.5 pl-0.5'}>
               <MediaInfoTree nodes={n.children} depth={depth + 1} />
             </div>
           </div>
@@ -190,7 +191,7 @@ function RemotePanel({ title, icon, url }: { title: string; icon: React.ReactNod
       <Collapsible onOpenChange={(open) => open && r.load()}>
         <CollapsibleTrigger asChild>
           <button className="flex w-full items-center justify-between px-6 py-4 text-left [&[data-panel-open]_.chev]:rotate-180">
-            <span className="flex items-center gap-2 font-display text-[17px]">{icon} {title}</span>
+            <span className="flex items-center gap-2 font-display text-[15px] font-semibold">{icon} {title}</span>
             <ChevronDown className="chev size-4 text-muted-foreground transition-transform" />
           </button>
         </CollapsibleTrigger>
@@ -204,6 +205,87 @@ function RemotePanel({ title, icon, url }: { title: string; icon: React.ReactNod
           </div>
         </CollapsibleContent>
       </Collapsible>
+    </Card>
+  )
+}
+
+interface SeriesEntry {
+  id: number
+  href: string
+  title: string
+  poster: string | null
+  part: string | null
+  current: boolean
+}
+
+function partNum(part: string | null): number {
+  const n = parseFloat(part ?? '')
+  return Number.isNaN(n) ? Number.POSITIVE_INFINITY : n
+}
+
+/** Mini shelf of the other books in the first series, fetched via the search
+ * API. Hidden while loading, on fetch errors and when this book is alone. */
+function SeriesStrip({ data }: { data: TorrentDetail }) {
+  const series = data.series[0]
+  const [items, setItems] = useState<SeriesEntry[] | null>(null)
+
+  useEffect(() => {
+    let live = true
+    searchTorrents({ text: series.name, srchIn: ['series'], perpage: 8 })
+      .then((res) => {
+        if (!live) return
+        const wanted = series.name.trim().toLowerCase()
+        const found: SeriesEntry[] = []
+        for (const t of res.data) {
+          const entry = parsePeople(t.series_info).find((s) => s.name.trim().toLowerCase() === wanted)
+          if (!entry) continue
+          found.push({
+            id: t.id,
+            href: torrentUrl(t.id),
+            title: t.title,
+            poster: t.poster_type ? coverUrl(t.id) : null,
+            part: entry.part ?? null,
+            current: t.id === data.id,
+          })
+        }
+        if (data.id && !found.some((f) => f.current)) {
+          found.push({ id: data.id, href: torrentUrl(data.id), title: data.title ?? '', poster: data.poster, part: series.part, current: true })
+        }
+        found.sort((a, b) => partNum(a.part) - partNum(b.part))
+        setItems(found)
+      })
+      .catch(() => {
+        if (live) setItems([])
+      })
+    return () => {
+      live = false
+    }
+  }, [data, series])
+
+  if (!items || items.length < 2) return null
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>In this series</CardTitle>
+        <CardAction>
+          <a href={series.href} className="text-[12px] text-brand hover:underline">{series.name}</a>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-end gap-5 overflow-x-auto pb-1">
+          {items.map((it) => (
+            <a key={it.id} href={it.href} title={it.title} className="group w-[88px] shrink-0 text-[10px]">
+              <span className="block transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1 motion-reduce:transition-none">
+                <Book poster={it.poster} title={it.title} naturalRatio size="mini" className="group-hover:shadow-book-lift" />
+              </span>
+              <span className={cn('mt-2 block font-mono text-[11px] tabular-nums', it.current ? 'font-semibold text-brand' : 'text-muted-foreground')}>
+                {it.part && `#${it.part}`}
+                {it.current && (it.part ? ' · this book' : 'this book')}
+              </span>
+            </a>
+          ))}
+        </div>
+      </CardContent>
     </Card>
   )
 }
@@ -235,137 +317,160 @@ export function TorrentView(props: PageProps) {
       </span>
     ))
 
+  const languages = data.categories.filter((c) => c.language)
+  const genres = data.categories.filter((c) => !c.language)
+
+  const stats = [
+    { label: 'size', value: data.size },
+    { label: data.files.count === '1' ? 'file' : 'files', value: data.files.count && fmtInt(data.files.count) },
+    { label: 'seeders', value: data.seeders && fmtInt(data.seeders) },
+    { label: 'leechers', value: data.leechers && fmtInt(data.leechers) },
+    { label: 'snatched', value: data.snatched && fmtInt(data.snatched) },
+    { label: 'added', value: data.added && relTime(data.added), title: data.added ?? undefined },
+  ].filter((s): s is { label: string; value: string; title?: string } => !!s.value)
+
   return (
-    <div className="grid gap-6">
-      {/* HERO: cover-derived ambient backdrop, album-art style */}
+    <div className="grid gap-5">
+      {/* HERO: ambilight glow from the cover, 3D book, kicker and statline */}
       <BlurFade direction="up" offset={12}>
-        <div className="relative overflow-hidden rounded-xl bg-card shadow-sm">
+        <div className="relative overflow-hidden rounded-xl border bg-card shadow-card">
           {data.poster && (
             <>
+              <BookAmbilight poster={data.poster} />
               <div
                 aria-hidden
-                className="pointer-events-none absolute inset-0 scale-125 bg-cover bg-center opacity-30 blur-2xl saturate-150 dark:opacity-35"
-                style={{ backgroundImage: `url('${data.poster}')` }}
+                className="pointer-events-none absolute inset-0 z-1 bg-[linear-gradient(color-mix(in_oklab,var(--card)_28%,transparent),color-mix(in_oklab,var(--card)_94%,transparent)_78%,var(--card))]"
               />
-              <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-card via-card/80 to-card/25" />
             </>
           )}
-          <div className="relative grid gap-7 p-6 sm:grid-cols-[240px_minmax(0,1fr)] sm:p-7">
-            <div className="grid content-start gap-3">
-              {data.poster ? (
-                /* Colour glow beneath, spine shading on the left edge, lift on hover. */
-                <div className="group relative isolate">
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute inset-x-3 bottom-1 top-4 -z-10 bg-cover bg-center opacity-60 blur-2xl saturate-200"
-                    style={{ backgroundImage: `url('${data.poster}')` }}
-                  />
-                  <img
-                    src={data.poster}
-                    alt={data.title ?? 'cover'}
-                    className="w-full rounded-lg shadow-[0_18px_40px_-12px_rgb(0_0_0/0.45)] transition-transform duration-300 ease-out group-hover:-translate-y-1"
-                  />
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute inset-y-0 left-0 w-5 rounded-l-lg bg-gradient-to-r from-black/30 via-black/10 to-transparent transition-transform duration-300 ease-out group-hover:-translate-y-1"
-                  />
-                </div>
-              ) : (
-                <div className="flex aspect-[3/4] items-center justify-center rounded-lg bg-muted font-display text-5xl text-muted-foreground shadow-xl">
-                  {data.title?.[0] ?? '?'}
-                </div>
-              )}
-              {data.downloadBlocked ? (
-                <div className="grid gap-1.5">
-                  <Button size="lg" className="w-full" disabled><Download /> Download blocked</Button>
-                  <p className="text-center text-[11.5px] leading-snug text-muted-foreground">{data.downloadBlocked}</p>
-                </div>
-              ) : data.downloadHref || data.id ? (
-                <Button asChild size="lg" className="w-full">
-                  <a href={data.downloadHref ?? `/tor/download.php?tid=${data.id}`}><Download /> Download</a>
-                </Button>
-              ) : null}
-              <div className="grid grid-cols-2 gap-2">
-                <BookmarkButton />
-                {data.clone && (
-                  <Button asChild variant="outline" size="sm"><a href={data.clone}><Copy /> Clone</a></Button>
-                )}
-              </div>
+          <div className="relative z-2 grid gap-8 p-6 sm:grid-cols-[252px_minmax(0,1fr)] sm:p-8">
+            <div className="mx-auto w-full max-w-[252px] sm:mx-0">
+              <Book3D poster={data.poster} title={data.title} naturalRatio className="text-[15px]" />
             </div>
 
-            <div className="grid content-start gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                {data.vip && <Badge className="bg-brand-soft text-accent-foreground" variant="secondary">VIP</Badge>}
-                {data.fileTypes.map((f) => (
-                  <Badge key={f} variant="outline" className="font-mono uppercase">{f}</Badge>
-                ))}
-                {data.categories.map((c) => (
-                  <Badge key={c.href} variant="secondary" asChild><a href={c.href}>{c.name}</a></Badge>
-                ))}
-              </div>
-              <h1 className="font-display text-[32px] font-semibold leading-[1.1] tracking-tight">{data.title}</h1>
-              {data.authors.length > 0 && (
-                <p className="text-[15.5px] text-muted-foreground">by {people(data.authors)}</p>
+            <div className="min-w-0">
+              {(data.vip || data.fileTypes.length > 0 || data.categories.length > 0) && (
+                <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                  {data.vip && (
+                    <Badge
+                      className="bg-brand-soft text-accent-foreground"
+                      variant="secondary"
+                      title={data.vipExpires ? `VIP freeleech expires ${data.vipExpires}` : 'VIP freeleech'}
+                    >
+                      VIP{data.vipExpires && ` · until ${data.vipExpires}`}
+                    </Badge>
+                  )}
+                  {data.fileTypes.map((f) => (
+                    <Badge key={f} variant="outline" className="font-mono uppercase">{f}</Badge>
+                  ))}
+                  {genres.map((c) => (
+                    <Badge key={c.href} variant="secondary" asChild><a href={c.href}>{c.name}</a></Badge>
+                  ))}
+                  {languages.map((c) => (
+                    <Badge key={c.href} variant="outline" asChild><a href={c.href}>{c.name}</a></Badge>
+                  ))}
+                </div>
               )}
-              {data.narrators.length > 0 && (
-                <p className="text-[13.5px] text-muted-foreground">Narrated by {people(data.narrators)}</p>
-              )}
+
               {data.series.length > 0 && (
-                <p className="text-[13.5px] text-muted-foreground">
+                <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-brand">
                   {data.series.map((s, i) => (
                     <span key={s.href + i}>
-                      {i > 0 && ', '}
-                      <a className="text-brand hover:underline" href={s.href}>{s.name}</a>
-                      {s.part && <span> #{s.part}</span>}
+                      {i > 0 && <span className="text-muted-foreground/60"> / </span>}
+                      <a href={s.href} className="hover:underline">
+                        {s.name}
+                        {s.part && ` · Part ${s.part}`}
+                      </a>
                     </span>
                   ))}
+                </div>
+              )}
+
+              <h1 className="font-display text-[31px] font-semibold leading-[1.15] tracking-[-0.018em] text-balance">{data.title}</h1>
+
+              {(data.authors.length > 0 || data.narrators.length > 0) && (
+                <p className="mt-2 text-[14px] text-muted-foreground">
+                  {data.authors.length > 0 && <>by {people(data.authors)}</>}
+                  {data.narrators.length > 0 && (
+                    <>
+                      {data.authors.length > 0 && ' · '}
+                      read by {people(data.narrators)}
+                    </>
+                  )}
                 </p>
               )}
-              {data.tags && <p className="max-w-2xl text-[13px] leading-relaxed text-muted-foreground">{data.tags}</p>}
+
+              {stats.length > 0 && (
+                <div className="mt-5 flex flex-wrap gap-x-7 gap-y-3 border-t pt-4">
+                  {stats.map((s) => <Stat key={s.label} label={s.label} value={s.value} title={s.title} />)}
+                </div>
+              )}
+
+              {data.mediaInfoMicro && (
+                <div className="mt-3.5 flex flex-wrap gap-1.5">
+                  {data.mediaInfoMicro.split(/\s+/).filter(Boolean).map((chip, i) => (
+                    <Badge key={chip + i} variant="secondary" className="font-mono text-[11px]">{chip}</Badge>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-6 flex flex-wrap items-center gap-2.5">
+                {data.downloadBlocked ? (
+                  <Button disabled><Download /> Download blocked</Button>
+                ) : data.downloadHref || data.id ? (
+                  <Button asChild>
+                    <a href={data.downloadHref ?? `/tor/download.php?tid=${data.id}`}><Download /> Download</a>
+                  </Button>
+                ) : null}
+                <BookmarkButton />
+                {data.clone && (
+                  <Button asChild variant="outline"><a href={data.clone}><Copy /> Clone</a></Button>
+                )}
+              </div>
+              {data.downloadBlocked && (
+                <p className="mt-2 text-[12px] leading-snug text-muted-foreground">{data.downloadBlocked}</p>
+              )}
             </div>
           </div>
         </div>
       </BlurFade>
 
-      {/* STATS */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <StatTile label="Size" value={data.size} />
-        <StatTile label="Files" value={data.files.count} />
-        <StatTile label="Seeders" value={data.seeders} />
-        <StatTile label="Leechers" value={data.leechers} />
-        <StatTile label="Snatched" value={data.snatched} />
-        <StatTile label="Added" value={data.added} />
-      </div>
-
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        {/* MAIN COLUMN: description, media info, files, peers */}
-        <div className="grid min-w-0 gap-6">
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+        {/* MAIN COLUMN: description, series strip, media info, files, peers */}
+        <div className="grid min-w-0 gap-5">
           {data.descriptionHtml && (
             <Card>
               <CardHeader><CardTitle>Description</CardTitle></CardHeader>
               <CardContent>
                 <div
-                  className="user-html max-w-none text-[14px] leading-relaxed [&_a]:text-brand [&_a]:underline [&_p]:mb-3"
+                  className="user-html prose-read prose-dropcap text-[14.5px] leading-[1.68] [&_a]:text-brand [&_a]:underline [&_p]:mb-3.5 [&_p:last-child]:mb-0"
                   dangerouslySetInnerHTML={{ __html: data.descriptionHtml }}
                 />
               </CardContent>
             </Card>
           )}
 
-          {(data.mediaInfo.length > 0 || data.mediaInfoMicro) && (
+          {data.series.length > 0 && <SeriesStrip data={data} />}
+
+          {(data.mediaInfo.length > 0 || data.mediaInfoHtml) && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Info className="size-4 text-brand" /> Media info</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4">
-                {data.mediaInfoMicro && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {data.mediaInfoMicro.split(/\s+/).filter(Boolean).map((chip, i) => (
-                      <Badge key={chip + i} variant="secondary" className="font-mono text-[11.5px]">{chip}</Badge>
-                    ))}
-                  </div>
+                <CardTitle>Media info</CardTitle>
+                {data.mediaInfoFullHref && (
+                  <CardAction>
+                    <a href={data.mediaInfoFullHref} className="text-[12px] text-brand hover:underline">Full media info</a>
+                  </CardAction>
                 )}
-                {data.mediaInfo.length > 0 && <MediaInfoTree nodes={data.mediaInfo} />}
+              </CardHeader>
+              <CardContent>
+                {data.mediaInfo.length > 0 ? (
+                  <MediaInfoTree nodes={data.mediaInfo} />
+                ) : (
+                  <div
+                    className="legacy-html text-[12.5px] leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: data.mediaInfoHtml ?? '' }}
+                  />
+                )}
               </CardContent>
             </Card>
           )}
@@ -378,93 +483,119 @@ export function TorrentView(props: PageProps) {
           )}
         </div>
 
-        {/* DETAILS sidebar */}
-        <Card className="py-0 lg:sticky lg:top-20">
-          <CardContent className="px-6 py-1">
-            {data.uploader && (
-              <MetaRow label="Uploader">
-                <a className="font-medium hover:underline" style={{ color: data.uploader.color ?? undefined }} href={data.uploader.href}>{data.uploader.name}</a>
-              </MetaRow>
-            )}
+        {/* DETAILS sidebar: A24-style label-over-value grid */}
+        <Card className="lg:sticky lg:top-20">
+          <CardHeader><CardTitle>Details</CardTitle></CardHeader>
+          <CardContent>
+            <dl className="grid grid-cols-2 gap-x-5 gap-y-4">
+              {data.uploader && (
+                <KV label="Uploaded by">
+                  <a className="font-medium hover:underline" style={{ color: mutedUserColor(data.uploader.color) }} href={data.uploader.href}>
+                    {data.uploader.name}
+                  </a>
+                </KV>
+              )}
 
-            {(data.freeleech || data.ratio || data.ratioHtml) && (
-              <MetaRow label="Ratio">
-                {data.freeleech && <Badge className="mb-1 bg-ok/15 text-ok" variant="secondary">Freeleech</Badge>}
-                {data.ratio ? (
-                  <div className="grid gap-2 text-[13px]">
-                    {data.ratio.wouldBecome && (
-                      <div className="text-muted-foreground">
-                        Would become <span className="font-medium text-ok">{data.ratio.wouldBecome}</span>
-                      </div>
+              {languages.length > 0 && (
+                <KV label="Language">
+                  {languages.map((c, i) => (
+                    <span key={c.href + i}>
+                      {i > 0 && ', '}
+                      <a className="hover:underline" href={c.href}>{c.name}</a>
+                    </span>
+                  ))}
+                </KV>
+              )}
+
+              {data.tags && <KV label="Tags" full>{data.tags}</KV>}
+
+              {(data.freeleech || data.ratio || data.ratioHtml) && (
+                <KV label="Ratio after" full>
+                  {(data.freeleech || data.personalFreeleech) && (
+                    <div className="mb-1.5 flex flex-wrap gap-1.5">
+                      {data.freeleech && <Badge className="bg-ok/15 text-ok" variant="secondary">Freeleech</Badge>}
+                      {data.personalFreeleech && <Badge className="bg-ok/15 text-ok" variant="secondary">Personal freeleech</Badge>}
+                    </div>
+                  )}
+                  {data.ratio ? (
+                    <div className="grid gap-2 text-[13px]">
+                      {data.ratio.wouldBecome && (
+                        <div className="text-muted-foreground">
+                          Would become <span className="font-medium tabular-nums text-ok">{data.ratio.wouldBecome}</span>
+                        </div>
+                      )}
+                      {data.ratio.buttons.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {data.ratio.buttons.map((b) => (
+                            <Button
+                              key={b.name ?? b.label}
+                              size="sm"
+                              variant="outline"
+                              className="h-8 gap-1.5"
+                              title="Spend a wedge to make this a personal freeleech download."
+                              onClick={() =>
+                                proxyClick(
+                                  `input[data-freetor="${b.torId}"]${b.name ? `[name="${b.name}"]` : ''}`,
+                                  'This freeleech option is not available.',
+                                )
+                              }
+                            >
+                              <Gift className="size-3.5" /> {b.label}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+                      {data.ratio.note && <div className="text-[12px] text-muted-foreground">{data.ratio.note}</div>}
+                    </div>
+                  ) : (
+                    data.ratioHtml && (
+                      <div className="text-[13px] leading-relaxed text-muted-foreground [&_a]:text-brand [&_a]:underline" dangerouslySetInnerHTML={{ __html: data.ratioHtml }} />
+                    )
+                  )}
+                </KV>
+              )}
+
+              {data.reseed && (
+                <KV label="Reseed" full>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
+                    {data.reseed.status && <span>{data.reseed.status}</span>}
+                    {data.reseed.actionHref && (
+                      <a href={data.reseed.actionHref} className="text-brand underline">Request reseed</a>
                     )}
-                    {data.ratio.buttons.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {data.ratio.buttons.map((b) => (
-                          <Button
-                            key={b.name ?? b.label}
-                            size="sm"
-                            variant="outline"
-                            className="h-8 gap-1.5"
-                            title="Spend a wedge to make this a personal freeleech download."
-                            onClick={() =>
-                              proxyClick(
-                                `input[data-freetor="${b.torId}"]${b.name ? `[name="${b.name}"]` : ''}`,
-                                'This freeleech option is not available.',
-                              )
-                            }
-                          >
-                            <Gift className="size-3.5" /> {b.label}
-                          </Button>
-                        ))}
-                      </div>
+                    {data.reseed.reason && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="inline-flex items-center gap-1 text-[12.5px] text-brand underline underline-offset-2">
+                            <Info className="size-3.5" /> Find out why
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 text-[13px] leading-relaxed">{data.reseed.reason}</PopoverContent>
+                      </Popover>
                     )}
-                    {data.ratio.note && <div className="text-[12px] text-muted-foreground">{data.ratio.note}</div>}
                   </div>
-                ) : (
-                  data.ratioHtml && (
-                    <div className="text-[13px] leading-relaxed text-muted-foreground [&_a]:text-brand [&_a]:underline" dangerouslySetInnerHTML={{ __html: data.ratioHtml }} />
-                  )
-                )}
-              </MetaRow>
-            )}
+                </KV>
+              )}
 
-            {data.reseed && (
-              <MetaRow label="Reseed">
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
-                  {data.reseed.status && <span>{data.reseed.status}</span>}
-                  {data.reseed.actionHref && (
-                    <a href={data.reseed.actionHref} className="text-brand underline">Request reseed</a>
-                  )}
-                  {data.reseed.reason && (
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button className="inline-flex items-center gap-1 text-[12.5px] text-brand underline underline-offset-2">
-                          <Info className="size-3.5" /> Find out why
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-64 text-[13px] leading-relaxed">{data.reseed.reason}</PopoverContent>
-                    </Popover>
-                  )}
-                </div>
-              </MetaRow>
-            )}
+              {data.downloadBlocked && (
+                <KV label="Access" full>
+                  <span className="text-[13px] leading-relaxed text-muted-foreground">
+                    {data.downloadBlocked}{' '}
+                    {data.blockedClassesHref && (
+                      <a href={data.blockedClassesHref} className="text-brand underline">About the classes</a>
+                    )}
+                  </span>
+                </KV>
+              )}
 
-            {data.downloadBlocked && data.blockedClassesHref && (
-              <MetaRow label="Access">
-                <div className="text-[13px] leading-relaxed text-muted-foreground">
-                  {data.downloadBlocked} <a href={data.blockedClassesHref} className="text-brand underline">About the classes</a>
-                </div>
-              </MetaRow>
-            )}
-
-            {data.extraRows.map((r, i) => (
-              <MetaRow key={i} label={r.label}>
-                <span className="legacy-html" dangerouslySetInnerHTML={{ __html: r.html }} />
-              </MetaRow>
-            ))}
+              {data.extraRows.map((r, i) => (
+                <KV key={i} label={r.label} full>
+                  <span className="legacy-html" dangerouslySetInnerHTML={{ __html: r.html }} />
+                </KV>
+              ))}
+            </dl>
 
             {(data.hasSubmitInfo || data.reportIssueHref) && (
-              <div className="my-3 grid gap-1.5 rounded-lg bg-muted/40 p-3 text-[12.5px]">
+              <div className="mt-5 grid gap-1.5 rounded-lg bg-muted/40 p-3 text-[12.5px]">
                 {data.hasSubmitInfo && (
                   <button
                     onClick={() => proxyClick('#submitInfo [data-tormissdataj]', 'Submitting info is not available for this torrent.')}

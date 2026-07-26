@@ -14,16 +14,18 @@ export interface TorrentDetail {
   narrators: LinkItem[]
   series: { name: string; href: string; part: string | null }[]
   tags: string | null
-  categories: LinkItem[]
+  categories: { name: string; href: string; language: boolean }[]
   catIconHref: string | null
   size: string | null
   files: { count: string | null }
   mediaInfoMicro: string | null
   mediaInfoHtml: string | null
+  mediaInfoFullHref: string | null
   mediaInfo: MediaNode[]
   fileTypes: string[]
   bookmarkId: string | null
   vip: boolean
+  vipExpires: string | null
   clone: string | null
   tiles: DetailTile[]
   downloadHref: string | null
@@ -42,6 +44,7 @@ export interface TorrentDetail {
     note: string | null
   } | null
   freeleech: boolean
+  personalFreeleech: boolean
   reseed: { status: string | null; reason: string | null; actionHref: string | null } | null
   blockedClassesHref: string | null
   hasFilelist: boolean
@@ -193,6 +196,14 @@ export function extractTorrent(doc: Document): TorrentDetail | null {
     tiles.push({ label, html: clean(bottom) ?? '', id: tile.id || null })
   }
 
+  // Tiles without a dedicated control land in extraRows so nothing is lost.
+  const knownTile = /^(size|files|mediainfo|filetypes|download|ratio|seeds|leech|request\s*reseed|added|uploader)/i
+  for (const tile of tiles) {
+    if (tile.label && !knownTile.test(tile.label)) {
+      extraRows.push({ label: tile.label.replace(/:$/, ''), html: tile.html })
+    }
+  }
+
   const sls = torrentRow?.querySelector('#sls')
   const uploaderA = torrentRow?.querySelector<HTMLAnchorElement>('#uploader a[href^="/u/"]')
 
@@ -200,6 +211,7 @@ export function extractTorrent(doc: Document): TorrentDetail | null {
   const ratioBottom = torrentRow?.querySelector('#ratio .torDetInnerBottomSpan')
   const ratioHtml = clean(ratioBottom)
   const freeleech = /freeleech|free ?leech/i.test(ratioBottom?.textContent ?? '')
+  const personalFreeleech = /personal\s+free/i.test(ratioBottom?.textContent ?? '')
 
   // Non-freeleech torrents show freeleech purchase buttons (<input data-freetor>,
   // e.g. "Buy as FL") that MAM wires via a delegated handler our shadow DOM never
@@ -248,6 +260,7 @@ export function extractTorrent(doc: Document): TorrentDetail | null {
 
   const fInfo = doc.querySelector('#fInfo')
   const commentArea = doc.querySelector('#CommentArea')
+  const vipImg = torrentRow?.querySelector<HTMLImageElement>('img[alt^="VIP"]')
 
   return {
     id: Number(location.pathname.match(/\/t\/(\d+)/)?.[1] ?? doc.querySelector('#thanksArea input[name="tid"]')?.getAttribute('value')) || null,
@@ -257,16 +270,25 @@ export function extractTorrent(doc: Document): TorrentDetail | null {
     narrators: links(right('narrator'), 'a'),
     series,
     tags: txt(right('tags and labels')),
-    categories: links(fInfo, '#multiCat a.mCat'),
+    // Language entries carry class "language", same marker home.ts relies on.
+    categories: fInfo
+      ? [...fInfo.querySelectorAll<HTMLAnchorElement>('#multiCat a.mCat')].map((a) => ({
+          name: txt(a) ?? '',
+          href: a.getAttribute('href') ?? '',
+          language: a.classList.contains('language'),
+        }))
+      : [],
     catIconHref: fInfo?.querySelector<HTMLAnchorElement>('a.newCatLink')?.getAttribute('href') ?? null,
     size: txt(doc.querySelector('#size .torDetInnerBottomSpan')),
     files: { count: txt(doc.querySelector('#files .torDetInnerBottomSpan span'))?.match(/^\d[\d,]*/)?.[0] ?? null },
     mediaInfoMicro: txt(doc.querySelector('#mediaInfoMicro')),
     mediaInfoHtml: clean(doc.querySelector('#mediaInfoDisplay')),
+    mediaInfoFullHref: doc.querySelector<HTMLAnchorElement>('#mediaInfoDisplay a[href^="/t/m/"]')?.getAttribute('href') ?? null,
     mediaInfo: parseMediaTree(doc.querySelector('#mediaInfoDisplay')),
     fileTypes: [...(doc.querySelectorAll('#PrimaryFileTypes a') ?? [])].map((a) => txt(a) ?? '').filter(Boolean),
     bookmarkId: torrentRow?.querySelector('[id^="torBookmark"]')?.id ?? null,
-    vip: !!torrentRow?.querySelector('img[alt^="VIP"]'),
+    vip: !!vipImg,
+    vipExpires: vipImg?.getAttribute('alt')?.match(/expires\s+(.+)/i)?.[1]?.trim() ?? null,
     clone: torrentRow?.querySelector<HTMLAnchorElement>('a[href*="clone"]')?.getAttribute('href') ?? null,
     tiles,
     downloadHref,
@@ -285,6 +307,7 @@ export function extractTorrent(doc: Document): TorrentDetail | null {
     ratioHtml,
     ratio,
     freeleech,
+    personalFreeleech,
     reseed,
     blockedClassesHref,
     hasFilelist: !!doc.querySelector('[data-filelist]'),
