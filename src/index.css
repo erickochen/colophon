@@ -203,6 +203,16 @@
   }
 }
 
+/* Tailwind v4 borders default to currentColor; map them to the hairline
+ * token like shadcn's base layer does. Utilities still win (layer order). */
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border);
+  }
+}
+
 /* Shadow-root base: the wrapper div plays the role <body> normally plays.
  * No background texture here: repeating hairline gradients turn into visible
  * striping at non-retina scaling. Warmth comes from the palette instead. */
