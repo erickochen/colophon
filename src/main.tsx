@@ -82,7 +82,6 @@ function onReady(fn: () => void) {
   }
 }
 
-const BOOT_T0 = performance.now()
 const MENU_SELECTOR = '#mainmenu #menu'
 
 /* The menu is the logged-in gate, but it can arrive after DOMContentLoaded,
@@ -107,11 +106,6 @@ function whenMenu(fn: (found: boolean) => void) {
 function start() {
   onReady(() => {
     whenMenu((found) => {
-      console.info('[colophon boot]', {
-        readyState: document.readyState,
-        menuAfterMs: Math.round(performance.now() - BOOT_T0),
-        found,
-      })
       if (!found || window.top !== window.self) {
         abort()
         return
