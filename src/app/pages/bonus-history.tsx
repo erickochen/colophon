@@ -33,6 +33,8 @@ const chartConfig = {
   pph: { label: 'Points / hour', color: 'var(--chart-2)' },
   ratio: { label: 'Ratio', color: 'var(--chart-5)' },
   wedges: { label: 'FL wedges', color: 'var(--chart-4)' },
+  up: { label: 'Upload (GiB)', color: 'var(--chart-3)' },
+  down: { label: 'Download (GiB)', color: 'var(--chart-4)' },
 } satisfies ChartConfig
 
 
@@ -125,7 +127,7 @@ export function BonusHistoryView({ page }: PageProps) {
         ]
         setTrends(L.map((t, i) => ({
           t, leeching: le[i] ?? 0, unsat: un[i] ?? 0, sat: sa[i] ?? 0, wedges: we[i] ?? 0,
-          pph: pp[i] ?? 0, bonus: bo[i] ?? 0, up: up[i] ?? 0, down: dn[i] ?? 0, ratio: ra[i] ?? 0,
+          pph: pp[i] ?? 0, bonus: bo[i] ?? 0, up: (up[i] ?? 0) / 2 ** 30, down: (dn[i] ?? 0) / 2 ** 30, ratio: ra[i] ?? 0,
         })))
       })
       .catch(() => setTrends([]))
@@ -138,19 +140,19 @@ export function BonusHistoryView({ page }: PageProps) {
       .catch(() => setEvents([]))
   }, [])
 
-  const view = useMemo(() => {
+  const fullView = useMemo(() => {
     if (!trends) return []
     const pts = RANGES.find((r) => r.k === range)!.pts
-    const rows = pts === Infinity ? trends : trends.slice(-pts)
-    return downsample(rows, 72)
+    return pts === Infinity ? trends : trends.slice(-pts)
   }, [trends, range])
+  const view = useMemo(() => downsample(fullView, 72), [fullView])
 
   const stats = useMemo(() => {
     const agg = (pick: (r: Trend) => number) => {
-      if (!view.length) return { min: 0, max: 0, avg: 0 }
+      if (!fullView.length) return { min: 0, max: 0, avg: 0 }
       let min = Infinity, max = -Infinity, sum = 0
-      for (const r of view) { const v = pick(r); if (v < min) min = v; if (v > max) max = v; sum += v }
-      return { min, max, avg: sum / view.length }
+      for (const r of fullView) { const v = pick(r); if (v < min) min = v; if (v > max) max = v; sum += v }
+      return { min, max, avg: sum / fullView.length }
     }
     return {
       pph: agg((r) => r.pph),
@@ -159,11 +161,11 @@ export function BonusHistoryView({ page }: PageProps) {
       wedges: agg((r) => r.wedges),
       ratio: agg((r) => r.ratio),
     }
-  }, [view])
+  }, [fullView])
 
-  const last = view.at(-1)
+  const last = fullView.at(-1)
   const loading = trends === null
-  const rangeLabel = view.length ? `${tick(view[0].t)} to ${tick(view[view.length - 1].t)}` : ''
+  const rangeLabel = fullView.length ? `${tick(fullView[0].t)} to ${tick(fullView[fullView.length - 1].t)}` : ''
 
 
   const xAxis = <XAxis dataKey="t" tickFormatter={tick} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={150} tickMargin={8} className="text-[11px]" />
@@ -246,6 +248,7 @@ export function BonusHistoryView({ page }: PageProps) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         {([
+          ['pph', 'Points per hour', 'The rate you earn bonus points.'],
           ['ratio', 'Ratio', 'Share ratio over time.'],
           ['wedges', 'Freeleech wedges', 'Wedges in hand over time.'],
         ] as const).map(([key, title, note]) => (
@@ -269,6 +272,28 @@ export function BonusHistoryView({ page }: PageProps) {
             </CardContent>
           </Card>
         ))}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Transfer</CardTitle>
+            <CardDescription>Upload and download in this range, in GiB.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? <Skeleton className="h-44 w-full" /> : view.length > 0 && (
+              <ChartContainer config={chartConfig} className="h-44 w-full">
+                <AreaChart accessibilityLayer data={view} margin={{ left: 12, right: 12 }}>
+                  <defs><Grad id="up" /><Grad id="down" /></defs>
+                  <CartesianGrid vertical={false} />
+                  {xAxis}
+                  <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
+                  <Area dataKey="down" name="Download (GiB)" type="natural" fill="url(#fill-down)" fillOpacity={0.4} stroke="var(--color-down)" />
+                  <Area dataKey="up" name="Upload (GiB)" type="natural" fill="url(#fill-up)" fillOpacity={0.4} stroke="var(--color-up)" />
+                  <ChartLegend content={<ChartLegendContent />} />
+                </AreaChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <Card className="gap-0 py-0">
