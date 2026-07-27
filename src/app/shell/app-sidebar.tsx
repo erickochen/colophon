@@ -2,8 +2,6 @@ import { ChevronRight } from 'lucide-react'
 import {
   BookOpen,
   Bookmark,
-  CircleDollarSign,
-  Compass,
   Download,
   Gift,
   HandCoins,
@@ -112,9 +110,9 @@ function groups(page: ShellData): { dashboard: NavItem; groups: NavGroup[] } {
         label: 'Games',
         items: [
           { title: 'Lotto', href: '/play_lotto.php', icon: Ticket },
-          { title: 'Hunts', href: '/games/hunts.php', icon: Compass },
         ],
         more: [
+          { title: 'Hunts', href: '/games/hunts.php' },
           { title: 'Daily challenge', href: '/f/t/11186/p/1' },
           { title: 'Banner competition', href: '/banner/index.php' },
           { title: 'Previous banners', href: '/banner/winners.php' },
@@ -136,10 +134,10 @@ function groups(page: ShellData): { dashboard: NavItem; groups: NavGroup[] } {
       {
         label: 'Support',
         items: [
-          { title: 'Rules', href: '/rules.php', icon: CircleDollarSign },
           { title: 'FAQ & guides', href: '/faq.php', icon: HelpCircle },
         ],
         more: [
+          { title: 'Rules', href: '/rules.php' },
           { title: 'Guides', href: '/guides/' },
           { title: 'Allowed clients', href: '/tor/allowed_clients.php' },
           { title: 'Contact staff', href: '/ticket.php/myTickets' },
