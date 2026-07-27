@@ -67,7 +67,8 @@ export function FreeleechView(props: PageProps) {
                   poster={coverUrl(Number(i.tid))}
                   title={i.title}
                   size="mini"
-                  className="w-9 shrink-0"
+                  plain
+                  className="w-12 shrink-0"
                 />
                 <span className="min-w-0">
                   <span className="font-display block truncate text-[13px] font-medium group-hover:underline">{i.title}</span>

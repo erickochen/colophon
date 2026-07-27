@@ -253,7 +253,8 @@ export function Top10View(_props: PageProps) {
                     title={t.title}
                     author={authors[0]?.name}
                     size="row"
-                    className="w-14 shrink-0"
+                    plain
+                    className="w-18 shrink-0"
                   />
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-display text-[14.5px] font-medium group-hover:underline">{t.title}</div>

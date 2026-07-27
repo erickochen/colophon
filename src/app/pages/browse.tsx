@@ -145,7 +145,7 @@ function RowCover({ t }: { t: SearchTorrent }) {
   const poster = t.poster_type ? coverUrl(t.id) : null
   const cover = (
     <a href={torrentUrl(t.id)} tabIndex={-1} className="block text-[9px]">
-      <Book poster={poster} title={t.title} size="row" className="transition-shadow group-hover:shadow-book-lift" />
+      <Book poster={poster} title={t.title} size="row" plain className="transition-shadow group-hover:shadow-book-lift" />
     </a>
   )
   if (!poster) return cover
@@ -166,7 +166,7 @@ function TorrentRow({ t }: { t: SearchTorrent }) {
   const narrators = parsePeople(t.narrator_info)
   const series = parsePeople(t.series_info)
   return (
-    <div className="group grid grid-cols-[76px_1fr_auto_auto] items-center gap-[18px] px-[22px] py-3.5 transition-colors hover:bg-foreground/[0.028]">
+    <div className="group grid grid-cols-[88px_1fr_auto_auto] items-center gap-[18px] px-[22px] py-3.5 transition-colors hover:bg-foreground/[0.028]">
       <RowCover t={t} />
       <a href={torrentUrl(t.id)} className="min-w-0">
         <h3 className="font-display text-[15px] font-medium leading-[1.3] transition-colors group-hover:text-brand">{t.title}</h3>
@@ -594,7 +594,7 @@ export function BrowseView(props: PageProps) {
         {loading && view === 'list' && (
           <div className="divide-y divide-border">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="grid grid-cols-[76px_1fr_auto] items-center gap-[18px] px-[22px] py-3.5">
+              <div key={i} className="grid grid-cols-[88px_1fr_auto] items-center gap-[18px] px-[22px] py-3.5">
                 <Skeleton className="aspect-[3/4.5] w-[76px] rounded-[4px_7px_7px_4px]" />
                 <div className="min-w-0">
                   <Skeleton className="h-4 w-2/3" />
