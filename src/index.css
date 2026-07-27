@@ -41,10 +41,10 @@
   --shadow-book: 0 1px 1.5px oklch(0.2 0.02 50 / 0.15), 0 3px 4px oklch(0.2 0.02 50 / 0.1), 0 6px 8px oklch(0.2 0.02 50 / 0.08), 0 12px 16px oklch(0.2 0.02 50 / 0.06), 0 33px 45px oklch(0.2 0.02 50 / 0.04);
   --shadow-book-lift: 0 2px 3px oklch(0.2 0.02 50 / 0.16), 0 5px 7px oklch(0.2 0.02 50 / 0.11), 0 10px 14px oklch(0.2 0.02 50 / 0.09), 0 20px 26px oklch(0.2 0.02 50 / 0.07), 0 44px 60px oklch(0.2 0.02 50 / 0.05);
   --chart-1: oklch(0.473 0.078 46);
-  --chart-2: oklch(0.55 0.11 220);
-  --chart-3: oklch(0.627 0.17 149);
-  --chart-4: oklch(0.666 0.179 58);
-  --chart-5: oklch(0.55 0.19 300);
+  --chart-2: oklch(0.5 0.07 240);
+  --chart-3: oklch(0.5 0.09 150);
+  --chart-4: oklch(0.55 0.13 60);
+  --chart-5: oklch(0.48 0.09 320);
   --radius: 0.625rem;
   /* Tailwind v4 declares these with @property, which does not register inside a
    * shadow root. Utilities read them with a bare var(), so each one needs a real
@@ -111,6 +111,11 @@
   --brand-soft: oklch(0.27 0.028 62);
   --ok: oklch(0.72 0.1 150);
   --warn: oklch(0.76 0.12 65);
+  --chart-1: oklch(0.75 0.09 70);
+  --chart-2: oklch(0.72 0.07 240);
+  --chart-3: oklch(0.72 0.1 150);
+  --chart-4: oklch(0.76 0.12 65);
+  --chart-5: oklch(0.72 0.08 320);
   --user-1: oklch(0.72 0.09 45);
   --user-2: oklch(0.72 0.07 240);
   --user-3: oklch(0.72 0.08 320);

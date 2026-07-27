@@ -35,6 +35,17 @@ const chartConfig = {
   wedges: { label: 'FL wedges', color: 'var(--chart-4)' },
 } satisfies ChartConfig
 
+
+/* The shadcn chart look: series fade from their color into the paper. */
+function Grad({ id }: { id: string }) {
+  return (
+    <linearGradient id={`fill-${id}`} x1="0" y1="0" x2="0" y2="1">
+      <stop offset="5%" stopColor={`var(--color-${id})`} stopOpacity={0.32} />
+      <stop offset="95%" stopColor={`var(--color-${id})`} stopOpacity={0.02} />
+    </linearGradient>
+  )
+}
+
 const RANGES = [
   { k: 'day', label: '24h', pts: 96 },
   { k: 'week', label: '7d', pts: 672 },
@@ -162,13 +173,14 @@ export function BonusHistoryView({ page }: PageProps) {
         ) : (
           <ChartContainer config={chartConfig} className="h-60 w-full">
             <ComposedChart data={view} margin={{ left: 4, right: 8, top: 8 }}>
-              <CartesianGrid vertical={false} strokeDasharray="3 3" />
+              <defs><Grad id="sat" /><Grad id="unsat" /><Grad id="leeching" /></defs>
+              <CartesianGrid vertical={false} stroke="var(--border)" />
               {xAxis}
               <YAxis tickLine={false} axisLine={false} width={32} allowDecimals={false} className="text-[11px]" />
               <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
-              <Area dataKey="sat" name="Satisfied seeding" stackId="s" type="stepAfter" stroke="var(--color-sat)" fill="var(--color-sat)" fillOpacity={0.3} strokeWidth={1.5} />
-              <Area dataKey="unsat" name="Unsatisfied seeding" stackId="s" type="stepAfter" stroke="var(--color-unsat)" fill="var(--color-unsat)" fillOpacity={0.3} strokeWidth={1.5} />
-              <Area dataKey="leeching" name="Leeching" stackId="s" type="stepAfter" stroke="var(--color-leeching)" fill="var(--color-leeching)" fillOpacity={0.3} strokeWidth={1.5} />
+              <Area dataKey="sat" name="Satisfied seeding" stackId="s" type="stepAfter" stroke="var(--color-sat)" fill="url(#fill-sat)" fillOpacity={1} strokeWidth={1.5} />
+              <Area dataKey="unsat" name="Unsatisfied seeding" stackId="s" type="stepAfter" stroke="var(--color-unsat)" fill="url(#fill-unsat)" fillOpacity={1} strokeWidth={1.5} />
+              <Area dataKey="leeching" name="Leeching" stackId="s" type="stepAfter" stroke="var(--color-leeching)" fill="url(#fill-leeching)" fillOpacity={1} strokeWidth={1.5} />
             </ComposedChart>
           </ChartContainer>
         )}
@@ -179,12 +191,13 @@ export function BonusHistoryView({ page }: PageProps) {
         {loading ? <Skeleton className="h-60 w-full" /> : view.length > 0 && (
           <ChartContainer config={chartConfig} className="h-60 w-full">
             <ComposedChart data={view} margin={{ left: 4, right: 4, top: 8 }}>
-              <CartesianGrid vertical={false} strokeDasharray="3 3" />
+              <CartesianGrid vertical={false} stroke="var(--border)" />
               {xAxis}
+              <defs><Grad id="bonus" /></defs>
               <YAxis yAxisId="pts" tickLine={false} axisLine={false} width={44} tickFormatter={(v) => fmtInt(v)} className="text-[11px]" />
               <YAxis yAxisId="rate" orientation="right" tickLine={false} axisLine={false} width={32} className="text-[11px]" />
               <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
-              <Area yAxisId="pts" dataKey="bonus" name="Bonus points" type="monotone" stroke="var(--color-bonus)" fill="var(--color-bonus)" fillOpacity={0.12} strokeWidth={2} />
+              <Area yAxisId="pts" dataKey="bonus" name="Bonus points" type="monotone" stroke="var(--color-bonus)" fill="url(#fill-bonus)" fillOpacity={1} strokeWidth={2} />
               <Line yAxisId="rate" dataKey="pph" name="Points / hour" type="monotone" stroke="var(--color-pph)" strokeWidth={1.75} dot={false} />
             </ComposedChart>
           </ChartContainer>
@@ -197,11 +210,12 @@ export function BonusHistoryView({ page }: PageProps) {
           {loading ? <Skeleton className="h-44 w-full" /> : view.length > 0 && (
             <ChartContainer config={chartConfig} className="h-44 w-full">
               <ComposedChart data={view} margin={{ left: 4, right: 8, top: 8 }}>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                <CartesianGrid vertical={false} stroke="var(--border)" />
                 {xAxis}
+                <defs><Grad id="ratio" /></defs>
                 <YAxis tickLine={false} axisLine={false} width={44} tickFormatter={(v) => fmtInt(v)} className="text-[11px]" />
                 <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
-                <Area dataKey="ratio" name="Ratio" type="monotone" stroke="var(--color-ratio)" fill="var(--color-ratio)" fillOpacity={0.1} strokeWidth={2} />
+                <Area dataKey="ratio" name="Ratio" type="monotone" stroke="var(--color-ratio)" fill="url(#fill-ratio)" fillOpacity={1} strokeWidth={2} />
               </ComposedChart>
             </ChartContainer>
           )}
@@ -210,11 +224,12 @@ export function BonusHistoryView({ page }: PageProps) {
           {loading ? <Skeleton className="h-44 w-full" /> : view.length > 0 && (
             <ChartContainer config={chartConfig} className="h-44 w-full">
               <ComposedChart data={view} margin={{ left: 4, right: 8, top: 8 }}>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                <CartesianGrid vertical={false} stroke="var(--border)" />
                 {xAxis}
+                <defs><Grad id="wedges" /></defs>
                 <YAxis tickLine={false} axisLine={false} width={28} allowDecimals={false} className="text-[11px]" />
                 <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
-                <Area dataKey="wedges" name="FL wedges" type="stepAfter" stroke="var(--color-wedges)" fill="var(--color-wedges)" fillOpacity={0.15} strokeWidth={1.75} />
+                <Area dataKey="wedges" name="FL wedges" type="stepAfter" stroke="var(--color-wedges)" fill="url(#fill-wedges)" fillOpacity={1} strokeWidth={1.75} />
               </ComposedChart>
             </ChartContainer>
           )}
