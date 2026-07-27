@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Gift, History, Coins, Gauge, TrendingUp } from 'lucide-react'
-import { Area, ComposedChart, CartesianGrid, Line, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import type { PageProps } from '@/app/router'
 import { fmtInt, relTime } from '@/lib/format'
 import { PageHeader, UserLink } from '@/app/shell/bits'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
+import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { NumberTicker } from '@/components/ui/number-ticker'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -79,18 +79,6 @@ function Stat({ icon, label, value, hint }: { icon: ReactNode; label: string; va
           <div className="text-[11.5px] text-muted-foreground">{label}{hint && <span className="text-muted-foreground/70"> · {hint}</span>}</div>
         </div>
       </CardContent>
-    </Card>
-  )
-}
-
-function ChartCard({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle>{title}</CardTitle>
-        {note && <p className="text-[12px] text-muted-foreground">{note}</p>}
-      </CardHeader>
-      <CardContent>{children}</CardContent>
     </Card>
   )
 }
@@ -169,67 +157,82 @@ export function BonusHistoryView({ page }: PageProps) {
         <Stat icon={<Gauge className="size-5" />} label="ratio" value={loading ? '–' : fmtInt(Math.round(last?.ratio ?? 0))} />
       </div>
 
-      <ChartCard title="Seeding" note="Torrent counts: satisfied and unsatisfied seeding, plus anything still leeching.">
-        {loading ? <Skeleton className="h-60 w-full" /> : view.length === 0 ? (
-          <p className="py-16 text-center text-sm text-muted-foreground">The tracker did not return any history.</p>
-        ) : (
-          <ChartContainer config={chartConfig} className="h-60 w-full">
-            <ComposedChart data={view} margin={{ left: 4, right: 8, top: 8 }}>
-              <defs><Grad id="sat" /><Grad id="unsat" /><Grad id="leeching" /></defs>
-              {xAxis}
-              <YAxis tickLine={false} axisLine={false} width={32} tickCount={3} allowDecimals={false} className="text-[11px]" />
-              <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
-              <Area dataKey="sat" name="Satisfied seeding" stackId="s" type="monotone" stroke="none" fill="var(--color-sat)" fillOpacity={0.4} />
-              <Area dataKey="unsat" name="Unsatisfied seeding" stackId="s" type="monotone" stroke="none" fill="var(--color-unsat)" fillOpacity={0.4} />
-              <Area dataKey="leeching" name="Leeching" stackId="s" type="monotone" stroke="none" fill="var(--color-leeching)" fillOpacity={0.4} />
-            </ComposedChart>
-          </ChartContainer>
-        )}
-        <Legend items={['sat', 'unsat', 'leeching']} />
-      </ChartCard>
+      <Card className="gap-0 py-0">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-6 py-4">
+          <div>
+            <h2 className="font-display text-[15px] font-semibold">Bonus points</h2>
+            <p className="text-[12.5px] text-muted-foreground">Cumulative points earned in this range.</p>
+          </div>
+          <span className="font-display text-[22px] font-semibold tabular-nums">{loading ? '\u2013' : fmtInt(Math.round(last?.bonus ?? 0))}</span>
+        </div>
+        <div className="px-4 pt-5 pb-3">
+          {loading ? <Skeleton className="h-[250px] w-full" /> : view.length === 0 ? (
+            <p className="py-16 text-center text-sm text-muted-foreground">The tracker did not return any history.</p>
+          ) : (
+            <ChartContainer config={chartConfig} className="h-[250px] w-full">
+              <AreaChart data={view} margin={{ left: 4, right: 8, top: 8 }}>
+                <defs><Grad id="bonus" /></defs>
+                <CartesianGrid vertical={false} />
+                {xAxis}
+                <YAxis tickLine={false} axisLine={false} width={40} tickCount={3} tickFormatter={compactTick} className="text-[11px]" />
+                <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
+                <Area dataKey="bonus" name="Bonus points" type="monotone" stroke="var(--color-bonus)" fill="url(#fill-bonus)" fillOpacity={1} strokeWidth={2} />
+              </AreaChart>
+            </ChartContainer>
+          )}
+        </div>
+      </Card>
 
-      <ChartCard title="Bonus points" note="Cumulative points earned in this range.">
-        {loading ? <Skeleton className="h-60 w-full" /> : view.length > 0 && (
-          <ChartContainer config={chartConfig} className="h-60 w-full">
-            <ComposedChart data={view} margin={{ left: 4, right: 4, top: 8 }}>
-              {xAxis}
-              <defs><Grad id="bonus" /></defs>
-              <YAxis yAxisId="pts" tickLine={false} axisLine={false} width={44} tickCount={3} tickFormatter={compactTick} className="text-[11px]" />
-              <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
-              <Area yAxisId="pts" dataKey="bonus" name="Bonus points" type="monotone" stroke="var(--color-bonus)" fill="url(#fill-bonus)" fillOpacity={1} strokeWidth={2.25} />
-            </ComposedChart>
-          </ChartContainer>
-        )}
-        <Legend items={['bonus']} />
-      </ChartCard>
+      <Card className="gap-0 py-0">
+        <div className="border-b px-6 py-4">
+          <h2 className="font-display text-[15px] font-semibold">Seeding</h2>
+          <p className="text-[12.5px] text-muted-foreground">Satisfied and unsatisfied seeding, plus anything still leeching.</p>
+        </div>
+        <div className="px-4 pt-5 pb-3">
+          {loading ? <Skeleton className="h-52 w-full" /> : view.length > 0 && (
+            <ChartContainer config={chartConfig} className="h-52 w-full">
+              <AreaChart data={view} margin={{ left: 4, right: 8, top: 8 }}>
+                <defs><Grad id="sat" /><Grad id="unsat" /><Grad id="leeching" /></defs>
+                <CartesianGrid vertical={false} />
+                {xAxis}
+                <YAxis tickLine={false} axisLine={false} width={32} tickCount={3} allowDecimals={false} className="text-[11px]" />
+                <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
+                <Area dataKey="sat" name="Satisfied seeding" stackId="s" type="monotone" stroke="var(--color-sat)" strokeWidth={1} fill="url(#fill-sat)" fillOpacity={1} />
+                <Area dataKey="unsat" name="Unsatisfied seeding" stackId="s" type="monotone" stroke="var(--color-unsat)" strokeWidth={1} fill="url(#fill-unsat)" fillOpacity={1} />
+                <Area dataKey="leeching" name="Leeching" stackId="s" type="monotone" stroke="var(--color-leeching)" strokeWidth={1} fill="url(#fill-leeching)" fillOpacity={1} />
+                <ChartLegend content={<ChartLegendContent />} />
+              </AreaChart>
+            </ChartContainer>
+          )}
+        </div>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <ChartCard title="Ratio">
-          {loading ? <Skeleton className="h-44 w-full" /> : view.length > 0 && (
-            <ChartContainer config={chartConfig} className="h-44 w-full">
-              <ComposedChart data={view} margin={{ left: 4, right: 8, top: 8 }}>
-                  {xAxis}
-                <defs><Grad id="ratio" /></defs>
-                <YAxis tickLine={false} axisLine={false} width={44} tickCount={3} tickFormatter={compactTick} className="text-[11px]" />
-                <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
-                <Area dataKey="ratio" name="Ratio" type="monotone" stroke="var(--color-ratio)" fill="url(#fill-ratio)" fillOpacity={1} strokeWidth={2.25} />
-              </ComposedChart>
-            </ChartContainer>
-          )}
-        </ChartCard>
-        <ChartCard title="Freeleech wedges">
-          {loading ? <Skeleton className="h-44 w-full" /> : view.length > 0 && (
-            <ChartContainer config={chartConfig} className="h-44 w-full">
-              <ComposedChart data={view} margin={{ left: 4, right: 8, top: 8 }}>
-                  {xAxis}
-                <defs><Grad id="wedges" /></defs>
-                <YAxis tickLine={false} axisLine={false} width={28} tickCount={3} allowDecimals={false} className="text-[11px]" />
-                <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
-                <Area dataKey="wedges" name="FL wedges" type="monotone" stroke="var(--color-wedges)" fill="url(#fill-wedges)" fillOpacity={1} strokeWidth={1.5} />
-              </ComposedChart>
-            </ChartContainer>
-          )}
-        </ChartCard>
+        {([
+          ['ratio', 'Ratio', 'Share ratio over time.', compactTick],
+          ['wedges', 'Freeleech wedges', 'Wedges in hand over time.', undefined],
+        ] as const).map(([key, title, note, fmt]) => (
+          <Card key={key} className="gap-0 py-0">
+            <div className="border-b px-6 py-4">
+              <h2 className="font-display text-[15px] font-semibold">{title}</h2>
+              <p className="text-[12.5px] text-muted-foreground">{note}</p>
+            </div>
+            <div className="px-4 pt-5 pb-3">
+              {loading ? <Skeleton className="h-44 w-full" /> : view.length > 0 && (
+                <ChartContainer config={chartConfig} className="h-44 w-full">
+                  <AreaChart data={view} margin={{ left: 4, right: 8, top: 8 }}>
+                    <defs><Grad id={key} /></defs>
+                    <CartesianGrid vertical={false} />
+                    {xAxis}
+                    <YAxis tickLine={false} axisLine={false} width={40} tickCount={3} allowDecimals={false} tickFormatter={fmt} className="text-[11px]" />
+                    <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
+                    <Area dataKey={key} name={title} type="monotone" stroke={`var(--color-${key})`} fill={`url(#fill-${key})`} fillOpacity={1} strokeWidth={2} />
+                  </AreaChart>
+                </ChartContainer>
+              )}
+            </div>
+          </Card>
+        ))}
       </div>
 
       <Card className="gap-0 py-0">
