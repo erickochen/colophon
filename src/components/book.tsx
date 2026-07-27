@@ -92,7 +92,7 @@ export function Book3D({ className, children, ...props }: BookProps & { children
     if (!r) return
     const px = (e.clientX - r.left) / r.width - 0.5
     const py = (e.clientY - r.top) / r.height - 0.5
-    setTilt({ x: py * -9, y: px * 13 })
+    setTilt({ x: py * -13, y: px * 19 })
   }
 
   return (
@@ -106,7 +106,7 @@ export function Book3D({ className, children, ...props }: BookProps & { children
         {...props}
         size="hero"
         style={{
-          transform: tilt ? `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(1.015)` : undefined,
+          transform: tilt ? `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(1.035)` : undefined,
           transition: tilt ? "transform 0.08s linear" : "transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)",
         }}
         className="shadow-book-lift will-change-transform"

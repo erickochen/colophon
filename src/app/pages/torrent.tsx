@@ -276,7 +276,7 @@ function SeriesStrip({ data }: { data: TorrentDetail }) {
           {items.map((it) => (
             <a key={it.id} href={it.href} title={it.title} className="group w-[88px] shrink-0 text-[10px]">
               <span className="block transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1 motion-reduce:transition-none">
-                <Book poster={it.poster} title={it.title} naturalRatio size="mini" className="group-hover:shadow-book-lift" />
+                <Book poster={it.poster} title={it.title} naturalRatio plain size="mini" className="group-hover:shadow-book-lift" />
               </span>
               <span className={cn('mt-2 block font-mono text-[11px] tabular-nums', it.current ? 'font-semibold text-brand' : 'text-muted-foreground')}>
                 {it.part && `#${it.part}`}

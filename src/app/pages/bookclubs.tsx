@@ -86,6 +86,7 @@ function PickCard({ p }: { p: Pick }) {
           title={p.title}
           author={p.author}
           naturalRatio
+          plain
           size="shelf"
           className="group-hover:shadow-book-lift"
         />
