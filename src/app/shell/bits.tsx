@@ -1,5 +1,6 @@
 // Small shared page components (Reading Room voice).
 import type { ReactNode } from 'react'
+import { mutedUserColor } from '@/lib/colors'
 import { cn } from '@/lib/utils'
 
 export function PageHeader({ title, sub, action }: { title: ReactNode; sub?: ReactNode; action?: ReactNode }) {
@@ -33,7 +34,7 @@ export function Crumbs({ items }: { items: { name: string; href: string | null }
 
 export function UserLink({ name, href, color, className }: { name: string | null; href?: string | null; color?: string | null; className?: string }) {
   if (!name) return null
-  const style = color ? { color } : undefined
+  const style = color ? { color: mutedUserColor(color) } : undefined
   return href ? (
     <a href={href} className={cn('font-medium hover:underline', className)} style={style}>{name}</a>
   ) : (
