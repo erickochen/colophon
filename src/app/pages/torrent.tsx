@@ -339,7 +339,7 @@ export function TorrentView(props: PageProps) {
               <BookAmbilight poster={data.poster} />
               <div
                 aria-hidden
-                className="pointer-events-none absolute inset-0 z-1 bg-[linear-gradient(color-mix(in_oklab,var(--card)_28%,transparent),color-mix(in_oklab,var(--card)_94%,transparent)_78%,var(--card))]"
+                className="pointer-events-none absolute inset-0 z-1 bg-[linear-gradient(90deg,transparent,color-mix(in_oklab,var(--card)_55%,transparent)_45%,var(--card)_82%)]"
               />
             </>
           )}

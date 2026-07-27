@@ -71,14 +71,14 @@ export function Book({ poster, title, author, naturalRatio = false, size = "row"
   )
 }
 
-/* Hero variant: perspective wrapper, flattens on hover. */
+/* Hero variant: rests face-on, opens a little toward the reader on hover. */
 export function Book3D({ className, children, ...props }: BookProps & { children?: React.ReactNode }) {
   return (
     <span className={cn("block [perspective:1100px]", className)}>
       <Book
         {...props}
         size="hero"
-        className="origin-left [transform:rotateY(-17deg)] shadow-book-lift transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:[transform:rotateY(-5deg)] motion-reduce:transition-none"
+        className="origin-left shadow-book-lift transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:[transform:rotateY(-14deg)] motion-reduce:transition-none"
       />
       {children}
     </span>
@@ -93,7 +93,7 @@ export function BookAmbilight({ poster, className }: { poster: string | null; cl
     <span
       aria-hidden
       className={cn(
-        "pointer-events-none absolute -inset-y-16 -left-16 z-0 w-[540px] scale-110 opacity-[.36] blur-[52px] saturate-100 dark:opacity-[.24]",
+        "pointer-events-none absolute -inset-y-16 -left-16 z-0 w-[640px] scale-110 opacity-[.55] blur-[52px] saturate-100 dark:opacity-[.38]",
         "[mask-image:linear-gradient(90deg,oklch(0_0_0)_35%,transparent_88%)]",
         className
       )}
