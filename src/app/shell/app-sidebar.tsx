@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { ChevronRight } from 'lucide-react'
 import {
   BookOpen,
@@ -47,6 +48,8 @@ interface NavItem {
   href: string
   icon?: typeof Search
   badge?: string | number | null
+  /** Global demotion order: lower folds into the flyout first on short screens. */
+  fold?: number
 }
 interface NavGroup {
   label: string
@@ -66,8 +69,8 @@ function groups(page: ShellData): { dashboard: NavItem; groups: NavGroup[] } {
           { title: 'Browse', href: '/tor/browse.php', icon: Search },
           { title: 'Freeleech picks', href: '/freeleech.php', icon: Sparkles },
           { title: 'Top 10', href: '/stats/top10Tor.php', icon: TrendingUp },
-          { title: 'Requests', href: '/tor/requests2.php', icon: Gift },
-          { title: 'Book clubs', href: '/tor/bookclubs.php', icon: BookOpen },
+          { title: 'Requests', href: '/tor/requests2.php', icon: Gift, fold: 1 },
+          { title: 'Book clubs', href: '/tor/bookclubs.php', icon: BookOpen, fold: 3 },
         ],
         more: [
           { title: 'Reseed requests', href: '/tor/search.php?s=%7B%22tor%22%3A%7B%22rr%22%3A%22reseed%22%7D%2C%22searchType%22%3A%22Torrents%22%7D' },
@@ -80,8 +83,8 @@ function groups(page: ShellData): { dashboard: NavItem; groups: NavGroup[] } {
         label: 'My library',
         items: [
           { title: 'Snatched', href: '/snatch_summary.php', icon: Download, badge: page.stats.unsats || null },
-          { title: 'Bookmarks', href: '/tor/browse.php?tor[searchIn]=bookmarks&tor[sortType]=bmkaDesc&action=search', icon: Bookmark },
-          { title: 'My uploads', href: '/tor/browse.php?tor[searchIn]=mine&tor[sortType]=dateDesc&action=search', icon: Upload },
+          { title: 'Bookmarks', href: '/tor/browse.php?tor[searchIn]=bookmarks&tor[sortType]=bmkaDesc&action=search', icon: Bookmark, fold: 4 },
+          { title: 'My uploads', href: '/tor/browse.php?tor[searchIn]=mine&tor[sortType]=dateDesc&action=search', icon: Upload, fold: 2 },
         ],
         more: [
           { title: 'Upload torrent', href: '/tor/requestUpload.php' },
@@ -151,6 +154,28 @@ function groups(page: ShellData): { dashboard: NavItem; groups: NavGroup[] } {
       },
     ],
   }
+}
+
+/* Fold marked items into their flyout when the viewport cannot hold the
+ * full list; the sidebar itself should never need a scrollbar. Steps one
+ * item per render against measured overflow, with hysteresis on unfold. */
+function useFoldCount(ref: RefObject<HTMLDivElement | null>, max: number): number {
+  const [count, setCount] = useState(0)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const step = () => {
+      const short = el.scrollHeight - el.clientHeight
+      const last = el.lastElementChild?.getBoundingClientRect().bottom ?? 0
+      const slack = el.getBoundingClientRect().bottom - last
+      setCount((c) => (short > 0 && c < max ? c + 1 : short <= 0 && slack > 72 && c > 0 ? c - 1 : c))
+    }
+    step()
+    const ro = new ResizeObserver(step)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [ref, max, count])
+  return count
 }
 
 // Active row: soft fill plus accent text only.
@@ -248,6 +273,20 @@ export function AppSidebar({ page }: { page: ShellData }) {
   const nav = groups(page)
   const iconMode = state === 'collapsed'
 
+  const contentRef = useRef<HTMLDivElement>(null)
+  const maxFold = nav.groups.reduce((n, g) => n + g.items.filter((it) => it.fold != null).length, 0)
+  const foldCount = useFoldCount(contentRef, maxFold)
+  const folded = nav.groups
+    .flatMap((g) => g.items.filter((it) => it.fold != null).map((it) => ({ group: g.label, it })))
+    .sort((a, b) => (a.it.fold ?? 0) - (b.it.fold ?? 0))
+    .slice(0, foldCount)
+  const foldedSet = new Set(folded.map((f) => f.it.href))
+  const shown = nav.groups.map((g) => ({
+    ...g,
+    items: g.items.filter((it) => !foldedSet.has(it.href)),
+    more: [...folded.filter((f) => f.group === g.label).map((f) => f.it), ...g.more],
+  }))
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
@@ -270,7 +309,7 @@ export function AppSidebar({ page }: { page: ShellData }) {
         </a>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent ref={contentRef}>
         {iconMode ? (
           <IconRail dashboard={nav.dashboard} sections={nav.groups} />
         ) : (
@@ -282,7 +321,7 @@ export function AppSidebar({ page }: { page: ShellData }) {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
-            {nav.groups.map((g) => <NavSection key={g.label} group={g} />)}
+            {shown.map((g) => <NavSection key={g.label} group={g} />)}
           </>
         )}
       </SidebarContent>

@@ -293,6 +293,23 @@
   }
 }
 
+/* Short viewports: tighten the nav so the sidebar fits without scrolling. */
+@media (max-height: 860px) {
+  #mam-root [data-sidebar="content"] {
+    gap: 2px;
+  }
+  #mam-root [data-sidebar="menu-button"] {
+    height: 1.75rem;
+  }
+  #mam-root [data-sidebar="group-label"] {
+    height: 1.6rem;
+  }
+  #mam-root [data-sidebar="group"] {
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+}
+
 /* Reading measure for descriptions, posts and long-form text. */
 .prose-read {
   max-width: 65ch;
