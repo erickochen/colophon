@@ -4,6 +4,7 @@ import type { PageProps } from '@/app/router'
 import { coverUrl } from '@/lib/mam-api'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
+import { Book } from '@/components/book'
 import { BlurFade } from '@/components/ui/blur-fade'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -78,19 +79,23 @@ function extract(doc: Document): ClubsData | null {
 
 function PickCard({ p }: { p: Pick }) {
   return (
-    <a href={p.href} className="group grid content-start gap-2">
-      <div className="relative aspect-[3/4.4] overflow-hidden rounded-md border bg-muted shadow-sm transition-transform group-hover:-translate-y-0.5">
-        {p.tid ? (
-          <img src={coverUrl(p.tid)} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
-        ) : null}
-        <span className="absolute inset-0 -z-10 flex items-center justify-center p-2 text-center font-display text-[12px] leading-tight text-muted-foreground">{p.title}</span>
+    <a href={p.href} className="group grid content-end gap-2">
+      <span className="relative block transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1 motion-reduce:transition-none">
+        <Book
+          poster={p.tid ? coverUrl(p.tid) : null}
+          title={p.title}
+          author={p.author}
+          naturalRatio
+          size="shelf"
+          className="group-hover:shadow-book-lift"
+        />
         {p.format && (
-          <span className="absolute right-1.5 top-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">{p.format}</span>
+          <span className="absolute right-1 top-1 z-3 rounded bg-black/55 px-1 py-0.5 font-mono text-[8.5px] font-semibold uppercase tracking-wide text-white backdrop-blur-[2px]">{p.format}</span>
         )}
-        <span className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-gradient-to-t from-ok/90 to-transparent px-1.5 pb-1 pt-4 text-[9px] font-semibold uppercase tracking-wide text-white">
-          <Sparkles className="size-2.5" /> Freeleech
+        <span className="absolute bottom-1.5 left-1.5 z-3 flex items-center gap-1 rounded-full bg-[oklch(0.97_0.02_85/0.9)] px-1.5 py-0.5 text-[8.5px] font-semibold tracking-wide text-[oklch(0.45_0.09_150)]">
+          <Sparkles className="size-2.5" /> FL
         </span>
-      </div>
+      </span>
       <div className="grid gap-0.5">
         <span className="font-display line-clamp-2 text-[13px] font-medium leading-snug group-hover:underline">{p.title}</span>
         {p.author && <span className="line-clamp-1 text-[11px] text-muted-foreground">{p.author}</span>}

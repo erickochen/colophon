@@ -5,6 +5,7 @@ import { searchTorrents, parsePeople, coverUrl, type SearchTorrent } from '@/lib
 import { MAIN_CATS } from '@/lib/mam-facets'
 import { fmtInt } from '@/lib/format'
 import { PageHeader } from '@/app/shell/bits'
+import { Book } from '@/components/book'
 import { Badge } from '@/components/ui/badge'
 import { BlurFade } from '@/components/ui/blur-fade'
 import { Button } from '@/components/ui/button'
@@ -247,11 +248,13 @@ export function Top10View(_props: PageProps) {
                   >
                     {i + 1}
                   </span>
-                  <span className="block h-16 w-11 shrink-0 overflow-hidden rounded-[4px] border bg-muted shadow-sm">
-                    {t.poster_type && (
-                      <img src={coverUrl(t.id)} alt="" loading="lazy" className="size-full object-cover" onError={(e) => e.currentTarget.remove()} />
-                    )}
-                  </span>
+                  <Book
+                    poster={t.poster_type ? coverUrl(t.id) : null}
+                    title={t.title}
+                    author={authors[0]?.name}
+                    size="row"
+                    className="w-14 shrink-0"
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-display text-[14.5px] font-medium group-hover:underline">{t.title}</div>
                     <div className="truncate text-[12px] text-muted-foreground">

@@ -3,6 +3,7 @@ import { BookOpen, Search } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { extractFreeleech } from '@/lib/extract/freeleech'
 import { coverUrl } from '@/lib/mam-api'
+import { Book } from '@/components/book'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
 import { Badge } from '@/components/ui/badge'
@@ -62,10 +63,12 @@ export function FreeleechView(props: PageProps) {
           <CardContent className="grid gap-x-6 px-4 py-3 sm:grid-cols-2 xl:grid-cols-3">
             {g.items.map((i) => (
               <a key={i.tid} href={`/t/${i.tid}`} className="group flex gap-2.5 rounded-md px-2 py-1.5 hover:bg-accent/50">
-                <span className="relative flex h-12 w-9 shrink-0 items-center justify-center overflow-hidden rounded border bg-muted shadow-sm">
-                  <BookOpen className="size-3.5 text-muted-foreground/50" />
-                  <img src={coverUrl(Number(i.tid))} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
-                </span>
+                <Book
+                  poster={coverUrl(Number(i.tid))}
+                  title={i.title}
+                  size="mini"
+                  className="w-9 shrink-0"
+                />
                 <span className="min-w-0">
                   <span className="font-display block truncate text-[13px] font-medium group-hover:underline">{i.title}</span>
                   <span className="mt-0.5 flex flex-wrap items-center gap-1">
