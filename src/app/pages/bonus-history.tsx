@@ -28,7 +28,7 @@ interface BonusEvent {
 const chartConfig = {
   sat: { label: 'Satisfied seeding', color: 'var(--chart-3)' },
   unsat: { label: 'Unsatisfied seeding', color: 'var(--warn)' },
-  leeching: { label: 'Leeching', color: 'var(--destructive)' },
+  leeching: { label: 'Leeching', color: 'var(--user-2)' },
   bonus: { label: 'Bonus points', color: 'var(--brand)' },
   pph: { label: 'Points / hour', color: 'var(--chart-2)' },
   ratio: { label: 'Ratio', color: 'var(--chart-5)' },
@@ -45,6 +45,8 @@ function Grad({ id }: { id: string }) {
     </linearGradient>
   )
 }
+
+const compactTick = (v: number) => (Math.abs(v) >= 1000 ? `${Math.round(v / 1000)}k` : String(v))
 
 const RANGES = [
   { k: 'day', label: '24h', pts: 96 },
@@ -150,7 +152,7 @@ export function BonusHistoryView({ page }: PageProps) {
   const last = view.at(-1)
   const loading = trends === null
 
-  const xAxis = <XAxis dataKey="t" tickFormatter={tick} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={90} tickMargin={8} className="text-[11px]" />
+  const xAxis = <XAxis dataKey="t" tickFormatter={tick} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={150} tickMargin={8} className="text-[11px]" />
 
   return (
     <div className="grid gap-4">
@@ -174,35 +176,31 @@ export function BonusHistoryView({ page }: PageProps) {
           <ChartContainer config={chartConfig} className="h-60 w-full">
             <ComposedChart data={view} margin={{ left: 4, right: 8, top: 8 }}>
               <defs><Grad id="sat" /><Grad id="unsat" /><Grad id="leeching" /></defs>
-              <CartesianGrid vertical={false} stroke="var(--border)" />
               {xAxis}
-              <YAxis tickLine={false} axisLine={false} width={32} allowDecimals={false} className="text-[11px]" />
+              <YAxis tickLine={false} axisLine={false} width={32} tickCount={3} allowDecimals={false} className="text-[11px]" />
               <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
-              <Area dataKey="sat" name="Satisfied seeding" stackId="s" type="stepAfter" stroke="var(--color-sat)" fill="url(#fill-sat)" fillOpacity={1} strokeWidth={1.5} />
-              <Area dataKey="unsat" name="Unsatisfied seeding" stackId="s" type="stepAfter" stroke="var(--color-unsat)" fill="url(#fill-unsat)" fillOpacity={1} strokeWidth={1.5} />
-              <Area dataKey="leeching" name="Leeching" stackId="s" type="stepAfter" stroke="var(--color-leeching)" fill="url(#fill-leeching)" fillOpacity={1} strokeWidth={1.5} />
+              <Area dataKey="sat" name="Satisfied seeding" stackId="s" type="monotone" stroke="none" fill="var(--color-sat)" fillOpacity={0.4} />
+              <Area dataKey="unsat" name="Unsatisfied seeding" stackId="s" type="monotone" stroke="none" fill="var(--color-unsat)" fillOpacity={0.4} />
+              <Area dataKey="leeching" name="Leeching" stackId="s" type="monotone" stroke="none" fill="var(--color-leeching)" fillOpacity={0.4} />
             </ComposedChart>
           </ChartContainer>
         )}
         <Legend items={['sat', 'unsat', 'leeching']} />
       </ChartCard>
 
-      <ChartCard title="Bonus points" note="Cumulative points earned, with the rate you are earning them.">
+      <ChartCard title="Bonus points" note="Cumulative points earned in this range.">
         {loading ? <Skeleton className="h-60 w-full" /> : view.length > 0 && (
           <ChartContainer config={chartConfig} className="h-60 w-full">
             <ComposedChart data={view} margin={{ left: 4, right: 4, top: 8 }}>
-              <CartesianGrid vertical={false} stroke="var(--border)" />
               {xAxis}
               <defs><Grad id="bonus" /></defs>
-              <YAxis yAxisId="pts" tickLine={false} axisLine={false} width={44} tickFormatter={(v) => fmtInt(v)} className="text-[11px]" />
-              <YAxis yAxisId="rate" orientation="right" tickLine={false} axisLine={false} width={32} className="text-[11px]" />
+              <YAxis yAxisId="pts" tickLine={false} axisLine={false} width={44} tickCount={3} tickFormatter={compactTick} className="text-[11px]" />
               <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
-              <Area yAxisId="pts" dataKey="bonus" name="Bonus points" type="monotone" stroke="var(--color-bonus)" fill="url(#fill-bonus)" fillOpacity={1} strokeWidth={2} />
-              <Line yAxisId="rate" dataKey="pph" name="Points / hour" type="monotone" stroke="var(--color-pph)" strokeWidth={1.75} dot={false} />
+              <Area yAxisId="pts" dataKey="bonus" name="Bonus points" type="monotone" stroke="var(--color-bonus)" fill="url(#fill-bonus)" fillOpacity={1} strokeWidth={2.25} />
             </ComposedChart>
           </ChartContainer>
         )}
-        <Legend items={['bonus', 'pph']} />
+        <Legend items={['bonus']} />
       </ChartCard>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -210,12 +208,11 @@ export function BonusHistoryView({ page }: PageProps) {
           {loading ? <Skeleton className="h-44 w-full" /> : view.length > 0 && (
             <ChartContainer config={chartConfig} className="h-44 w-full">
               <ComposedChart data={view} margin={{ left: 4, right: 8, top: 8 }}>
-                <CartesianGrid vertical={false} stroke="var(--border)" />
-                {xAxis}
+                  {xAxis}
                 <defs><Grad id="ratio" /></defs>
-                <YAxis tickLine={false} axisLine={false} width={44} tickFormatter={(v) => fmtInt(v)} className="text-[11px]" />
+                <YAxis tickLine={false} axisLine={false} width={44} tickCount={3} tickFormatter={compactTick} className="text-[11px]" />
                 <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
-                <Area dataKey="ratio" name="Ratio" type="monotone" stroke="var(--color-ratio)" fill="url(#fill-ratio)" fillOpacity={1} strokeWidth={2} />
+                <Area dataKey="ratio" name="Ratio" type="monotone" stroke="var(--color-ratio)" fill="url(#fill-ratio)" fillOpacity={1} strokeWidth={2.25} />
               </ComposedChart>
             </ChartContainer>
           )}
@@ -224,12 +221,11 @@ export function BonusHistoryView({ page }: PageProps) {
           {loading ? <Skeleton className="h-44 w-full" /> : view.length > 0 && (
             <ChartContainer config={chartConfig} className="h-44 w-full">
               <ComposedChart data={view} margin={{ left: 4, right: 8, top: 8 }}>
-                <CartesianGrid vertical={false} stroke="var(--border)" />
-                {xAxis}
+                  {xAxis}
                 <defs><Grad id="wedges" /></defs>
-                <YAxis tickLine={false} axisLine={false} width={28} allowDecimals={false} className="text-[11px]" />
+                <YAxis tickLine={false} axisLine={false} width={28} tickCount={3} allowDecimals={false} className="text-[11px]" />
                 <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
-                <Area dataKey="wedges" name="FL wedges" type="stepAfter" stroke="var(--color-wedges)" fill="url(#fill-wedges)" fillOpacity={1} strokeWidth={1.75} />
+                <Area dataKey="wedges" name="FL wedges" type="monotone" stroke="var(--color-wedges)" fill="url(#fill-wedges)" fillOpacity={1} strokeWidth={1.5} />
               </ComposedChart>
             </ChartContainer>
           )}
