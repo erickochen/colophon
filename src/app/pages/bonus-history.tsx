@@ -48,6 +48,29 @@ function Grad({ id }: { id: string }) {
 
 const compactTick = (v: number) => (Math.abs(v) >= 1000 ? `${Math.round(v / 1000)}k` : String(v))
 
+/* Quarter-hour samples draw as sawtooth; average them into ~72 buckets so
+ * the curves read as trends, the way modern dashboards do. */
+function downsample(rows: Trend[], target: number): Trend[] {
+  if (rows.length <= target) return rows
+  const NUMERIC = ['leeching', 'unsat', 'sat', 'wedges', 'pph', 'bonus', 'up', 'down', 'ratio'] as const
+  const size = rows.length / target
+  const out: Trend[] = []
+  for (let i = 0; i < target; i++) {
+    const start = Math.floor(i * size)
+    const end = Math.max(Math.floor((i + 1) * size), start + 1)
+    const slice = rows.slice(start, end)
+    const mid = { ...slice[Math.floor(slice.length / 2)] }
+    for (const k of NUMERIC) {
+      let sum = 0
+      for (const r of slice) sum += r[k]
+      mid[k] = sum / slice.length
+    }
+    out.push(mid)
+  }
+  out[out.length - 1] = rows[rows.length - 1]
+  return out
+}
+
 const RANGES = [
   { k: 'day', label: '24h', pts: 96 },
   { k: 'week', label: '7d', pts: 672 },
@@ -118,7 +141,8 @@ export function BonusHistoryView({ page }: PageProps) {
   const view = useMemo(() => {
     if (!trends) return []
     const pts = RANGES.find((r) => r.k === range)!.pts
-    return pts === Infinity ? trends : trends.slice(-pts)
+    const rows = pts === Infinity ? trends : trends.slice(-pts)
+    return downsample(rows, 72)
   }, [trends, range])
 
   const stats = useMemo(() => {
