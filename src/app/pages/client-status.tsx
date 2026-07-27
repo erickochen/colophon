@@ -131,6 +131,18 @@ function ClientCard({ c, testing, onTest }: { c: Client; testing: boolean; onTes
   )
 }
 
+/* Sitewide connectability per protocol, from the shell status. */
+function ProtocolDot({ label, state }: { label: string; state: boolean | null }) {
+  const dot = state == null ? 'bg-muted-foreground/40' : state ? 'bg-ok' : 'bg-warn'
+  const word = state == null ? 'unknown' : state ? 'connectable' : 'offline'
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className={'size-1.5 rounded-full ' + dot} />
+      {label} {word}
+    </span>
+  )
+}
+
 export function ClientStatusView(props: PageProps) {
   const data = useMemo(() => extract(document), [])
   const [testing, setTesting] = useState(false)
@@ -164,7 +176,15 @@ export function ClientStatusView(props: PageProps) {
     <div className="grid gap-4">
       <PageHeader
         title="Client status"
-        sub="How the tracker sees your torrent clients right now."
+        sub={
+          <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            How the tracker sees your torrent clients right now.
+            <span className="flex items-center gap-3 text-[12.5px]">
+              <ProtocolDot label="IPv4" state={props.page.client.ipv4} />
+              <ProtocolDot label="IPv6" state={props.page.client.ipv6} />
+            </span>
+          </span>
+        }
         action={
           data.guideHref && (
             <Button asChild variant="outline" size="sm" className="h-8">
