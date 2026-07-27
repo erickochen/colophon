@@ -28,7 +28,7 @@ export default defineConfig({
         name: 'Colophon',
         namespace: 'https://www.myanonamouse.net/',
         description: 'Colophon: MyAnonaMouse reimagined as a calm, modern reading tracker',
-        version: '1.10.0',
+        version: '2.0.0',
         icon: 'https://sas.myanonamouse.net/favicon-32x32.png',
         match: [
           'https://www.myanonamouse.net/*',
