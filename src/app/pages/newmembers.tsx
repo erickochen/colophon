@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Mail, UserPlus } from 'lucide-react'
+import { Gift, Mail, UserPlus } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { FilterSearch } from '@/components/filters'
+import { useGiftedSet } from '@/lib/giftmam'
 
 interface Member { uid: string; name: string; color: string | null; href: string }
 
@@ -31,6 +32,7 @@ function extract(doc: Document): Member[] | null {
 export function NewMembersView(props: PageProps) {
   const members = useMemo(() => extract(document), [])
   const [q, setQ] = useState('')
+  const gifted = useGiftedSet()
   if (!members) return <LegacyView {...props} />
 
   const needle = q.trim().toLowerCase()
@@ -54,7 +56,13 @@ export function NewMembersView(props: PageProps) {
               </a>
               <a href={m.href} className="min-w-0 flex-1">
                 <span className="block truncate text-[13.5px] font-semibold hover:underline" style={{ color: m.color ?? undefined }}>{m.name}</span>
-                <span className="flex items-center gap-1 text-[11.5px] text-muted-foreground"><UserPlus className="size-3" /> new mouse</span>
+                {gifted.has(m.uid) ? (
+                  <span className="flex items-center gap-1 text-[11.5px] text-gifted" title="Already gifted (GiftMAM)">
+                    <Gift className="size-3" /> gifted
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-[11.5px] text-muted-foreground"><UserPlus className="size-3" /> new mouse</span>
+                )}
               </a>
               <Button asChild size="icon" variant="ghost" className="size-8 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
                 <a href={`/sendmessage.php?receiver=${m.uid}`} title={`Welcome ${m.name}`}><Mail className="size-4" /></a>

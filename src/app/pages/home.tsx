@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, Megaphone, Plus, Send, X } from 'lucide-react'
+import { ArrowRight, Gift, Megaphone, Plus, Send, X } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { extractHome, extractShouts, type HomeTorrent, type Shout } from '@/lib/extract/home'
 import { searchTorrents, parsePeople, coverUrl } from '@/lib/mam-api'
 import { mutedUserColor } from '@/lib/colors'
 import { fmtInt, relTime } from '@/lib/format'
 import { useHiddenSections, type HiddenSections } from '@/lib/hidden-sections'
+import { useGiftedSet, uidFromHref } from '@/lib/giftmam'
 import { cn } from '@/lib/utils'
 import { Book } from '@/components/book'
 import { Badge } from '@/components/ui/badge'
@@ -182,6 +183,7 @@ export function HomeView({ page }: PageProps) {
   const [draft, setDraft] = useState('')
   const shoutBoxRef = useRef<HTMLDivElement>(null)
   const sections = useHiddenSections()
+  const gifted = useGiftedSet()
 
   // Refresh the shelf via the search API: newer data AND real cover art.
   useEffect(() => {
@@ -470,11 +472,23 @@ export function HomeView({ page }: PageProps) {
               </CardAction>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-1.5">
-              {members.slice(0, 12).map((m) => (
-                <Badge key={m.href} variant="outline" asChild>
-                  <a href={m.href}>{m.name}</a>
-                </Badge>
-              ))}
+              {members.slice(0, 12).map((m) => {
+                const uid = uidFromHref(m.href)
+                const isGifted = uid != null && gifted.has(uid)
+                return (
+                  <Badge
+                    key={m.href}
+                    variant="outline"
+                    asChild
+                    className={isGifted ? 'border-gifted/40 bg-gifted/10 text-gifted' : undefined}
+                  >
+                    <a href={m.href} title={isGifted ? 'Already gifted (GiftMAM)' : undefined}>
+                      {isGifted && <Gift className="size-3" />}
+                      {m.name}
+                    </a>
+                  </Badge>
+                )
+              })}
               {!members.length && <p className="text-sm text-muted-foreground">Nobody new right now.</p>}
             </CardContent>
           </Card>

@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/toast'
+import { GiftActions } from '@/components/giftmam-actions'
 
 interface ShoutItem { id: string; numId: string; time: string | null; html: string | null; text: string; editable: boolean }
 interface ShoutGroup { key: string; user: Shout['user']; own: boolean; items: ShoutItem[] }
@@ -357,6 +358,9 @@ export function ShoutboxView(_props: PageProps) {
                                   <IconAction label="Quote" onClick={() => quoteShout(it, g.user)}><QuoteIcon className="size-3" /></IconAction>
                                   <IconAction label="Mention" onClick={() => mentionUser(g.user)}><AtSign className="size-3" /></IconAction>
                                 </>
+                              )}
+                              {g.user?.uid != null && !g.own && (
+                                <GiftActions uid={String(g.user.uid)} name={g.user.name} buttonClass="size-6" iconClass="size-3" />
                               )}
                               {it.editable && (
                                 <IconAction label="Edit" onClick={() => openEdit(it.numId)}><Pencil className="size-3" /></IconAction>

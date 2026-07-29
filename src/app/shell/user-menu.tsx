@@ -1,6 +1,7 @@
 import { ChevronsUpDown, History, LogOut, Radio, Settings2, TrendingUp, UserRound } from 'lucide-react'
 import type { ShellData } from '@/lib/extract/shell'
 import { fmtRatio } from '@/lib/format'
+import { useLiveBonus, useLiveWedges } from '@/lib/bonus'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +28,8 @@ function StatusDot({ page, className }: { page: ShellData; className?: string })
 
 export function UserMenu({ page }: { page: ShellData }) {
   const profile = page.user.uid ? `/u/${page.user.uid}` : '/preferences/index.php'
+  const bonus = useLiveBonus(page.stats.bonus)
+  const wedges = useLiveWedges(page.stats.wedges)
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -74,8 +77,8 @@ export function UserMenu({ page }: { page: ShellData }) {
             <DropdownMenuSeparator />
             <div className="grid grid-cols-3 gap-1 px-2 py-1.5 text-center">
               {[
-                ['Bonus', page.stats.bonus],
-                ['Wedges', page.stats.wedges],
+                ['Bonus', bonus],
+                ['Wedges', wedges],
                 ['Ratio', fmtRatio(page.stats.ratio)],
               ].map(([label, value]) => (
                 <div key={label as string} className="rounded-md bg-muted/60 py-1.5">

@@ -5,6 +5,7 @@ import { AppSidebar } from '@/app/shell/app-sidebar'
 import { Topbar } from '@/app/shell/topbar'
 import { CommandMenu } from '@/app/shell/command-menu'
 import { LegacyDialogHost } from '@/app/shell/legacy-dialog-host'
+import { GiftDialogHost } from '@/components/giftmam-actions'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from '@/components/ui/toast'
@@ -38,6 +39,7 @@ export function App({ page, host }: { page: ShellData; host: HTMLElement }) {
         </SidebarInset>
         <CommandMenu open={cmdOpen} onOpenChange={setCmdOpen} />
         <LegacyDialogHost host={host} />
+        <GiftDialogHost page={page} />
         <Toaster position="bottom-right" />
       </SidebarProvider>
     </TooltipProvider>

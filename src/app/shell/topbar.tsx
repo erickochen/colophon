@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Moon, Search, Sun, SunMoon } from 'lucide-react'
 import type { ShellData } from '@/lib/extract/shell'
 import { applyTheme, getTheme, isDark, type Theme } from '@/lib/theme'
+import { useLiveBonus, useLiveWedges } from '@/lib/bonus'
 import { Button } from '@/components/ui/button'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import {
@@ -89,6 +90,8 @@ function ClientChip({ client }: { client: ShellData['client'] }) {
 export function Topbar({ page, onOpenSearch }: { page: ShellData; onOpenSearch: () => void }) {
   const [theme, setTheme] = useState<Theme>(getTheme)
   const [dark, setDark] = useState(() => isDark())
+  const bonus = useLiveBonus(page.stats.bonus)
+  const wedges = useLiveWedges(page.stats.wedges)
 
   // On auto the icon has to follow the system, so track the media query.
   useEffect(() => {
@@ -118,8 +121,8 @@ export function Topbar({ page, onOpenSearch }: { page: ShellData; onOpenSearch: 
       </button>
       <div className="ml-auto flex items-center gap-4">
         <ClientChip client={page.client} />
-        <StatChip label="Bonus" value={page.stats.bonus} href="/store.php" hint="Spend bonus points in the store" />
-        <StatChip label="Wedges" value={page.stats.wedges} />
+        <StatChip label="Bonus" value={bonus} href="/store.php" hint="Spend bonus points in the store" />
+        <StatChip label="Wedges" value={wedges} />
         <StatChip
           label="Unsats"
           value={page.stats.unsats}

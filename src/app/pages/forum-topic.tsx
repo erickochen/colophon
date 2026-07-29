@@ -12,8 +12,13 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { toast } from '@/components/ui/toast'
+import { GiftActions } from '@/components/giftmam-actions'
+import { uidFromHref } from '@/lib/giftmam'
 
-function Post({ p, onQuote }: { p: TopicPost; onQuote: (p: TopicPost) => void }) {
+function Post({ p, onQuote, myUid }: { p: TopicPost; onQuote: (p: TopicPost) => void; myUid: string | null }) {
+  // Your own posts sit in the same list. Gifting yourself goes nowhere.
+  const authorUid = uidFromHref(p.author?.href ?? null)
+  const giftUid = authorUid && authorUid !== myUid ? authorUid : null
   return (
     <Card id={`post-${p.pid}`} className="gap-0 overflow-hidden py-0">
       <div className="flex items-center justify-between gap-3 bg-muted/40 px-6 py-2.5">
@@ -70,6 +75,7 @@ function Post({ p, onQuote }: { p: TopicPost; onQuote: (p: TopicPost) => void })
                 <TooltipContent>Send a PM</TooltipContent>
               </Tooltip>
             )}
+            {giftUid && <GiftActions uid={giftUid} name={p.author?.name ?? 'this member'} />}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -134,6 +140,7 @@ function useForumJump() {
 export function ForumTopicView(props: PageProps) {
   const data = useMemo(() => extractTopic(document), [])
   const jump = useForumJump()
+  const myUid = props.page.user.uid != null ? String(props.page.user.uid) : null
   const [reply, setReply] = useState('')
   const [subscribed, setSubscribed] = useState(readSubscribed)
   const [subBusy, setSubBusy] = useState(false)
@@ -217,7 +224,7 @@ export function ForumTopicView(props: PageProps) {
       </div>
       <Pager pages={data.pages} prevHref={data.prevHref} nextHref={data.nextHref} />
       <div className="grid gap-3">
-        {data.posts.map((p) => <Post key={p.pid} p={p} onQuote={quotePost} />)}
+        {data.posts.map((p) => <Post key={p.pid} p={p} onQuote={quotePost} myUid={myUid} />)}
       </div>
       <Pager pages={data.pages} prevHref={data.prevHref} nextHref={data.nextHref} />
       {data.quickReply && (

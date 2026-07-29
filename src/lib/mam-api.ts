@@ -170,6 +170,53 @@ export async function bookmarkOne(id: number, action: 'add' | 'delete'): Promise
   if (!json?.success) throw new Error(String(json?.error ?? 'bookmark failed'))
 }
 
+// Server bounds for a single bonus-point gift; MAM refuses anything outside.
+export const MIN_GIFT = 5
+export const MAX_GIFT = 1000
+// Prefill when the GiftMAM widget offers no usable default.
+export const DEFAULT_GIFT = 100
+// Same ceiling site.js puts on its own store calls.
+const BONUS_BUY_TIMEOUT_MS = 20_000
+
+/** What the store endpoint reports back. The counters feed MAM's own header
+ * updater, so keep the field names it looks for. */
+export interface BonusBuyResult {
+  success?: boolean
+  error?: unknown
+  seedbonus?: number | string
+  FLleft?: number | string
+  cheese?: number | string
+  ratio?: string
+  toName?: string
+  amount?: number | string
+}
+
+async function bonusBuy(params: URLSearchParams): Promise<BonusBuyResult> {
+  let res: Response
+  try {
+    res = await fetch(`/json/bonusBuy.php?${params}`, {
+      credentials: 'include',
+      signal: AbortSignal.timeout(BONUS_BUY_TIMEOUT_MS),
+    })
+  } catch (e) {
+    throw new Error(e instanceof Error && e.name === 'TimeoutError' ? 'MyAnonaMouse did not answer in time.' : 'Could not reach MyAnonaMouse.')
+  }
+  if (!res.ok) throw new Error(`bonusBuy failed: ${res.status}`)
+  const json = (await res.json()) as BonusBuyResult
+  if (!json?.success) throw new Error(String(json?.error ?? 'bonusBuy failed'))
+  return json
+}
+
+/** Gift bonus points to another member. */
+export function giftPoints(uid: string, amount: number): Promise<BonusBuyResult> {
+  return bonusBuy(new URLSearchParams({ spendtype: 'gift', amount: String(amount), giftTo: uid }))
+}
+
+/** Send one freeleech wedge to another member. */
+export function sendWedgeTo(uid: string): Promise<BonusBuyResult> {
+  return bonusBuy(new URLSearchParams({ spendtype: 'sendWedge', giftTo: uid }))
+}
+
 // The ids ride along in the query string, so batches stay well inside the
 // header limits of a typical nginx.
 const BOOKMARK_BATCH_MAX = 100
