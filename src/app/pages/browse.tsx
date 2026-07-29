@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlignJustify, ChevronDown, Download, Filter, LayoutGrid, Loader2, Search, X } from 'lucide-react'
+import { AlignJustify, Bookmark, BookmarkCheck, BookmarkX, ChevronDown, Download, FileArchive, Filter, LayoutGrid, Loader2, Search, Trash2, X } from 'lucide-react'
 import type { PageProps } from '@/app/router'
-import { searchTorrents, parsePeople, downloadUrl, coverUrl, torrentUrl, type SearchQuery, type SearchTorrent } from '@/lib/mam-api'
+import {
+  bookmarkCleanup, bookmarkMass, BookmarkMassError, bookmarkOne, downloadZipOf, searchTorrents, parsePeople,
+  downloadUrl, coverUrl, torrentUrl, BOOKMARKS_ZIP_URL, ZIP_BATCH_MAX,
+  type BookmarkCleanup, type SearchQuery, type SearchTorrent,
+} from '@/lib/mam-api'
 import { CONTENT_FLAGS, LANGUAGES, MAIN_CATS, SORT_OPTIONS } from '@/lib/mam-facets'
 import { fmtInt, relTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -20,6 +24,15 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from '@/components/ui/command'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel,
+  DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { toast } from '@/components/ui/toast'
 
 const SRCH_FIELDS = [
   ['title', 'Title'], ['author', 'Author'], ['narrator', 'Narrator'], ['series', 'Series'],
@@ -35,6 +48,12 @@ const SEARCH_INS = [
   ['torrents', 'Everywhere'], ['bookmarks', 'My bookmarks'], ['new', 'Flagged new'],
   ['mine', 'My uploads'], ['allReseed', 'All reseed requests'], ['myReseed', 'I could reseed'],
 ] as const
+
+// MAM's search answers can trail a bookmark write by a while, so the total is
+// worth a few retries. Past that the toast carries the outcome and a lingering
+// row clears on the next search.
+const REFRESH_POLL_MS = 1000
+const REFRESH_POLL_TRIES = 5
 
 const VIEW_KEY = 'muisstil:browse-view'
 type ViewMode = 'list' | 'grid'
@@ -161,7 +180,60 @@ function RowCover({ t }: { t: SearchTorrent }) {
   )
 }
 
-function TorrentRow({ t }: { t: SearchTorrent }) {
+/** Flip the local bookmark flag on the given rows. */
+type BookmarkSetter = (ids: number[], bookmarked: boolean) => void
+
+/** Drop rows once their bookmark is gone. Set only on the bookmarks list, where
+ * an unbookmarked row has nothing left to sit under. */
+type RowDropper = (ids: number[]) => void
+
+const ROW_ACTION =
+  'grid size-[34px] place-items-center rounded-full border outline-none transition-[opacity,color,background-color,border-color] duration-200 ' +
+  'hover:border-transparent hover:bg-primary hover:text-primary-foreground disabled:pointer-events-none ' +
+  'focus-visible:border-ring focus-visible:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/50'
+
+/** Row bookmark toggle. Stays visible once bookmarked, so the state reads
+ * without hovering the row first. */
+function RowBookmark({ t, onBookmark, onRemoved }: { t: SearchTorrent; onBookmark: BookmarkSetter; onRemoved?: RowDropper }) {
+  const [busy, setBusy] = useState(false)
+  const on = !!t.bookmarked
+
+  async function toggle() {
+    setBusy(true)
+    onBookmark([t.id], !on)
+    try {
+      await bookmarkOne(t.id, on ? 'delete' : 'add')
+      if (on) onRemoved?.([t.id])
+    } catch (e) {
+      onBookmark([t.id], on)
+      toast.error(e instanceof Error ? e.message : 'Bookmarking did not go through.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={toggle}
+          aria-label={on ? 'Remove bookmark' : 'Bookmark'}
+          className={cn(
+            ROW_ACTION,
+            on ? 'border-brand/40 text-brand' : 'border-input text-muted-foreground opacity-0 group-hover:opacity-100'
+          )}
+        >
+          {on ? <BookmarkCheck className="size-[15px]" /> : <Bookmark className="size-[15px]" />}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>{on ? 'Remove bookmark' : 'Bookmark'}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+function TorrentRow({ t, onBookmark, onRemoved }: { t: SearchTorrent; onBookmark: BookmarkSetter; onRemoved?: RowDropper }) {
   const authors = parsePeople(t.author_info)
   const narrators = parsePeople(t.narrator_info)
   const series = parsePeople(t.series_info)
@@ -210,18 +282,21 @@ function TorrentRow({ t }: { t: SearchTorrent }) {
         </span>
         <span className="font-mono text-[12px] text-muted-foreground/80">{relTime(t.added)}</span>
       </div>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <a
-            href={downloadUrl(t.id)}
-            aria-label="Download .torrent"
-            className="grid size-[34px] place-items-center rounded-full border border-input text-muted-foreground opacity-0 outline-none transition-opacity duration-200 group-hover:opacity-100 hover:border-transparent hover:bg-primary hover:text-primary-foreground focus-visible:border-ring focus-visible:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/50"
-          >
-            <Download className="size-[15px]" />
-          </a>
-        </TooltipTrigger>
-        <TooltipContent>Download .torrent</TooltipContent>
-      </Tooltip>
+      <div className="flex items-center gap-1.5">
+        <RowBookmark t={t} onBookmark={onBookmark} onRemoved={onRemoved} />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <a
+              href={downloadUrl(t.id)}
+              aria-label="Download .torrent"
+              className={cn(ROW_ACTION, 'border-input text-muted-foreground opacity-0 group-hover:opacity-100')}
+            >
+              <Download className="size-[15px]" />
+            </a>
+          </TooltipTrigger>
+          <TooltipContent>Download .torrent</TooltipContent>
+        </Tooltip>
+      </div>
     </div>
   )
 }
@@ -231,7 +306,7 @@ function GalleryItem({ t }: { t: SearchTorrent }) {
   const authorsText = authors.map((a) => a.name).join(', ')
   return (
     <a href={torrentUrl(t.id)} className="group block">
-      <span className="block text-[11px] transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1.5 motion-reduce:transition-none">
+      <span className="relative block text-[11px] transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1.5 motion-reduce:transition-none">
         <Book
           poster={t.poster_type ? coverUrl(t.id) : null}
           title={t.title}
@@ -240,10 +315,190 @@ function GalleryItem({ t }: { t: SearchTorrent }) {
           size="shelf"
           className="group-hover:shadow-book-lift"
         />
+        {!!t.bookmarked && (
+          <span
+            aria-label="Bookmarked"
+            className="absolute right-1.5 top-1.5 z-3 grid size-[22px] place-items-center rounded-full bg-card/90 text-brand shadow-sm"
+          >
+            <BookmarkCheck className="size-[13px]" />
+          </span>
+        )}
       </span>
       <span className="font-display mt-2.5 line-clamp-2 block text-[13px] font-medium leading-[1.35]">{t.title}</span>
       {authorsText && <span className="mt-0.5 line-clamp-1 block text-[11.5px] text-muted-foreground">{authorsText}</span>}
     </a>
+  )
+}
+
+function plural(n: number, word: string) {
+  return `${fmtInt(n)} ${word}${n === 1 ? '' : 's'}`
+}
+
+const MENU_GROUP_LABEL = 'text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground'
+
+const BOOKMARK_CLEANUPS = [
+  { type: 'seedCom', menu: 'Remove seeded to requirements', title: 'Seeded to requirements', question: 'Remove every bookmark you have seeded to requirements?' },
+  { type: 'seedAll', menu: 'Remove fully downloaded ones', title: 'Fully downloaded', question: 'Remove every bookmark you have downloaded in full?' },
+  { type: 'dl', menu: 'Remove any you have had active', title: 'Ever been active', question: 'Remove every bookmark you have started to download?' },
+  { type: 'all', menu: 'Remove all bookmarks', title: 'All bookmarks', question: 'Remove every bookmark you have?' },
+] as const satisfies readonly { type: BookmarkCleanup; menu: string; title: string; question: string }[]
+
+/** Sits level with the view toggle, so it stays in reach however many rows are
+ * loaded. The top group covers the rows on screen; on the bookmarks list a
+ * second group reaches the whole list, which is why they are kept apart. */
+function ResultActions({
+  items, bookmarksView, onBookmark, onRemoved, onCleaned,
+}: {
+  items: SearchTorrent[]
+  bookmarksView: boolean
+  onBookmark: BookmarkSetter
+  onRemoved?: RowDropper
+  onCleaned: (type: BookmarkCleanup, removed: number) => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [confirmShown, setConfirmShown] = useState(false)
+  const [pending, setPending] = useState<(typeof BOOKMARK_CLEANUPS)[number] | null>(null)
+  const toAdd = useMemo(() => items.filter((t) => !t.bookmarked).map((t) => t.id), [items])
+  const toRemove = useMemo(() => items.filter((t) => t.bookmarked).map((t) => t.id), [items])
+  const zipIds = useMemo(() => items.slice(0, ZIP_BATCH_MAX).map((t) => t.id), [items])
+  const capped = items.length > ZIP_BATCH_MAX
+
+  async function run(action: 'add' | 'remove', ids: number[]) {
+    setBusy(true)
+    onBookmark(ids, action === 'add')
+    try {
+      await bookmarkMass(ids, action)
+      if (action === 'remove') onRemoved?.(ids)
+      toast.success(action === 'add' ? `Bookmarked ${plural(ids.length, 'torrent')}` : `Removed ${plural(ids.length, 'bookmark')}`)
+    } catch (e) {
+      // Large runs go out in batches, so keep whatever already landed.
+      const landed = new Set(e instanceof BookmarkMassError ? e.applied : [])
+      onBookmark(ids.filter((id) => !landed.has(id)), action !== 'add')
+      if (action === 'remove' && landed.size > 0) onRemoved?.([...landed])
+      toast.error(e instanceof Error ? e.message : 'That did not go through.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function clean(type: BookmarkCleanup) {
+    setBusy(true)
+    try {
+      const changes = await bookmarkCleanup(type)
+      toast.success(changes > 0 ? `Removed ${plural(changes, 'bookmark')}` : 'Nothing matched, so nothing changed')
+      if (changes > 0) onCleaned(type, changes)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'That did not go through.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function zip() {
+    downloadZipOf(zipIds)
+    toast.success(`Zipping ${plural(zipIds.length, 'torrent')}`, { description: 'MAM builds the file, your browser takes it from there.' })
+  }
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            size="xs"
+            disabled={busy}
+            className="h-[26px] gap-1.5 rounded-[7px] px-2.5 text-[12px]"
+          >
+            {busy && <Loader2 className="size-3 animate-spin" />}
+            Actions
+            <ChevronDown className="size-3 text-muted-foreground" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-[264px]">
+          {bookmarksView && <DropdownMenuLabel className={MENU_GROUP_LABEL}>Shown here</DropdownMenuLabel>}
+          <DropdownMenuGroup>
+            <DropdownMenuItem disabled={toAdd.length === 0} onClick={() => void run('add', toAdd)}>
+              <Bookmark />
+              Bookmark all shown
+              <DropdownMenuShortcut>{fmtInt(toAdd.length)}</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={toRemove.length === 0} onClick={() => setConfirmShown(true)}>
+              <BookmarkX />
+              Remove bookmarks
+              <DropdownMenuShortcut>{fmtInt(toRemove.length)}</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={zip}>
+              <FileArchive />
+              {capped ? (
+                `Download first ${fmtInt(ZIP_BATCH_MAX)} as .zip`
+              ) : (
+                <>
+                  Download all shown as .zip
+                  <DropdownMenuShortcut>{fmtInt(zipIds.length)}</DropdownMenuShortcut>
+                </>
+              )}
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          {bookmarksView && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className={MENU_GROUP_LABEL}>Whole bookmark list</DropdownMenuLabel>
+              <DropdownMenuGroup>
+                <DropdownMenuItem asChild>
+                  <a href={BOOKMARKS_ZIP_URL}>
+                    <FileArchive />
+                    Download all as .zip
+                  </a>
+                </DropdownMenuItem>
+                {BOOKMARK_CLEANUPS.map((c) => (
+                  <DropdownMenuItem
+                    key={c.type}
+                    variant={c.type === 'all' ? 'destructive' : 'default'}
+                    onClick={() => setPending(c)}
+                  >
+                    <Trash2 />
+                    {c.menu}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <AlertDialog open={confirmShown} onOpenChange={setConfirmShown}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {plural(toRemove.length, 'bookmark')}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Every bookmarked torrent shown here drops out of your bookmarks. There is no undo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep them</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void run('remove', toRemove)}>Remove them</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={pending !== null}
+        onOpenChange={(open) => {
+          if (!open) setPending(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pending?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{pending?.question} There is no undo.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep them</AlertDialogCancel>
+            <AlertDialogAction onClick={() => pending && void clean(pending.type)}>Remove them</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
 
@@ -339,6 +594,51 @@ export function BrowseView(props: PageProps) {
     void run(next)
   }
 
+  const setBookmarked = useCallback((ids: number[], bookmarked: boolean) => {
+    const hit = new Set(ids)
+    setItems((prev) => prev.map((t) => (hit.has(t.id) ? { ...t, bookmarked: bookmarked ? t.bookmarked ?? 1 : null } : t)))
+  }, [])
+
+  // ids always come from the rendered list, so their count is what leaves it.
+  const dropRows = useCallback((ids: number[]) => {
+    const hit = new Set(ids)
+    setItems((prev) => prev.filter((t) => !hit.has(t.id)))
+    setFound((n) => Math.max(0, n - ids.length))
+  }, [])
+
+  const clearList = useCallback(() => {
+    setItems([])
+    setFound(0)
+  }, [])
+
+  /** A cleanup reports how many bookmarks it dropped, so refetch until the total
+   * agrees rather than trusting the first answer. */
+  const refreshAfterCleanup = useCallback(async (removed: number) => {
+    const target = Math.max(0, found - removed)
+    const next = { ...state, start: 0 }
+    const mine = ++seq.current
+    setLoading(true)
+    for (let attempt = 1; attempt <= REFRESH_POLL_TRIES; attempt += 1) {
+      try {
+        const res = await searchTorrents(toQuery(next))
+        if (seq.current !== mine) return
+        if (res.found <= target || attempt === REFRESH_POLL_TRIES) {
+          setState(next)
+          setItems(res.data)
+          setFound(res.found)
+          setBaseStart(0)
+          setLoading(false)
+          history.replaceState(null, '', urlFromState(next))
+          return
+        }
+      } catch {
+        setLoading(false)
+        return
+      }
+      await new Promise((r) => window.setTimeout(r, REFRESH_POLL_MS))
+    }
+  }, [found, state])
+
   const loadMore = () => {
     const next = { ...state, start: state.start + state.perpage }
     setState(next)
@@ -346,6 +646,8 @@ export function BrowseView(props: PageProps) {
   }
 
   const toggle = <T,>(list: T[], v: T): T[] => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
+
+  const dropOnUnbookmark = state.searchIn === 'bookmarks' ? dropRows : undefined
 
   const from = items.length === 0 ? 0 : baseStart + 1
   const to = Math.min(found, baseStart + items.length)
@@ -588,6 +890,15 @@ export function BrowseView(props: PageProps) {
           {loading ? 'Searching…' : `${fmtInt(found)} results · ${sortLabel}`}
         </span>
         <ViewToggle view={view} onChange={setViewMode} />
+        {!loading && items.length > 0 && (
+          <ResultActions
+            items={items}
+            bookmarksView={state.searchIn === 'bookmarks'}
+            onBookmark={setBookmarked}
+            onRemoved={dropOnUnbookmark}
+            onCleaned={(type, removed) => (type === 'all' ? clearList() : void refreshAfterCleanup(removed))}
+          />
+        )}
       </div>
 
       <Card className="overflow-hidden py-0">
@@ -633,7 +944,7 @@ export function BrowseView(props: PageProps) {
         )}
         {!loading && items.length > 0 && view === 'list' && (
           <div className="divide-y divide-border">
-            {items.map((t) => <TorrentRow key={t.id} t={t} />)}
+            {items.map((t) => <TorrentRow key={t.id} t={t} onBookmark={setBookmarked} onRemoved={dropOnUnbookmark} />)}
           </div>
         )}
         {!loading && items.length > 0 && view === 'grid' && (

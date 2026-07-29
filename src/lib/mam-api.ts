@@ -162,6 +162,85 @@ export async function loadUserData(withNotifs = true): Promise<UserLive> {
   return res.json()
 }
 
+/** Single bookmark toggle. Answers {success:true,action:"add"} and is idempotent. */
+export async function bookmarkOne(id: number, action: 'add' | 'delete'): Promise<void> {
+  const res = await fetch(`/tor/json/bookmark.php?action=${action}&tid=${id}`, { credentials: 'include' })
+  if (!res.ok) throw new Error(`bookmark failed: ${res.status}`)
+  const json = await res.json()
+  if (!json?.success) throw new Error(String(json?.error ?? 'bookmark failed'))
+}
+
+// The ids ride along in the query string, so batches stay well inside the
+// header limits of a typical nginx.
+const BOOKMARK_BATCH_MAX = 100
+
+/** Carries the ids that did land, so a caller can keep those and revert the rest. */
+export class BookmarkMassError extends Error {
+  constructor(message: string, readonly applied: number[]) {
+    super(message)
+    this.name = 'BookmarkMassError'
+  }
+}
+
+/** Bulk bookmark toggle. Answers with the affected ids for add and a change
+ * count for remove, so the error key is the only part worth reading. */
+export async function bookmarkMass(ids: number[], action: 'add' | 'remove'): Promise<void> {
+  const applied: number[] = []
+  for (let i = 0; i < ids.length; i += BOOKMARK_BATCH_MAX) {
+    const batch = ids.slice(i, i + BOOKMARK_BATCH_MAX)
+    const p = new URLSearchParams()
+    for (const id of batch) p.append(`${action}[]`, String(id))
+    const res = await fetch(`/tor/json/bookmarkMass.php?${p}`, { credentials: 'include' })
+    if (!res.ok) throw new BookmarkMassError(`bookmark failed: ${res.status}`, applied)
+    const json = await res.json()
+    if (json && !Array.isArray(json) && 'error' in json) throw new BookmarkMassError(String(json.error), applied)
+    applied.push(...batch)
+  }
+}
+
+export type BookmarkCleanup = 'seedCom' | 'seedAll' | 'dl' | 'all'
+
+/** Cleanup over the whole bookmark list rather than a set of ids. Answers
+ * {"changes":n} for a known type and plain text for anything else. */
+export async function bookmarkCleanup(type: BookmarkCleanup): Promise<number> {
+  const res = await fetch(`/tor/json/bookmarkMass.php?remove=${type}`, { credentials: 'include' })
+  if (!res.ok) throw new Error(`cleanup failed: ${res.status}`)
+  const text = await res.text()
+  let json: { changes?: number; error?: unknown }
+  try {
+    json = JSON.parse(text)
+  } catch {
+    throw new Error(text.trim() || 'cleanup failed')
+  }
+  if (json?.error != null) throw new Error(String(json.error))
+  return typeof json?.changes === 'number' ? json.changes : 0
+}
+
+/** Zip of every bookmark, whatever the current search shows. */
+export const BOOKMARKS_ZIP_URL = 'https://cdn.myanonamouse.net/DownloadZips.php?type=bookmarks'
+
+// MAM's own browse pages hold at most 100 rows, so that is the largest batch
+// the zip endpoint is known to take.
+export const ZIP_BATCH_MAX = 100
+
+/** Bulk .torrent zip. The endpoint replies with an attachment, so this needs a
+ * real form post: a fetch response cannot be handed to the browser as a file. */
+export function downloadZipOf(ids: number[]): void {
+  const form = document.createElement('form')
+  form.method = 'post'
+  form.action = 'https://cdn.myanonamouse.net/DownloadZips.php?type=batch'
+  for (const id of ids.slice(0, ZIP_BATCH_MAX)) {
+    const input = document.createElement('input')
+    input.type = 'hidden'
+    input.name = 'tids[]'
+    input.value = String(id)
+    form.append(input)
+  }
+  document.documentElement.append(form)
+  form.submit()
+  form.remove()
+}
+
 export function torrentUrl(id: number) {
   return `/t/${id}`
 }
