@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Bookmark, BookmarkCheck, ChevronDown, Copy, Download, FilePenLine, FileText, Flag, Gift, Info, MessageSquarePlus, Users } from 'lucide-react'
+import { Bookmark, BookmarkCheck, ChevronDown, Copy, Download, FilePenLine, FileText, Flag, Gift, History, Info, MessageSquarePlus, Sprout, Users } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { extractTorrent, type MediaNode, type TorrentComment, type TorrentDetail } from '@/lib/extract/torrent'
 import { LegacyView } from '@/app/pages/legacy'
@@ -28,6 +28,17 @@ function Stat({ label, value, title }: { label: string; value: string; title?: s
       <b className="block font-display text-[17px] font-semibold tabular-nums" title={title}>{value}</b>
       <span className="text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground">{label}</span>
     </div>
+  )
+}
+
+/** MAM's own label for your history with this torrent, so you can see you already have it. */
+function DlHistoryBadge({ label }: { label: string }) {
+  const seeding = /seed/i.test(label)
+  return (
+    <Badge variant="secondary" className={cn(seeding && 'bg-ok/15 text-ok')} title="Your history with this torrent, from the tracker">
+      {seeding ? <Sprout /> : <History />}
+      {label}
+    </Badge>
   )
 }
 
@@ -349,8 +360,9 @@ export function TorrentView(props: PageProps) {
             </div>
 
             <div className="min-w-0">
-              {(data.vip || data.fileTypes.length > 0 || data.categories.length > 0) && (
+              {(data.dlHistory || data.vip || data.fileTypes.length > 0 || data.categories.length > 0) && (
                 <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                  {data.dlHistory && <DlHistoryBadge label={data.dlHistory} />}
                   {data.vip && (
                     <Badge
                       className="bg-brand-soft text-accent-foreground"

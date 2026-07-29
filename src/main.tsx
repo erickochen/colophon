@@ -1,3 +1,6 @@
+// Must stay the first import: it veils the page. Every module evaluated before
+// it is time MAM's layout can paint in.
+import { revealPage } from '@/lib/boot-guard'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import css from './index.css?inline'
@@ -6,8 +9,13 @@ import { setPortalContainer } from '@/lib/portals'
 import { capturePage } from '@/lib/extract/shell'
 import { cacheWysiwygPref } from '@/components/bb-composer'
 import { preventWysiwyg } from '@/lib/wysiwyg'
+import { applyTheme, watchSystemTheme } from '@/lib/theme'
 
 const HOST_ID = 'mam-remaster-host'
+
+// Marks MAM's own body children. Anything appended later (other userscripts
+// such as GiftMAM) is left alone so its UI stays visible next to ours.
+const LEGACY_ATTR = 'data-mam-legacy'
 
 // Before MAM's scripts load: stop TinyMCE from claiming body textareas. It fires
 // right around our mount and a hijacked textarea is invisible to FormMirror.
@@ -34,42 +42,11 @@ html.mam-dark #dialog-message[slot] input[type=button],html.mam-dark #dialog-mes
 #dialog-message[slot] label{display:inline-flex;align-items:center;gap:6px}
 `.trim()
 
-// Failsafe guard: hide the page until we paint, so the legacy layout never
-// flashes. At document-start <html> may not exist yet, so install defensively.
-let guard: HTMLStyleElement | null = null
-let failsafe = 0
-
-function whenDocumentElement(fn: () => void) {
-  if (document.documentElement) {
-    fn()
-    return
-  }
-  const obs = new MutationObserver(() => {
-    if (document.documentElement) {
-      obs.disconnect()
-      fn()
-    }
-  })
-  obs.observe(document, { childList: true, subtree: true })
-}
-
-whenDocumentElement(() => {
-  guard = document.createElement('style')
-  guard.id = 'mam-remaster-guard'
-  guard.textContent = 'html{visibility:hidden!important}'
-  document.documentElement.appendChild(guard)
-  failsafe = window.setTimeout(unhide, 4000)
-})
-
-function unhide() {
-  window.clearTimeout(failsafe)
-  guard?.remove()
-}
-
 function abort() {
-  unhide()
+  revealPage()
   document.getElementById(HOST_ID)?.remove()
   document.getElementById('mam-remaster-hide')?.remove()
+  document.querySelectorAll(`[${LEGACY_ATTR}]`).forEach((el) => el.removeAttribute(LEGACY_ATTR))
 }
 
 function onReady(fn: () => void) {
@@ -132,15 +109,24 @@ function boot() {
     // Remember MAM's "Disable WYSIWYG" choice while we are on the page that has it.
     cacheWysiwygPref(document)
 
-    // Hide the legacy page (also nodes MAM scripts append later), keep our host visible.
-    // Also normalize the document: MAM's CSS sets html font-size 12px (rem
-    // leaks into shadow DOM) and adds margins/padding around body.
+    // Tag MAM's own body children, then hide those. The page keeps rendering
+    // for MAM's scripts; anything a second userscript adds later stays visible.
+    for (const el of [...document.body.children]) {
+      if (el.id !== HOST_ID) el.setAttribute(LEGACY_ATTR, '')
+    }
+
+    // Hide the legacy page, keep our host visible. Also normalize the document:
+    // MAM's CSS sets html font-size 12px (rem leaks into shadow DOM) and adds
+    // margins/padding around body.
     const hide = document.createElement('style')
     hide.id = 'mam-remaster-hide'
     hide.textContent = [
       // jQuery-UI dialogs (session manager, cookie viewer) must stay visible:
       // MAM's JS appends them to <body> and our proxied buttons open them.
-      `body > :not(#${HOST_ID}):not(.ui-dialog):not(.ui-widget-overlay){display:none!important}`,
+      `body > [${LEGACY_ATTR}]:not(.ui-dialog):not(.ui-widget-overlay){display:none!important}`,
+      // Scaffolding jQuery-UI and TinyMCE append to <body> on demand. It arrives
+      // too late to be tagged above. None of it belongs to a page we render.
+      'body > ul.ui-autocomplete,body > .ui-helper-hidden-accessible,body > #ui-datepicker-div,body > .ui-tooltip,body > .tox-silver-sink{display:none!important}',
       // MAM's CSS sets scrollbar-gutter:stable both-edges on <html>, which reserves
       // an 11px strip on both sides, the empty strip left of our sidebar. Reset it.
       'html{font-size:16px!important;margin:0!important;padding:0!important;border:0!important;width:auto!important;min-width:0!important;max-width:none!important;background:none!important;scrollbar-gutter:auto!important;height:auto!important;min-height:0!important}',
@@ -191,40 +177,9 @@ function boot() {
     )
 
     // Reveal on the next frame, after React has painted the shell.
-    requestAnimationFrame(() => requestAnimationFrame(unhide))
+    requestAnimationFrame(() => requestAnimationFrame(revealPage))
   } catch (err) {
     console.error('[MAM Remaster] boot failed, restoring original page', err)
     abort()
   }
-}
-
-export type Theme = 'light' | 'dark' | 'auto'
-
-const THEME_KEY = 'mam-remaster:theme'
-const systemDark = () => window.matchMedia('(prefers-color-scheme: dark)')
-
-/** Stored preference. Anything unrecognised counts as auto. */
-export function getTheme(): Theme {
-  const stored = localStorage.getItem(THEME_KEY)
-  return stored === 'light' || stored === 'dark' ? stored : 'auto'
-}
-
-/** Which of the two schemes a preference resolves to right now. */
-export function isDark(theme: Theme = getTheme()): boolean {
-  return theme === 'dark' || (theme === 'auto' && systemDark().matches)
-}
-
-export function applyTheme(rootEl: HTMLElement, theme?: Theme) {
-  if (theme) localStorage.setItem(THEME_KEY, theme)
-  const dark = isDark(theme ?? getTheme())
-  rootEl.classList.toggle('dark', dark)
-  // Light-DOM marker: the slotted legacy dialog body cannot see the shadow class.
-  document.documentElement.classList.toggle('mam-dark', dark)
-}
-
-/** On auto, a system switch repaints straight away instead of at the next load. */
-export function watchSystemTheme(rootEl: HTMLElement): void {
-  systemDark().addEventListener('change', () => {
-    if (getTheme() === 'auto') applyTheme(rootEl)
-  })
 }

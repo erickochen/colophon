@@ -30,6 +30,9 @@ export interface TorrentDetail {
   tiles: DetailTile[]
   downloadHref: string | null
   downloadBlocked: string | null
+  // MAM's label for your own history with this torrent ("Actively Seeding"),
+  // absent when you never had it.
+  dlHistory: string | null
   seeders: string | null
   leechers: string | null
   snatched: string | null
@@ -293,6 +296,7 @@ export function extractTorrent(doc: Document): TorrentDetail | null {
     tiles,
     downloadHref,
     downloadBlocked: tiles.find((t) => /blocked/i.test(t.label))?.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() ?? null,
+    dlHistory: txt(doc.querySelector('#DLhistory')) || null,
     seeders: txt(sls?.querySelector('.torDetInnerTop a')) ?? null,
     leechers: txt(sls?.querySelector('.torDetInnerBottomSpan a')) ?? null,
     snatched: sls?.textContent?.match(/Snatched:\s*([\d,]+)/)?.[1] ?? null,

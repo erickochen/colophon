@@ -10,6 +10,7 @@
  */
 :root,
 :host {
+  /* Both --background values are mirrored in lib/theme.ts for the boot veil. */
   --background: oklch(0.985 0.003 80);
   --foreground: oklch(0.205 0.006 56);
   --card: oklch(1 0 0);

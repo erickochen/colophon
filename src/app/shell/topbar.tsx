@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Moon, Search, Sun, SunMoon } from 'lucide-react'
 import type { ShellData } from '@/lib/extract/shell'
-import { applyTheme, getTheme, isDark, type Theme } from '@/main'
+import { applyTheme, getTheme, isDark, type Theme } from '@/lib/theme'
 import { Button } from '@/components/ui/button'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import {
