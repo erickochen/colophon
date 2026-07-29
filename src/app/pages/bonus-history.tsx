@@ -6,7 +6,7 @@ import { fmtInt, relTime } from '@/lib/format'
 import { PageHeader, UserLink } from '@/app/shell/bits'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { FilterSegments } from '@/components/filters'
 import { NumberTicker } from '@/components/ui/number-ticker'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -172,12 +172,17 @@ export function BonusHistoryView({ page }: PageProps) {
 
   return (
     <div className="grid gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <PageHeader title="Bonus history" sub="Seeding, points and ratio over time, from the tracker" />
-        <ToggleGroup type="single" variant="outline" value={range} onValueChange={(v) => v && setRange(v as RangeKey)}>
-          {RANGES.map((r) => <ToggleGroupItem key={r.k} value={r.k} className="px-3 text-[12.5px]">{r.label}</ToggleGroupItem>)}
-        </ToggleGroup>
-      </div>
+      <PageHeader
+        title="Bonus history"
+        sub="Seeding, points and ratio over time, from the tracker"
+        action={
+          <FilterSegments
+            options={RANGES.map((r) => ({ value: r.k, label: r.label }))}
+            value={range}
+            onChange={(v) => setRange(v as RangeKey)}
+          />
+        }
+      />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat icon={<Coins className="size-5" />} label="bonus points" value={loading ? '–' : <NumberTicker value={Math.round(last?.bonus ?? 0)} />} />

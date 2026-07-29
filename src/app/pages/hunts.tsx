@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
-import { Search, Sparkles } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
 import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { FilterSearch } from '@/components/filters'
 
 interface Hunt { date: string; name: string; href: string }
 
@@ -32,10 +32,7 @@ export function HuntsView(props: PageProps) {
   return (
     <div className="grid gap-5">
       <PageHeader title="Treasure hunts" sub={`${hunts.length} hunts have run across the library.`} />
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a hunt…" className="pl-9" />
-      </div>
+      <FilterSearch value={q} onChange={setQ} placeholder="Find a hunt…" className="max-w-md" />
       <Card className="gap-0 py-0">
         <CardContent className="grid px-0 py-1">
           {shown.map((h) => (

@@ -4,16 +4,17 @@ import type { PageProps } from '@/app/router'
 import { MAIN_CATS, LANGUAGES, CONTENT_FLAGS } from '@/lib/mam-facets'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { toast } from '@/components/ui/toast'
+import {
+  FacetOptions, FacetSection, FilterFacet, FilterHint, FilterRow, FilterSearch, FilterSegments, FilterSelect,
+  toggleValue,
+} from '@/components/filters'
 
 const SRCH_FIELDS = [
   ['title', 'Title'], ['author', 'Author'], ['narrator', 'Narrator'], ['series', 'Series'],
@@ -49,7 +50,6 @@ export function RssView(props: PageProps) {
   )
   if (!form) return <LegacyView {...props} />
 
-  const toggle = <T,>(list: T[], v: T): T[] => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
   const advCount = Object.values(adv).filter((v) => v && v.trim()).length
 
   function save() {
@@ -91,101 +91,71 @@ export function RssView(props: PageProps) {
         <CardContent className="grid gap-4">
           <div className="grid gap-1.5">
             <Label className="text-[13px]">Search text (optional)</Label>
-            <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="e.g. an author or series you follow" className="max-w-md" />
-            <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              <span className="pr-1 text-[12px] text-muted-foreground">in</span>
-              {SRCH_FIELDS.map(([key, label]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setFields(toggle(fields, key))}
-                  className={
-                    'rounded-md border px-2.5 py-1 text-[12px] font-medium transition-colors ' +
-                    (fields.includes(key) ? 'border-transparent bg-brand-soft text-accent-foreground' : 'text-muted-foreground hover:bg-accent/50')
-                  }
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <FilterSearch value={text} onChange={setText} placeholder="e.g. an author or series you follow" className="max-w-md" />
+            <FilterRow className="gap-1.5 pt-1">
+              <FilterHint>in</FilterHint>
+              <FilterSegments
+                type="multiple"
+                options={SRCH_FIELDS.map(([value, label]) => ({ value, label }))}
+                value={fields}
+                onChange={setFields}
+              />
+            </FilterRow>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 text-[12.5px]">
-                  Categories {cats.length > 0 && <Badge variant="secondary" className="ml-1 h-4 min-w-4 rounded-full px-1 text-[10px]">{cats.length}</Badge>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="max-h-96 w-96 overflow-y-auto p-3">
-                {MAIN_CATS.map((m) => (
-                  <div key={m.id} className="pb-2">
-                    <div className="py-1 text-[11.5px] font-semibold text-muted-foreground">{m.name}</div>
-                    <div className="grid grid-cols-2">
+          <FilterRow>
+            <FilterFacet label="Categories" count={cats.length} width="w-96">
+              <FacetSection title="Categories">
+                <div className="grid max-h-80 grid-cols-2 gap-x-3 overflow-y-auto">
+                  {MAIN_CATS.map((m) => (
+                    <div key={m.id} className="pb-1.5">
+                      <div className="py-1 text-[11.5px] font-medium text-muted-foreground">{m.name}</div>
                       {m.cats.map((c) => (
                         <Label key={c.id} className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
-                          <Checkbox checked={cats.includes(c.id)} onCheckedChange={() => setCats(toggle(cats, c.id))} />
+                          <Checkbox checked={cats.includes(c.id)} onCheckedChange={() => setCats(toggleValue(cats, c.id))} />
                           {c.name}
                         </Label>
                       ))}
                     </div>
-                  </div>
-                ))}
-              </PopoverContent>
-            </Popover>
+                  ))}
+                </div>
+              </FacetSection>
+            </FilterFacet>
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 text-[12.5px]">
-                  Languages {langs.length > 0 && <Badge variant="secondary" className="ml-1 h-4 min-w-4 rounded-full px-1 text-[10px]">{langs.length}</Badge>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-64 p-0">
-                <Command>
-                  <CommandInput placeholder="Filter languages…" />
-                  <CommandList className="max-h-64">
-                    <CommandEmpty>No language found.</CommandEmpty>
-                    <CommandGroup>
-                      {LANGUAGES.map((l) => (
-                        <CommandItem key={l.id} value={l.name} onSelect={() => setLangs(toggle(langs, l.id))}>
-                          <Checkbox checked={langs.includes(l.id)} className="pointer-events-none" /> {l.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+            <FilterFacet label="Languages" count={langs.length} width="w-64">
+              <FacetOptions
+                options={LANGUAGES.map((l) => ({ value: String(l.id), label: l.name }))}
+                selected={langs.map(String)}
+                onToggle={(v) => setLangs(toggleValue(langs, Number(v)))}
+                onClear={() => setLangs([])}
+                searchable
+                searchPlaceholder="Filter languages…"
+                emptyText="No language found."
+              />
+            </FilterFacet>
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 text-[12.5px]">
-                  Flags {flags.length > 0 && <Badge variant="secondary" className="ml-1 h-4 min-w-4 rounded-full px-1 text-[10px]">{flags.length}</Badge>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-72 p-3">
+            <FilterFacet label="Flags" count={flags.length} width="w-72">
+              <FacetSection
+                title="Content flags"
+                note={flagsMode === 0 ? 'torrents containing these stay out' : 'only torrents containing these'}
+              >
                 <button
                   type="button"
-                  className="mb-2 w-full rounded-md bg-muted/60 px-2.5 py-1.5 text-left text-[12px] text-muted-foreground hover:bg-muted"
+                  className="mb-1.5 text-[12px] text-brand hover:underline"
                   onClick={() => setFlagsMode(flagsMode === 0 ? 1 : 0)}
                 >
-                  {flagsMode === 0 ? 'Hiding torrents that contain' : 'Showing only torrents that contain'} · switch
+                  switch to “{flagsMode === 0 ? 'show only' : 'hide'}”
                 </button>
                 {CONTENT_FLAGS.map((fl) => (
                   <Label key={fl.bit} className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
-                    <Checkbox checked={flags.includes(fl.bit)} onCheckedChange={() => setFlags(toggle(flags, fl.bit))} /> {fl.name}
+                    <Checkbox checked={flags.includes(fl.bit)} onCheckedChange={() => setFlags(toggleValue(flags, fl.bit))} /> {fl.name}
                   </Label>
                 ))}
-              </PopoverContent>
-            </Popover>
+              </FacetSection>
+            </FilterFacet>
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 text-[12.5px]">
-                  Advanced {advCount > 0 && <Badge variant="secondary" className="ml-1 h-4 min-w-4 rounded-full px-1 text-[10px]">{advCount}</Badge>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="grid w-80 gap-3 p-3">
+            <FilterFacet label="Advanced" count={advCount} width="w-80">
+              <div className="grid gap-3 p-3">
                 <div className="grid gap-1.5">
                   <Label className="text-[12px] text-muted-foreground">Uploaded between</Label>
                   <div className="flex items-center gap-2">
@@ -216,34 +186,29 @@ export function RssView(props: PageProps) {
                     </div>
                   </div>
                 ))}
-              </PopoverContent>
-            </Popover>
+              </div>
+            </FilterFacet>
 
             {searchInOpts.length > 0 && (
-              <Select value={searchIn} onValueChange={setSearchIn}>
-                <SelectTrigger size="sm" className="h-8 w-auto text-[12.5px]"><SelectValue /></SelectTrigger>
-                <SelectContent>{searchInOpts.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
-              </Select>
+              <FilterSelect value={searchIn} onChange={setSearchIn} options={searchInOpts} ariaLabel="What the feed covers" />
             )}
-
-            <Select value={sort} onValueChange={setSort}>
-              <SelectTrigger size="sm" className="h-8 w-auto text-[12.5px]"><SelectValue /></SelectTrigger>
-              <SelectContent>{sortOpts.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
-            </Select>
-
-            <Select value={linkType} onValueChange={setLinkType}>
-              <SelectTrigger size="sm" className="h-8 w-auto text-[12.5px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="dl">Direct download links</SelectItem>
-                <SelectItem value="web">Web page links</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={perpage} onValueChange={setPerpage}>
-              <SelectTrigger size="sm" className="h-8 w-auto text-[12.5px]"><SelectValue /></SelectTrigger>
-              <SelectContent>{['10', '20', '50', '100'].map((n) => <SelectItem key={n} value={n}>{n} items</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
+            <FilterSelect value={sort} onChange={setSort} options={sortOpts} ariaLabel="Sort order" />
+            <FilterSelect
+              value={linkType}
+              onChange={setLinkType}
+              options={[
+                { value: 'dl', label: 'Direct download links' },
+                { value: 'web', label: 'Web page links' },
+              ]}
+              ariaLabel="Link type"
+            />
+            <FilterSelect
+              value={perpage}
+              onChange={setPerpage}
+              options={['10', '20', '50', '100'].map((n) => ({ value: n, label: `${n} items` }))}
+              ariaLabel="Items per feed"
+            />
+          </FilterRow>
 
           <div className="flex justify-end pt-3">
             <Button onClick={save}><Rss /> Save feed</Button>

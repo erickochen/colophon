@@ -7,7 +7,7 @@ import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
 import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { FilterSearch } from '@/components/filters'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface Guide { title: string; href: string }
@@ -77,10 +77,7 @@ export function GuidesView(props: PageProps) {
     <div className="grid gap-5">
       <PageHeader title="Guides" sub={`${total} guides across ${cats.length} topics, written by the community`} />
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a guide…" className="h-10 pl-9" />
-      </div>
+      <FilterSearch value={q} onChange={setQ} placeholder="Find a guide…" className="max-w-md" />
 
       {needle ? (
         <div className="grid max-w-3xl gap-6">

@@ -15,6 +15,8 @@ const SITE = process.env.SITE_URL?.replace(/\/$/, '') ?? ''
 const BASE = process.env.BASE_PATH?.replace(/^\/?|\/$/g, '') ?? ''
 const FILE = 'colophon.user.js'
 const META = 'colophon.meta.js'
+// Release notes and feedback live in one forum topic.
+const TOPIC_URL = 'https://www.myanonamouse.net/f/t/92105'
 const LOCAL_FILE = pathToFileURL(path.resolve(__dirname, 'dist', FILE)).href
 const hosted = (name: string) => (SITE ? [SITE, BASE, name].filter(Boolean).join('/') : undefined)
 
@@ -29,6 +31,9 @@ export default defineConfig({
         namespace: 'https://www.myanonamouse.net/',
         description: 'Colophon: MyAnonaMouse reimagined as a calm, modern reading tracker',
         version: '2.2.0',
+        author: 'soundorom',
+        homepageURL: TOPIC_URL,
+        supportURL: TOPIC_URL,
         icon: 'https://sas.myanonamouse.net/favicon-32x32.png',
         match: [
           'https://www.myanonamouse.net/*',

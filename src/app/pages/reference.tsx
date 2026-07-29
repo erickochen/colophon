@@ -6,7 +6,7 @@ import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { FilterSearch } from '@/components/filters'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/toast'
@@ -122,10 +122,7 @@ export function TagsView(props: PageProps) {
     <div className="grid gap-5">
       <PageHeader title="BB codes" sub={`${tags.length} tags you can use in posts, comments and messages`} />
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a tag, like bold or quote…" className="pl-9" />
-      </div>
+      <FilterSearch value={q} onChange={setQ} placeholder="Search a tag, like bold or quote…" className="max-w-md" />
 
       {shown.length > 0 ? (
         // Columns, not a grid: cards differ in height and a grid leaves holes.
@@ -181,10 +178,7 @@ export function SmiliesView(props: PageProps) {
     <div className="grid gap-5">
       <PageHeader title="Smilies" sub={`${smilies.length} smilies. Click one to copy its code.`} />
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a smilie, like wave or party…" className="pl-9" />
-      </div>
+      <FilterSearch value={q} onChange={setQ} placeholder="Search a smilie, like wave or party…" className="max-w-md" />
       {needle && <p className="-mt-2 text-[12.5px] text-muted-foreground">{shown.length} of {smilies.length} match</p>}
 
       {shown.length > 0 ? (

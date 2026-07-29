@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlignJustify, Bookmark, BookmarkCheck, BookmarkX, ChevronDown, Download, FileArchive, Filter, LayoutGrid, Loader2, Search, Trash2, X } from 'lucide-react'
+import { AlignJustify, Bookmark, BookmarkCheck, BookmarkX, ChevronDown, Download, FileArchive, Filter, LayoutGrid, Loader2, Search, Trash2 } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import {
   bookmarkCleanup, bookmarkMass, BookmarkMassError, bookmarkOne, downloadZipOf, searchTorrents, parsePeople,
@@ -12,18 +12,16 @@ import { cn } from '@/lib/utils'
 import { Book } from '@/components/book'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
-  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
-} from '@/components/ui/command'
+  FacetOptions, FacetSection, FilterBar, FilterFacet, FilterHint, FilterRow, FilterSearch,
+  FilterSegments, FilterSelect, FilterSummary, toggleValue,
+} from '@/components/filters'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -198,7 +196,7 @@ function RowBookmark({ t, onBookmark, onRemoved }: { t: SearchTorrent; onBookmar
   const [busy, setBusy] = useState(false)
   const on = !!t.bookmarked
 
-  async function toggle() {
+  async function toggleBookmark() {
     setBusy(true)
     onBookmark([t.id], !on)
     try {
@@ -218,7 +216,7 @@ function RowBookmark({ t, onBookmark, onRemoved }: { t: SearchTorrent; onBookmar
         <button
           type="button"
           disabled={busy}
-          onClick={toggle}
+          onClick={toggleBookmark}
           aria-label={on ? 'Remove bookmark' : 'Bookmark'}
           className={cn(
             ROW_ACTION,
@@ -645,7 +643,6 @@ export function BrowseView(props: PageProps) {
     void run(next, { append: true })
   }
 
-  const toggle = <T,>(list: T[], v: T): T[] => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
 
   const dropOnUnbookmark = state.searchIn === 'bookmarks' ? dropRows : undefined
 
@@ -664,11 +661,11 @@ export function BrowseView(props: PageProps) {
   }, [state.mainCat, state.cat, state.langs])
 
   const chips: { key: string; label: string; onRemove: () => void }[] = [
-    ...state.cat.map((c) => ({ key: `c${c}`, label: catName(c), onRemove: () => apply({ cat: toggle(state.cat, c) }) })),
+    ...state.cat.map((c) => ({ key: `c${c}`, label: catName(c), onRemove: () => apply({ cat: toggleValue(state.cat, c) }) })),
     ...state.langs.map((l) => ({
       key: `l${l}`,
       label: LANGUAGES.find((x) => x.id === l)?.name ?? String(l),
-      onRemove: () => apply({ langs: toggle(state.langs, l) }),
+      onRemove: () => apply({ langs: toggleValue(state.langs, l) }),
     })),
     ...(state.searchType !== 'all'
       ? [{
@@ -695,200 +692,118 @@ export function BrowseView(props: PageProps) {
         </p>
       </div>
 
-      <Card>
-        <CardContent className="grid gap-3 pt-0">
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              apply({})
-            }}
-          >
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={state.text}
-                onChange={(e) => setState((s) => ({ ...s, text: e.target.value }))}
-                placeholder="Search titles, authors, narrators, series…"
-                className="h-10 pl-9"
-              />
-            </div>
-            <Button type="submit" className="h-10 px-5">Search</Button>
-          </form>
+      <FilterBar>
+        <FilterSearch
+          value={state.text}
+          onChange={(v) => setState((s) => ({ ...s, text: v }))}
+          onSubmit={() => apply({})}
+          placeholder="Search titles, authors, narrators, series…"
+        />
 
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="pr-1 text-[12px] text-muted-foreground">in</span>
-            {SRCH_FIELDS.map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => apply({ srchIn: toggle(state.srchIn, key) })}
-                className={
-                  'rounded-md border px-2.5 py-1 text-[12px] font-medium transition-colors ' +
-                  (state.srchIn.includes(key)
-                    ? 'border-transparent bg-brand-soft text-accent-foreground'
-                    : 'text-muted-foreground hover:bg-accent/50')
-                }
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+        <FilterRow className="gap-1.5">
+          <FilterHint>in</FilterHint>
+          <FilterSegments
+            type="multiple"
+            options={SRCH_FIELDS.map(([value, label]) => ({ value, label }))}
+            value={state.srchIn}
+            onChange={(v) => apply({ srchIn: v as SrchField[] })}
+          />
+        </FilterRow>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {MAIN_CATS.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => apply({ mainCat: toggle(state.mainCat, m.id), cat: [] })}
-                className={
-                  'rounded-md border px-3 py-1.5 text-[12.5px] font-medium transition-colors ' +
-                  (state.mainCat.includes(m.id)
-                    ? 'border-brand/40 bg-brand-soft text-accent-foreground'
-                    : 'text-muted-foreground hover:bg-accent/50')
-                }
-              >
-                {m.name}
-              </button>
-            ))}
+        <FilterRow>
+          <FilterSegments
+            type="multiple"
+            options={MAIN_CATS.map((m) => ({ value: String(m.id), label: m.name }))}
+            value={state.mainCat.map(String)}
+            onChange={(v) => apply({ mainCat: v.map(Number), cat: [] })}
+          />
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-1.5 text-[12.5px]">
-                  <Filter className="size-3.5" />
-                  Filters
-                  {activeFilters > 0 && <Badge className="ml-0.5 h-4 min-w-4 rounded-full px-1 text-[10px]" variant="secondary">{activeFilters}</Badge>}
-                  <ChevronDown className="size-3.5 text-muted-foreground" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-[420px] p-0">
-                <div className="grid max-h-[440px] grid-cols-2 overflow-y-auto p-3">
-                  <div className="col-span-2 pb-2">
-                    <div className="pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Categories</div>
-                    <div className="grid max-h-48 grid-cols-2 gap-x-3 overflow-y-auto pr-1">
-                      {(state.mainCat.length ? MAIN_CATS.filter((m) => state.mainCat.includes(m.id)) : MAIN_CATS).map((m) => (
-                        <div key={m.id} className="pb-1.5">
-                          <div className="py-1 text-[11.5px] font-medium text-muted-foreground">{m.name}</div>
-                          {m.cats.map((c) => (
-                            <Label key={c.id} className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
-                              <Checkbox
-                                checked={state.cat.includes(c.id)}
-                                onCheckedChange={() => apply({ cat: toggle(state.cat, c.id) })}
-                              />
-                              {c.name}
-                            </Label>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="col-span-2 pt-2">
-                    <div className="pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Content flags · {state.flagsMode === 0 ? 'hide torrents containing' : 'show only torrents containing'}
-                    </div>
-                    <button
-                      type="button"
-                      className="mb-1.5 text-[12px] text-brand underline"
-                      onClick={() => apply({ flagsMode: state.flagsMode === 0 ? 1 : 0 })}
-                    >
-                      switch to “{state.flagsMode === 0 ? 'show only' : 'hide'}”
-                    </button>
-                    <div className="grid grid-cols-2">
-                      {CONTENT_FLAGS.map((f) => (
-                        <Label key={f.bit} className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
+          <FilterFacet label="Filters" count={activeFilters} width="w-[420px]" icon={<Filter className="size-3.5" />}>
+            <div className="max-h-[440px] overflow-y-auto">
+              <FacetSection title="Categories">
+                <div className="grid max-h-52 grid-cols-2 gap-x-3 overflow-y-auto">
+                  {(state.mainCat.length ? MAIN_CATS.filter((m) => state.mainCat.includes(m.id)) : MAIN_CATS).map((m) => (
+                    <div key={m.id} className="pb-1.5">
+                      <div className="py-1 text-[11.5px] font-medium text-muted-foreground">{m.name}</div>
+                      {m.cats.map((c) => (
+                        <Label key={c.id} className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
                           <Checkbox
-                            checked={state.flags.includes(f.bit)}
-                            onCheckedChange={() => apply({ flags: toggle(state.flags, f.bit) })}
+                            checked={state.cat.includes(c.id)}
+                            onCheckedChange={() => apply({ cat: toggleValue(state.cat, c.id) })}
                           />
-                          {f.name}
+                          {c.name}
                         </Label>
                       ))}
                     </div>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-1.5 text-[12.5px]">
-                  Languages
-                  {state.langs.length > 0 && <Badge className="ml-0.5 h-4 min-w-4 rounded-full px-1 text-[10px]" variant="secondary">{state.langs.length}</Badge>}
-                  <ChevronDown className="size-3.5 text-muted-foreground" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-64 p-0">
-                <Command>
-                  <CommandInput placeholder="Filter languages…" />
-                  <CommandList className="max-h-64">
-                    <CommandEmpty>No language found.</CommandEmpty>
-                    <CommandGroup>
-                      {LANGUAGES.map((l) => (
-                        <CommandItem key={l.id} value={l.name} onSelect={() => apply({ langs: toggle(state.langs, l.id) })}>
-                          <Checkbox checked={state.langs.includes(l.id)} className="pointer-events-none" />
-                          {l.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-
-            <Select value={state.searchType} onValueChange={(v) => apply({ searchType: v as BrowseState['searchType'] })}>
-              <SelectTrigger size="sm" className="h-8 w-auto text-[12.5px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {SEARCH_TYPES.map(([value, label]) => (
-                  <SelectItem key={value} value={value}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={state.searchIn} onValueChange={(v) => apply({ searchIn: v as BrowseState['searchIn'] })}>
-              <SelectTrigger size="sm" className="h-8 w-auto text-[12.5px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {SEARCH_INS.map(([value, label]) => (
-                  <SelectItem key={value} value={value}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <div className="ml-auto">
-              <Select value={state.sort} onValueChange={(v) => apply({ sort: v })}>
-                <SelectTrigger size="sm" className="h-8 w-auto text-[12.5px]"><SelectValue /></SelectTrigger>
-                <SelectContent align="end">
-                  {SORT_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              </FacetSection>
+              <FacetSection
+                title="Content flags"
+                note={state.flagsMode === 0 ? 'torrents containing these stay out' : 'only torrents containing these'}
+              >
+                <button
+                  type="button"
+                  className="mb-1.5 text-[12px] text-brand hover:underline"
+                  onClick={() => apply({ flagsMode: state.flagsMode === 0 ? 1 : 0 })}
+                >
+                  switch to “{state.flagsMode === 0 ? 'show only' : 'hide'}”
+                </button>
+                <div className="grid grid-cols-2">
+                  {CONTENT_FLAGS.map((f) => (
+                    <Label key={f.bit} className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
+                      <Checkbox
+                        checked={state.flags.includes(f.bit)}
+                        onCheckedChange={() => apply({ flags: toggleValue(state.flags, f.bit) })}
+                      />
+                      {f.name}
+                    </Label>
+                  ))}
+                </div>
+              </FacetSection>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </FilterFacet>
 
-      <div className="flex flex-wrap items-center gap-2 px-1">
-        {chips.map((c) => (
-          <span key={c.key} className="inline-flex items-center gap-1.5 rounded-full border border-input bg-card py-[3px] pl-2.5 pr-2 text-[12px] text-muted-foreground">
-            {c.label}
-            <button
-              type="button"
-              aria-label={`Remove ${c.label}`}
-              onClick={c.onRemove}
-              className="text-muted-foreground/70 transition-colors hover:text-foreground"
-            >
-              <X className="size-3" />
-            </button>
-          </span>
-        ))}
-        {chips.length > 0 && (
-          <button type="button" onClick={() => apply({ cat: [], langs: [], searchType: 'all', searchIn: 'torrents' })} className="text-[12px] text-brand hover:underline">
-            Clear all
-          </button>
-        )}
-        <span className="ml-auto text-[12px] tabular-nums text-muted-foreground">
-          {loading ? 'Searching…' : `${fmtInt(found)} results · ${sortLabel}`}
-        </span>
+          <FilterFacet label="Languages" count={state.langs.length} width="w-64">
+            <FacetOptions
+              options={LANGUAGES.map((l) => ({ value: String(l.id), label: l.name }))}
+              selected={state.langs.map(String)}
+              onToggle={(v) => apply({ langs: toggleValue(state.langs, Number(v)) })}
+              onClear={() => apply({ langs: [] })}
+              searchable
+              searchPlaceholder="Filter languages…"
+              emptyText="No language found."
+            />
+          </FilterFacet>
+
+          <FilterSelect
+            value={state.searchType}
+            onChange={(v) => apply({ searchType: v as BrowseState['searchType'] })}
+            options={SEARCH_TYPES.map(([value, label]) => ({ value, label }))}
+            ariaLabel="Torrent state"
+          />
+          <FilterSelect
+            value={state.searchIn}
+            onChange={(v) => apply({ searchIn: v as BrowseState['searchIn'] })}
+            options={SEARCH_INS.map(([value, label]) => ({ value, label }))}
+            ariaLabel="Where to search"
+          />
+          <FilterSelect
+            value={state.sort}
+            onChange={(v) => apply({ sort: v })}
+            options={SORT_OPTIONS}
+            align="end"
+            ariaLabel="Sort order"
+            className="ml-auto"
+          />
+        </FilterRow>
+      </FilterBar>
+
+      <FilterSummary
+        chips={chips}
+        onClearAll={() => apply({ cat: [], langs: [], searchType: 'all', searchIn: 'torrents' })}
+        meta={loading ? 'Searching…' : `${fmtInt(found)} results · ${sortLabel}`}
+      >
         <ViewToggle view={view} onChange={setViewMode} />
         {!loading && items.length > 0 && (
           <ResultActions
@@ -899,7 +814,7 @@ export function BrowseView(props: PageProps) {
             onCleaned={(type, removed) => (type === 'all' ? clearList() : void refreshAfterCleanup(removed))}
           />
         )}
-      </div>
+      </FilterSummary>
 
       <Card className="overflow-hidden py-0">
         {loading && view === 'list' && (
@@ -972,14 +887,13 @@ export function BrowseView(props: PageProps) {
         <span className="text-[12.5px] tabular-nums text-muted-foreground">
           {loading ? <Loader2 className="size-3.5 animate-spin" /> : `Showing ${fmtInt(from)}–${fmtInt(to)} of ${fmtInt(found)}`}
         </span>
-        <Select value={String(state.perpage)} onValueChange={(v) => apply({ perpage: Number(v) })}>
-          <SelectTrigger size="sm" className="h-8 w-auto text-[12.5px]"><SelectValue /></SelectTrigger>
-          <SelectContent align="end">
-            {[25, 50, 100].map((n) => (
-              <SelectItem key={n} value={String(n)}>{n} / page</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <FilterSelect
+          value={String(state.perpage)}
+          onChange={(v) => apply({ perpage: Number(v) })}
+          options={[25, 50, 100].map((n) => ({ value: String(n), label: `${n} / page` }))}
+          align="end"
+          ariaLabel="Results per page"
+        />
       </div>
     </div>
   )

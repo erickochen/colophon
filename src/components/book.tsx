@@ -53,15 +53,23 @@ export function Book({ poster, title, author, naturalRatio = false, plain = fals
       )}
     >
       {showFallback ? (
+        /* Clipped, so the frame holds its 3/4.5 ratio at any title length. */
         <span
-          className="flex aspect-[3/4.5] w-full flex-col justify-between rounded-[inherit] p-[9%_8%_8%_14%] text-[oklch(0.97_0.005_85)]"
+          className="flex aspect-[3/4.5] w-full flex-col justify-between overflow-hidden rounded-[inherit] p-[9%_8%_8%_14%] text-[oklch(0.97_0.005_85)]"
           style={{
             background: `linear-gradient(160deg, oklch(0.46 0.08 ${bookSpineHue(title)}), oklch(0.3 0.06 ${(bookSpineHue(title) + 12) % 360}))`,
           }}
         >
-          <span className="font-display text-[0.95em] leading-tight text-balance">{title}</span>
-          {author && (
-            <span className="text-[0.7em] tracking-wide uppercase opacity-75">{author}</span>
+          {size === "mini" ? (
+            /* Too narrow to read a title, so it gets a blind-stamped band. */
+            <span aria-hidden className="mt-[18%] block h-px w-full bg-current opacity-30 shadow-[0_4px_0_-1px_currentColor]" />
+          ) : (
+            <>
+              <span className="font-display line-clamp-4 text-[0.95em] leading-tight text-balance">{title}</span>
+              {author && (
+                <span className="line-clamp-2 text-[0.7em] tracking-wide uppercase opacity-75">{author}</span>
+              )}
+            </>
           )}
         </span>
       ) : (

@@ -5,12 +5,10 @@ import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
 import { relTime } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
-import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
+import { FilterBar, FilterHint, FilterRow, FilterSearch, FilterSelect } from '@/components/filters'
 
 const clean = (s: string | null | undefined) => s?.replace(/\s+/g, ' ').trim() ?? ''
 
@@ -90,23 +88,18 @@ export function UsersView(props: PageProps) {
     <div className="mx-auto grid w-full max-w-4xl gap-5">
       <PageHeader title="Find members" sub="Search the membership by name, class or country." />
 
-      <Card>
-        <CardContent className="py-5">
-          <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); run() }}>
-            <div className="relative min-w-56 flex-1">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Member name…" className="h-10 pl-9" autoFocus />
-            </div>
-            <Select value={cls} onValueChange={setCls}>
-              <SelectTrigger className="h-10 w-44 text-[13px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {classes.map((c) => <SelectItem key={c.value} value={c.value || '-'}>{c.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Button type="submit" size="lg" className="h-10" disabled={loading}>Search</Button>
-          </form>
-        </CardContent>
-      </Card>
+      <FilterBar>
+        <FilterSearch value={text} onChange={setText} onSubmit={run} placeholder="Member name…" autoFocus />
+        <FilterRow>
+          <FilterHint>class</FilterHint>
+          <FilterSelect
+            value={cls}
+            onChange={setCls}
+            options={classes.map((c) => ({ value: c.value || '-', label: c.label }))}
+            ariaLabel="Member class"
+          />
+        </FilterRow>
+      </FilterBar>
 
       {loading && (
         <div className="flex items-center justify-center gap-2 py-12 text-[13px] text-muted-foreground"><Spinner className="size-4" /> Searching…</div>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, Gift, Search } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Gift } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { parsePeople } from '@/lib/mam-api'
 import { fmtInt } from '@/lib/format'
@@ -7,11 +7,9 @@ import { PageHeader } from '@/app/shell/bits'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { FilterBar, FilterRow, FilterSearch, FilterSegments, FilterSelect } from '@/components/filters'
 
 interface RequestRow {
   id: number
@@ -112,31 +110,20 @@ export function RequestsView(_props: PageProps) {
         }
       />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <form
-          className="relative min-w-56 flex-1"
-          onSubmit={(e) => {
-            e.preventDefault()
-            apply({})
-          }}
-        >
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Search requests…" className="pl-9" />
-        </form>
-        <Tabs value={viewType} onValueChange={(v) => apply({ viewType: v })}>
-          <TabsList>
-            {VIEW_TYPES.map((v) => (
-              <TabsTrigger key={v.value} value={v.value}>{v.label}</TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-        <Select value={sort} onValueChange={(v) => apply({ sort: v })}>
-          <SelectTrigger size="sm" className="h-9 w-auto"><SelectValue /></SelectTrigger>
-          <SelectContent align="end">
-            {SORTS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
+      <FilterBar>
+        <FilterSearch value={text} onChange={setText} onSubmit={() => apply({})} placeholder="Search requests…" />
+        <FilterRow>
+          <FilterSegments options={VIEW_TYPES} value={viewType} onChange={(v) => apply({ viewType: v })} />
+          <FilterSelect
+            value={sort}
+            onChange={(v) => apply({ sort: v })}
+            options={SORTS}
+            align="end"
+            ariaLabel="Sort order"
+            className="ml-auto"
+          />
+        </FilterRow>
+      </FilterBar>
 
       <Card className="overflow-hidden py-0">
         <Table className="[&_th:first-child]:pl-6 [&_td:first-child]:pl-6 [&_th:last-child]:pr-6 [&_td:last-child]:pr-6">

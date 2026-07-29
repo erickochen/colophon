@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronDown, Filter, X } from 'lucide-react'
+import { Filter } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { searchTorrents, parsePeople, coverUrl, type SearchTorrent } from '@/lib/mam-api'
 import { MAIN_CATS } from '@/lib/mam-facets'
@@ -8,14 +8,13 @@ import { PageHeader } from '@/app/shell/bits'
 import { Book } from '@/components/book'
 import { Badge } from '@/components/ui/badge'
 import { BlurFade } from '@/components/ui/blur-fade'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import {
+  FacetSection, FilterBar, FilterFacet, FilterRow, FilterSegments, FilterSelect, FilterSummary, toggleValue,
+} from '@/components/filters'
 
 // Periods come from cdn top10TorAvailable.php: year -> month -> week -> [start, end].
 type Available = Record<string, { all: boolean } & Record<string, { all: boolean } & Record<string, [number, number, number]>>>
@@ -116,7 +115,6 @@ export function Top10View(_props: PageProps) {
     void load(next, avail)
   }
 
-  const toggle = <T,>(list: T[], v: T): T[] => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
 
   const years = avail ? Object.keys(avail).sort((a, b) => Number(b) - Number(a)) : []
   const weeks: string[] = []
@@ -132,100 +130,60 @@ export function Top10View(_props: PageProps) {
       <PageHeader
         title="Top 10"
         sub="The library's most wanted"
-        action={
-          <div className="flex flex-wrap gap-2">
-            <Select value={year} onValueChange={(v) => apply({ year: v })}>
-              <SelectTrigger size="sm" className="h-9 w-auto"><SelectValue /></SelectTrigger>
-              <SelectContent align="end" className="max-h-72">
-                <SelectItem value="all">All time</SelectItem>
-                {years.map((y) => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            {year !== 'all' && weeks.length > 0 && (
-              <Select value={week} onValueChange={(v) => apply({ week: v })}>
-                <SelectTrigger size="sm" className="h-9 w-auto"><SelectValue /></SelectTrigger>
-                <SelectContent align="end" className="max-h-72">
-                  <SelectItem value="all">Whole year</SelectItem>
-                  {weeks.map((w) => <SelectItem key={w} value={w}>Week {w}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-        }
       />
 
-      <div className="grid gap-3">
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          value={metric}
-          onValueChange={(v) => v && apply({ metric: v })}
-          className="justify-start"
-        >
-          {METRICS.map((m) => <ToggleGroupItem key={m.value} value={m.value} className="px-3 text-[12.5px]">{m.label}</ToggleGroupItem>)}
-        </ToggleGroup>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {MAIN_CATS.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => apply({ mainCat: toggle(mainCat, m.id), cat: [] })}
-              className={
-                'rounded-md border px-3 py-1.5 text-[12.5px] font-medium transition-colors ' +
-                (mainCat.includes(m.id)
-                  ? 'border-brand/40 bg-brand-soft text-accent-foreground'
-                  : 'text-muted-foreground hover:bg-accent/50')
-              }
-            >
-              {m.name}
-            </button>
-          ))}
-
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 gap-1.5 text-[12.5px]">
-                <Filter className="size-3.5" />
-                Categories
-                {cat.length > 0 && <Badge className="ml-0.5 h-4 min-w-4 rounded-full px-1 text-[10px]" variant="secondary">{cat.length}</Badge>}
-                <ChevronDown className="size-3.5 text-muted-foreground" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-[420px] p-0">
-              <div className="grid max-h-[440px] overflow-y-auto p-3">
-                <div className="pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Categories</div>
-                <div className="grid max-h-72 grid-cols-2 gap-x-3 overflow-y-auto pr-1">
-                  {(mainCat.length ? MAIN_CATS.filter((m) => mainCat.includes(m.id)) : MAIN_CATS).map((m) => (
-                    <div key={m.id} className="pb-1.5">
-                      <div className="py-1 text-[11.5px] font-medium text-muted-foreground">{m.name}</div>
-                      {m.cats.map((c) => (
-                        <Label key={c.id} className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
-                          <Checkbox
-                            checked={cat.includes(c.id)}
-                            onCheckedChange={() => apply({ cat: toggle(cat, c.id) })}
-                          />
-                          {c.name}
-                        </Label>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          {cat.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              {cat.map((c) => (
-                <Badge key={`c${c}`} variant="secondary" className="gap-1">
-                  {catName(c)}
-                  <button onClick={() => apply({ cat: toggle(cat, c) })}><X className="size-3" /></button>
-                </Badge>
-              ))}
-            </div>
+      <FilterBar>
+        <FilterRow>
+          <FilterSegments options={METRICS} value={metric} onChange={(v) => apply({ metric: v })} />
+          <FilterSelect
+            value={year}
+            onChange={(v) => apply({ year: v })}
+            options={[{ value: 'all', label: 'All time' }, ...years.map((y) => ({ value: y, label: y }))]}
+            ariaLabel="Year"
+          />
+          {year !== 'all' && weeks.length > 0 && (
+            <FilterSelect
+              value={week}
+              onChange={(v) => apply({ week: v })}
+              options={[{ value: 'all', label: 'Whole year' }, ...weeks.map((w) => ({ value: w, label: `Week ${w}` }))]}
+              ariaLabel="Week"
+            />
           )}
-        </div>
-      </div>
+        </FilterRow>
+        <FilterRow>
+          <FilterSegments
+            type="multiple"
+            options={MAIN_CATS.map((m) => ({ value: String(m.id), label: m.name }))}
+            value={mainCat.map(String)}
+            onChange={(v) => apply({ mainCat: v.map(Number), cat: [] })}
+          />
+          <FilterFacet label="Categories" count={cat.length} width="w-[420px]" icon={<Filter className="size-3.5" />}>
+            <FacetSection title="Categories">
+              <div className="grid max-h-72 grid-cols-2 gap-x-3 overflow-y-auto">
+                {(mainCat.length ? MAIN_CATS.filter((m) => mainCat.includes(m.id)) : MAIN_CATS).map((m) => (
+                  <div key={m.id} className="pb-1.5">
+                    <div className="py-1 text-[11.5px] font-medium text-muted-foreground">{m.name}</div>
+                    {m.cats.map((c) => (
+                      <Label key={c.id} className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
+                        <Checkbox
+                          checked={cat.includes(c.id)}
+                          onCheckedChange={() => apply({ cat: toggleValue(cat, c.id) })}
+                        />
+                        {c.name}
+                      </Label>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </FacetSection>
+          </FilterFacet>
+        </FilterRow>
+      </FilterBar>
+
+      <FilterSummary
+        chips={cat.map((c) => ({ key: `c${c}`, label: catName(c), onRemove: () => apply({ cat: toggleValue(cat, c) }) }))}
+        onClearAll={() => apply({ cat: [], mainCat: [] })}
+      />
 
       <div className="grid gap-2.5">
         {rows === null &&

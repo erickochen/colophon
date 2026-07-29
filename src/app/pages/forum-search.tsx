@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { ChevronDown, ChevronsUpDown, MessagesSquare, Search } from 'lucide-react'
+import { ChevronsUpDown, MessagesSquare, Search } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader, RichHtml } from '@/app/shell/bits'
@@ -9,12 +9,9 @@ import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
-import { Input } from '@/components/ui/input'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
+import { FacetOptions, FilterBar, FilterFacet, FilterRow, FilterSearch, FilterSelect } from '@/components/filters'
 
 const SEARCH_URL = 'https://cdn.myanonamouse.net/forums/json/search.php'
 const PAGE_SIZE = 25
@@ -157,66 +154,29 @@ export function ForumSearchView(props: PageProps) {
     <div className="mx-auto grid w-full max-w-4xl gap-5">
       <PageHeader title="Search the forums" sub="Find topics across every board." />
 
-      {/* Query bar */}
-      <Card>
-        <CardContent className="grid gap-3 py-5">
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => { e.preventDefault(); run(0) }}
-          >
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Search topics and posts…" className="h-10 pl-9" autoFocus />
-            </div>
-            <Button type="submit" size="lg" className="h-10" disabled={!text.trim() || loading}>Search</Button>
-          </form>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Select value={searchIn} onValueChange={setSearchIn}>
-              <SelectTrigger className="h-9 w-[168px] text-[13px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {form.searchIn.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-
-            <Select value={order} onValueChange={setOrder}>
-              <SelectTrigger className="h-9 w-[158px] text-[13px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {form.order.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9 gap-1.5 text-[13px]">
-                  {label} <ChevronDown className="size-3.5 opacity-60" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="max-h-80 w-72 overflow-y-auto p-1.5">
-                <button
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-accent/60"
-                  onClick={() => setForums([])}
-                >
-                  <Checkbox checked={forums.length === 0} className="pointer-events-none" /> All forums
-                </button>
-                {form.forums.map((f) => {
-                  const checked = forums.includes(f.value)
-                  return (
-                    <button
-                      key={f.value}
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-accent/60"
-                      onClick={() => setForums((s) => (checked ? s.filter((v) => v !== f.value) : [...s, f.value]))}
-                    >
-                      <Checkbox checked={checked} className="pointer-events-none" />
-                      <span className={f.category ? 'font-medium' : 'pl-3 text-muted-foreground'}>{f.label}</span>
-                    </button>
-                  )
-                })}
-              </PopoverContent>
-            </Popover>
-          </div>
-        </CardContent>
-      </Card>
+      <FilterBar>
+        <FilterSearch
+          value={text}
+          onChange={setText}
+          onSubmit={() => run(0)}
+          placeholder="Search topics and posts…"
+          autoFocus
+        />
+        <FilterRow>
+          <FilterSelect value={searchIn} onChange={setSearchIn} options={form.searchIn} ariaLabel="What to search" />
+          <FilterSelect value={order} onChange={setOrder} options={form.order} ariaLabel="Sort order" />
+          <FilterFacet label={label} count={forums.length} width="w-72">
+            <FacetOptions
+              options={form.forums.map((f) => ({ value: f.value, label: f.label, depth: f.category ? 0 : 1 }))}
+              selected={forums}
+              onToggle={(v) => setForums((s) => (s.includes(v) ? s.filter((x) => x !== v) : [...s, v]))}
+              onClear={() => setForums([])}
+              maxHeight="max-h-80"
+              emptyText="No forums listed."
+            />
+          </FilterFacet>
+        </FilterRow>
+      </FilterBar>
 
       {/* Results */}
       {loading && (

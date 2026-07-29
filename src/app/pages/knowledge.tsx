@@ -7,7 +7,7 @@ import { PageHeader, RichHtml } from '@/app/shell/bits'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { FilterSearch } from '@/components/filters'
 import { Kbd } from '@/components/ui/kbd'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
@@ -152,11 +152,14 @@ function KnowledgeBase({ title, sub, sections: raw, mode }: { title: string; sub
     <div ref={rootRef} className="grid gap-5">
       <PageHeader title={title} sub={sub} />
 
-      <div className="relative max-w-xl">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input ref={searchRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${title.toLowerCase()}…`} className="h-10 pl-9 pr-10" />
-        {!q && <Kbd className="absolute right-3 top-1/2 -translate-y-1/2">/</Kbd>}
-      </div>
+      <FilterSearch
+        value={q}
+        onChange={setQ}
+        inputRef={searchRef}
+        placeholder={`Search ${title.toLowerCase()}…`}
+        hint={<Kbd>/</Kbd>}
+        className="max-w-xl"
+      />
 
       {!needle && updated.length > 0 && (
         <div className="-mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
