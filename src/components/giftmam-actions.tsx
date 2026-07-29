@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Gift, Ticket } from 'lucide-react'
 import type { ShellData } from '@/lib/extract/shell'
 import { giftPoints, sendWedgeTo, MAX_GIFT, MIN_GIFT, type BonusBuyResult } from '@/lib/mam-api'
-import { readDefaultGiftAmount, useGiftMam } from '@/lib/giftmam'
+import { readDefaultGiftAmount, syncPanelBalance, useGiftingEnabled, useGiftMam, type GiftSurface } from '@/lib/giftmam'
 import { applyPointsUpdate, useLiveBonus, useLiveWedges } from '@/lib/bonus'
 import { closeGiftDialog, getGiftDialog, openGiftDialog, subscribeGiftDialog, type GiftRequest } from '@/lib/gift-dialog'
 import { initials } from '@/lib/format'
@@ -30,15 +30,18 @@ const toNumber = (value: string | null) => {
   return Number.isNaN(num) ? null : num
 }
 
-/** Gift and wedge triggers for one member. Renders nothing without GiftMAM. */
-export function GiftActions({ uid, name, buttonClass, iconClass }: {
+/** Gift and wedge triggers for one member. Needs GiftMAM present plus its switch
+ * for this surface on. */
+export function GiftActions({ uid, name, surface, buttonClass, iconClass }: {
   uid: string
   name: string
+  surface: GiftSurface
   buttonClass?: string
   iconClass?: string
 }) {
   const giftMam = useGiftMam()
-  if (!giftMam) return null
+  const enabled = useGiftingEnabled(surface)
+  if (!giftMam || !enabled) return null
   const cls = cn('size-7 text-muted-foreground hover:text-foreground', buttonClass)
   const icon = cn('size-3.5', iconClass)
 
@@ -46,7 +49,7 @@ export function GiftActions({ uid, name, buttonClass, iconClass }: {
     <>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button type="button" variant="ghost" size="icon" className={cls} onClick={() => openGiftDialog({ kind: 'points', uid, name })}>
+          <Button type="button" variant="ghost" size="icon" className={cls} onClick={() => openGiftDialog({ kind: 'points', uid, name, surface })}>
             <Gift className={icon} />
           </Button>
         </TooltipTrigger>
@@ -54,7 +57,7 @@ export function GiftActions({ uid, name, buttonClass, iconClass }: {
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button type="button" variant="ghost" size="icon" className={cls} onClick={() => openGiftDialog({ kind: 'wedge', uid, name })}>
+          <Button type="button" variant="ghost" size="icon" className={cls} onClick={() => openGiftDialog({ kind: 'wedge', uid, name, surface })}>
             <Ticket className={icon} />
           </Button>
         </TooltipTrigger>
@@ -80,6 +83,14 @@ export function GiftDialogHost({ page }: { page: ShellData }) {
   const inFlight = useRef(false)
   const bonus = useLiveBonus(page.stats.bonus)
   const wedges = useLiveWedges(page.stats.wedges)
+  const shoutboxOn = useGiftingEnabled('shoutbox')
+  const forumOn = useGiftingEnabled('forum')
+  const allowed = request == null || (request.surface === 'shoutbox' ? shoutboxOn : forumOn)
+
+  // Switching gifting off in the widget takes an open dialog with it.
+  useEffect(() => {
+    if (!allowed) closeGiftDialog()
+  }, [allowed])
 
   async function run(target: GiftRequest, action: () => Promise<BonusBuyResult>, done: string) {
     // Silent: the controls go disabled a tick later, so a repeated key needs no
@@ -90,6 +101,8 @@ export function GiftDialogHost({ page }: { page: ShellData }) {
     try {
       const result = await action()
       applyPointsUpdate(result)
+      const balance = Number(result.seedbonus)
+      if (!Number.isNaN(balance)) syncPanelBalance(balance)
       toast.success(done)
       // Close only if that same dialog is still the one on screen.
       if (sameRequest(getGiftDialog(), target)) closeGiftDialog()
@@ -101,7 +114,7 @@ export function GiftDialogHost({ page }: { page: ShellData }) {
     }
   }
 
-  if (!request) return null
+  if (!request || !allowed) return null
   const state: SendState = pending == null ? 'idle' : sameRequest(pending, request) ? 'sending' : 'waiting'
 
   if (request.kind === 'wedge') {

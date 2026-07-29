@@ -360,7 +360,7 @@ export function ShoutboxView(_props: PageProps) {
                                 </>
                               )}
                               {g.user?.uid != null && !g.own && (
-                                <GiftActions uid={String(g.user.uid)} name={g.user.name} buttonClass="size-6" iconClass="size-3" />
+                                <GiftActions uid={String(g.user.uid)} name={g.user.name} surface="shoutbox" buttonClass="size-6" iconClass="size-3" />
                               )}
                               {it.editable && (
                                 <IconAction label="Edit" onClick={() => openEdit(it.numId)}><Pencil className="size-3" /></IconAction>

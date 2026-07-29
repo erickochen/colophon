@@ -75,7 +75,7 @@ function Post({ p, onQuote, myUid }: { p: TopicPost; onQuote: (p: TopicPost) => 
                 <TooltipContent>Send a PM</TooltipContent>
               </Tooltip>
             )}
-            {giftUid && <GiftActions uid={giftUid} name={p.author?.name ?? 'this member'} />}
+            {giftUid && <GiftActions uid={giftUid} name={p.author?.name ?? 'this member'} surface="forum" />}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

@@ -9,6 +9,14 @@ const PANEL_SELECTOR = '#mam-gift-panel'
 const GIFTED_LINK_SELECTOR = 'a.mam-gifted-user[href*="/u/"]'
 // The widget's "Default Gift Amount" setting: "Max" or a number.
 const AMOUNT_INPUT_SELECTOR = '#mam-cfg-amount'
+// Its two gifting switches. Colophon renders both surfaces, so its buttons
+// follow these.
+const SURFACE_TOGGLE = { shoutbox: '#mam-cfg-shoutbox', forum: '#mam-cfg-forum' } as const
+// Its own bonus readout, which only its own actions keep current.
+const PANEL_BP_SELECTOR = '#mam-ui-bp'
+const PANEL_BP_WRAP_SELECTOR = '#mam-ui-bp-wrap'
+
+export type GiftSurface = keyof typeof SURFACE_TOGGLE
 
 type Listener = () => void
 
@@ -31,6 +39,9 @@ function checkPresent() {
   presentObserver?.disconnect()
   presentObserver = null
   if (giftedListeners.size) watchGifted()
+  // The widget fills its controls from stored settings in the same task that
+  // appends the panel. A stored value fires no change event.
+  onToggleChange()
   presentListeners.forEach((fn) => fn())
 }
 
@@ -92,6 +103,59 @@ export function useGiftMam(): boolean {
 /** Uids GiftMAM marked as already gifted. Stays empty without the widget. */
 export function useGiftedSet(): Set<string> {
   return useSyncExternalStore(subscribeGifted, getGifted)
+}
+
+let toggleObserved = false
+const toggleListeners = new Set<Listener>()
+// Reading the checkbox each render keeps this in step with the widget without a
+// cached copy to invalidate.
+const toggleSnapshot = () => `${readToggle('shoutbox')}|${readToggle('forum')}`
+let toggles = toggleSnapshot()
+
+function readToggle(surface: GiftSurface): boolean {
+  const box = document.querySelector<HTMLInputElement>(SURFACE_TOGGLE[surface])
+  // Missing widget or an older version without the switch: GiftMAM defaults to on.
+  return box ? box.checked : true
+}
+
+function onToggleChange() {
+  const next = toggleSnapshot()
+  if (next === toggles) return
+  toggles = next
+  toggleListeners.forEach((fn) => fn())
+}
+
+function watchToggles() {
+  if (toggleObserved) return
+  toggleObserved = true
+  // The widget announces every setting it writes. The capture listener is the
+  // fallback for managers that keep custom events inside their sandbox.
+  window.addEventListener('mam-config-updated', onToggleChange)
+  document.addEventListener('change', onToggleChange, true)
+}
+
+const subscribeToggles = (fn: Listener) => {
+  toggleListeners.add(fn)
+  watchToggles()
+  return () => toggleListeners.delete(fn)
+}
+const getToggles = () => toggles
+
+/** Whether GiftMAM's switch for this surface is on. */
+export function useGiftingEnabled(surface: GiftSurface): boolean {
+  const [shoutbox, forum] = useSyncExternalStore(subscribeToggles, getToggles).split('|')
+  return (surface === 'shoutbox' ? shoutbox : forum) === 'true'
+}
+
+/** Keep the widget's own bonus readout in step after we spend, the way its
+ * StateManager writes it. */
+export function syncPanelBalance(balance: number): void {
+  const el = document.querySelector<HTMLElement>(PANEL_BP_SELECTOR)
+  const wrap = document.querySelector<HTMLElement>(PANEL_BP_WRAP_SELECTOR)
+  if (!el) return
+  const whole = Math.floor(balance)
+  el.textContent = whole >= 1000 ? `${Math.floor(whole / 1000)}K` : String(whole)
+  if (wrap) wrap.title = `Bonus Points: ${whole.toLocaleString('en-US')}`
 }
 
 /** The widget's default gift amount; "Max" counts as the server maximum. */
