@@ -32,6 +32,7 @@ export function MessagesView(props: PageProps) {
   const liveUnread = data.messages.filter((m, i) => isUnread(m, i)).length
 
   const selected: PmMessage | undefined = data.messages.find((m) => m.id === selectedId)
+  const sent = data.box === 'sent'
 
   return (
     <div className="grid gap-4">
@@ -89,7 +90,10 @@ export function MessagesView(props: PageProps) {
                     </span>
                     <span className="min-w-0">
                       <span className="flex items-baseline justify-between gap-2">
-                        <UserLink name={m.from?.name ?? 'system'} color={m.from?.color} className={cn('truncate text-[12.5px]', unread && 'font-semibold')} />
+                        <span className="flex min-w-0 items-baseline gap-1">
+                          {sent && <span className="shrink-0 text-[11px] text-muted-foreground">To</span>}
+                          <UserLink name={m.party?.name ?? 'system'} color={m.party?.color} className={cn('truncate text-[12.5px]', unread && 'font-semibold')} />
+                        </span>
                         <span className="shrink-0 text-[11px] text-muted-foreground">{relTime(m.date)}</span>
                       </span>
                       <span className={cn('font-display block truncate text-[13.5px]', unread ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground')}>{m.subject}</span>
@@ -104,28 +108,28 @@ export function MessagesView(props: PageProps) {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <Avatar className="size-9 rounded-lg">
-                        <AvatarFallback className="rounded-lg text-[12px]">{initials(selected.from?.name ?? 'SY')}</AvatarFallback>
+                        <AvatarFallback className="rounded-lg text-[12px]">{initials(selected.party?.name ?? 'SY')}</AvatarFallback>
                       </Avatar>
                       <div>
                         <div className="text-[14px] font-semibold">{selected.subject}</div>
                         <div className="text-[12px] text-muted-foreground">
-                          from <UserLink name={selected.from?.name ?? 'system'} href={selected.from?.href} color={selected.from?.color} /> · {selected.date}
+                          {sent ? 'to' : 'from'} <UserLink name={selected.party?.name ?? 'system'} href={selected.party?.href} color={selected.party?.color} /> · {selected.date}
                         </div>
                       </div>
                     </div>
                     <div className="flex shrink-0 gap-1.5">
-                      {selected.from?.href && data.box === 'inbox' && (
+                      {selected.party?.href && !sent && (
                         <Button
                           size="sm"
                           className="h-8"
                           onClick={() => {
-                            const receiver = selected.from!.href!.split('/').pop()!
+                            const receiver = selected.party!.href!.split('/').pop()!
                             stashReply({
                               receiver,
                               subject: selected.subject,
-                              fromName: selected.from!.name,
-                              fromColor: selected.from!.color,
-                              fromHref: selected.from!.href,
+                              fromName: selected.party!.name,
+                              fromColor: selected.party!.color,
+                              fromHref: selected.party!.href,
                               date: selected.date,
                               bodyHtml: selected.bodyHtml,
                             })

@@ -7,7 +7,9 @@ export interface PmMessage {
   date: string | null
   subject: string
   unread: boolean
-  from: { name: string; href: string | null; color: string | null } | null
+  /** The other side of the message: the sender in the inbox, the recipient in
+   * the sentbox. MAM puts both in the same .pmFrom cell. */
+  party: { name: string; href: string | null; color: string | null } | null
   bodyHtml: string | null
   deleteHref: string | null
 }
@@ -31,7 +33,7 @@ export function extractMailbox(doc: Document): MailboxData | null {
     const id = toggle.getAttribute('data-pmid')!
     const tr = toggle.closest('tr')
     if (!tr) continue
-    const fromA = tr.querySelector<HTMLAnchorElement>('.pmFrom a[href^="/u/"]')
+    const partyA = tr.querySelector<HTMLAnchorElement>('.pmFrom a[href^="/u/"]')
     const subject = txt(tr.querySelector('b')) ?? '(no subject)'
     const body = doc.querySelector(`#ka${id} .pm_msg`)
     messages.push({
@@ -41,8 +43,8 @@ export function extractMailbox(doc: Document): MailboxData | null {
       // row1 = read, row2 = unread on MAM's zebra; the reliable signal is the
       // bold "new" row class MAM uses - fall back to false when absent.
       unread: tr.classList.contains('row2unread') || tr.classList.contains('unread'),
-      from: fromA
-        ? { name: txt(fromA) ?? '', href: fromA.getAttribute('href'), color: fromA.querySelector('span')?.style.color || null }
+      party: partyA
+        ? { name: txt(partyA) ?? '', href: partyA.getAttribute('href'), color: partyA.querySelector('span')?.style.color || null }
         : null,
       bodyHtml: cleanHtml(body),
       deleteHref: tr.querySelector<HTMLAnchorElement>('a[href*="deletemessage"]')?.getAttribute('href') ?? null,
