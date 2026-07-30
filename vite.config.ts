@@ -30,7 +30,7 @@ export default defineConfig({
         name: 'Colophon',
         namespace: 'https://www.myanonamouse.net/',
         description: 'Colophon: MyAnonaMouse reimagined as a calm, modern reading tracker',
-        version: '2.7.3',
+        version: '2.7.4',
         author: 'soundorom',
         homepageURL: TOPIC_URL,
         supportURL: TOPIC_URL,
