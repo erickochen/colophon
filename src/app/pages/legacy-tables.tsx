@@ -51,7 +51,7 @@ function Section({ s }: { s: Section }) {
   return (
     <Card className="gap-0 py-0">
       {s.title && (
-        <CardHeader className="!py-3.5"><CardTitle>{s.title}</CardTitle></CardHeader>
+        <CardHeader className="border-b !py-3.5"><CardTitle>{s.title}</CardTitle></CardHeader>
       )}
       {hasTable ? (
         <Table className={EDGE}>

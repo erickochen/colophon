@@ -95,7 +95,7 @@ function TopicRow({ t, selectable, checked, onToggle }: {
   onToggle: () => void
 }) {
   return (
-    <div className="flex items-center gap-3 px-6 py-3 transition-colors hover:bg-accent/40">
+    <div role="listitem" className="flex items-center gap-3 px-6 py-3.5 transition-colors hover:bg-accent/40 focus-within:bg-accent/40">
       {selectable && <Checkbox checked={checked} onCheckedChange={onToggle} className="shrink-0" />}
       <div className="min-w-0 flex-1">
         <a href={t.href} className="flex items-center gap-2">
@@ -176,7 +176,7 @@ function ForumList({ props, emptyText }: { props: PageProps; emptyText: string }
 
       {data.topics.length > 0 ? (
         <Card className="gap-0 py-0">
-          <CardContent className="px-0 py-1">
+          <CardContent className="divide-y divide-border px-0 py-0" role="list">
             {data.topics.map((t, i) => (
               <TopicRow key={i} t={t} selectable={selectable} checked={selected.has(i)} onToggle={() => toggle(i)} />
             ))}

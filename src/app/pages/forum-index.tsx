@@ -38,14 +38,14 @@ export function ForumIndexView(props: PageProps) {
 
       {cats.map((cat) => (
         <Card key={cat.name} className="gap-0 py-0">
-          <CardHeader className="!py-3.5">
+          <CardHeader className="border-b !py-3.5">
             <CardTitle>
               {cat.href ? <a href={cat.href} className="hover:underline">{cat.name}</a> : cat.name}
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid px-0 py-1">
+          <CardContent className="grid divide-y divide-border px-0 py-0" role="list">
             {cat.boards.map((b) => (
-              <div key={b.href} className="grid grid-cols-[1fr_auto] items-center gap-x-5 gap-y-1 px-6 py-3 sm:grid-cols-[minmax(0,1fr)_110px_minmax(180px,260px)]">
+              <div key={b.href} role="listitem" className="grid items-start gap-y-1 px-6 py-3.5 transition-colors hover:bg-accent/40 focus-within:bg-accent/40 lg:grid-cols-[minmax(0,1fr)_110px_minmax(180px,260px)] lg:gap-x-5">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     {b.hasNew && <span className="size-2 shrink-0 rounded-full bg-brand" title="new posts" />}
@@ -65,13 +65,17 @@ export function ForumIndexView(props: PageProps) {
                       ))}
                     </div>
                   )}
+                  <div className="mt-1 font-mono text-[11.5px] tabular-nums text-muted-foreground lg:hidden">
+                    {fmtInt(b.topics)} topics · {fmtInt(b.posts)} posts
+                    {b.last.at && <> · {relTime(b.last.at)}</>}
+                  </div>
                 </div>
-                <div className="hidden text-right font-mono text-[12px] tabular-nums text-muted-foreground sm:block">
+                <div className="hidden text-right font-mono text-[12px] tabular-nums text-muted-foreground lg:block">
                   {fmtInt(b.topics)} topics
                   <br />
                   {fmtInt(b.posts)} posts
                 </div>
-                <div className="hidden min-w-0 text-[12px] leading-snug text-muted-foreground sm:block">
+                <div className="hidden min-w-0 text-[12px] leading-snug text-muted-foreground lg:block">
                   {b.last.topic ? (
                     <>
                       <a href={b.last.href ?? '#'} className="line-clamp-1 font-medium text-foreground hover:underline">{b.last.topic}</a>
