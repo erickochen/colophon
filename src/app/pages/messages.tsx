@@ -1,6 +1,7 @@
-import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ChevronRight, CornerUpLeft, Mail, MailOpen, MoreHorizontal, PenLine, Send, ShieldAlert, Trash2, X,
+  ChevronRight, CornerUpLeft, Mail, MailOpen, MoreHorizontal, PenLine, Quote, Send, ShieldAlert,
+  Trash2, X,
 } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import {
@@ -24,7 +25,8 @@ import { sendMessage } from '@/lib/pm-send'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader, RichHtml, UserLink } from '@/app/shell/bits'
 import {
-  BubbleActions, Conversation, ConversationBubble, selectionWithin, useConversationNav,
+  BubbleActions, Conversation, ConversationBubble, readBubbleSelection, selectionWithin,
+  useConversationNav, type BubbleSelection,
 } from '@/components/conversation'
 import { MemberPicker } from '@/components/member-picker'
 import { BBComposer, type ComposerHandle } from '@/components/bb-composer'
@@ -52,6 +54,8 @@ const THREAD_PAGE_SIZE = 25
 const THREAD_HASH = '#t='
 /** How far from the bottom still counts as reading along, in pixels. */
 const FOLLOW_SLACK = 80
+/** Gap between a highlight and the quote button above it, in pixels. */
+const QUOTE_BUTTON_LIFT = 38
 
 const bodyKey = (m: PmMessage) => `${m.box}:${m.id}`
 const newestFirst = (a: PmMessage, b: PmMessage) => (b.date ?? '').localeCompare(a.date ?? '')
@@ -187,6 +191,7 @@ const ThreadBubble = memo(function ThreadBubble({
                     tabIndex={actionTab}
                     aria-label={`Reply to ${who}${when}`}
                     className="size-6 text-muted-foreground hover:text-foreground"
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={(e) => onReply(message, selectionWithin(e.currentTarget.closest('article')))}
                   >
                     <CornerUpLeft className="size-3.5" />
@@ -257,6 +262,8 @@ export function MessagesView(props: PageProps) {
   const [answering, setAnswering] = useState<PmMessage | null>(null)
   // Text highlighted inside that message, which wins over its opening lines.
   const [picked, setPicked] = useState<string | null>(null)
+  // Highlight in the open conversation, which offers to quote itself.
+  const [highlight, setHighlight] = useState<BubbleSelection | null>(null)
   const [picking, setPicking] = useState(false)
   const requested = useRef<Set<string>>(new Set())
   const composerRef = useRef<ComposerHandle>(null)
@@ -369,6 +376,25 @@ export function MessagesView(props: PageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the visible set
   }, [visibleKeys])
 
+  // Highlighting inside a message offers to quote exactly that, which is how a
+  // reader finds out the option is there at all. The button is positioned
+  // against the viewport, so it only shows while the highlight is in view.
+  const refreshHighlight = useCallback(() => {
+    const next = readBubbleSelection()
+    const box = scrollRef.current?.getBoundingClientRect()
+    if (!next || !box) {
+      setHighlight(null)
+      return
+    }
+    const inView = next.top > box.top + QUOTE_BUTTON_LIFT && next.top < box.bottom
+    setHighlight(inView ? next : null)
+  }, [])
+
+  useEffect(() => {
+    document.addEventListener('selectionchange', refreshHighlight)
+    return () => document.removeEventListener('selectionchange', refreshHighlight)
+  }, [refreshHighlight])
+
   // A conversation opens on its newest message and keeps following it, unless
   // the reader scrolled up to read back.
   useEffect(() => {
@@ -445,6 +471,7 @@ export function MessagesView(props: PageProps) {
   function startReply(m: PmMessage, selected: string | null) {
     setAnswering(m)
     setPicked(selected)
+    setHighlight(null)
     composerRef.current?.focus()
   }
 
@@ -610,6 +637,7 @@ export function MessagesView(props: PageProps) {
                     onScroll={(e) => {
                       const el = e.currentTarget
                       follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_SLACK
+                      refreshHighlight()
                     }}
                     className="flex-1 overflow-y-auto px-6 py-4"
                   >
@@ -710,6 +738,20 @@ export function MessagesView(props: PageProps) {
                         </Button>
                       </div>
                     </div>
+                  )}
+                  {canReply && highlight && (
+                    <Button
+                      size="sm"
+                      style={{ position: 'fixed', left: highlight.left, top: highlight.top - QUOTE_BUTTON_LIFT, transform: 'translateX(-50%)' }}
+                      className="z-50 h-7 shadow-lg"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        const m = selected.messages.find((x) => bodyKey(x) === highlight.navKey)
+                        if (m) startReply(m, highlight.text)
+                      }}
+                    >
+                      <Quote aria-hidden="true" /> Quote this
+                    </Button>
                   )}
                   <div role="status" aria-live="polite" className="sr-only">
                     {answering

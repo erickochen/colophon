@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils'
  * so a long conversation does not bury the composer behind every button. */
 const NavContext = createContext<{ activeKey: string | null; setActiveKey: (k: string | null) => void } | null>(null)
 
+const BUBBLE_ATTR = 'data-bubble'
+
 export function useConversationNav(navKey?: string) {
   const ctx = useContext(NavContext)
   return {
@@ -30,7 +32,32 @@ export function selectionWithin(root: Element | null): string | null {
   return sel.toString().replace(/\s+/g, ' ').trim() || null
 }
 
-const BUBBLE_ATTR = 'data-bubble'
+export interface BubbleSelection {
+  /** navKey of the message the highlight sits in. */
+  navKey: string
+  text: string
+  /** Viewport position of the highlight, for placing a button above it. */
+  left: number
+  top: number
+}
+
+const asElement = (node: Node | null) =>
+  node?.nodeType === Node.ELEMENT_NODE ? (node as Element) : node?.parentElement ?? null
+
+/** Reads a highlight that sits wholly inside one message. Null when there is no
+ * highlight or when it crosses out of a single message. */
+export function readBubbleSelection(): BubbleSelection | null {
+  const sel = document.getSelection()
+  if (!sel || sel.isCollapsed || sel.rangeCount === 0) return null
+  const range = sel.getRangeAt(0)
+  const bubble = asElement(range.startContainer)?.closest(`[${BUBBLE_ATTR}]`)
+  if (!bubble || !bubble.contains(range.endContainer)) return null
+  const navKey = bubble.getAttribute(BUBBLE_ATTR)
+  const text = sel.toString().replace(/\s+/g, ' ').trim()
+  if (!navKey || !text) return null
+  const rect = range.getBoundingClientRect()
+  return { navKey, text, left: rect.left + rect.width / 2, top: rect.top }
+}
 
 export function Conversation({
   children,
