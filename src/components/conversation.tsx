@@ -1,7 +1,10 @@
 // One bubble language for every back and forth on the site: staff tickets and
 // private messages. Own messages sit on the right in the brand tint, the other
 // side on the left on card colour.
-import { createContext, useContext, useEffect, useId, useState, type KeyboardEvent, type ReactNode } from 'react'
+import {
+  createContext, useCallback, useContext, useEffect, useId, useMemo, useState,
+  type KeyboardEvent, type ReactNode,
+} from 'react'
 import { mutedUserColor } from '@/lib/colors'
 import { dateOnly, initials, relTime } from '@/lib/format'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -22,11 +25,26 @@ export function useConversationNav(navKey?: string) {
   }
 }
 
+// A highlight made inside a shadow root is not visible through
+// document.getSelection(): it reports the text but calls itself collapsed and
+// anchors outside the root. ShadowRoot.getSelection() answers properly.
+type SelectionRoot = ShadowRoot & { getSelection?: () => Selection | null }
+
+function liveSelection(from: Node | null | undefined): Selection | null {
+  const root = from?.getRootNode()
+  if (root && root !== document) {
+    const own = (root as SelectionRoot).getSelection?.()
+    if (own && !own.isCollapsed && own.rangeCount > 0) return own
+  }
+  const doc = document.getSelection()
+  return doc && !doc.isCollapsed && doc.rangeCount > 0 ? doc : null
+}
+
 /** Selected text inside one message, for quoting exactly what was highlighted. */
 export function selectionWithin(root: Element | null): string | null {
   if (!root) return null
-  const sel = document.getSelection()
-  if (!sel || sel.isCollapsed || sel.rangeCount === 0) return null
+  const sel = liveSelection(root)
+  if (!sel) return null
   const range = sel.getRangeAt(0)
   if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) return null
   return sel.toString().replace(/\s+/g, ' ').trim() || null
@@ -44,11 +62,12 @@ export interface BubbleSelection {
 const asElement = (node: Node | null) =>
   node?.nodeType === Node.ELEMENT_NODE ? (node as Element) : node?.parentElement ?? null
 
-/** Reads a highlight that sits wholly inside one message. Null when there is no
+/** Reads a highlight that sits wholly inside one message. Needs an element from
+ * the same tree to find the right selection owner. Null when there is no
  * highlight or when it crosses out of a single message. */
-export function readBubbleSelection(): BubbleSelection | null {
-  const sel = document.getSelection()
-  if (!sel || sel.isCollapsed || sel.rangeCount === 0) return null
+export function readBubbleSelection(within: Element | null): BubbleSelection | null {
+  const sel = liveSelection(within)
+  if (!sel) return null
   const range = sel.getRangeAt(0)
   const bubble = asElement(range.startContainer)?.closest(`[${BUBBLE_ATTR}]`)
   if (!bubble || !bubble.contains(range.endContainer)) return null
@@ -115,8 +134,12 @@ export function Conversation({
     </div>
   )
 
+  // Kept stable on purpose: a fresh object here re-renders every bubble, which
+  // rebuilds their text and drops any selection the reader was making.
+  const nav = useMemo(() => ({ activeKey, setActiveKey }), [activeKey])
+
   if (!label) return body
-  return <NavContext.Provider value={{ activeKey, setActiveKey }}>{body}</NavContext.Provider>
+  return <NavContext.Provider value={nav}>{body}</NavContext.Provider>
 }
 
 export function ConversationBubble({

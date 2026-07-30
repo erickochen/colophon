@@ -380,20 +380,30 @@ export function MessagesView(props: PageProps) {
   // reader finds out the option is there at all. The button is positioned
   // against the viewport, so it only shows while the highlight is in view.
   const refreshHighlight = useCallback(() => {
-    const next = readBubbleSelection()
+    const found = readBubbleSelection(scrollRef.current)
     const box = scrollRef.current?.getBoundingClientRect()
-    if (!next || !box) {
-      setHighlight(null)
-      return
-    }
-    const inView = next.top > box.top + QUOTE_BUTTON_LIFT && next.top < box.bottom
-    setHighlight(inView ? next : null)
+    const inView = !!found && !!box && found.top > box.top + QUOTE_BUTTON_LIFT && found.top < box.bottom
+    const next = inView ? found : null
+    setHighlight((prev) => {
+      if (!next || !prev) return next === prev ? prev : next
+      const same =
+        prev.navKey === next.navKey &&
+        prev.text === next.text &&
+        Math.round(prev.top) === Math.round(next.top) &&
+        Math.round(prev.left) === Math.round(next.left)
+      return same ? prev : next
+    })
   }, [])
 
   useEffect(() => {
+    const root = scrollRef.current?.getRootNode()
     document.addEventListener('selectionchange', refreshHighlight)
-    return () => document.removeEventListener('selectionchange', refreshHighlight)
-  }, [refreshHighlight])
+    root?.addEventListener('selectionchange', refreshHighlight)
+    return () => {
+      document.removeEventListener('selectionchange', refreshHighlight)
+      root?.removeEventListener('selectionchange', refreshHighlight)
+    }
+  }, [refreshHighlight, selected?.key])
 
   // A conversation opens on its newest message and keeps following it, unless
   // the reader scrolled up to read back.
@@ -468,12 +478,12 @@ export function MessagesView(props: PageProps) {
     return quoteText(answeringBody)
   }, [answering, picked, answeringBody])
 
-  function startReply(m: PmMessage, selected: string | null) {
+  const startReply = useCallback((m: PmMessage, selected: string | null) => {
     setAnswering(m)
     setPicked(selected)
     setHighlight(null)
     composerRef.current?.focus()
-  }
+  }, [])
 
   async function send() {
     if (!selected?.party?.uid) return
