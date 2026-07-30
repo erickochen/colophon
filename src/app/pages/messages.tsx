@@ -10,6 +10,8 @@ import {
   fetchPmBodies,
   fetchUnreadCount,
   NO_SUBJECT,
+  quoteAuthor,
+  quoteText,
   scanBox,
   splitQuoteStack,
   type PmBox,
@@ -20,11 +22,11 @@ import {
 import { sendMessage } from '@/lib/pm-send'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader, RichHtml, UserLink } from '@/app/shell/bits'
-import { Conversation, ConversationBubble } from '@/components/conversation'
+import { BubbleActions, Conversation, ConversationBubble } from '@/components/conversation'
 import { MemberPicker } from '@/components/member-picker'
-import { BBComposer } from '@/components/bb-composer'
+import { BBComposer, type ComposerHandle } from '@/components/bb-composer'
 import { FilterBar, FilterRow, FilterSearch, FilterSegments } from '@/components/filters'
-import { relTime } from '@/lib/format'
+import { dateOnly, plural, relTime } from '@/lib/format'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -34,11 +36,10 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
-import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
-import { Switch } from '@/components/ui/switch'
 import { toast } from '@/components/ui/toast'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 /** Messages drawn when a conversation opens, with older ones on request. */
@@ -91,12 +92,15 @@ function TopicDivider({ subject }: { subject: string }) {
 }
 
 /** The messages quoted under a reply, folded away until asked for. */
-function QuotedHistory({ quotes, startOpen }: { quotes: QuoteLevel[]; startOpen?: boolean }) {
+function QuotedHistory({ quotes, author, startOpen }: { quotes: QuoteLevel[]; author: string; startOpen?: boolean }) {
   const [open, setOpen] = useState(!!startOpen)
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="pt-2">
-      <CollapsibleTrigger className="flex items-center gap-1 text-[11.5px] text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none">
-        <ChevronRight className={cn('size-3 transition-transform', open && 'rotate-90')} />
+      <CollapsibleTrigger
+        aria-label={`Quoted history under ${author}: ${plural(quotes.length, 'quoted message')}`}
+        className="flex items-center gap-1 py-1 text-[11.5px] text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+      >
+        <ChevronRight aria-hidden="true" className={cn('size-3 transition-transform', open && 'rotate-90')} />
         Quoted history
         <span className="tabular-nums">{quotes.length}</span>
       </CollapsibleTrigger>
@@ -119,6 +123,8 @@ const ThreadBubble = memo(function ThreadBubble({
   me,
   body,
   loading,
+  position,
+  total,
   onDelete,
   onReply,
 }: {
@@ -126,6 +132,8 @@ const ThreadBubble = memo(function ThreadBubble({
   me: string
   body: string | null | undefined
   loading: boolean
+  position: number
+  total: number
   onDelete: (m: PmMessage) => void
   onReply: ((m: PmMessage) => void) | null
 }) {
@@ -135,6 +143,8 @@ const ThreadBubble = memo(function ThreadBubble({
   // rather than on every keystroke in the composer.
   const split = useMemo(() => (body ? splitQuoteStack(body) : null), [body])
   const hasText = !!split?.head
+  const who = mine ? 'your message' : `${author}'s message`
+  const when = message.date ? `, ${dateOnly(message.date)}` : ''
   return (
     <ConversationBubble
       author={author}
@@ -142,36 +152,53 @@ const ThreadBubble = memo(function ThreadBubble({
       color={mine ? null : message.party?.color}
       at={message.date}
       mine={mine}
+      position={position}
+      total={total}
       actions={
         (message.deleteHref || message.reportHref || onReply) && (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label="Message actions"
-              className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-            >
-              <MoreHorizontal className="size-3.5" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align={mine ? 'start' : 'end'}>
-              {onReply && (
-                <DropdownMenuItem onClick={() => onReply(message)}>
-                  <CornerUpLeft /> Reply to this one
-                </DropdownMenuItem>
-              )}
-              {message.reportHref && (
-                <DropdownMenuItem asChild>
-                  <a href={message.reportHref}><ShieldAlert /> Report message</a>
-                </DropdownMenuItem>
-              )}
-              {message.deleteHref && (
-                <DropdownMenuItem variant="destructive" onClick={() => onDelete(message)}>
-                  <Trash2 /> Delete message
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <BubbleActions label={`Actions for ${who}${when}`}>
+            {onReply && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Reply to ${who}${when}`}
+                    className="size-6 text-muted-foreground hover:text-foreground"
+                    onClick={() => onReply(message)}
+                  >
+                    <CornerUpLeft className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Reply</TooltipContent>
+              </Tooltip>
+            )}
+            {(message.reportHref || message.deleteHref) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  aria-label={`More actions for ${who}${when}`}
+                  className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                >
+                  <MoreHorizontal className="size-3.5" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align={mine ? 'start' : 'end'}>
+                  {message.reportHref && (
+                    <DropdownMenuItem asChild>
+                      <a href={message.reportHref}><ShieldAlert /> Report message</a>
+                    </DropdownMenuItem>
+                  )}
+                  {message.deleteHref && (
+                    <DropdownMenuItem variant="destructive" onClick={() => onDelete(message)}>
+                      <Trash2 /> Delete message
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </BubbleActions>
         )
       }
-      footer={split && split.quotes.length > 0 ? <QuotedHistory quotes={split.quotes} startOpen={!hasText} /> : undefined}
+      footer={split && split.quotes.length > 0 ? <QuotedHistory quotes={split.quotes} author={author} startOpen={!hasText} /> : undefined}
     >
       {loading ? (
         <div className="grid gap-1.5 py-0.5">
@@ -203,11 +230,11 @@ export function MessagesView(props: PageProps) {
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<PmMessage | null>(null)
-  // Set when answering a specific older message instead of the newest one.
+  // The one message being answered. Null means the text goes out on its own.
   const [answering, setAnswering] = useState<PmMessage | null>(null)
-  const [quoting, setQuoting] = useState(false)
   const [picking, setPicking] = useState(false)
   const requested = useRef<Set<string>>(new Set())
+  const composerRef = useRef<ComposerHandle>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const follow = useRef(true)
   const jumpTop = useRef(false)
@@ -288,7 +315,6 @@ export function MessagesView(props: PageProps) {
   useEffect(() => {
     setShownCount(THREAD_PAGE_SIZE)
     setAnswering(null)
-    setQuoting(false)
   }, [selected?.key])
 
   useEffect(() => {
@@ -372,14 +398,26 @@ export function MessagesView(props: PageProps) {
     setShownCount(THREAD_PAGE_SIZE)
     setDraft('')
     setAnswering(null)
-    setQuoting(false)
   }
 
-  // Default target is the newest received message, which is what MAM's own
-  // reply link does. Picking one from a bubble aims at that message instead.
+  // MAM builds the subject from a received message, so that is what the send
+  // form is fetched with even when the quote comes from one of our own.
   const newestReceived = selected ? [...selected.messages].reverse().find((m) => m.box === 1) ?? null : null
-  const replyTo = answering ?? newestReceived
+  const subjectSource = answering?.box === 1 ? answering : newestReceived
   const canReply = !!selected && !selected.isSystem && !!selected.party?.uid
+
+  // Body of the message being answered, which may still be on its way.
+  const answeringBody = answering ? answering.bodyHtml ?? bodies.get(bodyKey(answering)) : undefined
+  const answeringQuote = useMemo(() => {
+    if (!answering) return ''
+    if (answeringBody === undefined) return null
+    return quoteText(answeringBody)
+  }, [answering, answeringBody])
+
+  function startReply(m: PmMessage) {
+    setAnswering(m)
+    composerRef.current?.focus()
+  }
 
   async function send() {
     if (!selected?.party?.uid) return
@@ -387,16 +425,20 @@ export function MessagesView(props: PageProps) {
       toast.warning('Write a message first.')
       return
     }
-    // The target must belong to the open conversation. Otherwise the quoted
-    // message and the recipient would come from different people.
-    const target = replyTo && selected.messages.some((m) => m.id === replyTo.id) ? replyTo : null
+    // The quoted message must belong to the open conversation. Otherwise the
+    // quote and the recipient would come from different people.
+    const target = answering && selected.messages.some((m) => m.id === answering.id) ? answering : null
+    const source = subjectSource && selected.messages.some((m) => m.id === subjectSource.id) ? subjectSource : null
     setSending(true)
     const result = await sendMessage({
       receiverUid: selected.party.uid,
-      replyToId: target?.id ?? null,
-      subject: `Re: ${baseSubject(target?.subject ?? selected.subject)}`,
+      replyToId: source?.id ?? null,
+      subject: `Re: ${baseSubject(target?.subject ?? source?.subject ?? selected.subject)}`,
       text: draft,
-      includeQuote: quoting,
+      quote:
+        target && answeringQuote
+          ? { author: quoteAuthor(target.box === -1 ? props.page.user.name : selected.party.name), text: answeringQuote }
+          : null,
       returnTo: threadUrl(selected.key),
     })
     if (result.ok) return // the stored message navigates away
@@ -558,7 +600,10 @@ export function MessagesView(props: PageProps) {
                         </Button>
                       </div>
                     )}
-                    <Conversation>
+                    <Conversation
+                      label={`Conversation with ${selected.party?.name ?? 'the site'}`}
+                      busy={visible.some((m) => !m.bodyHtml && !bodies.has(bodyKey(m)))}
+                    >
                       {visible.map((m, i) => {
                         const topic = baseSubject(m.subject) || NO_SUBJECT
                         const prev = visible[i - 1]
@@ -571,8 +616,10 @@ export function MessagesView(props: PageProps) {
                               me={props.page.user.name || 'you'}
                               body={m.bodyHtml ?? bodies.get(bodyKey(m))}
                               loading={!m.bodyHtml && !bodies.has(bodyKey(m))}
+                              position={selected.messages.length - visible.length + i + 1}
+                              total={selected.messages.length}
                               onDelete={setPendingDelete}
-                              onReply={canReply && m.box === 1 ? setAnswering : null}
+                              onReply={canReply ? startReply : null}
                             />
                           </Fragment>
                         )
@@ -581,43 +628,57 @@ export function MessagesView(props: PageProps) {
                   </div>
 
                   {canReply && (
-                    <div className="grid gap-2.5 border-t bg-card px-6 py-3.5">
+                    <div
+                      className="grid gap-2.5 border-t bg-card px-6 py-3.5"
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Escape' || !answering) return
+                        e.stopPropagation()
+                        setAnswering(null)
+                      }}
+                    >
                       {answering && (
-                        <div className="flex items-center gap-2 rounded-md bg-brand-soft/40 px-3 py-1.5 text-[12px]">
-                          <CornerUpLeft className="size-3.5 shrink-0 text-brand" />
-                          <span className="min-w-0 flex-1 truncate">
-                            Answering <span className="font-medium">{baseSubject(answering.subject) || NO_SUBJECT}</span>
-                            {answering.date && <span className="text-muted-foreground"> · {relTime(answering.date)}</span>}
-                          </span>
-                          <button
-                            type="button"
-                            aria-label="Answer the newest message instead"
-                            onClick={() => setAnswering(null)}
-                            className="shrink-0 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                          >
-                            <X className="size-3.5" />
-                          </button>
+                        <div className="grid gap-1 rounded-md bg-brand-soft/40 px-3 py-2 text-[12px]">
+                          <div className="flex items-center gap-2">
+                            <CornerUpLeft aria-hidden="true" className="size-3.5 shrink-0 text-brand" />
+                            <span className="min-w-0 flex-1 truncate font-medium">
+                              Replying to {answering.box === -1 ? 'your own message' : selected.party?.name ?? 'them'}
+                            </span>
+                            <span className="shrink-0 text-[11px] text-muted-foreground">Esc to cancel</span>
+                            <button
+                              type="button"
+                              aria-label="Stop replying to that message"
+                              onClick={() => setAnswering(null)}
+                              className="shrink-0 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                            >
+                              <X className="size-3.5" />
+                            </button>
+                          </div>
+                          <p className="truncate pl-5 text-[11.5px] italic text-muted-foreground">
+                            {answeringQuote === null
+                              ? 'Loading the message you are answering'
+                              : answeringQuote || 'That message has no text to quote.'}
+                          </p>
                         </div>
                       )}
                       <BBComposer
+                        ref={composerRef}
                         value={draft}
                         onChange={setDraft}
                         placeholder={`Reply to ${selected.party?.name ?? 'this member'}…`}
                         minHeightClass="min-h-20"
                       />
-                      <div className={cn('flex items-center gap-3', replyTo ? 'justify-between' : 'justify-end')}>
-                        {replyTo && (
-                          <Label className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
-                            <Switch checked={quoting} onCheckedChange={setQuoting} />
-                            Quote their message
-                          </Label>
-                        )}
-                        <Button size="sm" onClick={() => void send()} disabled={sending}>
-                          {sending ? <Spinner /> : <Send />} Send reply
+                      <div className="flex items-center justify-end">
+                        <Button size="sm" onClick={() => void send()} disabled={sending} aria-busy={sending}>
+                          {sending ? <Spinner aria-hidden="true" /> : <Send aria-hidden="true" />} Send reply
                         </Button>
                       </div>
                     </div>
                   )}
+                  <div role="status" aria-live="polite" className="sr-only">
+                    {answering
+                      ? `Replying to ${answering.box === -1 ? 'your own message' : selected.party?.name ?? 'them'}. Escape cancels.`
+                      : ''}
+                  </div>
                 </>
               ) : (
                 <div className="flex h-full items-center justify-center p-10 text-sm text-muted-foreground">

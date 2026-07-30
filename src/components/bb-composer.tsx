@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type ComponentType } from 'react'
+import { useImperativeHandle, useLayoutEffect, useRef, useState, type ComponentType } from 'react'
 import {
   Bold, Braces, ChevronDown, Code, Eye, FileCode2, Image as ImageIcon, Italic, Link2, List,
   ListOrdered, Palette, PencilLine, Quote, Strikethrough, Type, Underline,
@@ -128,18 +128,28 @@ const MORE_TOOLS: { label: string; pre: string; post: string; cmd?: string; arg?
   { label: 'Email link', pre: '[email]', post: '[/email]', cmd: 'createLink', arg: 'mailto:' },
 ]
 
+/** Lets a page put the caret in the write surface, for instance right after
+ * picking the message to answer. */
+export interface ComposerHandle {
+  focus: () => void
+}
+
 export function BBComposer({
   value,
   onChange,
   placeholder,
   className,
   minHeightClass = 'min-h-28',
+  ref,
+  'aria-describedby': describedBy,
 }: {
   value: string
   onChange: (v: string) => void
   placeholder?: string
   className?: string
   minHeightClass?: string
+  ref?: React.Ref<ComposerHandle>
+  'aria-describedby'?: string
 }) {
   const [enabled] = useState(wysiwygEnabled)
   const wysiwyg = enabled
@@ -158,6 +168,10 @@ export function BBComposer({
     const el = edRef.current
     setEmpty(!!el && !el.textContent?.trim() && !el.querySelector('img'))
   }
+
+  useImperativeHandle(ref, () => ({
+    focus: () => (edRef.current ?? taRef.current)?.focus(),
+  }))
 
   // Plain textarea auto-grow so a long post never edits through a tiny window;
   // minHeightClass sets the floor, max-height the ceiling.
@@ -253,11 +267,12 @@ export function BBComposer({
           type="button"
           variant="ghost"
           size="icon"
+          aria-label={t.label}
           className="size-7 text-muted-foreground hover:text-foreground"
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => apply(t)}
         >
-          <t.icon className="size-3.5" />
+          <t.icon aria-hidden="true" className="size-3.5" />
         </Button>
       </TooltipTrigger>
       <TooltipContent>{t.label}</TooltipContent>
@@ -367,6 +382,8 @@ export function BBComposer({
           onChange={(e) => onChange(e.target.value)}
           spellCheck={false}
           placeholder={placeholder}
+          aria-label={placeholder}
+          aria-describedby={describedBy}
           className={cn('block w-full resize-none overflow-y-auto bg-transparent px-3.5 py-2.5 font-mono text-[12.5px] leading-relaxed outline-none placeholder:text-muted-foreground max-h-[70vh]', minHeightClass)}
         />
       ) : wysiwyg ? (
@@ -380,6 +397,8 @@ export function BBComposer({
             suppressContentEditableWarning
             role="textbox"
             aria-multiline="true"
+            aria-label={placeholder}
+            aria-describedby={describedBy}
             onInput={emitWys}
             onKeyUp={saveSel}
             onMouseUp={saveSel}
@@ -398,6 +417,8 @@ export function BBComposer({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
+          aria-label={placeholder}
+          aria-describedby={describedBy}
           className={cn('block w-full resize-none overflow-y-auto bg-transparent px-3.5 py-2.5 text-[13.5px] outline-none placeholder:text-muted-foreground max-h-[70vh]', minHeightClass)}
         />
       ) : (

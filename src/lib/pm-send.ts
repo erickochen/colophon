@@ -9,8 +9,8 @@ export interface SendDraft {
   /** Used when MAM has nothing to prefill, so on a fresh subject. */
   subject?: string
   text: string
-  /** Carry the quoted history MAM prefilled. Off means the text goes out alone. */
-  includeQuote?: boolean
+  /** The one message being answered. Null sends the text on its own. */
+  quote?: { author: string; text: string } | null
   /** Where MAM sends the browser once the message is stored. */
   returnTo?: string
 }
@@ -25,7 +25,17 @@ const SEND_FORM = 'form[action*="takemessage" i]'
 /** Marks our own copy of MAM's form, so a retry replaces it. */
 const FORM_ID = 'colophon-pm-send'
 /** Blank lines MAM leaves between a reply and the quoted history. */
-const QUOTE_GAP = '<br /><br />'
+const QUOTE_GAP = '<br /><br /><br />'
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+/** The separator MAM writes, so both sides read a quote the same way. One level
+ * only: the reader already has the rest in their own sentbox. The author comes
+ * in stripped of markup, so only the quoted text needs escaping. */
+function quoteBlock(quote: { author: string; text: string }): string {
+  return `${QUOTE_GAP}-------- ${quote.author} wrote: --------<br />${escapeHtml(quote.text)}`
+}
 
 function setHidden(form: HTMLFormElement, name: string, value: string) {
   const existing = form.querySelector<HTMLInputElement>(`input[name="${name}"]`)
@@ -83,9 +93,9 @@ export async function buildSendForm(draft: SendDraft): Promise<BuiltForm | SendR
 
   const subject = form.querySelector<HTMLInputElement>('input[name="subject"]')
   if (subject && !subject.value.trim() && draft.subject) subject.value = draft.subject
-  // MAM prefills the quoted history. It travels along only when asked for, so a
-  // short note stays a short note.
-  msg.value = draft.includeQuote && msg.value ? draft.text + QUOTE_GAP + msg.value : draft.text
+  // MAM prefills its whole stacked history. That is replaced by the single
+  // message being answered. Without a target the text goes out on its own.
+  msg.value = draft.quote ? draft.text + quoteBlock(draft.quote) : draft.text
   // A conversation only reads back in full while the sentbox keeps our side of
   // it, so the copy is forced on rather than left to the form's default.
   const save = form.querySelector<HTMLInputElement>('input[name="save"]')

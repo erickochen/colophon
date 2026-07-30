@@ -250,6 +250,32 @@ export function splitQuoteStack(html: string): { head: string; quotes: QuoteLeve
   return { head: parts[0].trim(), quotes }
 }
 
+/** Characters of someone else's message worth carrying along. A quote points at
+ * what you answer; the reader already owns the message itself. */
+const QUOTE_CHAR_BUDGET = 240
+const QUOTE_TRIM_MARKER = ' [..]'
+/** Longest author name the separator can carry back out again. */
+const QUOTE_AUTHOR_MAX = 40
+
+/** Plain text of a body, without the history it dragged along. */
+export function quoteText(html: string | null | undefined): string {
+  if (!html) return ''
+  const own = splitQuoteStack(html).head
+  const doc = new DOMParser().parseFromString(own, 'text/html')
+  const text = (doc.body.textContent ?? '').replace(/\s+/g, ' ').trim()
+  if (text.length <= QUOTE_CHAR_BUDGET) return text
+  const cut = text.slice(0, QUOTE_CHAR_BUDGET)
+  const lastSpace = cut.lastIndexOf(' ')
+  return (lastSpace > 0 ? cut.slice(0, lastSpace) : cut) + QUOTE_TRIM_MARKER
+}
+
+/** Name as it can appear between the separator dashes, so our own reader can
+ * split it back off. Markup characters are dropped rather than escaped: an
+ * escape would grow the name past the length the separator can carry. */
+export function quoteAuthor(name: string | null | undefined): string {
+  return (name ?? 'them').replace(/[<>&\n]/g, '').replace(/\s+/g, ' ').trim().slice(0, QUOTE_AUTHOR_MAX) || 'them'
+}
+
 const isSystemParty = (p: PmParty | null) => !p || p.uid === SYSTEM_UID || (!p.uid && /^system$/i.test(p.name))
 
 // One conversation per member. MAM has no thread id. The same donation or
