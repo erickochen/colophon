@@ -257,16 +257,21 @@ const QUOTE_TRIM_MARKER = ' [..]'
 /** Longest author name the separator can carry back out again. */
 const QUOTE_AUTHOR_MAX = 40
 
+/** Trims to the budget on a word boundary. */
+export function capQuote(text: string): string {
+  const clean = text.replace(/\s+/g, ' ').trim()
+  if (clean.length <= QUOTE_CHAR_BUDGET) return clean
+  const cut = clean.slice(0, QUOTE_CHAR_BUDGET)
+  const lastSpace = cut.lastIndexOf(' ')
+  return (lastSpace > 0 ? cut.slice(0, lastSpace) : cut) + QUOTE_TRIM_MARKER
+}
+
 /** Plain text of a body, without the history it dragged along. */
 export function quoteText(html: string | null | undefined): string {
   if (!html) return ''
   const own = splitQuoteStack(html).head
   const doc = new DOMParser().parseFromString(own, 'text/html')
-  const text = (doc.body.textContent ?? '').replace(/\s+/g, ' ').trim()
-  if (text.length <= QUOTE_CHAR_BUDGET) return text
-  const cut = text.slice(0, QUOTE_CHAR_BUDGET)
-  const lastSpace = cut.lastIndexOf(' ')
-  return (lastSpace > 0 ? cut.slice(0, lastSpace) : cut) + QUOTE_TRIM_MARKER
+  return capQuote(doc.body.textContent ?? '')
 }
 
 /** Name as it can appear between the separator dashes, so our own reader can

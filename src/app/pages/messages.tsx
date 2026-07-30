@@ -10,6 +10,7 @@ import {
   fetchPmBodies,
   fetchUnreadCount,
   NO_SUBJECT,
+  capQuote,
   quoteAuthor,
   quoteText,
   scanBox,
@@ -22,7 +23,9 @@ import {
 import { sendMessage } from '@/lib/pm-send'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader, RichHtml, UserLink } from '@/app/shell/bits'
-import { BubbleActions, Conversation, ConversationBubble } from '@/components/conversation'
+import {
+  BubbleActions, Conversation, ConversationBubble, selectionWithin, useConversationNav,
+} from '@/components/conversation'
 import { MemberPicker } from '@/components/member-picker'
 import { BBComposer, type ComposerHandle } from '@/components/bb-composer'
 import { FilterBar, FilterRow, FilterSearch, FilterSegments } from '@/components/filters'
@@ -31,6 +34,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -92,11 +96,22 @@ function TopicDivider({ subject }: { subject: string }) {
 }
 
 /** The messages quoted under a reply, folded away until asked for. */
-function QuotedHistory({ quotes, author, startOpen }: { quotes: QuoteLevel[]; author: string; startOpen?: boolean }) {
+function QuotedHistory({
+  quotes,
+  author,
+  startOpen,
+  tabIndex,
+}: {
+  quotes: QuoteLevel[]
+  author: string
+  startOpen?: boolean
+  tabIndex?: number
+}) {
   const [open, setOpen] = useState(!!startOpen)
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="pt-2">
       <CollapsibleTrigger
+        tabIndex={tabIndex}
         aria-label={`Quoted history under ${author}: ${plural(quotes.length, 'quoted message')}`}
         className="flex items-center gap-1 py-1 text-[11.5px] text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
       >
@@ -135,7 +150,7 @@ const ThreadBubble = memo(function ThreadBubble({
   position: number
   total: number
   onDelete: (m: PmMessage) => void
-  onReply: ((m: PmMessage) => void) | null
+  onReply: ((m: PmMessage, selected: string | null) => void) | null
 }) {
   const mine = message.box === -1
   const author = mine ? me : message.party?.name ?? 'system'
@@ -145,6 +160,11 @@ const ThreadBubble = memo(function ThreadBubble({
   const hasText = !!split?.head
   const who = mine ? 'your message' : `${author}'s message`
   const when = message.date ? `, ${dateOnly(message.date)}` : ''
+  const navKey = bodyKey(message)
+  const { navigable, active } = useConversationNav(navKey)
+  // Buttons of a message the arrows are not on stay out of the tab order, so
+  // the whole thread is one stop instead of one per message.
+  const actionTab = navigable && !active ? -1 : undefined
   return (
     <ConversationBubble
       author={author}
@@ -154,6 +174,7 @@ const ThreadBubble = memo(function ThreadBubble({
       mine={mine}
       position={position}
       total={total}
+      navKey={navKey}
       actions={
         (message.deleteHref || message.reportHref || onReply) && (
           <BubbleActions label={`Actions for ${who}${when}`}>
@@ -163,9 +184,10 @@ const ThreadBubble = memo(function ThreadBubble({
                   <Button
                     variant="ghost"
                     size="icon"
+                    tabIndex={actionTab}
                     aria-label={`Reply to ${who}${when}`}
                     className="size-6 text-muted-foreground hover:text-foreground"
-                    onClick={() => onReply(message)}
+                    onClick={(e) => onReply(message, selectionWithin(e.currentTarget.closest('article')))}
                   >
                     <CornerUpLeft className="size-3.5" />
                   </Button>
@@ -176,6 +198,7 @@ const ThreadBubble = memo(function ThreadBubble({
             {(message.reportHref || message.deleteHref) && (
               <DropdownMenu>
                 <DropdownMenuTrigger
+                  tabIndex={actionTab}
                   aria-label={`More actions for ${who}${when}`}
                   className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                 >
@@ -198,7 +221,7 @@ const ThreadBubble = memo(function ThreadBubble({
           </BubbleActions>
         )
       }
-      footer={split && split.quotes.length > 0 ? <QuotedHistory quotes={split.quotes} author={author} startOpen={!hasText} /> : undefined}
+      footer={split && split.quotes.length > 0 ? <QuotedHistory quotes={split.quotes} author={author} startOpen={!hasText} tabIndex={actionTab} /> : undefined}
     >
       {loading ? (
         <div className="grid gap-1.5 py-0.5">
@@ -232,6 +255,8 @@ export function MessagesView(props: PageProps) {
   const [pendingDelete, setPendingDelete] = useState<PmMessage | null>(null)
   // The one message being answered. Null means the text goes out on its own.
   const [answering, setAnswering] = useState<PmMessage | null>(null)
+  // Text highlighted inside that message, which wins over its opening lines.
+  const [picked, setPicked] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
   const requested = useRef<Set<string>>(new Set())
   const composerRef = useRef<ComposerHandle>(null)
@@ -315,6 +340,7 @@ export function MessagesView(props: PageProps) {
   useEffect(() => {
     setShownCount(THREAD_PAGE_SIZE)
     setAnswering(null)
+    setPicked(null)
   }, [selected?.key])
 
   useEffect(() => {
@@ -398,6 +424,7 @@ export function MessagesView(props: PageProps) {
     setShownCount(THREAD_PAGE_SIZE)
     setDraft('')
     setAnswering(null)
+    setPicked(null)
   }
 
   // MAM builds the subject from a received message, so that is what the send
@@ -410,12 +437,14 @@ export function MessagesView(props: PageProps) {
   const answeringBody = answering ? answering.bodyHtml ?? bodies.get(bodyKey(answering)) : undefined
   const answeringQuote = useMemo(() => {
     if (!answering) return ''
+    if (picked) return capQuote(picked)
     if (answeringBody === undefined) return null
     return quoteText(answeringBody)
-  }, [answering, answeringBody])
+  }, [answering, picked, answeringBody])
 
-  function startReply(m: PmMessage) {
+  function startReply(m: PmMessage, selected: string | null) {
     setAnswering(m)
+    setPicked(selected)
     composerRef.current?.focus()
   }
 
@@ -603,6 +632,7 @@ export function MessagesView(props: PageProps) {
                     <Conversation
                       label={`Conversation with ${selected.party?.name ?? 'the site'}`}
                       busy={visible.some((m) => !m.bodyHtml && !bodies.has(bodyKey(m)))}
+                      startKey={visible.length ? bodyKey(visible[visible.length - 1]) : null}
                     >
                       {visible.map((m, i) => {
                         const topic = baseSubject(m.subject) || NO_SUBJECT
@@ -634,6 +664,7 @@ export function MessagesView(props: PageProps) {
                         if (e.key !== 'Escape' || !answering) return
                         e.stopPropagation()
                         setAnswering(null)
+                        setPicked(null)
                       }}
                     >
                       {answering && (
@@ -643,11 +674,17 @@ export function MessagesView(props: PageProps) {
                             <span className="min-w-0 flex-1 truncate font-medium">
                               Replying to {answering.box === -1 ? 'your own message' : selected.party?.name ?? 'them'}
                             </span>
+                            {picked && (
+                              <Badge variant="secondary" className="shrink-0 text-[10px]">your selection</Badge>
+                            )}
                             <span className="shrink-0 text-[11px] text-muted-foreground">Esc to cancel</span>
                             <button
                               type="button"
                               aria-label="Stop replying to that message"
-                              onClick={() => setAnswering(null)}
+                              onClick={() => {
+                                setAnswering(null)
+                                setPicked(null)
+                              }}
                               className="shrink-0 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                             >
                               <X className="size-3.5" />
