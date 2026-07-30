@@ -9,6 +9,8 @@ export interface SendDraft {
   /** Used when MAM has nothing to prefill, so on a fresh subject. */
   subject?: string
   text: string
+  /** Carry the quoted history MAM prefilled. Off means the text goes out alone. */
+  includeQuote?: boolean
   /** Where MAM sends the browser once the message is stored. */
   returnTo?: string
 }
@@ -81,8 +83,9 @@ export async function buildSendForm(draft: SendDraft): Promise<BuiltForm | SendR
 
   const subject = form.querySelector<HTMLInputElement>('input[name="subject"]')
   if (subject && !subject.value.trim() && draft.subject) subject.value = draft.subject
-  // Own text on top, MAM's quoted history underneath.
-  msg.value = msg.value ? draft.text + QUOTE_GAP + msg.value : draft.text
+  // MAM prefills the quoted history. It travels along only when asked for, so a
+  // short note stays a short note.
+  msg.value = draft.includeQuote && msg.value ? draft.text + QUOTE_GAP + msg.value : draft.text
   // A conversation only reads back in full while the sentbox keeps our side of
   // it, so the copy is forced on rather than left to the form's default.
   const save = form.querySelector<HTMLInputElement>('input[name="save"]')

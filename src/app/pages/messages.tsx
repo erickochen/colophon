@@ -34,8 +34,10 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
+import { Switch } from '@/components/ui/switch'
 import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 
@@ -203,6 +205,7 @@ export function MessagesView(props: PageProps) {
   const [pendingDelete, setPendingDelete] = useState<PmMessage | null>(null)
   // Set when answering a specific older message instead of the newest one.
   const [answering, setAnswering] = useState<PmMessage | null>(null)
+  const [quoting, setQuoting] = useState(false)
   const [picking, setPicking] = useState(false)
   const requested = useRef<Set<string>>(new Set())
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -285,6 +288,7 @@ export function MessagesView(props: PageProps) {
   useEffect(() => {
     setShownCount(THREAD_PAGE_SIZE)
     setAnswering(null)
+    setQuoting(false)
   }, [selected?.key])
 
   useEffect(() => {
@@ -368,6 +372,7 @@ export function MessagesView(props: PageProps) {
     setShownCount(THREAD_PAGE_SIZE)
     setDraft('')
     setAnswering(null)
+    setQuoting(false)
   }
 
   // Default target is the newest received message, which is what MAM's own
@@ -391,6 +396,7 @@ export function MessagesView(props: PageProps) {
       replyToId: target?.id ?? null,
       subject: `Re: ${baseSubject(target?.subject ?? selected.subject)}`,
       text: draft,
+      includeQuote: quoting,
       returnTo: threadUrl(selected.key),
     })
     if (result.ok) return // the stored message navigates away
@@ -599,7 +605,13 @@ export function MessagesView(props: PageProps) {
                         placeholder={`Reply to ${selected.party?.name ?? 'this member'}…`}
                         minHeightClass="min-h-20"
                       />
-                      <div className="flex items-center justify-end">
+                      <div className={cn('flex items-center gap-3', replyTo ? 'justify-between' : 'justify-end')}>
+                        {replyTo && (
+                          <Label className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
+                            <Switch checked={quoting} onCheckedChange={setQuoting} />
+                            Quote their message
+                          </Label>
+                        )}
                         <Button size="sm" onClick={() => void send()} disabled={sending}>
                           {sending ? <Spinner /> : <Send />} Send reply
                         </Button>
