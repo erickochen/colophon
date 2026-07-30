@@ -27,6 +27,16 @@ export function initials(name: string): string {
   return name.trim().slice(0, 2).toUpperCase()
 }
 
+/** Server timestamp without its clock time, so "2026-07-30 08:12:00" reads as a date. */
+export function dateOnly(s: string | null | undefined): string {
+  return s?.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? s ?? ''
+}
+
+/** Count with its noun, singular at one: "1 member", "12 members". */
+export function plural(n: number, word: string): string {
+  return `${fmtInt(n)} ${word}${n === 1 ? '' : 's'}`
+}
+
 /** Ratio: compact above 10k, whole thousands above 100, else 2 decimals. */
 export function fmtRatio(r: string | null | undefined): string {
   if (r == null) return '–'

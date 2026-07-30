@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Search, UsersRound } from 'lucide-react'
+import { UsersRound } from 'lucide-react'
 import type { PageProps } from '@/app/router'
+import { MEMBER_PAGE_SIZE, searchMembers, type UserRow } from '@/lib/extract/users'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
-import { relTime } from '@/lib/format'
+import { dateOnly, plural, relTime } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -13,15 +14,6 @@ import { FilterBar, FilterHint, FilterRow, FilterSearch, FilterSelect } from '@/
 const clean = (s: string | null | undefined) => s?.replace(/\s+/g, ' ').trim() ?? ''
 
 interface ClassOpt { value: string; label: string }
-interface UserRow {
-  name: string
-  href: string
-  registered: string
-  lastAccess: string
-  className: string
-  country: string | null
-  flag: string | null
-}
 
 /** Class dropdown options live in the original (hidden) search form. */
 function readClasses(doc: Document): ClassOpt[] {
@@ -29,31 +21,10 @@ function readClasses(doc: Document): ClassOpt[] {
   return opts.length ? opts.map((o) => ({ value: o.value, label: clean(o.textContent) })) : [{ value: '-', label: '(any class)' }]
 }
 
-function parseUsers(html: string): UserRow[] {
-  const doc = new DOMParser().parseFromString(html, 'text/html')
-  const table = doc.querySelector('#mainBody table')
-  if (!table) return []
-  const rows = [...table.querySelectorAll('tr')]
-  const out: UserRow[] = []
-  for (const tr of rows) {
-    const tds = [...tr.querySelectorAll('td')]
-    const a = tds[0]?.querySelector('a')
-    if (!a || tds.length < 5) continue // skip header / malformed
-    const flagImg = tds[4]?.querySelector('img')
-    out.push({
-      name: clean(a.textContent),
-      href: a.getAttribute('href') ?? '#',
-      registered: clean(tds[1]?.textContent),
-      lastAccess: clean(tds[2]?.textContent),
-      className: clean(tds[3]?.textContent),
-      country: flagImg?.getAttribute('title') ?? null,
-      flag: flagImg?.getAttribute('src') ?? null,
-    })
-  }
-  return out
-}
-
 export function UsersView(props: PageProps) {
+  // Decided once, before the effects: a page without MAM's body falls through to
+  // the legacy view, so nothing should be fetched for it.
+  const usable = useMemo(() => !!document.querySelector('#mainBody'), [])
   const classes = useMemo(() => readClasses(document), [])
   const [text, setText] = useState('')
   const [cls, setCls] = useState('-')
@@ -66,10 +37,8 @@ export function UsersView(props: PageProps) {
     const id = ++reqId.current
     setLoading(true)
     setError(false)
-    const params = new URLSearchParams({ search: text.trim(), class: cls === '-' ? '' : cls })
     try {
-      const res = await fetch(`/users.php?${params.toString()}`, { credentials: 'include' })
-      const parsed = parseUsers(await res.text())
+      const parsed = await searchMembers(text, cls === '-' ? '' : cls)
       if (id !== reqId.current) return
       setRows(parsed)
     } catch {
@@ -80,9 +49,11 @@ export function UsersView(props: PageProps) {
   }
 
   // Populate with MAM's default listing on first open.
-  useEffect(() => { run() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (usable) void run()
+  }, [usable]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!document.querySelector('#mainBody')) return <LegacyView {...props} />
+  if (!usable) return <LegacyView {...props} />
 
   return (
     <div className="mx-auto grid w-full max-w-4xl gap-5">
@@ -110,7 +81,10 @@ export function UsersView(props: PageProps) {
       {!loading && !error && rows && (
         rows.length > 0 ? (
           <div className="grid gap-3">
-            <p className="text-[12.5px] text-muted-foreground">{rows.length}{rows.length === 100 ? '+' : ''} members</p>
+            <p className="text-[12.5px] text-muted-foreground">
+              {plural(rows.length, 'member')}
+              {rows.length === MEMBER_PAGE_SIZE && ' or more'}
+            </p>
             <Card className="py-0">
               <CardContent className="grid gap-0 px-0 py-0">
                 {/* header */}
@@ -131,7 +105,7 @@ export function UsersView(props: PageProps) {
                       {u.flag && <img src={u.flag} alt="" className="h-3.5 w-auto" />}
                       <span className="hidden sm:inline">{u.country ?? ''}</span>
                     </span>
-                    <span className="text-[12px] text-muted-foreground" title={u.registered}>{u.registered.slice(0, 10)}</span>
+                    <span className="text-[12px] text-muted-foreground" title={u.registered}>{dateOnly(u.registered)}</span>
                     <span className="text-[12px] text-muted-foreground" title={u.lastAccess}>{relTime(u.lastAccess)}</span>
                   </a>
                 ))}

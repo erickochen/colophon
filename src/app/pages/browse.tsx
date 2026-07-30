@@ -7,7 +7,7 @@ import {
   type BookmarkCleanup, type SearchQuery, type SearchTorrent,
 } from '@/lib/mam-api'
 import { CONTENT_FLAGS, LANGUAGES, MAIN_CATS, SORT_OPTIONS } from '@/lib/mam-facets'
-import { fmtInt, relTime } from '@/lib/format'
+import { fmtInt, plural, relTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Book } from '@/components/book'
 import { Badge } from '@/components/ui/badge'
@@ -328,9 +328,6 @@ function GalleryItem({ t }: { t: SearchTorrent }) {
   )
 }
 
-function plural(n: number, word: string) {
-  return `${fmtInt(n)} ${word}${n === 1 ? '' : 's'}`
-}
 
 const MENU_GROUP_LABEL = 'text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground'
 

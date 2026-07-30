@@ -4,11 +4,11 @@ import type { PageProps } from '@/app/router'
 import { cleanHtml } from '@/lib/sanitize'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader, RichHtml } from '@/app/shell/bits'
-import { initials, relTime } from '@/lib/format'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { relTime } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { BBComposer } from '@/components/bb-composer'
+import { Conversation, ConversationBubble } from '@/components/conversation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { toast } from '@/components/ui/toast'
@@ -201,7 +201,8 @@ export function TicketDetailView(props: PageProps) {
   const data = useMemo(() => extractDetail(document), [])
   const [draft, setDraft] = useState('')
   if (!data) return <LegacyView {...props} />
-  const me = props.page.user.name
+  // Falls back so an unreadable username cannot make every own post read as staff.
+  const me = props.page.user.name || 'you'
 
   function send() {
     if (!data?.reply) return
@@ -234,34 +235,20 @@ export function TicketDetailView(props: PageProps) {
         }
       />
 
-      <div className="grid gap-3">
-        {data.messages.map((m, i) => {
-          const mine = m.author === me
-          return (
-            <div key={i} className={cn('flex gap-3', mine && 'flex-row-reverse')}>
-              <Avatar className="size-9 shrink-0 rounded-lg">
-                <AvatarFallback className={cn('rounded-lg text-[11px] font-semibold', mine ? 'bg-primary text-primary-foreground' : 'bg-brand-soft text-accent-foreground')}>
-                  {initials(m.author)}
-                </AvatarFallback>
-              </Avatar>
-              <div className={cn('min-w-0 max-w-[85%] flex-1', mine && 'flex flex-col items-end')}>
-                <div className={cn('flex items-baseline gap-2 pb-1', mine && 'flex-row-reverse')}>
-                  {m.href ? (
-                    <a href={m.href} className="text-[12.5px] font-semibold hover:underline">{m.author}</a>
-                  ) : (
-                    <span className="text-[12.5px] font-semibold">{m.author}</span>
-                  )}
-                  {!mine && <Badge variant="secondary" className="text-[9.5px]">staff</Badge>}
-                  <span className="text-[11px] text-muted-foreground" title={m.at ?? ''}>{relTime(m.at)}</span>
-                </div>
-                <div className={cn('rounded-xl px-4 py-3', mine ? 'rounded-tr-sm bg-brand-soft/50' : 'rounded-tl-sm bg-card')}>
-                  <RichHtml html={m.bodyHtml} className="text-[13.5px]" />
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
+      <Conversation>
+        {data.messages.map((m, i) => (
+          <ConversationBubble
+            key={i}
+            author={m.author}
+            href={m.href}
+            at={m.at}
+            mine={m.author === me}
+            badge={m.author !== me && <Badge variant="secondary" className="text-[9.5px]">staff</Badge>}
+          >
+            <RichHtml html={m.bodyHtml} className="text-[13.5px]" />
+          </ConversationBubble>
+        ))}
+      </Conversation>
 
       {data.statusNote && (
         <p className="text-center text-[12px] italic text-muted-foreground">{data.statusNote}</p>
