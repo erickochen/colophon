@@ -450,11 +450,16 @@
   vertical-align: text-bottom;
 }
 
-/* MAM forum quotes (div.quote) inside sanitized post bodies. The blanket border
- * reset above strips any border, so mark the quote with an inset accent bar
- * (box-shadow survives the reset) on top of the fill set in RichHtml. */
-#mam-root .quote {
-  box-shadow: inset 3px 0 0 0 color-mix(in oklab, var(--brand) 60%, transparent);
+/* MAM forum quotes (div.quote) inside sanitized post bodies: a serif closing
+ * quote mark leads the attribution, on top of the fill set in RichHtml. */
+#mam-root .quote::before {
+  content: '\201d';
+  float: left;
+  font-family: var(--font-serif);
+  font-size: 2em;
+  line-height: 0.9;
+  margin-right: 0.28em;
+  color: color-mix(in oklab, var(--brand) 80%, transparent);
 }
 
 /* Page titles & card titles carry the serif voice of the Reading Room. */

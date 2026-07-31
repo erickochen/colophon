@@ -316,7 +316,7 @@ export function ShoutboxView(_props: PageProps) {
                   <div
                     className={cn(
                       'flex min-w-0 gap-2.5 rounded-xl px-2 py-1.5 transition-colors',
-                      g.own && 'border-l-2 border-brand bg-brand-soft/40',
+                      g.own && 'bg-brand-soft/40',
                       groupNew && 'animate-in fade-in slide-in-from-bottom-1 duration-300'
                     )}
                   >
@@ -388,7 +388,7 @@ export function ShoutboxView(_props: PageProps) {
 
           <div className="border-t bg-muted/30 px-4 py-3 sm:px-6">
             {quoting && (
-              <div className="mb-2 flex items-center gap-2 rounded-lg border-l-2 border-brand bg-brand-soft/40 py-1.5 pl-3 pr-2 text-[12px]">
+              <div className="mb-2 flex items-center gap-2 rounded-lg bg-brand-soft/40 py-1.5 pl-3 pr-2 text-[12px]">
                 <QuoteIcon className="size-3 shrink-0 text-brand" />
                 <span className="min-w-0 flex-1 truncate text-muted-foreground">Replying to {quoting.label}</span>
                 <button type="button" onClick={() => setQuoting(null)} className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground" title="Remove quote">

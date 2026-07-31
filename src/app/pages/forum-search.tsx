@@ -29,7 +29,7 @@ interface Row {
 
 /** Body-content typography for a search hit (matches RichHtml + MAM's .quote). */
 const HIT_BODY =
-  'text-[13px] leading-relaxed text-foreground/85 [&_.quote]:my-2 [&_.quote]:rounded-md [&_.quote]:border-l-2 [&_.quote]:border-brand/30 [&_.quote]:bg-muted/50 [&_.quote]:px-3 [&_.quote]:py-1.5 [&_.quote]:text-[12.5px] [&_.quote_span]:text-[11.5px] [&_.quote_span]:text-muted-foreground [&_hr]:my-2 [&_hr]:border-t [&_hr]:border-border'
+  'text-[13px] leading-relaxed text-foreground/85 [&_.quote]:my-2 [&_.quote]:rounded-md [&_.quote]:bg-muted/50 [&_.quote]:px-3 [&_.quote]:py-1.5 [&_.quote]:text-[12.5px] [&_.quote_span]:text-[11.5px] [&_.quote_span]:text-muted-foreground [&_hr]:my-2 [&_hr]:border-t [&_hr]:border-border'
 
 const clean = (s: string | null | undefined) => s?.replace(/ /g, ' ').replace(/\s+/g, ' ').trim() ?? ''
 

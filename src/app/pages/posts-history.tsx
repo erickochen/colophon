@@ -74,7 +74,7 @@ export function PostsHistoryView(props: PageProps) {
             <CardContent className="py-4">
               <RichHtml
                 html={p.bodyHtml}
-                className="text-[13.5px] [&_.quote]:my-1 [&_.quote]:border-l-2 [&_.quote]:border-brand/40 [&_.quote]:bg-muted/50 [&_.quote]:px-3 [&_.quote]:py-2 [&_.quote]:text-[12.5px] [&_.quote_span]:text-muted-foreground [&_img]:inline"
+                className="text-[13.5px] [&_.quote]:my-1 [&_.quote]:rounded-md [&_.quote]:bg-muted/50 [&_.quote]:px-3 [&_.quote]:py-2 [&_.quote]:text-[12.5px] [&_.quote_span]:text-muted-foreground [&_img]:inline"
               />
             </CardContent>
           </Card>

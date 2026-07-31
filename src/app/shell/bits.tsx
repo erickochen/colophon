@@ -1,6 +1,8 @@
 // Small shared page components (Reading Room voice).
-import type { ReactNode } from 'react'
+import { useEffect, useState, type MouseEvent, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { mutedUserColor } from '@/lib/colors'
+import { getPortalContainer } from '@/lib/portals'
 import { cn } from '@/lib/utils'
 
 export function PageHeader({ title, sub, action }: { title: ReactNode; sub?: ReactNode; action?: ReactNode }) {
@@ -84,20 +86,71 @@ export function Pager({
   )
 }
 
+const IMAGE_HREF = /\.(png|jpe?g|gif|webp|avif)$/i
+
+/** Zoomable when the image is bare or its link just points at a picture. */
+function zoomableSrc(el: EventTarget | null): string | null {
+  if (!(el instanceof HTMLImageElement)) return null
+  const link = el.closest('a')
+  if (link) {
+    let href = link.href
+    try {
+      href = decodeURIComponent(href)
+    } catch {
+      // Malformed escapes: judge the raw href instead.
+    }
+    if (!IMAGE_HREF.test(href)) return null
+  }
+  return el.currentSrc || el.src
+}
+
+function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex cursor-zoom-out items-center justify-center p-6"
+      // A translucent background would not paint here; the backdrop filter carries the scrim.
+      style={{ backdropFilter: 'blur(10px) brightness(0.35)' }}
+      onClick={onClose}
+    >
+      <img src={src} alt="" className="max-h-full max-w-full rounded-lg shadow-book-lift" />
+    </div>,
+    getPortalContainer()
+  )
+}
+
 /** MAM rich-content (sanitized upstream) in readable Reading Room typography. */
 export function RichHtml({ html, className }: { html: string; className?: string }) {
+  const [zoom, setZoom] = useState<string | null>(null)
+
+  function onClick(e: MouseEvent<HTMLDivElement>) {
+    const src = zoomableSrc(e.target)
+    if (!src) return
+    e.preventDefault()
+    setZoom(src)
+  }
+
   return (
+    <>
+    {zoom && <Lightbox src={zoom} onClose={() => setZoom(null)} />}
     <div
+      onClick={onClick}
       className={cn(
-        'user-html text-[13.5px] leading-relaxed [overflow-wrap:anywhere] [&_a]:text-brand [&_a]:underline [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-brand/40 [&_blockquote]:bg-muted/50 [&_blockquote]:px-3 [&_blockquote]:py-2 [&_blockquote]:text-[13px] [&_img]:my-1 [&_img]:h-auto [&_img]:max-h-[600px] [&_img]:max-w-[min(600px,100%)] [&_img]:rounded-md [&_img:hover]:max-h-none [&_img:hover]:max-w-full [&_li]:ml-4 [&_ol]:list-decimal [&_p]:mb-2.5 [&_p:last-child]:mb-0 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-[12px] [&_table]:my-2 [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-1 [&_ul]:list-disc ' +
-          // MAM quotes are <div class="quote"><span>… wrote:</span>…</div>. Fill +
-          // spacing + a distinct attribution line set the quote clearly apart from
-          // the reply (nested quotes too); the accent bar lives in index.css since
-          // borders are reset away. See #mam-root .quote.
+        'user-html text-[13.5px] leading-relaxed [overflow-wrap:anywhere] [&_:where(:not(a))>img]:cursor-zoom-in [&_a]:text-brand [&_a]:underline [&_blockquote]:my-2 [&_blockquote]:rounded-md [&_blockquote]:bg-muted/50 [&_blockquote]:px-3 [&_blockquote]:py-2 [&_blockquote]:text-[13px] [&_img]:my-1 [&_img]:h-auto [&_img]:max-h-[600px] [&_img]:max-w-[min(600px,100%)] [&_img]:rounded-md [&_img:hover]:max-h-none [&_img:hover]:max-w-full [&_li]:ml-4 [&_ol]:list-decimal [&_p]:mb-2.5 [&_p:last-child]:mb-0 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-[12px] [&_table]:my-2 [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-1 [&_ul]:list-disc ' +
+          // MAM quotes are <div class="quote"><span>… wrote:</span>…</div>. Fill,
+          // spacing and the attribution line set the quote apart; the serif quote
+          // mark lives in index.css (see #mam-root .quote::before).
           '[&_.quote]:my-3 [&_.quote]:rounded-md [&_.quote]:bg-muted/60 [&_.quote]:py-2.5 [&_.quote]:pr-3.5 [&_.quote]:pl-4 [&_.quote]:text-[13px] [&_.quote>span]:mb-1.5 [&_.quote>span]:block [&_.quote>span]:text-[11.5px] [&_.quote>span]:font-semibold [&_.quote>span]:text-muted-foreground [&_.quote_p:last-child]:mb-0',
         className
       )}
       dangerouslySetInnerHTML={{ __html: html }}
     />
+    </>
   )
 }
