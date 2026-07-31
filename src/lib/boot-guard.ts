@@ -1,6 +1,6 @@
 // Hides the page until our shell paints, so MAM's layout never flashes. Keep it
 // the first module in the bundle: anything evaluated earlier delays the veil.
-import { PAGE_BG, isDark } from '@/lib/theme'
+import { PAGE_BG, pageBg } from '@/lib/theme'
 
 const GUARD_ID = 'mam-remaster-guard'
 
@@ -31,7 +31,7 @@ function whenDocumentElement(fn: () => void) {
 function veilCss(): string {
   let bg: string = PAGE_BG.light
   try {
-    bg = isDark() ? PAGE_BG.dark : PAGE_BG.light
+    bg = pageBg()
   } catch {
     // Storage or matchMedia blocked: light is the safer default.
   }

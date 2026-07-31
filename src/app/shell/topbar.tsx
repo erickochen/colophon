@@ -1,19 +1,37 @@
 import { useEffect, useState } from 'react'
 import { Moon, Search, Sun, SunMoon } from 'lucide-react'
 import type { ShellData } from '@/lib/extract/shell'
-import { applyTheme, getTheme, isDark, type Theme } from '@/lib/theme'
+import { applyTheme, getDarkScheme, getLightScheme, getTheme, isDark, setDarkScheme, setLightScheme, type DarkScheme, type LightScheme, type Theme } from '@/lib/theme'
 import { useLiveBonus, useLiveWedges } from '@/lib/bonus'
 import { Button } from '@/components/ui/button'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Kbd } from '@/components/ui/kbd'
+
+const LIGHT_SCHEME_ITEMS: { value: LightScheme; label: string; dot: string }[] = [
+  { value: 'default', label: 'Reading Room', dot: 'oklch(0.473 0.078 46)' },
+  { value: 'latte', label: 'Catppuccin Latte', dot: 'oklch(0.555 0.25 297)' },
+  { value: 'solarized', label: 'Solarized Light', dot: 'oklch(0.56 0.13 245)' },
+]
+
+const DARK_SCHEME_ITEMS: { value: DarkScheme; label: string; dot: string }[] = [
+  { value: 'default', label: 'Reading Room', dot: 'oklch(0.75 0.09 70)' },
+  { value: 'dracula', label: 'Dracula', dot: 'oklch(0.742 0.149 302)' },
+  { value: 'onedark', label: 'One Dark Pro', dot: 'oklch(0.73 0.121 245)' },
+]
+
+function SchemeDot({ color }: { color: string }) {
+  return <span className="size-2 shrink-0 rounded-full" style={{ background: color }} />
+}
 
 /** `href` mirrors where MAM's own header sends these numbers: Bonus and B/hr to
  * the store, Unsat(s) to the snatch summary. Wedges carry no link there either. */
@@ -90,6 +108,8 @@ function ClientChip({ client }: { client: ShellData['client'] }) {
 export function Topbar({ page, onOpenSearch }: { page: ShellData; onOpenSearch: () => void }) {
   const [theme, setTheme] = useState<Theme>(getTheme)
   const [dark, setDark] = useState(() => isDark())
+  const [lightScheme, setLightState] = useState<LightScheme>(getLightScheme)
+  const [darkScheme, setDarkState] = useState<DarkScheme>(getDarkScheme)
   const bonus = useLiveBonus(page.stats.bonus)
   const wedges = useLiveWedges(page.stats.wedges)
 
@@ -101,11 +121,27 @@ export function Topbar({ page, onOpenSearch }: { page: ShellData; onOpenSearch: 
     return () => mq.removeEventListener('change', sync)
   }, [])
 
+  function shadowRootEl() {
+    return document.querySelector<HTMLElement>('#mam-remaster-host')?.shadowRoot?.getElementById('mam-root') ?? null
+  }
+
   function chooseTheme(next: Theme) {
-    const rootEl = document.querySelector<HTMLElement>('#mam-remaster-host')?.shadowRoot?.getElementById('mam-root')
+    const rootEl = shadowRootEl()
     if (rootEl) applyTheme(rootEl, next)
     setTheme(next)
     setDark(isDark(next))
+  }
+
+  function chooseLightScheme(next: LightScheme) {
+    const rootEl = shadowRootEl()
+    if (rootEl) setLightScheme(rootEl, next)
+    setLightState(next)
+  }
+
+  function chooseDarkScheme(next: DarkScheme) {
+    const rootEl = shadowRootEl()
+    if (rootEl) setDarkScheme(rootEl, next)
+    setDarkState(next)
   }
 
   return (
@@ -136,11 +172,29 @@ export function Topbar({ page, onOpenSearch }: { page: ShellData; onOpenSearch: 
               {dark ? <Moon className="size-4" /> : <Sun className="size-4" />}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuRadioGroup value={theme} onValueChange={(v) => chooseTheme(v as Theme)}>
               <DropdownMenuRadioItem value="light"><Sun className="size-3.5" /> Light</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="dark"><Moon className="size-3.5" /> Dark</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="auto"><SunMoon className="size-3.5" /> Auto</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Light scheme</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={lightScheme} onValueChange={(v) => chooseLightScheme(v as LightScheme)}>
+              {LIGHT_SCHEME_ITEMS.map((s) => (
+                <DropdownMenuRadioItem key={s.value} value={s.value}>
+                  <SchemeDot color={s.dot} /> {s.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Dark scheme</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={darkScheme} onValueChange={(v) => chooseDarkScheme(v as DarkScheme)}>
+              {DARK_SCHEME_ITEMS.map((s) => (
+                <DropdownMenuRadioItem key={s.value} value={s.value}>
+                  <SchemeDot color={s.dot} /> {s.label}
+                </DropdownMenuRadioItem>
+              ))}
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
