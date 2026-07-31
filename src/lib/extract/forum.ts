@@ -213,15 +213,21 @@ export function extractTopic(doc: Document): TopicData | null {
   let prevHref: string | null = null
   let nextHref: string | null = null
   const pageP = main.querySelector('p[align="center"], p[align=\'center\']')
-  for (const a of pageP?.querySelectorAll('a') ?? []) {
-    const label = txt(a) ?? ''
-    const href = a.getAttribute('href') ?? '#'
-    if (/next/i.test(label)) nextHref = href
-    else if (/prev/i.test(label)) prevHref = href
-    else if (/^\d+$/.test(label)) pages.push({ label, href, current: false })
+  // The page you are on is a <b>[N]</b> between the links, so read the nodes in
+  // order to keep it in its place.
+  for (const node of pageP?.childNodes ?? []) {
+    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).matches('a')) {
+      const a = node as HTMLAnchorElement
+      const label = txt(a) ?? ''
+      const href = a.getAttribute('href') ?? '#'
+      if (/next/i.test(label)) nextHref = href
+      else if (/prev/i.test(label)) prevHref = href
+      else if (/^\d+$/.test(label)) pages.push({ label, href, current: false })
+    } else {
+      const m = node.textContent?.match(/\[(\d+)\]/)
+      if (m) pages.push({ label: m[1], href: '#', current: true })
+    }
   }
-  const cur = pageP?.textContent?.match(/\[(\d+)\]/)
-  if (cur) pages.unshift({ label: cur[1], href: '#', current: true })
 
   const posts: TopicPost[] = []
   for (const anchor of anchors) {

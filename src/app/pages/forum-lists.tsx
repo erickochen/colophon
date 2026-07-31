@@ -66,16 +66,17 @@ function extract(doc: Document): ListData | null {
   const pages: ListData['pages'] = []
   let prevHref: string | null = null
   let nextHref: string | null = null
-  const seen = new Set<string>()
-  for (const a of main.querySelectorAll<HTMLAnchorElement>('a[href*="action="]')) {
-    const label = clean(a.textContent) ?? ''
-    const href = a.getAttribute('href') ?? '#'
+  // The range you are on is a <b> without a link, so read the nodes in order to
+  // keep it among the links.
+  const pager = main.querySelector('#pagerTop') ?? main.querySelector('p[align="center"]')
+  for (const node of pager?.childNodes ?? []) {
+    if (node.nodeType !== Node.ELEMENT_NODE) continue
+    const el = node as Element
+    const label = clean(el.textContent) ?? ''
+    const href = el.matches('a') ? el.getAttribute('href') ?? '#' : null
     if (/prev/i.test(label)) prevHref = href
     else if (/next/i.test(label)) nextHref = href
-    else if (/^\d[\d\s-]*$/.test(label) && !seen.has(label)) {
-      seen.add(label)
-      pages.push({ label, href, current: false })
-    }
+    else if (/^\d[\d\s-]*$/.test(label)) pages.push({ label, href: href ?? '#', current: !href })
   }
 
   return {
