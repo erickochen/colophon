@@ -7,6 +7,7 @@ import {
   type BookmarkCleanup, type SearchQuery, type SearchTorrent,
 } from '@/lib/mam-api'
 import { CONTENT_FLAGS, LANGUAGES, MAIN_CATS, SORT_OPTIONS } from '@/lib/mam-facets'
+import { mamBrowseDefaults, readSticky, writeSticky, type StickyFilters } from '@/lib/browse-sticky'
 import { fmtInt, plural, relTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Book } from '@/components/book'
@@ -55,6 +56,9 @@ const REFRESH_POLL_TRIES = 5
 
 const VIEW_KEY = 'muisstil:browse-view'
 type ViewMode = 'list' | 'grid'
+
+const PERPAGE_OPTIONS = [25, 50, 100]
+const DEFAULT_PERPAGE = PERPAGE_OPTIONS[0]
 
 type SrchField = (typeof SRCH_FIELDS)[number][0]
 
@@ -111,9 +115,51 @@ function stateFromUrl(myUid: string | null = null): BrowseState {
     flags: p.getAll('tor[browseFlags][]').map(Number).filter(Boolean),
     sort: p.get('tor[sortType]') || 'default',
     start: Number(p.get('tor[startNumber]')) || 0,
-    perpage: Number(p.get('perpage')) || 25,
+    perpage: Number(p.get('perpage')) || DEFAULT_PERPAGE,
     ...(p.get('s') ? stateFromSearchJson(p.get('s')!, myUid) ?? {} : {}),
   }
+}
+
+const stickyOf = (s: BrowseState): StickyFilters => ({
+  mainCat: s.mainCat,
+  cat: s.cat,
+  langs: s.langs,
+  flagsMode: s.flagsMode,
+  flags: s.flags,
+  sort: s.sort,
+  perpage: s.perpage,
+})
+
+/** The URL wins per field, then the filters last used here, then whatever MAM
+ * has saved as its own browse defaults. Only the plain torrent list gets them:
+ * opening your bookmarks or your uploads should show that list whole. */
+function initialState(myUid: string | null): BrowseState {
+  const s = stateFromUrl(myUid)
+  if (s.searchIn !== 'torrents') return s
+  const saved: Partial<StickyFilters> = readSticky() ?? mamBrowseDefaults() ?? {}
+  const p = new URLSearchParams(location.search)
+  // MAM's own scripts rewrite the URL once their search returns, leaving neutral
+  // values behind: tor[cat][]=0 for every category and tor[sortType]=default.
+  // Those are not a choice, so they must not shut the saved filters out.
+  const picked = (key: string) => p.getAll(key).some((v) => Number(v) > 0)
+  const urlSort = p.get('tor[sortType]')
+  const next = { ...s }
+  if (!picked('tor[main_cat][]') && !picked('tor[cat][]')) {
+    next.mainCat = saved.mainCat ?? next.mainCat
+    next.cat = saved.cat ?? next.cat
+  }
+  if (!picked('tor[browse_lang][]')) next.langs = saved.langs ?? next.langs
+  if (!picked('tor[browseFlags][]')) {
+    next.flagsMode = saved.flagsMode ?? next.flagsMode
+    next.flags = (saved.flags ?? next.flags).filter((f) => CONTENT_FLAGS.some((x) => x.bit === f))
+  }
+  if ((!urlSort || urlSort === 'default') && saved.sort && SORT_OPTIONS.some((o) => o.value === saved.sort)) {
+    next.sort = saved.sort
+  }
+  if (!p.has('perpage') && saved.perpage && PERPAGE_OPTIONS.includes(saved.perpage)) {
+    next.perpage = saved.perpage
+  }
+  return next
 }
 
 function urlFromState(s: BrowseState): string {
@@ -131,7 +177,7 @@ function urlFromState(s: BrowseState): string {
   }
   p.set('tor[sortType]', s.sort)
   p.set('tor[startNumber]', String(s.start))
-  if (s.perpage !== 25) p.set('perpage', String(s.perpage))
+  if (s.perpage !== DEFAULT_PERPAGE) p.set('perpage', String(s.perpage))
   return `/tor/browse.php?${p.toString()}`
 }
 
@@ -526,7 +572,7 @@ function ViewToggle({ view, onChange }: { view: ViewMode; onChange: (v: ViewMode
 }
 
 export function BrowseView(props: PageProps) {
-  const [state, setState] = useState<BrowseState>(() => stateFromUrl(props.page.user.uid != null ? String(props.page.user.uid) : null))
+  const [state, setState] = useState<BrowseState>(() => initialState(props.page.user.uid != null ? String(props.page.user.uid) : null))
   const [items, setItems] = useState<SearchTorrent[]>([])
   const [found, setFound] = useState(0)
   const [baseStart, setBaseStart] = useState(state.start)
@@ -586,6 +632,7 @@ export function BrowseView(props: PageProps) {
   const apply = (patch: Partial<BrowseState>) => {
     const next = { ...state, ...patch, start: 0 }
     setState(next)
+    if (next.searchIn === 'torrents') writeSticky(stickyOf(next))
     void run(next)
   }
 
@@ -657,8 +704,23 @@ export function BrowseView(props: PageProps) {
     return parts.join(' · ')
   }, [state.mainCat, state.cat, state.langs])
 
+  // Every active filter gets a chip. Nothing should narrow the list from a place
+  // the reader cannot see. Clear all only appears once a chip does.
   const chips: { key: string; label: string; onRemove: () => void }[] = [
+    ...state.mainCat.map((m) => ({
+      key: `m${m}`,
+      label: MAIN_CATS.find((x) => x.id === m)?.name ?? String(m),
+      onRemove: () => apply({ mainCat: toggleValue(state.mainCat, m), cat: [] }),
+    })),
     ...state.cat.map((c) => ({ key: `c${c}`, label: catName(c), onRemove: () => apply({ cat: toggleValue(state.cat, c) }) })),
+    ...state.flags.map((f) => {
+      const name = CONTENT_FLAGS.find((x) => x.bit === f)?.name ?? String(f)
+      return {
+        key: `f${f}`,
+        label: state.flagsMode === 0 ? `no ${name}` : `${name} only`,
+        onRemove: () => apply({ flags: toggleValue(state.flags, f) }),
+      }
+    }),
     ...state.langs.map((l) => ({
       key: `l${l}`,
       label: LANGUAGES.find((x) => x.id === l)?.name ?? String(l),
@@ -798,7 +860,7 @@ export function BrowseView(props: PageProps) {
 
       <FilterSummary
         chips={chips}
-        onClearAll={() => apply({ cat: [], langs: [], searchType: 'all', searchIn: 'torrents' })}
+        onClearAll={() => apply({ mainCat: [], cat: [], langs: [], flags: [], searchType: 'all', searchIn: 'torrents' })}
         meta={loading ? 'Searching…' : `${fmtInt(found)} results · ${sortLabel}`}
       >
         <ViewToggle view={view} onChange={setViewMode} />
@@ -887,7 +949,7 @@ export function BrowseView(props: PageProps) {
         <FilterSelect
           value={String(state.perpage)}
           onChange={(v) => apply({ perpage: Number(v) })}
-          options={[25, 50, 100].map((n) => ({ value: String(n), label: `${n} / page` }))}
+          options={PERPAGE_OPTIONS.map((n) => ({ value: String(n), label: `${n} / page` }))}
           align="end"
           ariaLabel="Results per page"
         />

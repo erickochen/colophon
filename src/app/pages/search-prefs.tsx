@@ -82,8 +82,8 @@ function CategoryFacet({ groups, onChange }: { groups: CatGroup[]; onChange: () 
   const sel = all.filter((c) => c.el.checked).length
   return (
     <FacetShell
-      title="Default search categories"
-      note="Nothing selected means every category is searched by default."
+      title="Default search and browse categories"
+      note="The categories browse opens with. Nothing selected means all of them."
       count={sel} total={all.length}
       onClear={() => { all.forEach((c) => (c.el.checked = false)); onChange() }}
     >
@@ -157,7 +157,7 @@ export function SearchPrefsView(props: PageProps) {
   return (
     <div className="grid gap-4">
       {facets.cats.length > 0 && <CategoryFacet groups={facets.cats} onChange={bump} />}
-      {facets.langs.length > 0 && <SearchableFacet title="Search languages" note="Languages to include by default. Empty = all languages." items={facets.langs} onChange={bump} />}
+      {facets.langs.length > 0 && <SearchableFacet title="Search languages" note="Applies to search, not to browse. Empty means all languages." items={facets.langs} onChange={bump} />}
       {facets.include.length > 0 && <SearchableFacet title="New search: default categories" note="Categories the WIP search includes by default." items={facets.include} onChange={bump} />}
       {facets.exclude.length > 0 && <SearchableFacet title="New search: excluded categories" note="Categories the WIP search hides by default." items={facets.exclude} onChange={bump} />}
       {other.rows.length > 0 && <FormMirrorView form={other} />}
