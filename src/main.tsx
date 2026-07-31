@@ -132,8 +132,9 @@ function boot() {
       'html{font-size:16px!important;margin:0!important;padding:0!important;border:0!important;width:auto!important;min-width:0!important;max-width:none!important;background:none!important;scrollbar-gutter:auto!important;height:auto!important;min-height:0!important}',
       // MAM sizes <body> to its own full-page layout of about 1750px and that
       // persists once their content is hidden. Pin body to the viewport instead;
-      // #mam-root carries the real fill.
-      'body{margin:0!important;padding:0!important;border:0!important;width:auto!important;min-width:0!important;max-width:none!important;background:none!important;height:auto!important;min-height:100vh!important}',
+      // #mam-root carries the real fill. Height stays free so an open popup can
+      // size <body> to the viewport, which is what keeps the topbar stuck.
+      'body{margin:0!important;padding:0!important;border:0!important;width:auto!important;min-width:0!important;max-width:none!important;background:none!important;min-height:100vh!important}',
       // MAM's #dialog-message is slotted into our dialog and therefore stays in
       // the light DOM, out of reach of the shadow stylesheet. Neutralise MAM's
       // own styling on it so it reads as part of our sheet.
