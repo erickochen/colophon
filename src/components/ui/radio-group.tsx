@@ -31,11 +31,12 @@ function RadioGroupItem({
       )}
       {...props}
     >
+      {/* Base UI's indicator does not stretch to the root, so size it explicitly. */}
       <RadioPrimitive.Indicator
         data-slot="radio-group-indicator"
-        className="relative flex items-center justify-center"
+        className="flex size-full items-center justify-center"
       >
-        <CircleIcon className="absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 fill-primary" />
+        <CircleIcon className="size-2 fill-primary" />
       </RadioPrimitive.Indicator>
     </RadioPrimitive.Root>
   )
