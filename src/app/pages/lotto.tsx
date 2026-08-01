@@ -2,25 +2,61 @@ import { useEffect, useMemo, useState } from 'react'
 import { Clock, PartyPopper, Ticket, Trophy } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
-import { PageHeader, UserLink } from '@/app/shell/bits'
+import { PageHeader, RichHtml } from '@/app/shell/bits'
 import { fmtInt } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { NumberTicker } from '@/components/ui/number-ticker'
+import { Separator } from '@/components/ui/separator'
 import { ShineBorder } from '@/components/ui/shine-border'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from '@/components/ui/toast'
+
+interface LottoPlay {
+  draw: string
+  played: string | null
+  outcome: string | null
+  won: boolean
+  current: boolean
+}
 
 interface LottoData {
   potGiB: number
   drawName: string | null
   drawIso: string | null
   drawText: string | null
+  infoHtml: string | null
   players: { name: string; color: string | null }[]
+  plays: LottoPlay[]
   totalPlayed: string | null
   totalWon: string | null
   canPlay: boolean
+}
+
+/** MAM pads its info block with <br> on both ends. */
+function trimBreaks(html: string) {
+  return html.replace(/^(?:\s|<br\s*\/?>)+/i, '').replace(/(?:\s|<br\s*\/?>)+$/i, '')
+}
+
+/** Rows read like "2026-30 played 1 GiB and did not win". */
+function readPlay(row: Element): LottoPlay {
+  const text = (row.textContent ?? '').replace(/\s+/g, ' ').trim()
+  const stake = text.match(/played\s+([\d,]+\s*GiB)/i)
+  const tail = stake ? text.slice((stake.index ?? 0) + stake[0].length) : text.replace(/^\S+\s*/, '')
+  const rest = tail
+    .trim()
+    .replace(/^and\s+/i, '')
+    .replace(/^\((.*)\)$/, '$1')
+    .trim()
+  return {
+    draw: text.match(/^(\S+)/)?.[1] ?? '',
+    played: stake?.[1] ?? null,
+    outcome: rest || null,
+    won: /\bwon\b/i.test(rest) && !/\bnot\b/i.test(rest),
+    current: /current week/i.test(rest),
+  }
 }
 
 function extract(doc: Document): LottoData | null {
@@ -32,15 +68,31 @@ function extract(doc: Document): LottoData | null {
   const drawName = text.match(/Lotto,\s*(\d{4}-\d+)/i)?.[1] ?? null
   const drawIso = doc.querySelector<HTMLAnchorElement>('a[href*="timeanddate"]')?.href.match(/iso=([\dT:-]+)/)?.[1] ?? null
   const drawText = text.match(/drawing is ([^.]+?UTC)/i)?.[1]?.trim() ?? null
+  const infoBlock = [...main.querySelectorAll('.blockCon')].find((b) =>
+    /lotto info/i.test(b.querySelector('.blockHeadCon h4')?.textContent ?? '')
+  )
+  const infoBody = infoBlock?.querySelector('.blockBody .blockBodyCon')?.innerHTML
   const players = [...main.querySelectorAll<HTMLElement>('#lotto_players span')].map((s) => ({
     name: s.textContent?.trim() ?? '',
     color: s.style.color || null,
   })).filter((p) => p.name)
+  const plays = [...main.querySelectorAll('#plays > div')].map(readPlay).filter((p) => p.draw)
   const results = main.querySelector('#results')?.textContent ?? ''
   const totalPlayed = results.match(/played:\s*([\d,]+\s*GiB)/i)?.[1] ?? null
   const totalWon = results.match(/Winnings:\s*([\d,]+\s*GiB)/i)?.[1] ?? null
   const canPlay = !!doc.querySelector('input[name="PlayLotto"]')
-  return { potGiB, drawName, drawIso, drawText, players, totalPlayed, totalWon, canPlay }
+  return {
+    potGiB,
+    drawName,
+    drawIso,
+    drawText,
+    infoHtml: infoBody ? trimBreaks(infoBody) : null,
+    players,
+    plays,
+    totalPlayed,
+    totalWon,
+    canPlay,
+  }
 }
 
 function useCountdown(iso: string | null): string | null {
@@ -131,48 +183,68 @@ export function LottoView(props: PageProps) {
         </CardContent>
       </Card>
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <Card className="gap-0 py-0">
-          <CardHeader className="!py-3.5">
-            <CardTitle className="flex items-center gap-2">
-              Players in this draw <span className="text-[12px] font-normal text-muted-foreground">{data.players.length}</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-x-3 gap-y-1.5 py-4">
-            {data.players.length > 0 ? (
-              data.players.map((p, i) => (
-                <span key={i} className="text-[12.5px] font-medium" style={{ color: p.color ?? undefined }}>{p.name}</span>
-              ))
+      <div className={cn('grid items-start gap-4', data.infoHtml && 'lg:grid-cols-[minmax(0,1fr)_320px]')}>
+        {data.infoHtml && (
+          <Card>
+            <CardHeader><CardTitle>How the lotto works</CardTitle></CardHeader>
+            <CardContent>
+              <RichHtml html={data.infoHtml} className="[&_.styleNone]:list-none" />
+            </CardContent>
+          </Card>
+        )}
+
+        <Card>
+          <CardHeader><CardTitle className="flex items-center gap-2"><Trophy className="size-4" /> Your lotto history</CardTitle></CardHeader>
+          <CardContent className="grid gap-3">
+            {data.plays.length > 0 ? (
+              <div className="-mr-2 grid max-h-[320px] grid-cols-1 gap-1.5 overflow-y-auto pr-2">
+                {data.plays.map((p, i) => (
+                  <div key={i} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-baseline gap-2 text-[12.5px]">
+                    <span className="font-mono tabular-nums">{p.draw}</span>
+                    <span className="tabular-nums text-muted-foreground">{p.played}</span>
+                    <span
+                      className={cn(
+                        'truncate text-right',
+                        p.won ? 'font-medium text-ok' : p.current ? 'text-brand' : 'text-muted-foreground'
+                      )}
+                    >
+                      {p.outcome}
+                    </span>
+                  </div>
+                ))}
+              </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No tickets bought yet. Be the first.</p>
+              <p className="text-[13px] text-muted-foreground">No tickets on record yet.</p>
             )}
+            <Separator />
+            <div className="flex items-center justify-between text-[13px]">
+              <span className="text-muted-foreground">Total played</span>
+              <span className="font-mono font-medium tabular-nums">{data.totalPlayed ?? '0 GiB'}</span>
+            </div>
+            <div className="flex items-center justify-between text-[13px]">
+              <span className="text-muted-foreground">Total winnings</span>
+              <span className="font-mono font-medium tabular-nums text-ok">{data.totalWon ?? '0 GiB'}</span>
+            </div>
           </CardContent>
         </Card>
-
-        <div className="grid gap-4">
-          <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><Trophy className="size-4" /> Your lotto history</CardTitle></CardHeader>
-            <CardContent className="grid gap-3">
-              <div className="flex items-center justify-between text-[13px]">
-                <span className="text-muted-foreground">Total played</span>
-                <span className="font-mono font-medium tabular-nums">{data.totalPlayed ?? '0 GiB'}</span>
-              </div>
-              <div className="flex items-center justify-between text-[13px]">
-                <span className="text-muted-foreground">Total winnings</span>
-                <span className="font-mono font-medium tabular-nums text-ok">{data.totalWon ?? '0 GiB'}</span>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader><CardTitle>How it works</CardTitle></CardHeader>
-            <CardContent className="grid gap-2 text-[12.5px] text-muted-foreground">
-              <p>One ticket per member, costing 1 GiB of upload.</p>
-              <p>Optionally sweeten the pot with up to 5 GiB extra, added to the prize.</p>
-              <p>The draw runs every Monday at 09:00 UTC. Multiple winners share the pot.</p>
-            </CardContent>
-          </Card>
-        </div>
       </div>
+
+      <Card className="gap-0 py-0">
+        <CardHeader className="!py-3.5">
+          <CardTitle className="flex items-center gap-2">
+            Players in this draw <span className="text-[12px] font-normal text-muted-foreground">{fmtInt(data.players.length)}</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-x-3 gap-y-1.5 py-4">
+          {data.players.length > 0 ? (
+            data.players.map((p, i) => (
+              <span key={i} className="text-[12.5px] font-medium" style={{ color: p.color ?? undefined }}>{p.name}</span>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground">No tickets bought yet. Be the first.</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

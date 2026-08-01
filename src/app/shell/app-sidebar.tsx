@@ -104,6 +104,7 @@ function groups(page: ShellData): { dashboard: NavItem; groups: NavGroup[] } {
         more: [
           { title: 'Friends & blocked', href: '/friends.php' },
           { title: 'Forum subscriptions', href: '/forums/subscriptions.php' },
+          { title: 'Watchlist: new posts', href: '/forums/subscriptions.php/newPosts' },
           { title: 'New members', href: '/newUsers.php' },
           { title: 'IRC chat', href: '/chat.php' },
           { title: 'IRC client help', href: '/chathelp.php' },

@@ -1,13 +1,121 @@
 import { useMemo, useReducer } from 'react'
-import { BellOff, Bookmark } from 'lucide-react'
+import { BellOff, Bookmark, CheckCheck } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
-import { PageHeader } from '@/app/shell/bits'
+import { PageHeader, RichHtml } from '@/app/shell/bits'
+import { cleanHtml } from '@/lib/sanitize'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/toast'
+
+interface WatchedThread {
+  title: string
+  href: string
+  board: { name: string; href: string | null } | null
+}
+
+const tidy = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim()
+
+/** MAM puts the board in a "Board > " span in front of the topic title. */
+function readThread(link: HTMLAnchorElement, row: Element): WatchedThread {
+  const tag = link.querySelector('.forumLink')
+  const boardLink = row.querySelector<HTMLAnchorElement>('a[href*="/f/b/"]')
+  const name = tidy(tag?.textContent).replace(/[>»]\s*$/, '').trim() || tidy(boardLink?.textContent)
+  const title = tag
+    ? tidy([...link.childNodes].filter((n) => n !== tag).map((n) => n.textContent).join(' '))
+    : tidy(link.textContent)
+  return {
+    title,
+    href: link.getAttribute('href') ?? '#',
+    board: name ? { name, href: boardLink?.getAttribute('href') ?? null } : null,
+  }
+}
+
+/** The /newPosts listing: topics on the watchlist that picked up replies. */
+function extractNewPosts(doc: Document) {
+  const main = doc.querySelector('#mainBody')
+  if (!main || !/watchlist/i.test(main.querySelector('h1')?.textContent ?? '')) return null
+
+  const threads: WatchedThread[] = []
+  const rows = new Set<Element>()
+  for (const link of main.querySelectorAll<HTMLAnchorElement>('a[href*="/f/t/"]')) {
+    // closest('tr') can escape into MAM's page layout table, which would fold
+    // every thread into one row, so only take a row that lives in the page body.
+    const tr = link.closest('tr')
+    const row = tr && main.contains(tr) ? tr : link.parentElement
+    if (!row || rows.has(row)) continue
+    rows.add(row)
+    threads.push(readThread(link, row))
+  }
+  return {
+    threads,
+    empty: /no threads with new post/i.test(main.textContent ?? ''),
+    clearHref: main.querySelector('a[href*="subscriptions.php/clean"]')?.getAttribute('href') ?? null,
+    body: main.querySelector('.blockCon .blockBody .blockBodyCon'),
+  }
+}
+
+export function SubscriptionNewPostsView(props: PageProps) {
+  const data = useMemo(() => extractNewPosts(document), [])
+  if (!data) return <LegacyView {...props} />
+
+  return (
+    <div className="mx-auto grid w-full max-w-4xl gap-5">
+      <PageHeader
+        title="New posts on your watchlist"
+        sub="Topics you follow that picked up replies"
+        action={
+          <div className="flex flex-wrap gap-1.5">
+            <Button asChild variant="outline" size="sm" className="h-8 text-[12.5px]">
+              <a href="/forums/subscriptions.php"><Bookmark /> Manage subscriptions</a>
+            </Button>
+            {data.clearHref && (
+              <Button asChild variant="outline" size="sm" className="h-8 text-[12.5px]">
+                <a href={data.clearHref}><CheckCheck /> Clear notifications</a>
+              </Button>
+            )}
+          </div>
+        }
+      />
+
+      {data.threads.length > 0 ? (
+        <Card className="py-0">
+          <CardContent className="grid divide-y divide-border/60 px-0 py-0">
+            {data.threads.map((t, i) => (
+              <div key={i} className="grid grid-cols-1 gap-0.5 px-6 py-3">
+                <a href={t.href} className="truncate text-[13.5px] font-medium hover:underline">{t.title}</a>
+                {t.board && (
+                  t.board.href ? (
+                    <a href={t.board.href} className="w-fit text-[12px] text-muted-foreground hover:underline">
+                      in {t.board.name}
+                    </a>
+                  ) : (
+                    <span className="text-[12px] text-muted-foreground">in {t.board.name}</span>
+                  )
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : data.empty || !data.body ? (
+        <Card><CardContent>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon"><BellOff /></EmptyMedia>
+              <EmptyTitle>Nothing new</EmptyTitle>
+              <EmptyDescription>None of the topics you follow have unread posts right now.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        </CardContent></Card>
+      ) : (
+        <Card><CardContent><RichHtml html={cleanHtml(data.body) ?? ''} /></CardContent></Card>
+      )}
+    </div>
+  )
+}
 
 interface TopicSub { id: string; title: string; href: string }
 interface BoardSub {
