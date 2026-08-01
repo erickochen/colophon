@@ -67,6 +67,9 @@ export function applyTheme(rootEl: HTMLElement, theme?: Theme) {
   if (scheme !== 'default') rootEl.classList.add(`scheme-${scheme}`)
   // Light-DOM marker: the slotted legacy dialog body cannot see the shadow class.
   document.documentElement.classList.toggle('mam-dark', dark)
+  // The canvas behind #mam-root: overscroll and anything reaching below the host
+  // shows it, so it carries the page colour instead of the default white.
+  document.documentElement.style.setProperty('background-color', pageBg(), 'important')
 }
 
 export function setLightScheme(rootEl: HTMLElement, scheme: LightScheme) {

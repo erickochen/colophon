@@ -1,7 +1,9 @@
-import { ChevronsUpDown, History, LogOut, Radio, Settings2, TrendingUp, UserRound } from 'lucide-react'
+import { useState } from 'react'
+import { ChevronsUpDown, Crown, History, LogOut, Radio, Settings2, TrendingUp, UserRound } from 'lucide-react'
 import type { ShellData } from '@/lib/extract/shell'
 import { fmtRatio } from '@/lib/format'
 import { useLiveBonus, useLiveWedges } from '@/lib/bonus'
+import { useVipUntil } from '@/lib/vip'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,10 +32,12 @@ export function UserMenu({ page }: { page: ShellData }) {
   const profile = page.user.uid ? `/u/${page.user.uid}` : '/preferences/index.php'
   const bonus = useLiveBonus(page.stats.bonus)
   const wedges = useLiveWedges(page.stats.wedges)
+  const [opened, setOpened] = useState(false)
+  const vipUntil = useVipUntil(page.user.uid, opened)
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <DropdownMenu>
+        <DropdownMenu onOpenChange={(open) => open && setOpened(true)}>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
@@ -72,6 +76,12 @@ export function UserMenu({ page }: { page: ShellData }) {
                 <span className="truncate text-[11.5px] text-muted-foreground">
                   ↑ {page.stats.uploaded ?? '–'} · ↓ {page.stats.downloaded ?? '–'}
                 </span>
+                {vipUntil && (
+                  <span className="flex items-center gap-1 truncate text-[11.5px] text-muted-foreground">
+                    <Crown className="size-3 text-brand" />
+                    VIP until {vipUntil}
+                  </span>
+                )}
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />

@@ -9,8 +9,9 @@ export interface GiftRequest {
   kind: GiftKind
   uid: string
   name: string
-  /** Which GiftMAM switch governs this one, so turning it off closes the dialog. */
-  surface: GiftSurface
+  /** GiftMAM surfaces follow that widget's switches; 'profile' mirrors MAM's own
+   * profile-page gifting and is always available. */
+  surface: GiftSurface | 'profile'
 }
 
 type Listener = () => void

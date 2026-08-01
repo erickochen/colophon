@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlignJustify, Bookmark, BookmarkCheck, BookmarkX, ChevronDown, Download, FileArchive, Filter, LayoutGrid, Loader2, Search, Trash2 } from 'lucide-react'
+import { AlignJustify, Bookmark, BookmarkCheck, BookmarkX, ChevronDown, Columns3, Download, FileArchive, Filter, LayoutGrid, Loader2, Search, Trash2 } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import {
   bookmarkCleanup, bookmarkMass, BookmarkMassError, bookmarkOne, downloadZipOf, searchTorrents, parsePeople,
@@ -28,8 +28,8 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel,
-  DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { toast } from '@/components/ui/toast'
 
@@ -57,6 +57,36 @@ const REFRESH_POLL_TRIES = 5
 const VIEW_KEY = 'muisstil:browse-view'
 type ViewMode = 'list' | 'grid'
 
+const COLS_KEY = 'muisstil:browse-cols'
+type ColKey = 'narrators' | 'series' | 'filetype' | 'size' | 'peers' | 'added'
+
+// List-row fields the reader can hide; track = width in the stats grid.
+interface ListColumn {
+  key: ColKey
+  label: string
+  track?: string
+}
+const LIST_COLUMNS: readonly ListColumn[] = [
+  { key: 'narrators', label: 'Narrator' },
+  { key: 'series', label: 'Series' },
+  { key: 'filetype', label: 'Filetype', track: '52px' },
+  { key: 'size', label: 'Size', track: '84px' },
+  { key: 'peers', label: 'Seeders / leechers', track: '88px' },
+  { key: 'added', label: 'Added', track: '76px' },
+]
+const ALL_COLS = LIST_COLUMNS.map((c) => c.key)
+
+function readCols(): ColKey[] {
+  try {
+    const raw = localStorage.getItem(COLS_KEY)
+    if (!raw) return ALL_COLS
+    const saved: unknown = JSON.parse(raw)
+    return Array.isArray(saved) ? ALL_COLS.filter((k) => saved.includes(k)) : ALL_COLS
+  } catch {
+    return ALL_COLS
+  }
+}
+
 const PERPAGE_OPTIONS = [25, 50, 100]
 const DEFAULT_PERPAGE = PERPAGE_OPTIONS[0]
 
@@ -72,6 +102,10 @@ interface BrowseState {
   langs: number[]
   flagsMode: 0 | 1
   flags: number[]
+  // MAM's author/narrator/series links carry these ids (?author=<id>).
+  authorID: number | null
+  narratorID: number | null
+  seriesID: number | null
   sort: string
   start: number
   perpage: number
@@ -113,6 +147,11 @@ function stateFromUrl(myUid: string | null = null): BrowseState {
     langs: p.getAll('tor[browse_lang][]').map(Number).filter(Boolean),
     flagsMode: p.get('tor[browseFlagsHideVsShow]') === '1' ? 1 : 0,
     flags: p.getAll('tor[browseFlags][]').map(Number).filter(Boolean),
+    // MAM links use the short form; its own scripts rewrite the URL to the
+    // tor[...ID] form after a search, so accept both.
+    authorID: Number(p.get('author') ?? p.get('tor[authorID]')) || null,
+    narratorID: Number(p.get('narrator') ?? p.get('tor[narratorID]')) || null,
+    seriesID: Number(p.get('series') ?? p.get('tor[seriesID]')) || null,
     sort: p.get('tor[sortType]') || 'default',
     start: Number(p.get('tor[startNumber]')) || 0,
     perpage: Number(p.get('perpage')) || DEFAULT_PERPAGE,
@@ -175,6 +214,10 @@ function urlFromState(s: BrowseState): string {
     p.set('tor[browseFlagsHideVsShow]', String(s.flagsMode))
     for (const f of s.flags) p.append('tor[browseFlags][]', String(f))
   }
+  // Keep MAM's own short form so the URL works with the script off too.
+  if (s.authorID) p.set('author', String(s.authorID))
+  if (s.narratorID) p.set('narrator', String(s.narratorID))
+  if (s.seriesID) p.set('series', String(s.seriesID))
   p.set('tor[sortType]', s.sort)
   p.set('tor[startNumber]', String(s.start))
   if (s.perpage !== DEFAULT_PERPAGE) p.set('perpage', String(s.perpage))
@@ -192,6 +235,9 @@ function toQuery(s: BrowseState): SearchQuery {
     browseLang: s.langs.length ? s.langs : undefined,
     browseFlagsHideVsShow: s.flagsMode,
     browseFlags: s.flags.length ? s.flags : undefined,
+    authorID: s.authorID ?? undefined,
+    narratorID: s.narratorID ?? undefined,
+    seriesID: s.seriesID ?? undefined,
     sortType: s.sort,
     startNumber: s.start,
     perpage: s.perpage,
@@ -277,12 +323,18 @@ function RowBookmark({ t, onBookmark, onRemoved }: { t: SearchTorrent; onBookmar
   )
 }
 
-function TorrentRow({ t, onBookmark, onRemoved }: { t: SearchTorrent; onBookmark: BookmarkSetter; onRemoved?: RowDropper }) {
+function TorrentRow({ t, cols, onBookmark, onRemoved }: { t: SearchTorrent; cols: ColKey[]; onBookmark: BookmarkSetter; onRemoved?: RowDropper }) {
   const authors = parsePeople(t.author_info)
-  const narrators = parsePeople(t.narrator_info)
-  const series = parsePeople(t.series_info)
+  const narrators = cols.includes('narrators') ? parsePeople(t.narrator_info) : []
+  const series = cols.includes('series') ? parsePeople(t.series_info) : []
+  const stats = LIST_COLUMNS.filter((c) => c.track && cols.includes(c.key))
   return (
-    <div className="group grid grid-cols-[88px_1fr_auto_auto] items-center gap-[18px] px-[22px] py-3.5 transition-colors hover:bg-foreground/[0.028]">
+    <div
+      className={cn(
+        'group grid items-center gap-[18px] px-[22px] py-3.5 transition-colors hover:bg-foreground/[0.028]',
+        stats.length ? 'grid-cols-[88px_1fr_auto_auto]' : 'grid-cols-[88px_1fr_auto]'
+      )}
+    >
       <RowCover t={t} />
       <a href={torrentUrl(t.id)} className="min-w-0">
         <h3 className="font-display text-[15px] font-medium leading-[1.3] transition-colors group-hover:text-brand">{t.title}</h3>
@@ -310,22 +362,35 @@ function TorrentRow({ t, onBookmark, onRemoved }: { t: SearchTorrent; onBookmark
           {t.lang_code && t.lang_code !== 'ENG' && <Badge variant="outline">{t.lang_code}</Badge>}
         </span>
       </a>
-      <div className="grid grid-cols-[52px_84px_88px_76px] items-baseline gap-x-[18px] text-right tabular-nums">
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-          {t.filetype?.split(' ')[0] ?? '–'}
-        </span>
-        <span className="font-mono text-[12.5px] text-muted-foreground">
-          {t.size}
-          <span className="block font-sans text-[11px] text-muted-foreground/75">{fmtInt(t.numfiles)} file{t.numfiles === 1 ? '' : 's'}</span>
-        </span>
-        <span className="font-mono text-[12.5px]">
-          <span className="text-ok" title="Seeders">{fmtInt(t.seeders)}</span>
-          <span className="text-muted-foreground/60"> / </span>
-          <span className="text-warn" title="Leechers">{fmtInt(t.leechers)}</span>
-          <span className="block font-sans text-[11px] text-muted-foreground/75" title="Times snatched">{fmtInt(t.times_completed)} snatched</span>
-        </span>
-        <span className="font-mono text-[12px] text-muted-foreground/80">{relTime(t.added)}</span>
-      </div>
+      {stats.length > 0 && (
+        <div
+          className="grid items-baseline gap-x-[18px] text-right tabular-nums"
+          style={{ gridTemplateColumns: stats.map((c) => c.track).join(' ') }}
+        >
+          {cols.includes('filetype') && (
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+              {t.filetype?.split(' ')[0] ?? '–'}
+            </span>
+          )}
+          {cols.includes('size') && (
+            <span className="font-mono text-[12.5px] text-muted-foreground">
+              {t.size}
+              <span className="block font-sans text-[11px] text-muted-foreground/75">{fmtInt(t.numfiles)} file{t.numfiles === 1 ? '' : 's'}</span>
+            </span>
+          )}
+          {cols.includes('peers') && (
+            <span className="font-mono text-[12.5px]">
+              <span className="text-ok" title="Seeders">{fmtInt(t.seeders)}</span>
+              <span className="text-muted-foreground/60"> / </span>
+              <span className="text-warn" title="Leechers">{fmtInt(t.leechers)}</span>
+              <span className="block font-sans text-[11px] text-muted-foreground/75" title="Times snatched">{fmtInt(t.times_completed)} snatched</span>
+            </span>
+          )}
+          {cols.includes('added') && (
+            <span className="font-mono text-[12px] text-muted-foreground/80">{relTime(t.added)}</span>
+          )}
+        </div>
+      )}
       <div className="flex items-center gap-1.5">
         <RowBookmark t={t} onBookmark={onBookmark} onRemoved={onRemoved} />
         <Tooltip>
@@ -543,6 +608,33 @@ function ResultActions({
   )
 }
 
+/** Which list-row fields are shown; the choice sticks per browser. */
+function ColumnsMenu({ cols, onToggle }: { cols: ColKey[]; onToggle: (k: ColKey) => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="xs" className="h-[26px] gap-1.5 rounded-[7px] px-2.5 text-[12px]">
+          <Columns3 className="size-3 text-muted-foreground" />
+          Columns
+          <ChevronDown className="size-3 text-muted-foreground" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52">
+        {LIST_COLUMNS.map((c) => (
+          <DropdownMenuCheckboxItem
+            key={c.key}
+            checked={cols.includes(c.key)}
+            onCheckedChange={() => onToggle(c.key)}
+            closeOnClick={false}
+          >
+            {c.label}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 function ViewToggle({ view, onChange }: { view: ViewMode; onChange: (v: ViewMode) => void }) {
   const base = 'grid h-[26px] w-7 place-items-center border transition-colors outline-none focus-visible:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50'
   const off = 'border-input bg-card text-muted-foreground hover:text-foreground'
@@ -586,6 +678,7 @@ export function BrowseView(props: PageProps) {
       return 'list'
     }
   })
+  const [cols, setCols] = useState<ColKey[]>(readCols)
   const seq = useRef(0)
 
   const setViewMode = (v: ViewMode) => {
@@ -595,6 +688,18 @@ export function BrowseView(props: PageProps) {
     } catch {
       // storage may be unavailable
     }
+  }
+
+  const toggleCol = (k: ColKey) => {
+    setCols((prev) => {
+      const next = ALL_COLS.filter((key) => (key === k ? !prev.includes(key) : prev.includes(key)))
+      try {
+        localStorage.setItem(COLS_KEY, JSON.stringify(next))
+      } catch {
+        // storage may be unavailable
+      }
+      return next
+    })
   }
 
   const run = useCallback(async (s: BrowseState, opts: { append?: boolean; push?: boolean } = {}) => {
@@ -704,9 +809,31 @@ export function BrowseView(props: PageProps) {
     return parts.join(' · ')
   }, [state.mainCat, state.cat, state.langs])
 
+  // Entity filters only carry an id in the URL; the matching name is inside the
+  // results themselves (author_info maps id to name).
+  const entityName = (kind: 'author' | 'narrator' | 'series', id: number): string | null => {
+    for (const t of items) {
+      const info = kind === 'author' ? t.author_info : kind === 'narrator' ? t.narrator_info : t.series_info
+      const hit = parsePeople(info).find((p) => p.id === String(id))
+      if (hit) return hit.name
+    }
+    return null
+  }
+  const entityChip = (kind: 'author' | 'narrator' | 'series', id: number | null, onRemove: () => void) =>
+    id == null
+      ? []
+      : [{
+          key: `${kind}${id}`,
+          label: `${kind[0].toUpperCase()}${kind.slice(1)}: ${entityName(kind, id) ?? `#${id}`}`,
+          onRemove,
+        }]
+
   // Every active filter gets a chip. Nothing should narrow the list from a place
   // the reader cannot see. Clear all only appears once a chip does.
   const chips: { key: string; label: string; onRemove: () => void }[] = [
+    ...entityChip('author', state.authorID, () => apply({ authorID: null })),
+    ...entityChip('narrator', state.narratorID, () => apply({ narratorID: null })),
+    ...entityChip('series', state.seriesID, () => apply({ seriesID: null })),
     ...state.mainCat.map((m) => ({
       key: `m${m}`,
       label: MAIN_CATS.find((x) => x.id === m)?.name ?? String(m),
@@ -860,10 +987,11 @@ export function BrowseView(props: PageProps) {
 
       <FilterSummary
         chips={chips}
-        onClearAll={() => apply({ mainCat: [], cat: [], langs: [], flags: [], searchType: 'all', searchIn: 'torrents' })}
+        onClearAll={() => apply({ mainCat: [], cat: [], langs: [], flags: [], searchType: 'all', searchIn: 'torrents', authorID: null, narratorID: null, seriesID: null })}
         meta={loading ? 'Searching…' : `${fmtInt(found)} results · ${sortLabel}`}
       >
         <ViewToggle view={view} onChange={setViewMode} />
+        {view === 'list' && <ColumnsMenu cols={cols} onToggle={toggleCol} />}
         {!loading && items.length > 0 && (
           <ResultActions
             items={items}
@@ -918,7 +1046,7 @@ export function BrowseView(props: PageProps) {
         )}
         {!loading && items.length > 0 && view === 'list' && (
           <div className="divide-y divide-border">
-            {items.map((t) => <TorrentRow key={t.id} t={t} onBookmark={setBookmarked} onRemoved={dropOnUnbookmark} />)}
+            {items.map((t) => <TorrentRow key={t.id} t={t} cols={cols} onBookmark={setBookmarked} onRemoved={dropOnUnbookmark} />)}
           </div>
         )}
         {!loading && items.length > 0 && view === 'grid' && (

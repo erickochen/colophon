@@ -179,7 +179,8 @@ export function ShoutboxView(_props: PageProps) {
     for (const [name, code] of Object.entries(mentionCodes.current)) {
       text = text.replace(new RegExp(`@${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g'), code)
     }
-    const full = (quoting ? quoting.code : '') + text
+    // MAM's quote code ends in a space before the reply; keep exactly one.
+    const full = (quoting ? quoting.code.replace(/\s*$/, ' ') : '') + text
     if (full.trim().length < 4) {
       toast.warning('Shouts need at least 4 characters.')
       return
@@ -213,9 +214,9 @@ export function ShoutboxView(_props: PageProps) {
     const before = box.value
     box.value = ''
     document.querySelector<HTMLElement>(`.sbNewQuote[data-id="${item.numId}"]`)?.click()
-    const code = box.value.trim()
+    const code = box.value
     box.value = before
-    if (!code) return toast.error('Quote is not available.')
+    if (!code.trim()) return toast.error('Quote is not available.')
     const snippet = item.text.length > 60 ? `${item.text.slice(0, 60).trim()}…` : item.text
     setQuoting({ code, label: `${user.name}: “${snippet}”` })
     input.current?.focus()

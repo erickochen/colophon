@@ -46,6 +46,7 @@ function abort() {
   revealPage()
   document.getElementById(HOST_ID)?.remove()
   document.getElementById('mam-remaster-hide')?.remove()
+  document.documentElement.style.removeProperty('background-color')
   document.querySelectorAll(`[${LEGACY_ATTR}]`).forEach((el) => el.removeAttribute(LEGACY_ATTR))
 }
 

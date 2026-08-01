@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
-import { Ban, Mail, UserPlus, UserRound } from 'lucide-react'
+import { Ban, Gift, Mail, Ticket, UserPlus, UserRound } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { extractProfile } from '@/lib/extract/profile'
+import { openGiftDialog } from '@/lib/gift-dialog'
 import { LegacyView } from '@/app/pages/legacy'
 import { RichHtml } from '@/app/shell/bits'
 import { initials } from '@/lib/format'
@@ -46,6 +47,24 @@ export function ProfileView(props: PageProps) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {!isSelf && data.uid && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => openGiftDialog({ kind: 'points', uid: data.uid!, name: data.name, surface: 'profile' })}
+              >
+                <Gift /> Gift points
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => openGiftDialog({ kind: 'wedge', uid: data.uid!, name: data.name, surface: 'profile' })}
+              >
+                <Ticket /> Send wedge
+              </Button>
+            </>
+          )}
           {isSelf ? (
             <Button asChild variant="outline" size="sm">
               <a href="/preferences/index.php"><UserRound /> Edit preferences</a>

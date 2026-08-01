@@ -8,6 +8,10 @@ export interface SearchQuery {
   searchIn?: 'torrents' | 'bookmarks' | 'new' | 'mine' | 'allReseed' | 'myReseed'
   mainCat?: number[] // 13 audiobooks, 14 ebooks, 15 musicology, 16 radio
   cat?: number[]
+  // Entity filters behind MAM's ?author= / ?narrator= / ?series= links.
+  authorID?: number
+  narratorID?: number
+  seriesID?: number
   browseLang?: number[]
   browseFlagsHideVsShow?: 0 | 1
   browseFlags?: number[]
@@ -103,6 +107,9 @@ function formEncode(query: SearchQuery, extras: Record<string, string>): URLSear
   set('tor[searchIn]', query.searchIn)
   for (const c of query.mainCat ?? []) p.append('tor[main_cat][]', String(c))
   for (const c of query.cat ?? []) p.append('tor[cat][]', String(c))
+  set('tor[authorID]', query.authorID)
+  set('tor[narratorID]', query.narratorID)
+  set('tor[seriesID]', query.seriesID)
   for (const l of query.browseLang ?? []) p.append('tor[browse_lang][]', String(l))
   if (query.browseFlags?.length) {
     set('tor[browseFlagsHideVsShow]', query.browseFlagsHideVsShow ?? 0)

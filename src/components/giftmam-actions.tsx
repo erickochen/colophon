@@ -85,7 +85,8 @@ export function GiftDialogHost({ page }: { page: ShellData }) {
   const wedges = useLiveWedges(page.stats.wedges)
   const shoutboxOn = useGiftingEnabled('shoutbox')
   const forumOn = useGiftingEnabled('forum')
-  const allowed = request == null || (request.surface === 'shoutbox' ? shoutboxOn : forumOn)
+  const allowed =
+    request == null || request.surface === 'profile' || (request.surface === 'shoutbox' ? shoutboxOn : forumOn)
 
   // Switching gifting off in the widget takes an open dialog with it.
   useEffect(() => {
