@@ -261,7 +261,7 @@ function noteHtml(cell: Element, usedLabels: string[]): string | null {
   return textLen > 2 ? html : null
 }
 
-export function parseForm(form: HTMLFormElement, titleEl?: Element | null): MirrorForm {
+export function parseForm(form: HTMLFormElement, titleEl?: Element | null, retried = false): MirrorForm {
   const rows: MirrorRow[] = []
 
   // Legacy markup nests the <form> in a table cell, leaving its rows outside the
@@ -357,6 +357,24 @@ export function parseForm(form: HTMLFormElement, titleEl?: Element | null): Mirr
         : looseFieldLabel(c.el, form)
       rows.push({ kind: 'field', label, noteHtml: null, controls: [c] })
     }
+  }
+
+  // Zero visible fields means every control sits inline-hidden (a rich-text
+  // editor or another script tucked them away). Unhide and parse once more,
+  // so the form never renders as an empty card.
+  if (!retried && !rows.some((r) => r.kind === 'field')) {
+    let changed = false
+    for (const el of scope.querySelectorAll<HTMLElement>(INPUT_SEL)) {
+      if (!owns(el)) continue
+      if (el instanceof HTMLInputElement && ['hidden', 'submit', 'reset', 'button', 'image'].includes(el.type)) continue
+      for (let n: HTMLElement | null = el; n && n !== scope.parentElement; n = n.parentElement) {
+        const s = n.style
+        if (s.display === 'none') { s.removeProperty('display'); changed = true }
+        if (s.visibility === 'hidden') { s.removeProperty('visibility'); changed = true }
+      }
+      if (el.getAttribute('aria-hidden') === 'true') el.removeAttribute('aria-hidden')
+    }
+    if (changed) return parseForm(form, titleEl, true)
   }
 
   return { el: form, title: titleEl?.textContent?.trim() ?? null, rows, submitter: findSubmitter(form) }

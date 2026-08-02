@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Archive, ChevronDown, Download, Sprout, Users } from 'lucide-react'
+import { Archive, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Download, Sprout, Users } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
+import { FilterSelect } from '@/components/filters'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -137,22 +138,76 @@ function NameLinks({ prefix, items }: { prefix: string; items: NamedLink[] }) {
 const SNATCH_COLS =
   'md:grid md:grid-cols-[minmax(0,1fr)_6.5rem_4.5rem_5rem_5.5rem_5.5rem_7.5rem_1.5rem] md:items-center md:gap-x-3'
 
+/** Sort keys MAM's own list understands (a[data-udsorttype] in the loaded
+ * table); sorting proxies a click on that header so the site reorders the
+ * rows and the observer re-parses them. */
+type SortKey = 'title' | 'ratio' | 'uploaded' | 'downloaded' | 'seedtime' | 'seeders'
+interface SortState { key: SortKey; dir: 'asc' | 'desc' }
+
+const SNATCH_HEADERS: { label: string; key: SortKey | null; align?: 'right' }[] = [
+  { label: 'Title', key: 'title' },
+  { label: 'Status', key: null },
+  { label: 'Ratio', key: 'ratio', align: 'right' },
+  { label: 'Up', key: 'uploaded', align: 'right' },
+  { label: 'Down', key: 'downloaded', align: 'right' },
+  { label: 'Seed time', key: 'seedtime', align: 'right' },
+  { label: 'Peers', key: 'seeders', align: 'right' },
+]
+
+/** Below md the column headers are gone, so sorting moves into a select. */
+const SORT_OPTIONS: { value: string; label: string }[] = [
+  { value: 'unsorted', label: 'Sort by…' },
+  { value: 'title:asc', label: 'Title A to Z' },
+  { value: 'title:desc', label: 'Title Z to A' },
+  { value: 'ratio:desc', label: 'Ratio, highest first' },
+  { value: 'ratio:asc', label: 'Ratio, lowest first' },
+  { value: 'uploaded:desc', label: 'Uploaded, most first' },
+  { value: 'uploaded:asc', label: 'Uploaded, least first' },
+  { value: 'downloaded:desc', label: 'Downloaded, most first' },
+  { value: 'downloaded:asc', label: 'Downloaded, least first' },
+  { value: 'seedtime:desc', label: 'Seed time, longest first' },
+  { value: 'seedtime:asc', label: 'Seed time, shortest first' },
+  { value: 'seeders:desc', label: 'Seeders, most first' },
+  { value: 'seeders:asc', label: 'Seeders, fewest first' },
+]
+
 function StatusBadge({ s }: { s: SnatchItem }) {
   if (s.seeding) return <Badge className="h-5 gap-1 bg-ok/15 px-2 text-[11px] font-medium text-ok"><Sprout className="size-3" /> Seeding</Badge>
   if (s.seedtime) return <Badge variant="outline" className={cn('h-5 px-2 text-[11px] font-medium', s.seedUnder && 'border-warn/40 text-warn')}>{s.seedUnder ? 'Seed more' : 'Satisfied'}</Badge>
   return <span className="text-[11px] text-muted-foreground/50">-</span>
 }
 
-function SnatchHeader() {
+function SnatchHeader({ sort, onSort }: { sort: SortState | null; onSort: (key: SortKey) => void }) {
   return (
     <div className={cn('hidden border-b px-6 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70', SNATCH_COLS)}>
-      <span>Title</span>
-      <span>Status</span>
-      <span className="text-right">Ratio</span>
-      <span className="text-right">Up</span>
-      <span className="text-right">Down</span>
-      <span className="text-right">Seed time</span>
-      <span className="text-right">Peers</span>
+      {SNATCH_HEADERS.map((h) => {
+        if (!h.key) return <span key={h.label}>{h.label}</span>
+        // Right-aligned columns carry the sort mark on the left, so the label
+        // stays flush with the numbers underneath.
+        const icon =
+          sort?.key === h.key ? (
+            sort.dir === 'desc' ? <ArrowDown className="size-3" /> : <ArrowUp className="size-3" />
+          ) : (
+            <ArrowUpDown className="size-3 opacity-0 transition-opacity group-hover/sort:opacity-60" />
+          )
+        return (
+          <button
+            key={h.label}
+            type="button"
+            onClick={() => onSort(h.key!)}
+            title={`Sort by ${h.label.toLowerCase()}`}
+            className={cn(
+              'group/sort inline-flex items-center gap-1 uppercase tracking-wide transition-colors hover:text-foreground',
+              h.align === 'right' && 'justify-end text-right',
+              sort?.key === h.key && 'text-foreground'
+            )}
+          >
+            {h.align === 'right' && icon}
+            {h.label}
+            {h.align !== 'right' && icon}
+          </button>
+        )
+      })}
       <span />
     </div>
   )
@@ -214,6 +269,7 @@ function SnatchRow({ s }: { s: SnatchItem }) {
 function BucketCard({ b }: { b: Bucket }) {
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<SnatchItem[] | null>(null)
+  const [sort, setSort] = useState<SortState | null>(null)
 
   useEffect(() => {
     if (!open || !b.targetId) return
@@ -225,6 +281,23 @@ function BucketCard({ b }: { b: Bucket }) {
     sync()
     return () => obs.disconnect()
   }, [open, b.targetId])
+
+  /** Steer the hidden list's own sort header: set the direction it will apply,
+   * click it and let the mutation observer pick up the reordered rows. */
+  function applySort(key: SortKey, dirWanted?: SortState['dir']) {
+    const dir: SortState['dir'] =
+      dirWanted ??
+      (sort?.key === key ? (sort.dir === 'desc' ? 'asc' : 'desc') : key === 'title' ? 'asc' : 'desc')
+    const target = b.targetId ? document.getElementById(b.targetId) : null
+    const link = target?.querySelector<HTMLElement>(`a[data-udsorttype="${key}"]`)
+    if (!link) {
+      toast.error('Sorting is not available for this list.')
+      return
+    }
+    link.setAttribute('data-sortorder', dir)
+    link.click()
+    setSort({ key, dir })
+  }
 
   function toggle() {
     if (!b.toggleId) return
@@ -262,7 +335,19 @@ function BucketCard({ b }: { b: Bucket }) {
             <p className="px-6 py-5 text-sm text-muted-foreground">Nothing here.</p>
           ) : (
             <div className="divide-y divide-border/60">
-              <SnatchHeader />
+              <div className="border-b px-6 py-2 md:hidden">
+                <FilterSelect
+                  ariaLabel="Sort this list"
+                  value={sort ? `${sort.key}:${sort.dir}` : 'unsorted'}
+                  onChange={(v) => {
+                    if (v === 'unsorted') return
+                    const [key, dir] = v.split(':') as [SortKey, SortState['dir']]
+                    applySort(key, dir)
+                  }}
+                  options={SORT_OPTIONS}
+                />
+              </div>
+              <SnatchHeader sort={sort} onSort={applySort} />
               {items.map((s, i) => <SnatchRow key={i} s={s} />)}
             </div>
           )}

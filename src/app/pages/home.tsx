@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, Gift, Megaphone, Plus, Send, X } from 'lucide-react'
+import { ArrowDown, ArrowRight, Gift, Megaphone, Plus, Send, X } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { extractHome, extractShouts, type HomeTorrent, type Shout } from '@/lib/extract/home'
 import { searchTorrents, parsePeople, coverUrl } from '@/lib/mam-api'
@@ -15,11 +15,16 @@ import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { NumberTicker } from '@/components/ui/number-ticker'
 import { Progress } from '@/components/ui/progress'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { ShineBorder } from '@/components/ui/shine-border'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { toast } from '@/components/ui/toast'
 
 const VAULT_GOAL = 20_000_000
+
+/** Within this distance from the bottom the reader still counts as caught up,
+ * so new shouts keep the list pinned to the latest one. */
+const SHOUT_PIN_THRESHOLD_PX = 40
 
 /** Dashboard sections a reader can dismiss, in the order the restore bar lists
  * them. MAM can only reorder its own front-page blocks, never hide them. */
@@ -154,8 +159,8 @@ function shelfFromDom(torrents: HomeTorrent[]): ShelfItem[] {
 
 function ShoutList({ shouts }: { shouts: Shout[] }) {
   return (
-    <div className="grid gap-1">
-      {shouts.slice(-6).map((s) => (
+    <div className="grid gap-1.5">
+      {shouts.map((s) => (
         <div key={s.id} className="flex min-w-0 items-baseline gap-2 text-[13px]">
           <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground">{s.time?.slice(11, 16) ?? ''}</span>
           {s.user && (
@@ -167,7 +172,7 @@ function ShoutList({ shouts }: { shouts: Shout[] }) {
               {s.user.name}
             </a>
           )}
-          <span className="min-w-0 truncate text-foreground/90" title={s.text}>{s.text}</span>
+          <span className="min-w-0 [overflow-wrap:anywhere] text-foreground/90">{s.text}</span>
         </div>
       ))}
     </div>
@@ -181,7 +186,9 @@ export function HomeView({ page }: PageProps) {
   const [members, setMembers] = useState(data.members)
   const [shelf, setShelf] = useState<ShelfItem[]>(() => shelfFromDom(data.torrents))
   const [draft, setDraft] = useState('')
-  const shoutBoxRef = useRef<HTMLDivElement>(null)
+  const shoutViewport = useRef<HTMLDivElement>(null)
+  const shoutsPinned = useRef(true)
+  const [shoutsAtLatest, setShoutsAtLatest] = useState(true)
   const sections = useHiddenSections()
   const gifted = useGiftedSet()
 
@@ -235,8 +242,26 @@ export function HomeView({ page }: PageProps) {
   }, [])
 
   useEffect(() => {
-    shoutBoxRef.current?.scrollTo({ top: shoutBoxRef.current.scrollHeight })
+    if (shoutsPinned.current) shoutViewport.current?.scrollTo({ top: shoutViewport.current.scrollHeight })
   }, [shouts])
+
+  useEffect(() => {
+    const el = shoutViewport.current
+    if (!el) return
+    const onScroll = () => {
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < SHOUT_PIN_THRESHOLD_PX
+      shoutsPinned.current = atBottom
+      setShoutsAtLatest(atBottom)
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
+
+  function jumpToLatestShout() {
+    shoutsPinned.current = true
+    setShoutsAtLatest(true)
+    shoutViewport.current?.scrollTo({ top: shoutViewport.current.scrollHeight, behavior: 'smooth' })
+  }
 
   function sendShout() {
     const text = draft.trim()
@@ -314,9 +339,20 @@ export function HomeView({ page }: PageProps) {
               </CardAction>
             </CardHeader>
             <CardContent className="grid gap-3">
-              <div ref={shoutBoxRef} className="max-h-56 overflow-y-auto overflow-x-hidden">
-                {shouts.length ? <ShoutList shouts={shouts} /> : (
-                  <p className="py-3 text-center text-sm text-muted-foreground">The room is quiet right now.</p>
+              <div className="relative">
+                <ScrollArea viewportRef={shoutViewport} viewportClassName="max-h-64 overscroll-contain">
+                  {shouts.length ? <ShoutList shouts={shouts} /> : (
+                    <p className="py-3 text-center text-sm text-muted-foreground">The room is quiet right now.</p>
+                  )}
+                </ScrollArea>
+                {!shoutsAtLatest && (
+                  <button
+                    type="button"
+                    onClick={jumpToLatestShout}
+                    className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground shadow-lg transition-transform hover:scale-105"
+                  >
+                    <ArrowDown className="size-3" /> Jump to latest
+                  </button>
                 )}
               </div>
               <div className="flex h-10 items-center gap-1.5 rounded-lg border border-input bg-background pr-1 transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
