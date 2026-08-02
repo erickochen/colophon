@@ -10,6 +10,7 @@ import { capturePage } from '@/lib/extract/shell'
 import { cacheWysiwygPref } from '@/components/bb-composer'
 import { preventWysiwyg } from '@/lib/wysiwyg'
 import { applyTheme, watchSystemTheme } from '@/lib/theme'
+import { applyMobileViewport, removeMobileViewport } from '@/lib/viewport'
 
 const HOST_ID = 'mam-remaster-host'
 
@@ -44,6 +45,7 @@ html.mam-dark #dialog-message[slot] input[type=button],html.mam-dark #dialog-mes
 
 function abort() {
   revealPage()
+  removeMobileViewport()
   document.getElementById(HOST_ID)?.remove()
   document.getElementById('mam-remaster-hide')?.remove()
   document.documentElement.style.removeProperty('background-color')
@@ -106,6 +108,7 @@ window.addEventListener('pageshow', (e) => {
 
 function boot() {
   try {
+    applyMobileViewport()
     const page = capturePage(document)
     // Remember MAM's "Disable WYSIWYG" choice while we are on the page that has it.
     cacheWysiwygPref(document)

@@ -28,12 +28,12 @@ export function App({ page, host }: { page: ShellData; host: HTMLElement }) {
         <AppSidebar page={page} />
         <SidebarInset className="min-w-0">
           <Topbar page={page} onOpenSearch={() => setCmdOpen(true)} />
-          <main className="flex-1 px-6 py-6 lg:px-8">
+          <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
             <div className="mx-auto w-full max-w-6xl">
               <route.View page={page} host={host} />
             </div>
           </main>
-          <footer className="px-8 py-4 text-xs text-muted-foreground">
+          <footer className="px-4 py-4 text-xs text-muted-foreground sm:px-6 lg:px-8">
             © {new Date().getFullYear()} MyAnonaMouse
           </footer>
         </SidebarInset>

@@ -171,19 +171,56 @@ export function MediaInfoTree({ nodes, depth = 0 }: { nodes: MediaNode[]; depth?
   )
 }
 
-/** Fetch a same-origin HTML fragment (filelist, peers) once, on first expand. */
-function useRemoteHtml(url: string | null) {
+// Big file lists take a while to arrive over a slow link before the poll gives up.
+const LEGACY_LOAD_TIMEOUT_MS = 30_000
+const LEGACY_POLL_MS = 250
+// Mirrors MAM's own has-content check: anything at or under this is the bare
+// 'Loading' placeholder, not a fragment.
+const LEGACY_CONTENT_MIN_LENGTH = 20
+
+/** MAM's own AJAX loader as a fallback: trigger it against the hidden legacy
+ * DOM and lift the fragment out once jQuery has filled the container. */
+function legacyFragment(run: () => void, sel: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const el = document.querySelector(sel)
+    if (!el) return reject(new Error('legacy container missing'))
+    run()
+    const t0 = Date.now()
+    const tick = () => {
+      const html = el.innerHTML
+      if (html.length > LEGACY_CONTENT_MIN_LENGTH && !/^Loading/.test(html)) return resolve(html)
+      if (Date.now() - t0 > LEGACY_LOAD_TIMEOUT_MS) return reject(new Error('legacy load timeout'))
+      window.setTimeout(tick, LEGACY_POLL_MS)
+    }
+    tick()
+  })
+}
+
+/** Fetch a same-origin HTML fragment (filelist, peers) once, on first expand.
+ * When the fetch fails the fallback loader gets a try before showing an error. */
+function useRemoteHtml(url: string | null, fallback?: () => Promise<string>) {
   const [s, setS] = useState<{ loading: boolean; html: string | null; error: boolean }>({ loading: false, html: null, error: false })
+  function apply(t: string) {
+    const doc = new DOMParser().parseFromString(t, 'text/html')
+    setS({ loading: false, html: cleanHtml(doc.body) ?? '', error: false })
+  }
   function load() {
     if (!url || s.html || s.loading) return
     setS({ loading: true, html: null, error: false })
     fetch(url, { credentials: 'include' })
-      .then((r) => r.text())
-      .then((t) => {
-        const doc = new DOMParser().parseFromString(t, 'text/html')
-        setS({ loading: false, html: cleanHtml(doc.body) ?? '', error: false })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.text()
       })
-      .catch(() => setS({ loading: false, html: null, error: true }))
+      .then(apply)
+      .catch(async () => {
+        try {
+          if (!fallback) throw new Error('no fallback')
+          apply(await fallback())
+        } catch {
+          setS({ loading: false, html: null, error: true })
+        }
+      })
   }
   return { ...s, load }
 }
@@ -194,8 +231,8 @@ const REMOTE_HTML_CLS =
   'legacy-html overflow-x-auto text-[12.5px] leading-relaxed [&_a[href]]:text-brand [&_a[href]]:underline [&_table]:w-full [&_table]:border-separate [&_table]:border-spacing-0 [&_th]:px-2.5 [&_th]:py-1.5 [&_th]:text-left [&_th]:font-medium [&_th]:text-muted-foreground [&_td]:px-2.5 [&_td]:py-1.5 [&_tbody_tr:nth-child(odd)]:bg-muted/30 [&_img]:inline-block [&_img]:h-4 [&_img]:w-auto'
 
 /** Collapsible card that lazy-loads a MAM fragment the first time it opens. */
-function RemotePanel({ title, icon, url }: { title: string; icon: React.ReactNode; url: string | null }) {
-  const r = useRemoteHtml(url)
+function RemotePanel({ title, icon, url, fallback }: { title: string; icon: React.ReactNode; url: string | null; fallback?: () => Promise<string> }) {
+  const r = useRemoteHtml(url, fallback)
   if (!url) return null
   return (
     <Card className="gap-0 py-0">
@@ -211,7 +248,13 @@ function RemotePanel({ title, icon, url }: { title: string; icon: React.ReactNod
             {r.loading && (
               <div className="flex items-center gap-2 py-4 text-[13px] text-muted-foreground"><Spinner className="size-4" /> Loading…</div>
             )}
-            {r.error && <p className="py-4 text-[13px] text-muted-foreground">Could not load this. <a className="text-brand underline" href={url}>Open it directly.</a></p>}
+            {r.error && (
+              <p className="py-4 text-[13px] text-muted-foreground">
+                Could not load this.{' '}
+                <button type="button" className="text-brand underline" onClick={r.load}>Try again</button>
+                {' '}or <a className="text-brand underline" href={url}>open it directly</a>.
+              </p>
+            )}
             {r.html && <div className={REMOTE_HTML_CLS} dangerouslySetInnerHTML={{ __html: r.html }} />}
           </div>
         </CollapsibleContent>
@@ -488,10 +531,24 @@ export function TorrentView(props: PageProps) {
           )}
 
           {data.hasFilelist && data.id && (
-            <RemotePanel title="Files" icon={<FileText className="size-4 text-muted-foreground" />} url={`/tor/filelist.php?torrentid=${data.id}`} />
+            <RemotePanel
+              title="Files"
+              icon={<FileText className="size-4 text-muted-foreground" />}
+              url={`/tor/filelist.php?torrentid=${data.id}`}
+              fallback={() =>
+                legacyFragment(() => (window as unknown as { fileListToggle?: (id: number) => void }).fileListToggle?.(data.id!), '#filesDisplay')
+              }
+            />
           )}
           {data.hasPeers && data.id && (
-            <RemotePanel title="Peers" icon={<Users className="size-4 text-muted-foreground" />} url={`/tor/peers.php?simple=true&torrentid=${data.id}`} />
+            <RemotePanel
+              title="Peers"
+              icon={<Users className="size-4 text-muted-foreground" />}
+              url={`/tor/peers.php?simple=true&torrentid=${data.id}`}
+              fallback={() =>
+                legacyFragment(() => (window as unknown as { togglePeersList?: (id: number) => void }).togglePeersList?.(data.id!), '#peersDisplay')
+              }
+            />
           )}
         </div>
 

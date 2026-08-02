@@ -293,7 +293,9 @@ export function ShoutboxView(_props: PageProps) {
               pinned.current = atBottom
               setPinnedToBottom(atBottom)
             }}
-            className="grid max-h-[64vh] min-h-[420px] content-start gap-1.5 overflow-y-auto px-4 py-4 sm:px-6"
+            /* 15rem is the chrome around the list: topbar, page header, composer
+             * and paddings. The cap keeps the composer on screen on short viewports. */
+            className="grid max-h-[min(64dvh,calc(100dvh-15rem))] min-h-[min(420px,calc(100dvh-15rem))] content-start gap-1.5 overflow-y-auto px-4 py-4 sm:px-6"
           >
             <div className="flex justify-center pb-1">
               <Button variant="outline" size="sm" className="h-7 rounded-full text-[12px]" onClick={loadOlder}>
@@ -350,9 +352,9 @@ export function ShoutboxView(_props: PageProps) {
                       </div>
                       <div className="grid gap-0.5">
                         {g.items.map((it) => (
-                          <div key={it.id} className="group flex items-baseline gap-2 text-[13.5px]">
+                          <div key={it.id} className="group flex items-baseline gap-2 text-[13.5px] pointer-coarse:flex-wrap">
                             <ShoutBody item={it} />
-                            <div className="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                            <div className="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100">
                               <span className="mr-1 font-mono text-[10px] text-muted-foreground">{hhmm(it.time)}</span>
                               {g.user?.uid && (
                                 <>
@@ -361,7 +363,7 @@ export function ShoutboxView(_props: PageProps) {
                                 </>
                               )}
                               {g.user?.uid != null && !g.own && (
-                                <GiftActions uid={String(g.user.uid)} name={g.user.name} surface="shoutbox" buttonClass="size-6" iconClass="size-3" />
+                                <GiftActions uid={String(g.user.uid)} name={g.user.name} surface="shoutbox" buttonClass="size-6 pointer-coarse:size-8" iconClass="size-3" />
                               )}
                               {it.editable && (
                                 <IconAction label="Edit" onClick={() => openEdit(it.numId)}><Pencil className="size-3" /></IconAction>
@@ -445,7 +447,7 @@ function IconAction({ label, onClick, children }: { label: string; onClick: () =
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" className="size-6 text-muted-foreground hover:text-foreground" onClick={onClick}>
+        <Button type="button" variant="ghost" size="icon" className="size-6 text-muted-foreground hover:text-foreground pointer-coarse:size-8" onClick={onClick}>
           {children}
         </Button>
       </TooltipTrigger>
