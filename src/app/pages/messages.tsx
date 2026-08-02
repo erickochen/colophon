@@ -540,12 +540,13 @@ export function MessagesView(props: PageProps) {
           placeholder="Search by subject or member"
         />
         <FilterRow>
+          {/* Totals live in the header sub, so a number here always means unread. */}
           <FilterSegments
             value={tab}
             onChange={setTab}
             options={[
-              { value: 'people', label: 'People', count: people.length },
-              { value: 'system', label: 'System', count: system.length },
+              { value: 'people', label: 'People', badge: unreadPeople },
+              { value: 'system', label: 'System', badge: unreadSystem },
             ]}
           />
           {scanning && (

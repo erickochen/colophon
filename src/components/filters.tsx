@@ -21,6 +21,8 @@ export interface FacetOption {
   value: string
   label: string
   count?: number
+  /** Items waiting for attention, drawn as a brand pill in segments. */
+  badge?: number
   /** 1 nests the row under the plain row above it, for grouped lists. */
   depth?: 0 | 1
 }
@@ -131,7 +133,7 @@ export function FilterSegments({
     <ToggleGroupItem
       key={o.value}
       value={o.value}
-      aria-label={o.label}
+      aria-label={o.badge ? `${o.label}, ${fmtInt(o.badge)} new` : o.label}
       className={cn(
         'h-8 px-3 text-[12.5px] font-medium text-muted-foreground',
         'data-pressed:bg-brand-soft data-pressed:text-accent-foreground'
@@ -140,6 +142,11 @@ export function FilterSegments({
       {o.label}
       {o.count != null && (
         <span className="text-[11px] tabular-nums text-muted-foreground">{fmtInt(o.count)}</span>
+      )}
+      {!!o.badge && (
+        <span className="rounded-full bg-brand/15 px-1.5 py-px text-[10px] font-semibold tabular-nums text-brand">
+          {fmtInt(o.badge)}
+        </span>
       )}
     </ToggleGroupItem>
   ))
