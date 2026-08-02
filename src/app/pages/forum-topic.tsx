@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Bell, BellRing, Flag, Mail, Pencil, Quote, Send } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { extractTopic, type TopicPost } from '@/lib/extract/forum'
@@ -15,12 +15,16 @@ import { toast } from '@/components/ui/toast'
 import { GiftActions } from '@/components/giftmam-actions'
 import { uidFromHref } from '@/lib/giftmam'
 
+/** Post images can finish loading after the first paint and push the target
+ * down, so the anchor jump runs once more after this pause. */
+const ANCHOR_SETTLE_MS = 400
+
 function Post({ p, onQuote, myUid }: { p: TopicPost; onQuote: (p: TopicPost) => void; myUid: string | null }) {
   // Your own posts sit in the same list. Gifting yourself goes nowhere.
   const authorUid = uidFromHref(p.author?.href ?? null)
   const giftUid = authorUid && authorUid !== myUid ? authorUid : null
   return (
-    <Card id={`post-${p.pid}`} className="gap-0 overflow-hidden py-0">
+    <Card id={`post-${p.pid}`} className="scroll-mt-18 gap-0 overflow-hidden py-0">
       <div className="flex items-center justify-between gap-3 bg-muted/40 px-6 py-2.5">
         <div className="flex min-w-0 items-baseline gap-2 text-[12.5px]">
           <a href={p.permalink} className="font-mono text-[11px] text-muted-foreground hover:underline">#{p.pid}</a>
@@ -144,6 +148,25 @@ export function ForumTopicView(props: PageProps) {
   const [reply, setReply] = useState('')
   const [subscribed, setSubscribed] = useState(readSubscribed)
   const [subBusy, setSubBusy] = useState(false)
+
+  // The URL's #<pid> points at an anchor in MAM's hidden page, which the
+  // browser cannot scroll to. Jump to our card for that post instead.
+  useEffect(() => {
+    const jump = () => {
+      const pid = location.hash.replace(/^#p?/, '')
+      if (!/^\d+$/.test(pid)) return
+      props.host.shadowRoot?.getElementById(`post-${pid}`)?.scrollIntoView({ block: 'start' })
+    }
+    const raf = requestAnimationFrame(jump)
+    const settle = window.setTimeout(jump, ANCHOR_SETTLE_MS)
+    window.addEventListener('hashchange', jump)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.clearTimeout(settle)
+      window.removeEventListener('hashchange', jump)
+    }
+  }, [])
+
   if (!data) return <LegacyView {...props} />
 
   // Quote via MAM's own getQuote endpoint (same format as its native button),
