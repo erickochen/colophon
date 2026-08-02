@@ -7,7 +7,7 @@ import { fmtInt } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { NumberTicker } from '@/components/ui/number-ticker'
+import { NumberRoll } from '@/components/ui/number-roll'
 import { Progress } from '@/components/ui/progress'
 import { ShineBorder } from '@/components/ui/shine-border'
 
@@ -72,7 +72,7 @@ export function MillionaireVaultView(props: PageProps) {
             <div>
               <div className="flex items-baseline gap-2">
                 <span className="font-display text-5xl font-semibold tabular-nums tracking-tight">
-                  {data.pot > 0 ? <NumberTicker value={data.pot} /> : '0'}
+                  {data.pot > 0 ? <NumberRoll value={data.pot} /> : '0'}
                 </span>
                 <span className="text-[15px] text-muted-foreground">/ {fmtInt(data.goal)} points</span>
               </div>

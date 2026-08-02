@@ -92,6 +92,11 @@ export function Pager({
 export const QUOTE_CLASSES =
   '[&_.quote]:my-3 [&_.quote]:rounded-md [&_.quote]:bg-muted/60 [&_.quote]:py-2.5 [&_.quote]:pr-3.5 [&_.quote]:pl-4 [&_.quote]:text-[13px] [&_.quote>span]:mb-1.5 [&_.quote>span]:block [&_.quote>span]:text-[11.5px] [&_.quote>span]:font-semibold [&_.quote>span]:text-muted-foreground [&_.quote_p:last-child]:mb-0'
 
+/* MAM's editor writes every line as its own <p> and renders <p> without
+ * margins, so blank lines only come from explicitly empty paragraphs. Post
+ * bodies match that; RichHtml's default paragraph gap would double-space them. */
+export const POST_SPACING = 'leading-normal [&_p]:my-0'
+
 const IMAGE_HREF = /\.(png|jpe?g|gif|webp|avif)$/i
 
 /** Zoomable when the image is bare or its link just points at a picture. */

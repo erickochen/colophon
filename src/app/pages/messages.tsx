@@ -23,7 +23,7 @@ import {
 } from '@/lib/extract/messages'
 import { sendMessage } from '@/lib/pm-send'
 import { LegacyView } from '@/app/pages/legacy'
-import { PageHeader, RichHtml, UserLink } from '@/app/shell/bits'
+import { PageHeader, POST_SPACING, RichHtml, UserLink } from '@/app/shell/bits'
 import {
   BubbleActions, Conversation, ConversationBubble, readBubbleSelection, selectionWithin,
   useConversationNav, type BubbleSelection,
@@ -128,7 +128,7 @@ function QuotedHistory({
           {quotes.map((q, i) => (
             <div key={i} className="rounded-md bg-muted/60 px-3 py-2">
               <div className="pb-1 text-[11px] font-semibold text-muted-foreground">{q.author} wrote</div>
-              <RichHtml html={q.html} className="text-[12.5px] text-foreground/75" />
+              <RichHtml html={q.html} className={cn(POST_SPACING, 'text-[12.5px] text-foreground/75')} />
             </div>
           ))}
         </div>
@@ -234,7 +234,7 @@ const ThreadBubble = memo(function ThreadBubble({
           <Skeleton className="h-3 w-32" />
         </div>
       ) : hasText ? (
-        <RichHtml html={split!.head} className="text-[13.5px]" />
+        <RichHtml html={split!.head} className={cn(POST_SPACING, 'text-[13.5px]')} />
       ) : (
         <p className="text-[13px] text-muted-foreground">{split ? 'Only quoted text.' : 'This message has no body.'}</p>
       )}

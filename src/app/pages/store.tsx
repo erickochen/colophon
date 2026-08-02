@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { NumberTicker } from '@/components/ui/number-ticker'
+import { NumberRoll } from '@/components/ui/number-roll'
 import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/toast'
 
@@ -113,7 +113,7 @@ export function StoreView(props: PageProps) {
             <span className="flex size-12 items-center justify-center rounded-xl bg-brand-soft"><CircleDollarSign className="size-6 text-accent-foreground" /></span>
             <div>
               <div className="font-display text-3xl font-semibold tabular-nums leading-none">
-                {points != null ? <NumberTicker value={points} /> : (data.points ?? '–')}
+                {points != null ? <NumberRoll value={points} /> : (data.points ?? '–')}
               </div>
               <div className="pt-1 text-[11.5px] text-muted-foreground">bonus points</div>
             </div>

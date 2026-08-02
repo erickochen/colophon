@@ -3,8 +3,9 @@ import { Bell, BellRing, Flag, Mail, Pencil, Quote, Send } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { extractTopic, type TopicPost } from '@/lib/extract/forum'
 import { LegacyView } from '@/app/pages/legacy'
-import { Crumbs, Pager, RichHtml } from '@/app/shell/bits'
+import { Crumbs, Pager, POST_SPACING, RichHtml } from '@/app/shell/bits'
 import { initials } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { BBComposer } from '@/components/bb-composer'
 import { Button } from '@/components/ui/button'
@@ -50,13 +51,13 @@ function Post({ p, onQuote, myUid }: { p: TopicPost; onQuote: (p: TopicPost) => 
           </div>
         </div>
         <div className="min-w-0">
-          <RichHtml html={p.bodyHtml} />
+          <RichHtml html={p.bodyHtml} className={POST_SPACING} />
           {p.edited && <p className="mt-3 text-[11px] italic text-muted-foreground">{p.edited}</p>}
-          {p.sig && (
-            <>
-              <div className="my-3" />
-              <p className="text-[11.5px] italic text-muted-foreground [overflow-wrap:anywhere]">{p.sig}</p>
-            </>
+          {p.sigHtml && (
+            <RichHtml
+              html={p.sigHtml}
+              className={cn(POST_SPACING, 'mt-5 border-t pt-3 text-[12px] text-muted-foreground [&_img]:max-h-28')}
+            />
           )}
           <div className="mt-3 flex justify-end gap-1">
             {p.editHref && (

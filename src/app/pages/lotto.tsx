@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { NumberTicker } from '@/components/ui/number-ticker'
+import { NumberRoll } from '@/components/ui/number-roll'
 import { Separator } from '@/components/ui/separator'
 import { ShineBorder } from '@/components/ui/shine-border'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -148,7 +148,7 @@ export function LottoView(props: PageProps) {
             <span className="text-[12.5px] uppercase tracking-wide text-muted-foreground">In the pot</span>
             <div className="flex items-baseline gap-2">
               <span className="font-display text-5xl font-semibold tabular-nums tracking-tight">
-                {data.potGiB > 0 ? <NumberTicker value={data.potGiB} /> : '0'}
+                {data.potGiB > 0 ? <NumberRoll value={data.potGiB} /> : '0'}
               </span>
               <span className="text-xl text-muted-foreground">GiB</span>
             </div>

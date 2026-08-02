@@ -7,7 +7,7 @@ import { PageHeader, UserLink } from '@/app/shell/bits'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
 import { FilterSegments } from '@/components/filters'
-import { NumberTicker } from '@/components/ui/number-ticker'
+import { NumberRoll } from '@/components/ui/number-roll'
 import { Skeleton } from '@/components/ui/skeleton'
 
 // The tracker's own graph (userBonusPointHistoryJSON.php): a multi-series time
@@ -185,7 +185,7 @@ export function BonusHistoryView({ page }: PageProps) {
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Stat icon={<Coins className="size-5" />} label="bonus points" value={loading ? '–' : <NumberTicker value={Math.round(last?.bonus ?? 0)} />} />
+        <Stat icon={<Coins className="size-5" />} label="bonus points" value={loading ? '–' : <NumberRoll value={Math.round(last?.bonus ?? 0)} />} />
         <Stat icon={<TrendingUp className="size-5" />} label="avg points / hour" hint={`peak ${stats.pph.max.toFixed(1)}`} value={loading ? '–' : stats.pph.avg.toFixed(2)} />
         <Stat icon={<Gauge className="size-5" />} label="ratio" value={loading ? '–' : fmtInt(Math.round(last?.ratio ?? 0))} />
       </div>

@@ -173,7 +173,7 @@ export interface TopicPost {
   klass: string | null
   stats: { posts: string | null; ratio: string | null; ul: string | null; dl: string | null }
   bodyHtml: string
-  sig: string | null
+  sigHtml: string | null
   edited: string | null
   pmHref: string | null
   reportHref: string | null
@@ -275,7 +275,7 @@ export function extractTopic(doc: Document): TopicData | null {
         dl: avStats.match(/DL:\s*([\d.,]+\s*\S+)/)?.[1] ?? null,
       },
       bodyHtml,
-      sig: txt(sig),
+      sigHtml: cleanHtml(sig),
       edited: txt(editedEl),
       pmHref: table.querySelector<HTMLAnchorElement>('a[href*="sendmessage.php"]')?.getAttribute('href') ?? null,
       reportHref: table.querySelector<HTMLAnchorElement>('a[href*="newTicket"]')?.getAttribute('href') ?? null,

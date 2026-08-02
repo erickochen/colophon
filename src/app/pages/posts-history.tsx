@@ -3,7 +3,7 @@ import { MessagesSquare } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { cleanHtml } from '@/lib/sanitize'
 import { LegacyView } from '@/app/pages/legacy'
-import { PageHeader, RichHtml } from '@/app/shell/bits'
+import { PageHeader, POST_SPACING, RichHtml } from '@/app/shell/bits'
 import { relTime } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -74,7 +74,7 @@ export function PostsHistoryView(props: PageProps) {
             <CardContent className="py-4">
               <RichHtml
                 html={p.bodyHtml}
-                className="text-[13.5px] [&_.quote]:my-1 [&_.quote]:rounded-md [&_.quote]:bg-muted/50 [&_.quote]:px-3 [&_.quote]:py-2 [&_.quote]:text-[12.5px] [&_.quote_span]:text-muted-foreground [&_img]:inline"
+                className={`${POST_SPACING} text-[13.5px] [&_.quote]:my-1 [&_.quote]:rounded-md [&_.quote]:bg-muted/50 [&_.quote]:px-3 [&_.quote]:py-2 [&_.quote]:text-[12.5px] [&_.quote_span]:text-muted-foreground [&_img]:inline`}
               />
             </CardContent>
           </Card>

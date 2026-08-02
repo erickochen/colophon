@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { BlurFade } from '@/components/ui/blur-fade'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { NumberTicker } from '@/components/ui/number-ticker'
+import { NumberRoll } from '@/components/ui/number-roll'
 import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ShineBorder } from '@/components/ui/shine-border'
@@ -415,7 +415,7 @@ export function HomeView({ page }: PageProps) {
             </CardHeader>
             <CardContent className="grid gap-2">
               <span className="font-display text-2xl font-semibold tabular-nums">
-                {vaultNum > 0 ? <NumberTicker value={vaultNum} /> : page.vault ?? '–'}
+                {vaultNum > 0 ? <NumberRoll value={vaultNum} /> : page.vault ?? '–'}
               </span>
               <Progress value={Math.min(100, (vaultNum / VAULT_GOAL) * 100)} className="[&>div]:bg-brand" />
               <span className="text-[12px] text-muted-foreground">of 20,000,000 points · everyone gets 2 wedges</span>
@@ -467,7 +467,7 @@ export function HomeView({ page }: PageProps) {
                 return (
                   <div key={label as string}>
                     <div className="font-display text-lg font-semibold tabular-nums">
-                      {num != null ? <NumberTicker value={num} /> : value}
+                      {num != null ? <NumberRoll value={num} /> : value}
                     </div>
                     <div className="text-[11.5px] text-muted-foreground">{label}</div>
                   </div>
