@@ -23,7 +23,7 @@ import { SimpleFormView } from '@/app/pages/simple-form'
 import { RequestDetailView } from '@/app/pages/request-detail'
 import { ClientStatusView } from '@/app/pages/client-status'
 import { BonusHistoryView } from '@/app/pages/bonus-history'
-import { SubscriptionNewPostsView, SubscriptionsView } from '@/app/pages/subscriptions'
+import { SubscriptionCleanView, SubscriptionNewPostsView, SubscriptionsView } from '@/app/pages/subscriptions'
 import { GuidesView } from '@/app/pages/guides'
 import { DonateView } from '@/app/pages/donate'
 import { RssView } from '@/app/pages/rss'
@@ -114,8 +114,11 @@ export function resolveRoute(loc: Location): Route {
   if (p === '/snatch_summary.php') return { id: 'snatched', View: SnatchedView }
   if (p === '/userClientDetails.php') return { id: 'client-status', View: ClientStatusView }
   if (p === '/stats/userBonusPointHistory.php') return { id: 'bonus-history', View: BonusHistoryView }
-  if (/^\/forums\/subscriptions\.php\/newposts/i.test(p)) {
+  if (/^\/forums\/subscriptions\.php\/(newposts|doclean)/i.test(p)) {
     return { id: 'subscription-new-posts', View: SubscriptionNewPostsView }
+  }
+  if (/^\/forums\/subscriptions\.php\/clean/i.test(p)) {
+    return { id: 'subscription-clean', View: SubscriptionCleanView }
   }
   if (p.startsWith('/forums/subscriptions.php')) return { id: 'subscriptions', View: SubscriptionsView }
   if (p === '/guides/' || p === '/guides/index.php') {

@@ -9,6 +9,7 @@ import { GiftDialogHost } from '@/components/giftmam-actions'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from '@/components/ui/toast'
+import { useNotifCounts } from '@/lib/notify'
 import { ScrollProgress } from '@/components/ui/scroll-progress'
 import { getPortalContainer } from '@/lib/portals'
 import { detachWysiwyg } from '@/lib/wysiwyg'
@@ -20,14 +21,16 @@ export function App({ page, host }: { page: ShellData; host: HTMLElement }) {
   useMemo(() => detachWysiwyg(), [])
   const [cmdOpen, setCmdOpen] = useState(false)
   const defaultOpen = !document.cookie.includes('sidebar_state=false')
+  // One poll feeds the sidebar badges and the topbar chips alike.
+  const counts = useNotifCounts(page.pmCount)
 
   return (
     <TooltipProvider delayDuration={250}>
       <ScrollProgress />
       <SidebarProvider defaultOpen={defaultOpen}>
-        <AppSidebar page={page} />
+        <AppSidebar page={page} counts={counts} />
         <SidebarInset className="min-w-0">
-          <Topbar page={page} onOpenSearch={() => setCmdOpen(true)} />
+          <Topbar page={page} counts={counts} onOpenSearch={() => setCmdOpen(true)} />
           <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
             <div className="mx-auto w-full max-w-6xl">
               <route.View page={page} host={host} />

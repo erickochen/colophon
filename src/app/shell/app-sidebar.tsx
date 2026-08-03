@@ -25,7 +25,7 @@ import {
 import type { ShellData } from '@/lib/extract/shell'
 import { isActive } from '@/app/router'
 import { extractNewPosts } from '@/app/pages/subscriptions'
-import { useNotifCounts, type NotifCounts } from '@/lib/notify'
+import type { NotifCounts } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -359,9 +359,8 @@ function IconRail({ dashboard, sections }: { dashboard: NavItem; sections: NavGr
   )
 }
 
-export function AppSidebar({ page }: { page: ShellData }) {
+export function AppSidebar({ page, counts }: { page: ShellData; counts: NotifCounts }) {
   const { state } = useSidebar()
-  const counts = useNotifCounts(page.pmCount)
   const nav = groups(page, counts)
   const iconMode = state === 'collapsed'
 

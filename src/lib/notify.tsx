@@ -82,8 +82,8 @@ export async function fetchNotifCounts(): Promise<NotifCounts | null> {
   }
 }
 
-/** What a counter increase says and where its toast leads. */
-const ARRIVALS: Record<keyof NotifCounts, { href: string; label: string; describe: (n: number) => string }> = {
+/** What each counter means and where it leads. */
+export const NOTIF_TARGETS: Record<keyof NotifCounts, { href: string; label: string; describe: (n: number) => string }> = {
   pms: {
     href: '/messages.php?action=viewmailbox',
     label: 'Open mailbox',
@@ -112,7 +112,7 @@ function announceArrivals(prev: NotifCounts, next: NotifCounts): void {
   window.setTimeout(() => {
     for (const key of COUNTER_KEYS) {
       if (next[key] <= prev[key]) continue
-      const arrival = ARRIVALS[key]
+      const arrival = NOTIF_TARGETS[key]
       toast(arrival.describe(next[key]), {
         description: (
           <a href={arrival.href} className="font-medium text-brand hover:underline">

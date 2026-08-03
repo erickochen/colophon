@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Moon, Search, Sun, SunMoon } from 'lucide-react'
+import { Eye, Headset, Mail, Moon, PackageCheck, Search, Sun, SunMoon } from 'lucide-react'
 import type { ShellData } from '@/lib/extract/shell'
 import { applyTheme, getDarkScheme, getLightScheme, getTheme, isDark, setDarkScheme, setLightScheme, type DarkScheme, type LightScheme, type Theme } from '@/lib/theme'
+import { NOTIF_TARGETS, type NotifCounts } from '@/lib/notify'
 import { useLiveBonus, useLiveWedges } from '@/lib/bonus'
 import { Button } from '@/components/ui/button'
 import { SidebarTrigger } from '@/components/ui/sidebar'
@@ -75,6 +76,43 @@ function StatChip({
   )
 }
 
+const NOTIF_ICONS: Record<keyof NotifCounts, typeof Mail> = {
+  pms: Mail,
+  topics: Eye,
+  tickets: Headset,
+  requests: PackageCheck,
+}
+
+/** One fixed glance point for every live counter. Stays visible on small
+ * screens where the sidebar folds away, so nothing hides in the sheet. */
+function NotifChips({ counts }: { counts: NotifCounts }) {
+  const active = (Object.keys(NOTIF_ICONS) as (keyof NotifCounts)[]).filter((k) => counts[k] > 0)
+  if (active.length === 0) return null
+  return (
+    <div className="flex items-center gap-1">
+      {active.map((key) => {
+        const Icon = NOTIF_ICONS[key]
+        const target = NOTIF_TARGETS[key]
+        return (
+          <Tooltip key={key}>
+            <TooltipTrigger asChild>
+              <a
+                href={target.href}
+                aria-label={target.describe(counts[key])}
+                className="badge-pop flex items-center gap-1 rounded-full bg-brand-soft px-2 py-1 text-[12px] font-medium text-accent-foreground transition-colors hover:bg-accent"
+              >
+                <Icon className="size-3.5" />
+                <span className="tabular-nums">{counts[key]}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent>{target.describe(counts[key])}</TooltipContent>
+          </Tooltip>
+        )
+      })}
+    </div>
+  )
+}
+
 /* MAM reports connectability per protocol; show both, like the site does. */
 function ClientChip({ client }: { client: ShellData['client'] }) {
   const dot = (state: boolean | null) =>
@@ -105,7 +143,7 @@ function ClientChip({ client }: { client: ShellData['client'] }) {
   )
 }
 
-export function Topbar({ page, onOpenSearch }: { page: ShellData; onOpenSearch: () => void }) {
+export function Topbar({ page, counts, onOpenSearch }: { page: ShellData; counts: NotifCounts; onOpenSearch: () => void }) {
   const [theme, setTheme] = useState<Theme>(getTheme)
   const [dark, setDark] = useState(() => isDark())
   const [lightScheme, setLightState] = useState<LightScheme>(getLightScheme)
@@ -156,6 +194,7 @@ export function Topbar({ page, onOpenSearch }: { page: ShellData; onOpenSearch: 
         <Kbd className="ml-auto">⌘K</Kbd>
       </button>
       <div className="ml-auto flex items-center gap-4">
+        <NotifChips counts={counts} />
         <ClientChip client={page.client} />
         <StatChip label="Bonus" value={bonus} href="/store.php" hint="Spend bonus points in the store" />
         <StatChip label="Wedges" value={wedges} />

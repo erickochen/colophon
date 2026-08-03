@@ -1,5 +1,5 @@
 import { useMemo, useReducer } from 'react'
-import { BellOff, Bookmark, CheckCheck } from 'lucide-react'
+import { BellOff, Bookmark, CheckCheck, CheckCircle2 } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader, RichHtml } from '@/app/shell/bits'
@@ -34,10 +34,14 @@ function readThread(link: HTMLAnchorElement, row: Element): WatchedThread {
   }
 }
 
-/** The /newPosts listing: topics on the watchlist that picked up replies. */
+/** The /newPosts listing: topics on the watchlist that picked up replies.
+ * The /doClean result serves the same listing under a "List cleared" h1. */
 export function extractNewPosts(doc: Document) {
   const main = doc.querySelector('#mainBody')
-  if (!main || !/watchlist/i.test(main.querySelector('h1')?.textContent ?? '')) return null
+  if (!main) return null
+  const heads = [...main.querySelectorAll('h1')].map((h) => h.textContent ?? '')
+  if (!heads.some((t) => /watchlist/i.test(t))) return null
+  const cleared = heads.some((t) => /list cleared/i.test(t))
 
   const threads: WatchedThread[] = []
   const rows = new Set<Element>()
@@ -52,6 +56,7 @@ export function extractNewPosts(doc: Document) {
   }
   return {
     threads,
+    cleared,
     empty: /no threads with new post/i.test(main.textContent ?? ''),
     clearHref: main.querySelector('a[href*="subscriptions.php/clean"]')?.getAttribute('href') ?? null,
     body: main.querySelector('.blockCon .blockBody .blockBodyCon'),
@@ -61,12 +66,13 @@ export function extractNewPosts(doc: Document) {
 export function SubscriptionNewPostsView(props: PageProps) {
   const data = useMemo(() => extractNewPosts(document), [])
   if (!data) return <LegacyView {...props} />
+  const threads = data.threads
 
   return (
     <div className="mx-auto grid w-full max-w-4xl gap-5">
       <PageHeader
         title="New posts on your watchlist"
-        sub="Topics you follow that picked up replies"
+        sub={data.cleared ? 'Notifications cleared' : 'Topics you follow that picked up replies'}
         action={
           <div className="flex flex-wrap gap-1.5">
             <Button asChild variant="outline" size="sm" className="h-8 text-[12.5px]">
@@ -81,10 +87,10 @@ export function SubscriptionNewPostsView(props: PageProps) {
         }
       />
 
-      {data.threads.length > 0 ? (
+      {threads.length > 0 ? (
         <Card className="py-0">
           <CardContent className="grid divide-y divide-border/60 px-0 py-0">
-            {data.threads.map((t, i) => (
+            {threads.map((t, i) => (
               <div key={i} className="grid grid-cols-1 gap-0.5 px-6 py-3">
                 <a href={t.href} className="truncate text-[13.5px] font-medium hover:underline">{t.title}</a>
                 {t.board && (
@@ -100,19 +106,54 @@ export function SubscriptionNewPostsView(props: PageProps) {
             ))}
           </CardContent>
         </Card>
-      ) : data.empty || !data.body ? (
+      ) : data.cleared || data.empty || !data.body ? (
         <Card><CardContent>
           <Empty>
             <EmptyHeader>
-              <EmptyMedia variant="icon"><BellOff /></EmptyMedia>
-              <EmptyTitle>Nothing new</EmptyTitle>
-              <EmptyDescription>None of the topics you follow have unread posts right now.</EmptyDescription>
+              <EmptyMedia variant="icon">{data.cleared ? <CheckCircle2 className="text-ok" /> : <BellOff />}</EmptyMedia>
+              <EmptyTitle>{data.cleared ? 'All caught up' : 'Nothing new'}</EmptyTitle>
+              <EmptyDescription>
+                {data.cleared
+                  ? 'Every new-post notification is cleared. The topics stay on your watchlist.'
+                  : 'None of the topics you follow have unread posts right now.'}
+              </EmptyDescription>
             </EmptyHeader>
           </Empty>
         </CardContent></Card>
       ) : (
         <Card><CardContent><RichHtml html={cleanHtml(data.body) ?? ''} /></CardContent></Card>
       )}
+    </div>
+  )
+}
+
+/** The /clean confirmation. The real "yes" link stays in the hidden legacy
+ * DOM and gets a native click, so the request MAM sees is its own. */
+export function SubscriptionCleanView(props: PageProps) {
+  const confirmAnchor = useMemo(
+    () => document.querySelector<HTMLAnchorElement>('#mainBody a[href*="doClean"]'),
+    []
+  )
+  if (!confirmAnchor) return <LegacyView {...props} />
+
+  return (
+    <div className="mx-auto grid w-full max-w-xl gap-5">
+      <PageHeader title="Clear watchlist notifications" sub="One click and the list starts fresh" />
+      <Card>
+        <CardContent className="grid gap-4">
+          <p className="text-[13.5px]">
+            Clear all new-post notifications? The topics stay on your watchlist. Only the new-post markers go.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => confirmAnchor.click()}>
+              <CheckCheck /> Clear them
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <a href="/forums/subscriptions.php/newPosts">Keep them</a>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
