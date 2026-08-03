@@ -21,6 +21,7 @@ import {
   type PmThread,
   type QuoteLevel,
 } from '@/lib/extract/messages'
+import { clearPmSnapshot, readPmSnapshot } from '@/lib/notify'
 import { sendMessage } from '@/lib/pm-send'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader, POST_SPACING, RichHtml, UserLink } from '@/app/shell/bits'
@@ -248,7 +249,9 @@ export function MessagesView(props: PageProps) {
   const [scanning, setScanning] = useState(!!initial)
   const [truncated, setTruncated] = useState(false)
   const [scanFailed, setScanFailed] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(0)
+  // Serving this page marks the delivered messages read, so the count the
+  // sidebar polled on the previous page is the one that still knows them.
+  const [unreadCount, setUnreadCount] = useState(() => readPmSnapshot() ?? 0)
   const [tab, setTab] = useState('people')
   const [query, setQuery] = useState('')
   const [openKey, setOpenKey] = useState<string | null>(openingThread)
@@ -295,13 +298,14 @@ export function MessagesView(props: PageProps) {
     }
   }, [initial])
 
-  // The mailbox page carries no unread flag of its own, so the count comes from
-  // the endpoint MAM's header polls.
+  // The mailbox page carries no unread flag of its own. A fresh answer can
+  // only add to the parked count, never take away from it.
   useEffect(() => {
+    clearPmSnapshot()
     let alive = true
     void (async () => {
       const n = await fetchUnreadCount()
-      if (alive && n != null) setUnreadCount(n)
+      if (alive && n != null) setUnreadCount((prev) => Math.max(prev, n))
     })()
     return () => {
       alive = false

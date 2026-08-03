@@ -21,6 +21,8 @@ import {
 } from 'lucide-react'
 import type { ShellData } from '@/lib/extract/shell'
 import { isActive } from '@/app/router'
+import { usePmCount } from '@/lib/notify'
+import { cn } from '@/lib/utils'
 import {
   Popover,
   PopoverContent,
@@ -48,6 +50,8 @@ interface NavItem {
   href: string
   icon?: typeof Search
   badge?: string | number | null
+  /** Draws the badge as an accent pill, for counts that ask to be seen. */
+  accent?: boolean
   /** Global demotion order: lower folds into the flyout first on short screens. */
   fold?: number
 }
@@ -59,7 +63,7 @@ interface NavGroup {
 
 /* Every MAM destination lives here: basics visible, the rest one hover away
  * in the group flyout. Source of truth: dom/home-fresh-2026-07-26.html. */
-function groups(page: ShellData): { dashboard: NavItem; groups: NavGroup[] } {
+function groups(page: ShellData, pmCount: number): { dashboard: NavItem; groups: NavGroup[] } {
   return {
     dashboard: { title: 'Dashboard', href: '/', icon: LayoutDashboard },
     groups: [
@@ -98,7 +102,7 @@ function groups(page: ShellData): { dashboard: NavItem; groups: NavGroup[] } {
         label: 'Community',
         items: [
           { title: 'Forum', href: '/f', icon: MessagesSquare },
-          { title: 'Messages', href: '/messages.php?action=viewmailbox', icon: Mail, badge: page.pmCount || null },
+          { title: 'Messages', href: '/messages.php?action=viewmailbox', icon: Mail, badge: pmCount || null, accent: true },
           { title: 'Shoutbox', href: '/shoutbox/index.php', icon: LifeBuoy },
         ],
         more: [
@@ -183,10 +187,15 @@ function useFoldCount(ref: RefObject<HTMLDivElement | null>, max: number): numbe
 const ITEM_ACTIVE =
   'transition-colors duration-150 data-[active=true]:bg-brand-soft data-[active=true]:font-medium data-[active=true]:text-brand'
 
-function Badge({ value }: { value: NavItem['badge'] }) {
+function Badge({ value, accent }: { value: NavItem['badge']; accent?: boolean }) {
   if (value == null || value === 0) return null
   return (
-    <SidebarMenuBadge className="bg-transparent font-mono text-[11px] font-normal text-sidebar-foreground/60">
+    <SidebarMenuBadge
+      className={cn(
+        'font-mono text-[11px] font-normal',
+        accent ? 'rounded-full bg-brand-soft text-accent-foreground' : 'bg-transparent text-sidebar-foreground/60'
+      )}
+    >
       {value}
     </SidebarMenuBadge>
   )
@@ -201,7 +210,7 @@ function ItemRow({ item }: { item: NavItem }) {
           <span>{item.title}</span>
         </a>
       </SidebarMenuButton>
-      <Badge value={item.badge} />
+      <Badge value={item.badge} accent={item.accent} />
     </SidebarMenuItem>
   )
 }
@@ -271,7 +280,8 @@ function IconRail({ dashboard, sections }: { dashboard: NavItem; sections: NavGr
 
 export function AppSidebar({ page }: { page: ShellData }) {
   const { state } = useSidebar()
-  const nav = groups(page)
+  const pmCount = usePmCount(page.pmCount)
+  const nav = groups(page, pmCount)
   const iconMode = state === 'collapsed'
 
   const contentRef = useRef<HTMLDivElement>(null)
