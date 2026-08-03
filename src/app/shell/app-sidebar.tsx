@@ -1,16 +1,19 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { ChevronRight } from 'lucide-react'
 import {
   BookOpen,
   Bookmark,
   Download,
+  Eye,
   Gift,
   HandCoins,
+  Headset,
   HelpCircle,
   LayoutDashboard,
   LifeBuoy,
   Mail,
   MessagesSquare,
+  PackageCheck,
   Search,
   Sparkles,
   Store,
@@ -21,8 +24,10 @@ import {
 } from 'lucide-react'
 import type { ShellData } from '@/lib/extract/shell'
 import { isActive } from '@/app/router'
-import { usePmCount } from '@/lib/notify'
+import { extractNewPosts } from '@/app/pages/subscriptions'
+import { useNotifCounts, type NotifCounts } from '@/lib/notify'
 import { cn } from '@/lib/utils'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Popover,
   PopoverContent,
@@ -45,6 +50,11 @@ import {
 } from '@/components/ui/sidebar'
 import { UserMenu } from '@/app/shell/user-menu'
 
+interface PeekEntry {
+  title: string
+  href: string
+  sub?: string
+}
 interface NavItem {
   title: string
   href: string
@@ -54,6 +64,8 @@ interface NavItem {
   accent?: boolean
   /** Global demotion order: lower folds into the flyout first on short screens. */
   fold?: number
+  /** Fetches the short list behind a live count, shown on hover. */
+  peek?: () => Promise<PeekEntry[]>
 }
 interface NavGroup {
   label: string
@@ -61,9 +73,26 @@ interface NavGroup {
   more: NavItem[]
 }
 
+/** The watchlist page lists the topics behind the count. Serving it does not
+ * consume the notification, so the sidebar can peek at it. */
+async function fetchWatchlistPeek(): Promise<PeekEntry[]> {
+  const res = await fetch('/forums/subscriptions.php/newPosts', { credentials: 'same-origin' })
+  if (!res.ok) throw new Error(`watchlist ${res.status}`)
+  const doc = new DOMParser().parseFromString(await res.text(), 'text/html')
+  const data = extractNewPosts(doc)
+  if (!data) throw new Error('watchlist layout changed')
+  return data.threads.map((t) => ({
+    title: t.title,
+    href: t.href,
+    sub: t.board ? `in ${t.board.name}` : undefined,
+  }))
+}
+
 /* Every MAM destination lives here: basics visible, the rest one hover away
- * in the group flyout. Source of truth: dom/home-fresh-2026-07-26.html. */
-function groups(page: ShellData, pmCount: number): { dashboard: NavItem; groups: NavGroup[] } {
+ * in the group flyout. Source of truth: dom/home-fresh-2026-07-26.html.
+ * A flyout item with an accent badge surfaces into the visible list while
+ * its count is nonzero, mirroring MAM's header notification links. */
+function groups(page: ShellData, counts: NotifCounts): { dashboard: NavItem; groups: NavGroup[] } {
   return {
     dashboard: { title: 'Dashboard', href: '/', icon: LayoutDashboard },
     groups: [
@@ -77,6 +106,7 @@ function groups(page: ShellData, pmCount: number): { dashboard: NavItem; groups:
           { title: 'Book clubs', href: '/tor/bookclubs.php', icon: BookOpen, fold: 3 },
         ],
         more: [
+          { title: 'Updated requests', href: '/tor/requests.php?tor[viewType]=vfn', icon: PackageCheck, badge: counts.requests || null, accent: true },
           { title: 'Reseed requests', href: '/tor/search.php?s=%7B%22tor%22%3A%7B%22rr%22%3A%22reseed%22%7D%2C%22searchType%22%3A%22Torrents%22%7D' },
           { title: 'Recently deleted', href: '/tor/recentlyDeleted.php' },
           { title: 'RSS feeds', href: '/getrss.php' },
@@ -102,13 +132,13 @@ function groups(page: ShellData, pmCount: number): { dashboard: NavItem; groups:
         label: 'Community',
         items: [
           { title: 'Forum', href: '/f', icon: MessagesSquare },
-          { title: 'Messages', href: '/messages.php?action=viewmailbox', icon: Mail, badge: pmCount || null, accent: true },
+          { title: 'Messages', href: '/messages.php?action=viewmailbox', icon: Mail, badge: counts.pms || null, accent: true },
           { title: 'Shoutbox', href: '/shoutbox/index.php', icon: LifeBuoy },
         ],
         more: [
           { title: 'Friends & blocked', href: '/friends.php' },
           { title: 'Forum subscriptions', href: '/forums/subscriptions.php' },
-          { title: 'Watchlist: new posts', href: '/forums/subscriptions.php/newPosts' },
+          { title: 'Watchlist: new posts', href: '/forums/subscriptions.php/newPosts', icon: Eye, badge: counts.topics || null, accent: true, peek: fetchWatchlistPeek },
           { title: 'New members', href: '/newUsers.php' },
           { title: 'IRC chat', href: '/chat.php' },
           { title: 'IRC client help', href: '/chathelp.php' },
@@ -148,7 +178,7 @@ function groups(page: ShellData, pmCount: number): { dashboard: NavItem; groups:
           { title: 'Rules', href: '/rules.php' },
           { title: 'Guides', href: '/guides/' },
           { title: 'Allowed clients', href: '/tor/allowed_clients.php' },
-          { title: 'Contact staff', href: '/ticket.php/myTickets' },
+          { title: 'Contact staff', href: '/ticket.php/myTickets', icon: Headset, badge: counts.tickets || null, accent: true },
           { title: 'Bug reports', href: '/f/b/78' },
           { title: 'Feature requests', href: '/f/b/18' },
           { title: 'Staff', href: '/staff.php' },
@@ -191,8 +221,9 @@ function Badge({ value, accent }: { value: NavItem['badge']; accent?: boolean })
   if (value == null || value === 0) return null
   return (
     <SidebarMenuBadge
+      key={String(value)}
       className={cn(
-        'font-mono text-[11px] font-normal',
+        'badge-pop font-mono text-[11px] font-normal',
         accent ? 'rounded-full bg-brand-soft text-accent-foreground' : 'bg-transparent text-sidebar-foreground/60'
       )}
     >
@@ -201,15 +232,62 @@ function Badge({ value, accent }: { value: NavItem['badge']; accent?: boolean })
   )
 }
 
+/** Hover panel with the items behind a live count, fetched on first open. */
+function PeekPopover({ item, children }: { item: NavItem; children: ReactNode }) {
+  const [entries, setEntries] = useState<PeekEntry[] | 'failed' | null>(null)
+  const load = () => {
+    if (Array.isArray(entries) || !item.peek) return
+    item.peek().then(setEntries, () => setEntries('failed'))
+  }
+  return (
+    <Popover onOpenChange={(open) => open && load()}>
+      <PopoverTrigger asChild openOnHover delay={240}>
+        {children}
+      </PopoverTrigger>
+      <PopoverContent side="right" align="start" sideOffset={10} className="w-72 p-1.5">
+        <div className="px-2 pt-1.5 pb-1 text-[10px] font-semibold tracking-[0.09em] text-muted-foreground uppercase">
+          {item.title}
+        </div>
+        {entries === null && (
+          <div className="grid gap-2 px-2 py-2">
+            <Skeleton className="h-3.5 w-3/4" />
+            <Skeleton className="h-3.5 w-1/2" />
+          </div>
+        )}
+        {entries === 'failed' && (
+          <p className="px-2 py-1.5 text-[12.5px] text-muted-foreground">The list did not load. The link still works.</p>
+        )}
+        {Array.isArray(entries) && entries.length === 0 && (
+          <p className="px-2 py-1.5 text-[12.5px] text-muted-foreground">Nothing new right now.</p>
+        )}
+        {Array.isArray(entries) &&
+          entries.map((e, i) => (
+            <a key={i} href={e.href} className="grid gap-0.5 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/60">
+              <span className="truncate text-[13px]">{e.title}</span>
+              {e.sub && <span className="truncate text-[11.5px] text-muted-foreground">{e.sub}</span>}
+            </a>
+          ))}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 function ItemRow({ item }: { item: NavItem }) {
+  const row = (
+    <SidebarMenuButton asChild isActive={isActive(item.href)} tooltip={item.title} className={cn(ITEM_ACTIVE, 'relative')}>
+      <a href={item.href}>
+        {item.icon && <item.icon />}
+        {/* Collapsed rail hides badges, so a dot keeps live counts visible. */}
+        {item.accent && item.badge != null && (
+          <span className="pointer-events-none absolute top-1 right-1 hidden size-1.5 rounded-full bg-brand group-data-[collapsible=icon]:block" />
+        )}
+        <span>{item.title}</span>
+      </a>
+    </SidebarMenuButton>
+  )
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton asChild isActive={isActive(item.href)} tooltip={item.title} className={ITEM_ACTIVE}>
-        <a href={item.href}>
-          {item.icon && <item.icon />}
-          <span>{item.title}</span>
-        </a>
-      </SidebarMenuButton>
+      {item.peek && item.badge != null ? <PeekPopover item={item}>{row}</PeekPopover> : row}
       <Badge value={item.badge} accent={item.accent} />
     </SidebarMenuItem>
   )
@@ -264,14 +342,17 @@ function NavSection({ group }: { group: NavGroup }) {
   )
 }
 
-/** Icon-rail fallback when the sidebar is collapsed to icons. */
+/** Icon-rail fallback when the sidebar is collapsed to icons. Items carrying
+ * a live count ride along, so their dot stays in view. */
 function IconRail({ dashboard, sections }: { dashboard: NavItem; sections: NavGroup[] }) {
   return (
     <SidebarGroup>
       <SidebarGroupContent>
         <SidebarMenu>
           <ItemRow item={dashboard} />
-          {sections.flatMap((g) => g.items).map((item) => <ItemRow key={item.href} item={item} />)}
+          {sections
+            .flatMap((g) => [...g.items, ...g.more.filter((it) => it.accent && it.badge != null)])
+            .map((item) => <ItemRow key={item.href} item={item} />)}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
@@ -280,8 +361,8 @@ function IconRail({ dashboard, sections }: { dashboard: NavItem; sections: NavGr
 
 export function AppSidebar({ page }: { page: ShellData }) {
   const { state } = useSidebar()
-  const pmCount = usePmCount(page.pmCount)
-  const nav = groups(page, pmCount)
+  const counts = useNotifCounts(page.pmCount)
+  const nav = groups(page, counts)
   const iconMode = state === 'collapsed'
 
   const contentRef = useRef<HTMLDivElement>(null)
@@ -292,11 +373,18 @@ export function AppSidebar({ page }: { page: ShellData }) {
     .sort((a, b) => (a.it.fold ?? 0) - (b.it.fold ?? 0))
     .slice(0, foldCount)
   const foldedSet = new Set(folded.map((f) => f.it.href))
-  const shown = nav.groups.map((g) => ({
-    ...g,
-    items: g.items.filter((it) => !foldedSet.has(it.href)),
-    more: [...folded.filter((f) => f.group === g.label).map((f) => f.it), ...g.more],
-  }))
+  const shown = nav.groups.map((g) => {
+    // Flyout items with a live count surface into the visible list.
+    const alerts = g.more.filter((it) => it.accent && it.badge != null)
+    return {
+      ...g,
+      items: [...g.items.filter((it) => !foldedSet.has(it.href)), ...alerts],
+      more: [
+        ...folded.filter((f) => f.group === g.label).map((f) => f.it),
+        ...g.more.filter((it) => !alerts.includes(it)),
+      ],
+    }
+  })
 
   return (
     <Sidebar collapsible="icon">

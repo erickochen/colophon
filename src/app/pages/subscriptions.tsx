@@ -35,7 +35,7 @@ function readThread(link: HTMLAnchorElement, row: Element): WatchedThread {
 }
 
 /** The /newPosts listing: topics on the watchlist that picked up replies. */
-function extractNewPosts(doc: Document) {
+export function extractNewPosts(doc: Document) {
   const main = doc.querySelector('#mainBody')
   if (!main || !/watchlist/i.test(main.querySelector('h1')?.textContent ?? '')) return null
 

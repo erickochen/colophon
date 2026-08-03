@@ -220,20 +220,6 @@ export async function fetchPmBody(id: string, box: PmBox): Promise<string | null
   }
 }
 
-/** Unread private messages, from the endpoint MAM's own header polls. The
- * mailbox page drops the header counter, so the DOM cannot answer this. */
-export async function fetchUnreadCount(): Promise<number | null> {
-  try {
-    const res = await fetch('/jsonLoad.php?notif', { credentials: 'same-origin' })
-    if (!res.ok) return null
-    const data = (await res.json()) as { notifs?: { pms?: number } }
-    const pms = data.notifs?.pms
-    return typeof pms === 'number' ? pms : null
-  } catch {
-    return null
-  }
-}
-
 // MAM separates a quoted message with "-------- name wrote: --------" and puts
 // the newest text on top, so the whole history travels along in every reply.
 // The dash runs are pinned at eight, the length MAM writes: an open-ended run

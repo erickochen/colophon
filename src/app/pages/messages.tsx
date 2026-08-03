@@ -9,7 +9,6 @@ import {
   buildThreads,
   extractMailbox,
   fetchPmBodies,
-  fetchUnreadCount,
   NO_SUBJECT,
   capQuote,
   quoteAuthor,
@@ -21,7 +20,7 @@ import {
   type PmThread,
   type QuoteLevel,
 } from '@/lib/extract/messages'
-import { clearPmSnapshot, readPmSnapshot } from '@/lib/notify'
+import { clearPmSnapshot, fetchNotifCounts, readPmSnapshot } from '@/lib/notify'
 import { sendMessage } from '@/lib/pm-send'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader, POST_SPACING, RichHtml, UserLink } from '@/app/shell/bits'
@@ -304,8 +303,8 @@ export function MessagesView(props: PageProps) {
     clearPmSnapshot()
     let alive = true
     void (async () => {
-      const n = await fetchUnreadCount()
-      if (alive && n != null) setUnreadCount((prev) => Math.max(prev, n))
+      const counts = await fetchNotifCounts()
+      if (alive && counts != null) setUnreadCount((prev) => Math.max(prev, counts.pms))
     })()
     return () => {
       alive = false

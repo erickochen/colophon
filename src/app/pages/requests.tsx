@@ -34,6 +34,15 @@ const VIEW_TYPES = [
   { value: 'all', label: 'All' },
 ]
 
+/** View behind MAM's header notification link. Not part of the site's own
+ * select, so it only shows as a segment when the URL asks for it. */
+const UPDATED_VIEW = { value: 'vfn', label: 'Updated' }
+
+function viewTypeFromUrl(): string {
+  const v = new URLSearchParams(location.search).get('tor[viewType]')
+  return v && [...VIEW_TYPES, UPDATED_VIEW].some((o) => o.value === v) ? v : VIEW_TYPES[0].value
+}
+
 const SORTS = [
   { value: 'dateD', label: 'Newest first' },
   { value: 'dateA', label: 'Oldest first' },
@@ -46,7 +55,10 @@ const SORTS = [
 
 export function RequestsView(_props: PageProps) {
   const [text, setText] = useState(new URLSearchParams(location.search).get('tor[text]') ?? '')
-  const [viewType, setViewType] = useState('unful')
+  const [viewType, setViewType] = useState(viewTypeFromUrl)
+  const [viewOptions] = useState(() =>
+    viewTypeFromUrl() === UPDATED_VIEW.value ? [...VIEW_TYPES, UPDATED_VIEW] : VIEW_TYPES
+  )
   const [sort, setSort] = useState('dateD')
   const [start, setStart] = useState(0)
   const [found, setFound] = useState(0)
@@ -113,7 +125,7 @@ export function RequestsView(_props: PageProps) {
       <FilterBar>
         <FilterSearch value={text} onChange={setText} onSubmit={() => apply({})} placeholder="Search requests…" />
         <FilterRow>
-          <FilterSegments options={VIEW_TYPES} value={viewType} onChange={(v) => apply({ viewType: v })} />
+          <FilterSegments options={viewOptions} value={viewType} onChange={(v) => apply({ viewType: v })} />
           <FilterSelect
             value={sort}
             onChange={(v) => apply({ sort: v })}

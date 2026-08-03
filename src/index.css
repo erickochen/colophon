@@ -486,6 +486,20 @@
   }
 }
 
+/* Sidebar count badges pop in softly; a value change replays it through a
+ * keyed remount. */
+@media (prefers-reduced-motion: no-preference) {
+  .badge-pop {
+    animation: badge-pop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes badge-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+  }
+}
+
 /* Short viewports: tighten the nav so the sidebar fits without scrolling. */
 @media (max-height: 860px) {
   #mam-root [data-sidebar="content"] {
