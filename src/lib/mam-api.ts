@@ -226,6 +226,13 @@ export function sendWedgeTo(uid: string): Promise<BonusBuyResult> {
   return bonusBuy(new URLSearchParams({ spendtype: 'sendWedge', giftTo: uid }))
 }
 
+/** Spend one wedge to make a torrent personal freeleech, the same call MAM's own
+ * "Buy as FL" button makes. Rejects when the store refuses, so a caller can hold
+ * off the download instead of letting it hit the ratio. */
+export function buyPersonalFreeleech(id: number): Promise<BonusBuyResult> {
+  return bonusBuy(new URLSearchParams({ spendtype: 'personalFL', torrentid: String(id) }))
+}
+
 // The ids ride along in the query string, so batches stay well inside the
 // header limits of a typical nginx.
 const BOOKMARK_BATCH_MAX = 100

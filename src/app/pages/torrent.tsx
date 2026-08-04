@@ -11,6 +11,7 @@ import { searchTorrents, parsePeople, coverUrl, torrentUrl } from '@/lib/mam-api
 import { HARD_FLOOR, TRIVIAL_DROP, useRatioGuard, type RatioGuard, type RatioLevel } from '@/lib/ratio-protect'
 import { cn } from '@/lib/utils'
 import { Book, Book3D, BookAmbilight } from '@/components/book'
+import { WedgeDetailButton } from '@/components/wedge-download'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { BlurFade } from '@/components/ui/blur-fade'
@@ -139,22 +140,23 @@ function RatioNote({ guard }: { guard: RatioGuard }) {
 
 /** Download row with the ratio guard: freeleech, VIP and seeding torrents pass
  * untouched; a blocking ratio hit swaps the plain download for the FL routes. */
-function DownloadDock({ data }: { data: TorrentDetail }) {
+function DownloadDock({ data, spent, onSpent }: { data: TorrentDetail; spent: boolean; onSpent: () => void }) {
   const covered = data.freeleech || data.personalFreeleech || data.vip || !!data.dlHistory || !!data.downloadBlocked
-  const guard = useRatioGuard(covered ? null : data.size)
+  const guard = useRatioGuard(covered || spent ? null : data.size)
   const href = data.downloadHref ?? (data.id ? `/tor/download.php?tid=${data.id}` : null)
   const level = guard?.impact.level ?? 'none'
   const buyFl = data.ratio?.buttons.find((b) => b.name === 'personalFL')
-  const wedgeTitle = guard?.wedges != null ? `Spends 1 of your ${fmtInt(guard.wedges)} FL wedges` : 'Spends one FL wedge'
 
-  const wedgeAction = data.downloadFlHref ? (
-    <Button asChild variant={level === 'block' ? 'default' : 'outline'} title={wedgeTitle}>
-      <a href={data.downloadFlHref}><Gift /> Download with FL wedge</a>
-    </Button>
+  const wedgeAction = covered || spent ? null : data.id != null ? (
+    <WedgeDetailButton
+      target={{ id: data.id, title: data.title, size: data.size, href }}
+      emphasis={level === 'block'}
+      onDone={onSpent}
+    />
   ) : buyFl ? (
     <Button
       variant={level === 'block' ? 'default' : 'outline'}
-      title={wedgeTitle}
+      title="Spends one FL wedge"
       onClick={() => proxyClick(`input[data-freetor="${buyFl.torId}"][name="personalFL"]`, 'Buying freeleech is not available right now.')}
     >
       <Gift /> {buyFl.label}
@@ -177,7 +179,7 @@ function DownloadDock({ data }: { data: TorrentDetail }) {
               <Button asChild>
                 <a href={href}><Download /> Download</a>
               </Button>
-              {level === 'warn' && wedgeAction}
+              {wedgeAction}
             </>
           )
         ) : null}
@@ -188,6 +190,9 @@ function DownloadDock({ data }: { data: TorrentDetail }) {
       </div>
       {data.downloadBlocked && (
         <p className="mt-2 text-[12px] leading-snug text-muted-foreground">{data.downloadBlocked}</p>
+      )}
+      {spent && (
+        <p className="mt-2 text-[12px] leading-snug text-ok">This torrent is a personal freeleech now, so downloading it costs you nothing.</p>
       )}
       {guard && !data.downloadBlocked && <RatioNote guard={guard} />}
     </>
@@ -489,6 +494,9 @@ function SeriesStrip({ data }: { data: TorrentDetail }) {
 export function TorrentView(props: PageProps) {
   const data = useMemo(() => extractTorrent(document), [])
   const [points, setPoints] = useState('')
+  // A wedge spent on this page turns the torrent free, which the server-rendered
+  // ratio tile in the sidebar cannot know.
+  const [spent, setSpent] = useState(false)
 
   if (!data || !data.title) return <LegacyView {...props} />
 
@@ -605,7 +613,7 @@ export function TorrentView(props: PageProps) {
                 </div>
               )}
 
-              <DownloadDock data={data} />
+              <DownloadDock data={data} spent={spent} onSpent={() => setSpent(true)} />
             </div>
           </div>
         </div>
@@ -701,13 +709,14 @@ export function TorrentView(props: PageProps) {
 
               {(data.freeleech || data.ratio || data.ratioHtml) && (
                 <KV label="Ratio after" full>
-                  {(data.freeleech || data.personalFreeleech) && (
+                  {(data.freeleech || data.personalFreeleech || spent) && (
                     <div className="mb-1.5 flex flex-wrap gap-1.5">
                       {data.freeleech && <Badge className="bg-ok/15 text-ok" variant="secondary">Freeleech</Badge>}
-                      {data.personalFreeleech && <Badge className="bg-ok/15 text-ok" variant="secondary">Personal freeleech</Badge>}
+                      {(data.personalFreeleech || spent) && <Badge className="bg-ok/15 text-ok" variant="secondary">Personal freeleech</Badge>}
                     </div>
                   )}
-                  {data.ratio ? (
+                  {/* A spent wedge makes the projection and the buy buttons untrue. */}
+                  {spent ? null : data.ratio ? (
                     <div className="grid gap-2 text-[13px]">
                       {data.ratio.wouldBecome && (
                         <div className="text-muted-foreground">

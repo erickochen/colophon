@@ -7,10 +7,12 @@ import {
   type BookmarkCleanup, type SearchQuery, type SearchTorrent,
 } from '@/lib/mam-api'
 import { CONTENT_FLAGS, LANGUAGES, MAIN_CATS, SORT_OPTIONS } from '@/lib/mam-facets'
+import { wedgeHelps } from '@/lib/wedge'
 import { mamBrowseDefaults, readSticky, writeSticky, type StickyFilters } from '@/lib/browse-sticky'
 import { fmtInt, plural, relTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Book } from '@/components/book'
+import { WedgeRowButton } from '@/components/wedge-download'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -323,7 +325,7 @@ function RowBookmark({ t, onBookmark, onRemoved }: { t: SearchTorrent; onBookmar
   )
 }
 
-function TorrentRow({ t, cols, onBookmark, onRemoved }: { t: SearchTorrent; cols: ColKey[]; onBookmark: BookmarkSetter; onRemoved?: RowDropper }) {
+function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech }: { t: SearchTorrent; cols: ColKey[]; onBookmark: BookmarkSetter; onRemoved?: RowDropper; onFreeleech?: (id: number) => void }) {
   const authors = parsePeople(t.author_info)
   const narrators = cols.includes('narrators') ? parsePeople(t.narrator_info) : []
   const series = cols.includes('series') ? parsePeople(t.series_info) : []
@@ -405,6 +407,13 @@ function TorrentRow({ t, cols, onBookmark, onRemoved }: { t: SearchTorrent; cols
           </TooltipTrigger>
           <TooltipContent>Download .torrent</TooltipContent>
         </Tooltip>
+        {onFreeleech && wedgeHelps(t) && (
+          <WedgeRowButton
+            target={{ id: t.id, title: t.title, size: t.size }}
+            onDone={() => onFreeleech(t.id)}
+            className={cn(ROW_ACTION, 'border-input text-muted-foreground opacity-0 group-hover:opacity-100')}
+          />
+        )}
       </div>
     </div>
   )
@@ -746,6 +755,12 @@ export function BrowseView(props: PageProps) {
     setItems((prev) => prev.map((t) => (hit.has(t.id) ? { ...t, bookmarked: bookmarked ? t.bookmarked ?? 1 : null } : t)))
   }, [])
 
+  /** A spent wedge makes that torrent personal freeleech, so the row picks up
+   * the badge and drops its wedge action. */
+  const setPersonalFreeleech = useCallback((id: number) => {
+    setItems((prev) => prev.map((t) => (t.id === id ? { ...t, personal_freeleech: 1, fl_vip: 1 } : t)))
+  }, [])
+
   // ids always come from the rendered list, so their count is what leaves it.
   const dropRows = useCallback((ids: number[]) => {
     const hit = new Set(ids)
@@ -1046,7 +1061,16 @@ export function BrowseView(props: PageProps) {
         )}
         {!loading && items.length > 0 && view === 'list' && (
           <div className="divide-y divide-border">
-            {items.map((t) => <TorrentRow key={t.id} t={t} cols={cols} onBookmark={setBookmarked} onRemoved={dropOnUnbookmark} />)}
+            {items.map((t) => (
+              <TorrentRow
+                key={t.id}
+                t={t}
+                cols={cols}
+                onBookmark={setBookmarked}
+                onRemoved={dropOnUnbookmark}
+                onFreeleech={setPersonalFreeleech}
+              />
+            ))}
           </div>
         )}
         {!loading && items.length > 0 && view === 'grid' && (
