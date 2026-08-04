@@ -38,7 +38,7 @@ export function plural(n: number, word: string): string {
 }
 
 /** Ratio: compact above 10k, whole thousands above 100, else 2 decimals. */
-export function fmtRatio(r: string | null | undefined): string {
+export function fmtRatio(r: number | string | null | undefined): string {
   if (r == null) return '–'
   const n = Number(String(r).replace(/,/g, ''))
   if (Number.isNaN(n)) return String(r)

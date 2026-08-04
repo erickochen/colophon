@@ -158,6 +158,8 @@ export interface UserLive {
   ratio: string
   uploaded: string
   downloaded: string
+  uploaded_bytes?: number
+  downloaded_bytes?: number
   seedbonus?: number
   wedges?: number
   notifs?: unknown[]

@@ -29,6 +29,9 @@ export interface TorrentDetail {
   clone: string | null
   tiles: DetailTile[]
   downloadHref: string | null
+  // MAM's own "With Freeleech Wedge" link (#tddlfl): same signed download URL
+  // plus &fl, spending one wedge. Only served on non-free torrents.
+  downloadFlHref: string | null
   downloadBlocked: string | null
   // MAM's label for your own history with this torrent ("Actively Seeding"),
   // absent when you never had it.
@@ -295,6 +298,7 @@ export function extractTorrent(doc: Document): TorrentDetail | null {
     clone: torrentRow?.querySelector<HTMLAnchorElement>('a[href*="clone"]')?.getAttribute('href') ?? null,
     tiles,
     downloadHref,
+    downloadFlHref: torrentRow?.querySelector<HTMLAnchorElement>('#tddlfl')?.getAttribute('href') ?? null,
     downloadBlocked: tiles.find((t) => /blocked/i.test(t.label))?.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() ?? null,
     dlHistory: txt(doc.querySelector('#DLhistory')) || null,
     seeders: txt(sls?.querySelector('.torDetInnerTop a')) ?? null,

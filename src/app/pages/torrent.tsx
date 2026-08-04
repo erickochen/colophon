@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Bookmark, BookmarkCheck, ChevronDown, Copy, Download, FilePenLine, FileText, Flag, Gift, History, Info, MessageSquarePlus, Sprout, Users } from 'lucide-react'
+import { Bookmark, BookmarkCheck, ChevronDown, Copy, Download, FilePenLine, FileText, Flag, Gift, History, Info, Lock, MessageSquarePlus, Settings2, Sprout, Users } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { extractTorrent, type MediaNode, type TorrentComment, type TorrentDetail } from '@/lib/extract/torrent'
 import { LegacyView } from '@/app/pages/legacy'
 import { RichHtml } from '@/app/shell/bits'
 import { cleanHtml } from '@/lib/sanitize'
 import { mutedUserColor } from '@/lib/colors'
-import { fmtInt, initials, relTime } from '@/lib/format'
+import { fmtInt, fmtRatio, initials, relTime } from '@/lib/format'
 import { searchTorrents, parsePeople, coverUrl, torrentUrl } from '@/lib/mam-api'
+import { HARD_FLOOR, TRIVIAL_DROP, useRatioGuard, type RatioGuard, type RatioLevel } from '@/lib/ratio-protect'
 import { cn } from '@/lib/utils'
 import { Book, Book3D, BookAmbilight } from '@/components/book'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -19,6 +20,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Spinner } from '@/components/ui/spinner'
+import { Switch } from '@/components/ui/switch'
 import { toast } from '@/components/ui/toast'
 
 /** One statline figure: serif number over a small-caps label. */
@@ -49,6 +51,146 @@ function KV({ label, full = false, children }: { label: string; full?: boolean; 
       <dt className="mb-1 text-[10px] font-semibold uppercase tracking-[0.11em] text-muted-foreground">{label}</dt>
       <dd className="text-[13.5px] leading-relaxed">{children}</dd>
     </div>
+  )
+}
+
+/** Click a control in the hidden legacy DOM; MAM's own handler takes it from there. */
+function proxyClick(sel: string, fail: string) {
+  const el = document.querySelector<HTMLElement>(sel)
+  if (el) el.click()
+  else toast.error(fail)
+}
+
+// Same status idiom as the topbar chips: a small dot carries the level, the
+// text only turns loud when action is needed.
+const RATIO_NOTE_TONE: Record<RatioLevel, { text: string; dot: string | null }> = {
+  none: { text: 'text-muted-foreground', dot: null },
+  notice: { text: 'text-muted-foreground', dot: 'bg-warn' },
+  warn: { text: 'font-medium text-warn', dot: 'bg-warn' },
+  block: { text: 'font-medium text-destructive', dot: 'bg-destructive' },
+}
+
+/** On/off switch and personal floor for the ratio guard, kept in localStorage. */
+function GuardSettings({ guard }: { guard: RatioGuard }) {
+  const [text, setText] = useState(guard.floor != null ? String(guard.floor) : '')
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label="Ratio protection settings"
+          title="Ratio protection settings"
+          className="-m-1 ml-0.5 inline-flex rounded p-1 align-[-4px] outline-none transition-colors hover:text-brand focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        >
+          <Settings2 className="size-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 text-[13px]">
+        <label className="flex items-center justify-between gap-3 text-[12px] font-semibold">
+          Ratio protection
+          <Switch checked={guard.enabled} onCheckedChange={guard.setEnabled} />
+        </label>
+        <p className="mt-1.5 text-[12px] leading-snug text-muted-foreground">
+          Locks the plain download on a heavy ratio drop or when it would cross ratio {HARD_FLOOR}.
+          Switched off, the impact still shows but nothing locks.
+        </p>
+        <label className="mb-1.5 mt-3 block text-[12px] font-semibold" htmlFor="ratio-floor">Minimum ratio</label>
+        <Input
+          id="ratio-floor"
+          type="number"
+          min={0}
+          value={text}
+          placeholder="off"
+          className="h-8"
+          disabled={!guard.enabled}
+          onChange={(e) => {
+            setText(e.target.value)
+            const v = Number(e.target.value)
+            guard.setFloor(e.target.value !== '' && Number.isFinite(v) && v > 0 ? v : null)
+          }}
+        />
+        <p className="mt-2 text-[12px] leading-snug text-muted-foreground">
+          Also lock when a torrent would push your ratio below this number.
+        </p>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/** What one click costs, shown under the download button once the totals arrive. */
+function RatioNote({ guard }: { guard: RatioGuard }) {
+  const { current, next, drop, level } = guard.impact
+  if (drop != null && drop <= TRIVIAL_DROP) return null
+  const tone = RATIO_NOTE_TONE[level]
+  return (
+    <p className={cn('mt-2 text-[12px] leading-snug', tone.text)}>
+      {tone.dot && <span aria-hidden className={cn('mr-1.5 inline-block size-1.5 rounded-full align-[1px]', tone.dot)} />}
+      {current == null ? (
+        <>First download: your ratio would start at <b className="tabular-nums">{fmtRatio(next)}</b>.</>
+      ) : (
+        <>Your ratio would become <b className="tabular-nums">{fmtRatio(next)}</b> <span className="tabular-nums">(now {fmtRatio(current)})</span>.</>
+      )}
+      {level === 'block' && <> Plain download is locked.</>}
+      {level === 'warn' && <> Consider spending a wedge.</>}
+      <GuardSettings guard={guard} />
+    </p>
+  )
+}
+
+/** Download row with the ratio guard: freeleech, VIP and seeding torrents pass
+ * untouched; a blocking ratio hit swaps the plain download for the FL routes. */
+function DownloadDock({ data }: { data: TorrentDetail }) {
+  const covered = data.freeleech || data.personalFreeleech || data.vip || !!data.dlHistory || !!data.downloadBlocked
+  const guard = useRatioGuard(covered ? null : data.size)
+  const href = data.downloadHref ?? (data.id ? `/tor/download.php?tid=${data.id}` : null)
+  const level = guard?.impact.level ?? 'none'
+  const buyFl = data.ratio?.buttons.find((b) => b.name === 'personalFL')
+  const wedgeTitle = guard?.wedges != null ? `Spends 1 of your ${fmtInt(guard.wedges)} FL wedges` : 'Spends one FL wedge'
+
+  const wedgeAction = data.downloadFlHref ? (
+    <Button asChild variant={level === 'block' ? 'default' : 'outline'} title={wedgeTitle}>
+      <a href={data.downloadFlHref}><Gift /> Download with FL wedge</a>
+    </Button>
+  ) : buyFl ? (
+    <Button
+      variant={level === 'block' ? 'default' : 'outline'}
+      title={wedgeTitle}
+      onClick={() => proxyClick(`input[data-freetor="${buyFl.torId}"][name="personalFL"]`, 'Buying freeleech is not available right now.')}
+    >
+      <Gift /> {buyFl.label}
+    </Button>
+  ) : null
+
+  return (
+    <>
+      <div className="mt-6 flex flex-wrap items-center gap-2.5">
+        {data.downloadBlocked ? (
+          <Button disabled><Download /> Download blocked</Button>
+        ) : href ? (
+          level === 'block' ? (
+            <>
+              <Button disabled variant="outline"><Lock /> Download</Button>
+              {wedgeAction}
+            </>
+          ) : (
+            <>
+              <Button asChild>
+                <a href={href}><Download /> Download</a>
+              </Button>
+              {level === 'warn' && wedgeAction}
+            </>
+          )
+        ) : null}
+        <BookmarkButton />
+        {data.clone && (
+          <Button asChild variant="outline"><a href={data.clone}><Copy /> Clone</a></Button>
+        )}
+      </div>
+      {data.downloadBlocked && (
+        <p className="mt-2 text-[12px] leading-snug text-muted-foreground">{data.downloadBlocked}</p>
+      )}
+      {guard && !data.downloadBlocked && <RatioNote guard={guard} />}
+    </>
   )
 }
 
@@ -350,12 +492,6 @@ export function TorrentView(props: PageProps) {
 
   if (!data || !data.title) return <LegacyView {...props} />
 
-  function proxyClick(sel: string, fail: string) {
-    const el = document.querySelector<HTMLElement>(sel)
-    if (el) el.click()
-    else toast.error(fail)
-  }
-
   function thank() {
     const input = document.querySelector<HTMLInputElement>('#thanksArea input[name="points"]')
     if (input) input.value = points || '0'
@@ -469,22 +605,7 @@ export function TorrentView(props: PageProps) {
                 </div>
               )}
 
-              <div className="mt-6 flex flex-wrap items-center gap-2.5">
-                {data.downloadBlocked ? (
-                  <Button disabled><Download /> Download blocked</Button>
-                ) : data.downloadHref || data.id ? (
-                  <Button asChild>
-                    <a href={data.downloadHref ?? `/tor/download.php?tid=${data.id}`}><Download /> Download</a>
-                  </Button>
-                ) : null}
-                <BookmarkButton />
-                {data.clone && (
-                  <Button asChild variant="outline"><a href={data.clone}><Copy /> Clone</a></Button>
-                )}
-              </div>
-              {data.downloadBlocked && (
-                <p className="mt-2 text-[12px] leading-snug text-muted-foreground">{data.downloadBlocked}</p>
-              )}
+              <DownloadDock data={data} />
             </div>
           </div>
         </div>
