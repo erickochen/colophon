@@ -30,7 +30,7 @@ export default defineConfig({
         name: 'Colophon',
         namespace: 'https://www.myanonamouse.net/',
         description: 'Colophon: MyAnonaMouse reimagined as a calm, modern reading tracker',
-        version: '2.21.0',
+        version: '2.22.0',
         author: 'soundorom',
         homepageURL: TOPIC_URL,
         supportURL: TOPIC_URL,
@@ -66,8 +66,8 @@ export default defineConfig({
   },
   build: {
     target: 'es2022',
-    // Anyone installing this runs it against their own logged-in session, so the
-    // published script stays readable.
-    minify: false
+    // The whole bundle is parsed before its first statement runs. That statement
+    // is the boot veil, so minifying keeps the wait short.
+    minify: 'esbuild'
   }
 })

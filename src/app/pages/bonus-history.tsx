@@ -1,18 +1,17 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Gift, History, Coins, Gauge, TrendingUp } from 'lucide-react'
-import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts'
 import type { PageProps } from '@/app/router'
 import { fmtInt, relTime } from '@/lib/format'
 import { PageHeader, UserLink } from '@/app/shell/bits'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
+import { AreaTrend, type TrendSeries } from '@/components/ui/area-trend'
 import { FilterSegments } from '@/components/filters'
 import { NumberRoll } from '@/components/ui/number-roll'
 import { Skeleton } from '@/components/ui/skeleton'
 
 // The tracker's own graph (userBonusPointHistoryJSON.php): a multi-series time
 // series of seeding, bonus points, ratio and transfer, 15 min apart. We split
-// its 9 Plotly traces into a few focused shadcn charts instead of one 6-axis wall.
+// its 9 Plotly traces into a few focused charts instead of one 6-axis wall.
 interface Trend {
   t: string
   leeching: number; unsat: number; sat: number
@@ -25,7 +24,9 @@ interface BonusEvent {
   other_userid: number | null; other_name: string | null
 }
 
-const chartConfig = {
+type MetricKey = 'sat' | 'unsat' | 'leeching' | 'bonus' | 'pph' | 'ratio' | 'wedges' | 'up' | 'down'
+
+const METRICS: Record<MetricKey, { label: string; color: string }> = {
   sat: { label: 'Satisfied seeding', color: 'var(--chart-3)' },
   unsat: { label: 'Unsatisfied seeding', color: 'var(--warn)' },
   leeching: { label: 'Leeching', color: 'var(--user-2)' },
@@ -35,20 +36,9 @@ const chartConfig = {
   wedges: { label: 'FL wedges', color: 'var(--chart-4)' },
   up: { label: 'Upload (GiB)', color: 'var(--chart-3)' },
   down: { label: 'Download (GiB)', color: 'var(--chart-4)' },
-} satisfies ChartConfig
-
-
-/* The shadcn chart look: series fade from their color into the paper. */
-function Grad({ id }: { id: string }) {
-  return (
-    <linearGradient id={`fill-${id}`} x1="0" y1="0" x2="0" y2="1">
-      <stop offset="5%" stopColor={`var(--color-${id})`} stopOpacity={0.8} />
-      <stop offset="95%" stopColor={`var(--color-${id})`} stopOpacity={0.1} />
-    </linearGradient>
-  )
 }
 
-const compactTick = (v: number) => (Math.abs(v) >= 1000 ? `${Math.round(v / 1000)}k` : String(v))
+const band = (key: MetricKey): TrendSeries<Trend> => ({ key, ...METRICS[key] })
 
 /* Quarter-hour samples draw as sawtooth; average them into ~72 buckets so
  * the curves read as trends, the way modern dashboards do. */
@@ -80,10 +70,26 @@ const RANGES = [
 ] as const
 type RangeKey = (typeof RANGES)[number]['k']
 
+const DAY_MS = 24 * 60 * 60 * 1000
+// Up to this span the axis reads as clock times, above it as dates.
+const CLOCK_SPAN_MS = 2 * DAY_MS
+
+const parseTs = (t: string) => new Date(t.replace(' ', 'T'))
+
 function tick(t: string): string {
-  // Server timestamp -> "Jul 17"; day granularity keeps the axis readable.
-  const d = new Date(t.replace(' ', 'T'))
+  const d = parseTs(t)
   return Number.isNaN(d.getTime()) ? t : d.toLocaleString('en-US', { month: 'short', day: 'numeric' })
+}
+
+/** Axis plus tooltip label. A day of history needs hours, a month needs dates. */
+function labelFor(spanMs: number) {
+  return (row: Trend): string => {
+    const d = parseTs(row.t)
+    if (Number.isNaN(d.getTime())) return row.t
+    return spanMs <= CLOCK_SPAN_MS
+      ? d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+      : d.toLocaleString('en-US', { month: 'short', day: 'numeric' })
+  }
 }
 
 function eventLabel(e: BonusEvent): string {
@@ -167,8 +173,14 @@ export function BonusHistoryView({ page }: PageProps) {
   const loading = trends === null
   const rangeLabel = fullView.length ? `${tick(fullView[0].t)} to ${tick(fullView[fullView.length - 1].t)}` : ''
 
+  const xLabel = useMemo(() => {
+    if (view.length < 2) return labelFor(0)
+    const from = parseTs(view[0].t).getTime()
+    const to = parseTs(view[view.length - 1].t).getTime()
+    const span = Number.isFinite(from) && Number.isFinite(to) ? Math.abs(to - from) : 0
+    return labelFor(span)
+  }, [view])
 
-  const xAxis = <XAxis dataKey="t" tickFormatter={tick} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={150} tickMargin={8} className="text-[11px]" />
 
   return (
     <div className="grid gap-4">
@@ -199,15 +211,13 @@ export function BonusHistoryView({ page }: PageProps) {
           {loading ? <Skeleton className="h-[250px] w-full" /> : view.length === 0 ? (
             <p className="py-16 text-center text-sm text-muted-foreground">The tracker did not return any history.</p>
           ) : (
-            <ChartContainer config={chartConfig} className="h-[250px] w-full">
-              <AreaChart accessibilityLayer data={view} margin={{ left: 12, right: 12 }}>
-                <defs><Grad id="bonus" /></defs>
-                <CartesianGrid vertical={false} />
-                {xAxis}
-                <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
-                <Area dataKey="bonus" name="Bonus points" type="natural" fill="url(#fill-bonus)" fillOpacity={0.4} stroke="var(--color-bonus)" strokeWidth={2} />
-              </AreaChart>
-            </ChartContainer>
+            <AreaTrend
+              className="h-[250px] w-full"
+              data={view}
+              series={[band('bonus')]}
+              x={xLabel}
+              indicator="line"
+            />
           )}
         </CardContent>
         <CardFooter>
@@ -227,18 +237,15 @@ export function BonusHistoryView({ page }: PageProps) {
         </CardHeader>
         <CardContent>
           {loading ? <Skeleton className="h-52 w-full" /> : view.length > 0 && (
-            <ChartContainer config={chartConfig} className="h-52 w-full">
-              <AreaChart accessibilityLayer data={view} margin={{ left: 12, right: 12 }}>
-                <defs><Grad id="sat" /><Grad id="unsat" /><Grad id="leeching" /></defs>
-                <CartesianGrid vertical={false} />
-                {xAxis}
-                <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
-                <Area dataKey="leeching" name="Leeching" stackId="a" type="natural" fill="url(#fill-leeching)" fillOpacity={0.4} stroke="var(--color-leeching)" />
-                <Area dataKey="unsat" name="Unsatisfied seeding" stackId="a" type="natural" fill="url(#fill-unsat)" fillOpacity={0.4} stroke="var(--color-unsat)" />
-                <Area dataKey="sat" name="Satisfied seeding" stackId="a" type="natural" fill="url(#fill-sat)" fillOpacity={0.4} stroke="var(--color-sat)" />
-                <ChartLegend content={<ChartLegendContent />} />
-              </AreaChart>
-            </ChartContainer>
+            <AreaTrend
+              className="h-52 w-full"
+              data={view}
+              series={[band('leeching'), band('unsat'), band('sat')]}
+              x={xLabel}
+              stacked
+              legend
+              strokeWidth={1}
+            />
           )}
         </CardContent>
         <CardFooter>
@@ -264,15 +271,13 @@ export function BonusHistoryView({ page }: PageProps) {
             </CardHeader>
             <CardContent>
               {loading ? <Skeleton className="h-44 w-full" /> : view.length > 0 && (
-                <ChartContainer config={chartConfig} className="h-44 w-full">
-                  <AreaChart accessibilityLayer data={view} margin={{ left: 12, right: 12 }}>
-                    <defs><Grad id={key} /></defs>
-                    <CartesianGrid vertical={false} />
-                    {xAxis}
-                    <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
-                    <Area dataKey={key} name={title} type="natural" fill={`url(#fill-${key})`} fillOpacity={0.4} stroke={`var(--color-${key})`} strokeWidth={2} />
-                  </AreaChart>
-                </ChartContainer>
+                <AreaTrend
+                  className="h-44 w-full"
+                  data={view}
+                  series={[band(key)]}
+                  x={xLabel}
+                  indicator="line"
+                />
               )}
             </CardContent>
           </Card>
@@ -285,17 +290,14 @@ export function BonusHistoryView({ page }: PageProps) {
           </CardHeader>
           <CardContent>
             {loading ? <Skeleton className="h-44 w-full" /> : view.length > 0 && (
-              <ChartContainer config={chartConfig} className="h-44 w-full">
-                <AreaChart accessibilityLayer data={view} margin={{ left: 12, right: 12 }}>
-                  <defs><Grad id="up" /><Grad id="down" /></defs>
-                  <CartesianGrid vertical={false} />
-                  {xAxis}
-                  <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
-                  <Area dataKey="down" name="Download (GiB)" type="natural" fill="url(#fill-down)" fillOpacity={0.4} stroke="var(--color-down)" />
-                  <Area dataKey="up" name="Upload (GiB)" type="natural" fill="url(#fill-up)" fillOpacity={0.4} stroke="var(--color-up)" />
-                  <ChartLegend content={<ChartLegendContent />} />
-                </AreaChart>
-              </ChartContainer>
+              <AreaTrend
+                className="h-44 w-full"
+                data={view}
+                series={[band('down'), band('up')]}
+                x={xLabel}
+                legend
+                strokeWidth={1}
+              />
             )}
           </CardContent>
         </Card>
@@ -347,20 +349,6 @@ export function BonusHistoryView({ page }: PageProps) {
           {events === null && <div className="grid gap-2 px-6 py-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-5 w-full" />)}</div>}
         </CardContent>
       </Card>
-    </div>
-  )
-}
-
-/** Small colour-keyed legend, matching chartConfig labels. */
-function Legend({ items }: { items: (keyof typeof chartConfig)[] }) {
-  return (
-    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11.5px] text-muted-foreground">
-      {items.map((k) => (
-        <span key={k} className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-[3px]" style={{ background: chartConfig[k].color }} />
-          {chartConfig[k].label}
-        </span>
-      ))}
     </div>
   )
 }
