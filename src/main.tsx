@@ -188,3 +188,7 @@ function boot() {
     abort()
   }
 }
+
+// Last statement in the bundle. The loader reads it to tell a payload that
+// evaluated from one the page refused to run. It also names the running version.
+;(globalThis as { __colophon?: string }).__colophon = __COLOPHON_VERSION__

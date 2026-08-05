@@ -4,10 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build && node postbuild.mjs",
-    "build:fast": "vite build && node postbuild.mjs",
-    "build:local": "LOCAL_UPDATE=1 pnpm build",
+    "dev": "vite --config vite.payload.config.ts",
+    "build": "tsc -b && node build.mjs",
+    "build:fast": "node build.mjs",
     "deploy": "pnpm build && node deploy.mjs",
     "release": "node release.mjs",
     "preview": "vite preview"

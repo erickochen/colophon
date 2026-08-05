@@ -24,16 +24,15 @@ function neutralize(mce: TinyMce): void {
   }
 }
 
-/** Runs at document-start so whatever MAM assigns to window.tinymce comes back
- * with init disabled. TinyMCE claims the textarea within ~30ms of
- * DOMContentLoaded, so the trap has to be in place before mount. The global
- * itself stays, since wysiwygEnabled() reads it. */
-export function preventWysiwyg(): void {
+/** Runs at document-start, since TinyMCE claims the textarea within ~30ms of
+ * DOMContentLoaded. The target is explicit: a manager sandbox hands the loader a
+ * window MAM never writes to. */
+export function preventWysiwyg(target: Window = window): void {
   for (const key of GLOBALS) {
-    let held = (window as Win)[key]
+    let held = (target as Win)[key]
     if (held) neutralize(held)
     try {
-      Object.defineProperty(window, key, {
+      Object.defineProperty(target, key, {
         configurable: true,
         get: () => held,
         set: (v: TinyMce) => {

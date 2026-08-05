@@ -33,7 +33,9 @@ if (!existsSync(DIST)) {
 }
 
 const MIME = {
-  '.js': 'application/javascript', '.html': 'text/html', '.css': 'text/css',
+  // The charset is explicit because the loader hashes the payload it downloads,
+  // so the bytes it decodes have to match the bytes the build hashed.
+  '.js': 'application/javascript; charset=utf-8', '.html': 'text/html', '.css': 'text/css',
   '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
 }
@@ -44,7 +46,15 @@ const walk = (dir) => readdirSync(dir).flatMap((name) => {
 })
 
 const base = `https://${BUNNY_STORAGE_HOST}/${BUNNY_STORAGE_ZONE}`
-for (const abs of walk(DIST)) {
+
+// The meta file is what update checks read, so it goes last. Anything announcing
+// a version before the files behind it are up would send managers to a 404.
+const uploadOrder = (a, b) => {
+  const rank = (p) => (p.endsWith('colophon.meta.js') ? 2 : p.endsWith('colophon.user.js') ? 1 : 0)
+  return rank(a) - rank(b)
+}
+
+for (const abs of walk(DIST).sort(uploadOrder)) {
   const rel = relative(DIST, abs).split('\\').join('/')
   const body = readFileSync(abs)
   const res = await fetch([base, basePath, rel].filter(Boolean).join('/'), {
@@ -54,6 +64,7 @@ for (const abs of walk(DIST)) {
   })
   if (!res.ok) {
     console.error(`[deploy] upload failed ${rel}: ${res.status} ${await res.text()}`)
+    console.error('[deploy] earlier files in this run are already live, so check the zone before retrying')
     process.exit(1)
   }
   console.log(`[deploy] uploaded ${rel} (${body.length} B)`)

@@ -4,7 +4,7 @@
 // rather than name: minified builds rename the function.
 import { readFileSync, writeFileSync } from 'node:fs'
 
-const file = 'dist/colophon.user.js'
+const file = process.argv[2] ?? 'dist/colophon.user.js'
 const src = readFileSync(file, 'utf8')
 
 const INJECTOR = /function\s+(\w+)\s*\(\s*(\w+)\s*\)\s*\{\s*if\s*\(\s*(?:!\s*\2\s*\|\|\s*)?typeof document\s*[=!]==?\s*"u(?:ndefined)?"\s*\)\s*return;[\s\S]*?createTextNode\(\s*\2\s*\)\s*\)\s*;?\s*\}/
@@ -14,7 +14,7 @@ if (!match) {
   // react-dom also calls createTextNode; only a typeof-document guard right
   // before it marks a dependency CSS injector.
   if (!/typeof document[\s\S]{0,300}?createTextNode/.test(src)) {
-    console.log('[postbuild] no dependency CSS injector in the bundle; nothing to patch')
+    console.log(`[postbuild] no dependency CSS injector in ${file}; nothing to patch`)
     process.exit(0)
   }
   console.error('[postbuild] CSS injector not found. Without the rewrite, dependency styles')
@@ -28,4 +28,4 @@ const patched = src.replace(
 )
 
 writeFileSync(file, patched)
-console.log(`[postbuild] CSS injector ${match[1]} now buffers into the shadow root`)
+console.log(`[postbuild] CSS injector ${match[1]} in ${file} now buffers into the shadow root`)

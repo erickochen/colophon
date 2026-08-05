@@ -1,36 +1,35 @@
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
 import monkey from 'vite-plugin-monkey'
 import path from 'node:path'
-import { pathToFileURL } from 'node:url'
 import { loadDeployEnv } from './env.mjs'
+import { VERSION, LOADER_FILE, META_FILE } from './version.mjs'
 
-// Update/download URLs come from .env.deploy (SITE_URL + BASE_PATH). Without
-// them the metadata omits both and the manager simply never auto-updates.
-// LOCAL_UPDATE=1 points them at the local build for a dev loop.
+// Update plus download URLs come from .env.deploy (SITE_URL + BASE_PATH). The
+// payload URL and its hash are computed by build.mjs, which is the only place
+// that knows the payload's content addressed name.
 loadDeployEnv()
-const LOCAL_UPDATE = process.env.LOCAL_UPDATE === '1'
 const SITE = process.env.SITE_URL?.replace(/\/$/, '') ?? ''
 const BASE = process.env.BASE_PATH?.replace(/^\/?|\/$/g, '') ?? ''
-const FILE = 'colophon.user.js'
-const META = 'colophon.meta.js'
 // Release notes and feedback live in one forum topic.
 const TOPIC_URL = 'https://www.myanonamouse.net/f/t/92105'
-const LOCAL_FILE = pathToFileURL(path.resolve(__dirname, 'dist', FILE)).href
-const hosted = (name: string) => (SITE ? [SITE, BASE, name].filter(Boolean).join('/') : undefined)
+const hosted = (name: string) => (SITE ? [SITE, BASE, name].filter(Boolean).join('/') : '')
+const connectHost = SITE ? new URL(SITE).hostname : ''
+
+const payloadUrl = process.env.COLOPHON_PAYLOAD_URL
+const payloadSha = process.env.COLOPHON_PAYLOAD_SHA256
+if (!payloadUrl || !payloadSha) {
+  throw new Error('COLOPHON_PAYLOAD_URL and COLOPHON_PAYLOAD_SHA256 are set by build.mjs. Run `pnpm build` rather than vite directly.')
+}
 
 export default defineConfig({
   plugins: [
-    react(),
-    tailwindcss(),
     monkey({
-      entry: 'src/main.tsx',
+      entry: 'src/loader.ts',
       userscript: {
         name: 'Colophon',
         namespace: 'https://www.myanonamouse.net/',
         description: 'Colophon: MyAnonaMouse reimagined as a calm, modern reading tracker',
-        version: '2.22.0',
+        version: VERSION,
         author: 'soundorom',
         homepageURL: TOPIC_URL,
         supportURL: TOPIC_URL,
@@ -41,33 +40,36 @@ export default defineConfig({
         ],
         'run-at': 'document-start',
         noframes: true,
-        grant: 'none',
-        // Managers poll the light .meta.js and fetch the full script only when
-        // @version bumps.
-        ...(LOCAL_UPDATE
-          ? { updateURL: LOCAL_FILE, downloadURL: LOCAL_FILE }
-          : hosted(META) && hosted(FILE)
-            ? { updateURL: hosted(META), downloadURL: hosted(FILE) }
-            : {})
+        // The app is fetched from the host below, which MAM's CSP does not allow
+        // a page-context fetch to reach.
+        grant: ['GM_xmlhttpRequest'],
+        connect: connectHost ? [connectHost] : [],
+        // Managers poll the light .meta.js and fetch this file only when @version
+        // bumps. The payload carries its version in the name, so it never needs
+        // a cache purge of its own.
+        ...(hosted(META_FILE) && hosted(LOADER_FILE)
+          ? { updateURL: hosted(META_FILE), downloadURL: hosted(LOADER_FILE) }
+          : {})
       },
       build: {
-        fileName: FILE,
+        fileName: LOADER_FILE,
         // Emit colophon.meta.js alongside for cheap update polling.
-        metaFileName: true,
-        // Our own CSS is imported with ?inline and injected into the shadow root,
-        // so monkey must not append a <style> to document.head. Dependency CSS
-        // still routes through the bundled injector, which postbuild rewrites.
-        cssSideEffects: () => () => {}
+        metaFileName: true
       }
     })
   ],
+  define: {
+    __COLOPHON_VERSION__: JSON.stringify(VERSION),
+    __COLOPHON_PAYLOAD_URL__: JSON.stringify(payloadUrl),
+    __COLOPHON_PAYLOAD_SHA256__: JSON.stringify(payloadSha)
+  },
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') }
   },
   build: {
     target: 'es2022',
-    // The whole bundle is parsed before its first statement runs. That statement
-    // is the boot veil, so minifying keeps the wait short.
+    // Leaves the payload build's output in place.
+    emptyOutDir: false,
     minify: 'esbuild'
   }
 })
