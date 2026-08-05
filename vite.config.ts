@@ -70,6 +70,9 @@ export default defineConfig({
     target: 'es2022',
     // Leaves the payload build's output in place.
     emptyOutDir: false,
-    minify: 'esbuild'
+    // Readable on purpose: this file downloads code plus runs it, so anyone
+    // installing it should be able to read what it does. A few kB cost no
+    // measurable time here.
+    minify: false
   }
 })
