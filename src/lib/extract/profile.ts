@@ -4,6 +4,16 @@ import { cleanHtml } from '@/lib/sanitize'
 
 export interface ProfileField { label: string; html: string; text: string }
 export interface ProfileAction { label: string; href: string; kind: 'friend' | 'block' | 'pm' }
+
+/** The donation record, which MAM serves as a table folded away behind a handle.
+ * It gets a card of its own, so the row it came from is not kept as a field. */
+export interface Donations {
+  label: string
+  total: string | null
+  headers: string[]
+  rows: string[][]
+}
+
 export interface ProfileData {
   name: string
   uid: string | null
@@ -11,7 +21,23 @@ export interface ProfileData {
   avatar: string | null
   bioHtml: string | null
   fields: ProfileField[]
+  donations: Donations | null
   actions: ProfileAction[]
+}
+
+const clean = (s: string | null | undefined) => s?.replace(/\s+/g, ' ').trim() ?? ''
+const cellsOf = (tr: Element) => [...tr.querySelectorAll(':scope > td, :scope > th')]
+
+/** Header cells on this table are marked colhead the way older MAM pages do. */
+function readDonationTable(table: Element, label: string): Donations {
+  const trs = [...table.querySelectorAll('tr')].filter((tr) => cellsOf(tr).length > 0)
+  const headerRow = trs.find((tr) => cellsOf(tr).every((c) => /(^|\s)colhead/i.test(c.className)))
+  return {
+    label,
+    total: null,
+    headers: headerRow ? cellsOf(headerRow).map((c) => clean(c.textContent)) : [],
+    rows: trs.filter((tr) => tr !== headerRow).map((tr) => cellsOf(tr).map((c) => clean(c.textContent))),
+  }
 }
 
 export function extractProfile(doc: Document): ProfileData | null {
@@ -21,6 +47,7 @@ export function extractProfile(doc: Document): ProfileData | null {
 
   const fields: ProfileField[] = []
   let avatar: string | null = null
+  let donations: Donations | null = null
   // The user-written "Info" text renders as a label-less full-width row.
   const bioParts: string[] = []
   for (const tr of main.querySelectorAll('table.coltable tr')) {
@@ -39,6 +66,14 @@ export function extractProfile(doc: Document): ProfileData | null {
       continue
     }
     if (!labelText || labelText.length > 60) continue
+    // A table folded away behind a handle: the record itself, not a one-line
+    // field. The rows of the page's own table are the loop we are in, so the
+    // nested one is what belongs to this row.
+    const folded = value.querySelector('[data-klappe]') && value.querySelector('table')
+    if (folded && !donations) {
+      donations = readDonationTable(value.querySelector('table')!, labelText)
+      continue
+    }
     fields.push({
       label: labelText,
       html: cleanHtml(value) ?? '',
@@ -55,6 +90,16 @@ export function extractProfile(doc: Document): ProfileData | null {
     }
   }).filter((a) => a.label)
 
+  // The total sits in its own row above the record. With a record on the page it
+  // belongs on that card, so it moves out of the field list.
+  if (donations) {
+    const at = fields.findIndex((f) => /^total donated/i.test(f.label))
+    if (at >= 0) {
+      donations.total = fields[at].text
+      fields.splice(at, 1)
+    }
+  }
+
   const flag = main.querySelector<HTMLImageElement>('img.ud_country')
   return {
     name: h1.textContent?.trim() ?? '',
@@ -63,6 +108,7 @@ export function extractProfile(doc: Document): ProfileData | null {
     avatar,
     bioHtml: bioParts.filter(Boolean).join('<br/>') || null,
     fields,
+    donations,
     actions,
   }
 }

@@ -1,14 +1,16 @@
-import { useMemo } from 'react'
-import { Ban, Gift, Mail, Ticket, UserPlus, UserRound } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Ban, Gift, HeartHandshake, Mail, Ticket, UserPlus, UserRound } from 'lucide-react'
 import type { PageProps } from '@/app/router'
-import { extractProfile } from '@/lib/extract/profile'
+import { extractProfile, type Donations } from '@/lib/extract/profile'
 import { openGiftDialog } from '@/lib/gift-dialog'
 import { LegacyView } from '@/app/pages/legacy'
 import { RichHtml } from '@/app/shell/bits'
 import { initials } from '@/lib/format'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { CollapsibleSection } from '@/components/section'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 const GROUPS: { title: string; match: RegExp }[] = [
   { title: 'Transfer', match: /^(uploaded|downloaded|share ratio|real uploaded|real downloaded|real share ratio)/i },
@@ -16,6 +18,74 @@ const GROUPS: { title: string; match: RegExp }[] = [
   { title: 'Community', match: /^(forum posts|torrent comments|invites|invited by|staff tickets|total donated)/i },
   { title: 'Connection', match: /^(address|vpn|seedbox|agent)/i },
 ]
+
+/** Sections in a card line up on px-4, the way the foldable list does. */
+const EDGE = '[&_th:first-child]:pl-4 [&_td:first-child]:pl-4 [&_th:last-child]:pr-4 [&_td:last-child]:pr-4'
+
+/** A column of plain numbers, with or without a unit, reads better right up
+ * against the next one. */
+const NUMERIC = /^[\d.,]+(\s*[A-Za-z]{1,3})?$/
+
+/** The donation record: shut it shows how many there are, open it is the table
+ * MAM keeps behind its own plus sign. */
+function DonationsCard({ d }: { d: Donations }) {
+  const [open, setOpen] = useState(false)
+  const numeric = d.headers.map(
+    (_, i) => d.rows.length > 0 && d.rows.every((r) => NUMERIC.test(r[i] ?? ''))
+  )
+  // The total carries no unit of its own. Naming it is only safe while every
+  // row agrees on one currency.
+  const curAt = d.headers.findIndex((h) => /currency/i.test(h))
+  const currency =
+    curAt >= 0 && d.rows.length > 0 && new Set(d.rows.map((r) => r[curAt])).size === 1
+      ? d.rows[0][curAt]
+      : null
+  return (
+    <Card className="gap-0 overflow-hidden py-0">
+      <CardHeader className="border-b !py-3">
+        <CardTitle className="flex items-center gap-2">
+          <HeartHandshake className="size-4 text-brand" /> Donations
+        </CardTitle>
+        {d.total && (
+          <CardAction className="self-center text-[13px] font-medium tabular-nums">
+            {currency ? `${d.total} ${currency}` : d.total}
+          </CardAction>
+        )}
+      </CardHeader>
+      <CollapsibleSection title={d.label} count={d.rows.length} open={open} onOpenChange={setOpen}>
+        {d.rows.length > 0 ? (
+          <Table className={EDGE}>
+            {d.headers.some(Boolean) && (
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  {d.headers.map((h, i) => (
+                    <TableHead key={i} className={numeric[i] ? 'text-right' : undefined}>{h}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+            )}
+            <TableBody>
+              {d.rows.map((r, i) => (
+                <TableRow key={i}>
+                  {r.map((c, j) => (
+                    <TableCell
+                      key={j}
+                      className={numeric[j] ? 'text-right text-[13px] tabular-nums' : 'text-[13px] tabular-nums'}
+                    >
+                      {c}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ) : (
+          <p className="px-4 py-6 text-center text-[13px] text-muted-foreground">Nothing recorded yet.</p>
+        )}
+      </CollapsibleSection>
+    </Card>
+  )
+}
 
 export function ProfileView(props: PageProps) {
   const data = useMemo(() => extractProfile(document), [])
@@ -46,7 +116,8 @@ export function ProfileView(props: PageProps) {
             {data.uid && <> · #{data.uid}</>}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        {/* Own row on a phone: beside a long name these would sit on top of it. */}
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
           {!isSelf && data.uid && (
             <>
               <Button
@@ -101,6 +172,8 @@ export function ProfileView(props: PageProps) {
           </CardContent>
         </Card>
       )}
+
+      {data.donations && <DonationsCard d={data.donations} />}
 
       <div className="grid items-start gap-4 md:grid-cols-2">
         {[...grouped, ...(rest.length ? [{ title: 'More', fields: rest }] : [])].map((g) => (

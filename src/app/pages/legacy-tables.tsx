@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { Inbox } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { cleanHtml } from '@/lib/sanitize'
+import { swapStatusIcons } from '@/lib/status-dots'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader, RichHtml } from '@/app/shell/bits'
 import {
@@ -50,13 +51,11 @@ const DEFAULT_SUBMIT = 'Submit'
 
 const EDGE = '[&_th:first-child]:pl-6 [&_td:first-child]:pl-6 [&_th:last-child]:pr-6 [&_td:last-child]:pr-6'
 
-/** Cell styling, including the status dots and a cap on MAM's own icons, which
- * come without the sizing their stylesheet gives them. */
+/** Cell styling, with a cap on MAM's own icons, which arrive without the sizing
+ * their stylesheet gives them. Status dots are styled in index.css. */
 const CELL = [
   'whitespace-normal align-top text-[13px] [&_a]:text-brand [&_a]:underline',
   '[&_img]:inline [&_img]:h-[1.15em] [&_img]:w-auto',
-  '[&_[data-conn]]:inline-block [&_[data-conn]]:size-2 [&_[data-conn]]:rounded-full',
-  '[&_[data-conn=ok]]:bg-ok [&_[data-conn=no]]:bg-destructive [&_[data-conn=off]]:bg-muted-foreground/60',
 ].join(' ')
 
 const clean = (s: string | null | undefined) => s?.replace(/\s+/g, ' ').trim() ?? ''
@@ -81,28 +80,12 @@ function loneCell(t: Element): Element | null {
   return cells.length === 1 ? cells[0] : null
 }
 
-/** MAM marks reachability with a thumb icon its own stylesheet sizes and tints.
- * Ours becomes the status dot the rest of the app uses. */
-const DOT_STATE: Record<string, string> = { connectable: 'ok', unconnectable: 'no', offline: 'off' }
-
 /** A cell as reader HTML. Copied controls go: a copy is not the control MAM
  * submits, so it could only ever look like it works. */
 function cellHtml(cell: Element): string {
   const copy = cell.cloneNode(true) as Element
   copy.querySelectorAll(CONTROLS).forEach((e) => e.remove())
-  for (const img of copy.querySelectorAll('img')) {
-    const state = [...img.classList].map((c) => DOT_STATE[c]).find(Boolean)
-    if (!state) continue
-    const dot = copy.ownerDocument.createElement('span')
-    dot.dataset.conn = state
-    const name = img.title || img.alt
-    if (name) {
-      dot.title = name
-      dot.setAttribute('role', 'img')
-      dot.setAttribute('aria-label', name)
-    }
-    img.replaceWith(dot)
-  }
+  swapStatusIcons(copy)
   return cleanHtml(copy) ?? ''
 }
 

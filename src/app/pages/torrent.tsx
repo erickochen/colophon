@@ -5,6 +5,7 @@ import { extractTorrent, type MediaNode, type TorrentComment, type TorrentDetail
 import { LegacyView } from '@/app/pages/legacy'
 import { RichHtml } from '@/app/shell/bits'
 import { cleanHtml } from '@/lib/sanitize'
+import { swapStatusIcons } from '@/lib/status-dots'
 import { mutedUserColor } from '@/lib/colors'
 import { fmtInt, fmtRatio, initials, relTime } from '@/lib/format'
 import { searchTorrents, parsePeople, coverUrl, torrentUrl } from '@/lib/mam-api'
@@ -349,6 +350,7 @@ function useRemoteHtml(url: string | null, fallback?: () => Promise<string>) {
   const [s, setS] = useState<{ loading: boolean; html: string | null; error: boolean }>({ loading: false, html: null, error: false })
   function apply(t: string) {
     const doc = new DOMParser().parseFromString(t, 'text/html')
+    swapStatusIcons(doc)
     setS({ loading: false, html: cleanHtml(doc.body) ?? '', error: false })
   }
   function load() {

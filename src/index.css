@@ -441,16 +441,112 @@
   border-style: solid;
 }
 
-/* MAM's hidden-text blocks. The underscore in the class name reads as a space
- * inside a Tailwind variant, so the frame is written here instead. */
-#mam-root .user-html .hide_block {
+/* Reachability dots, put in place of MAM's thumb icons by lib/status-dots.ts.
+ * Same reading as the client dots in the top bar: green is in, red is out. */
+#mam-root [data-conn] {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  vertical-align: middle;
+  background-color: color-mix(in oklab, var(--muted-foreground) 60%, transparent);
+}
+
+#mam-root [data-conn='ok'] {
+  background-color: var(--ok);
+}
+
+#mam-root [data-conn='no'] {
+  background-color: var(--destructive);
+}
+
+/* Hidden blocks in MAM markup, rebuilt by lib/hidden-text.ts. Shut, the frame is
+ * dashed and empty; open, it turns solid and carries the fill. Written here
+ * because these live inside injected HTML rather than in JSX. */
+#mam-root .user-html .spoiler {
   margin: 0.625rem 0;
-  border-width: 1px;
+  border: 1px dashed color-mix(in oklab, var(--border) 70%, var(--brand));
+  border-radius: calc(var(--radius) - 2px);
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+#mam-root .user-html .spoiler[data-open='true'] {
   border-style: solid;
   border-color: var(--border);
-  border-radius: calc(var(--radius) - 2px);
   background-color: color-mix(in oklab, var(--muted) 45%, transparent);
-  padding: 0.5rem 0.75rem;
+}
+
+#mam-root .user-html .spoiler-trigger {
+  display: flex;
+  width: 100%;
+  /* A label long enough to wrap keeps the caret on its first line. */
+  align-items: flex-start;
+  gap: 0.5rem;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  padding: 0.4rem 0.7rem;
+  font: inherit;
+  font-weight: 500;
+  color: var(--foreground);
+  text-align: left;
+  cursor: pointer;
+}
+
+#mam-root .user-html .spoiler-trigger:hover {
+  background-color: color-mix(in oklab, var(--accent) 45%, transparent);
+}
+
+#mam-root .user-html .spoiler-trigger:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+#mam-root .user-html .spoiler[data-open='true'] > .spoiler-trigger {
+  border-bottom: 1px solid var(--border);
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
+}
+
+#mam-root .user-html .spoiler-caret {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.125rem;
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+  transition: transform 180ms ease;
+}
+
+#mam-root .user-html .spoiler[data-open='true'] .spoiler-caret {
+  transform: rotate(90deg);
+}
+
+/* Row track from 0fr to 1fr: the panel animates without anyone measuring it. */
+#mam-root .user-html .spoiler-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 220ms ease;
+}
+
+#mam-root .user-html .spoiler[data-open='true'] > .spoiler-panel {
+  grid-template-rows: 1fr;
+}
+
+#mam-root .user-html .spoiler-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+#mam-root .user-html .spoiler-body {
+  padding: 0.55rem 0.7rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #mam-root .user-html .spoiler,
+  #mam-root .user-html .spoiler-caret,
+  #mam-root .user-html .spoiler-panel {
+    transition: none;
+  }
 }
 
 /* Smilies are punctuation, not figures. Tailwind's preflight makes every <img> a
