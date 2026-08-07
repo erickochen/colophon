@@ -67,6 +67,9 @@ export function GiftActions({ uid, name, surface, buttonClass, iconClass }: {
   )
 }
 
+/** Long enough to notice a confirmation in the far corner of the screen. */
+const GIFT_TOAST_MS = 6000
+
 const sameRequest = (a: GiftRequest | null, b: GiftRequest | null) =>
   !!a && !!b && a.uid === b.uid && a.kind === b.kind
 
@@ -93,7 +96,7 @@ export function GiftDialogHost({ page }: { page: ShellData }) {
     if (!allowed) closeGiftDialog()
   }, [allowed])
 
-  async function run(target: GiftRequest, action: () => Promise<BonusBuyResult>, done: string) {
+  async function run(target: GiftRequest, action: () => Promise<BonusBuyResult>, done: string, left?: string) {
     // Silent: the controls go disabled a tick later, so a repeated key needs no
     // second message.
     if (inFlight.current) return
@@ -104,7 +107,9 @@ export function GiftDialogHost({ page }: { page: ShellData }) {
       applyPointsUpdate(result)
       const balance = Number(result.seedbonus)
       if (!Number.isNaN(balance)) syncPanelBalance(balance)
-      toast.success(done)
+      // Giving something away from a finite stash deserves more than a bare
+      // line: name what is left plus stay up long enough to be read.
+      toast.success(done, { description: left, duration: GIFT_TOAST_MS })
       // Close only if that same dialog is still the one on screen.
       if (sameRequest(getGiftDialog(), target)) closeGiftDialog()
     } catch (e) {
@@ -124,7 +129,15 @@ export function GiftDialogHost({ page }: { page: ShellData }) {
         name={request.name}
         wedges={toNumber(wedges)}
         state={state}
-        onSend={() => run(request, () => sendWedgeTo(request.uid), `Wedge sent to ${request.name}`)}
+        onSend={() => {
+          const left = toNumber(wedges)
+          run(
+            request,
+            () => sendWedgeTo(request.uid),
+            `Wedge sent to ${request.name}`,
+            left != null && left > 0 ? `${(left - 1).toLocaleString('en-US')} wedge${left - 1 === 1 ? '' : 's'} left.` : undefined,
+          )
+        }}
       />
     )
   }
@@ -134,7 +147,15 @@ export function GiftDialogHost({ page }: { page: ShellData }) {
       name={request.name}
       balance={toNumber(bonus)}
       state={state}
-      onSend={(points) => run(request, () => giftPoints(request.uid, points), `Gifted ${points.toLocaleString('en-US')} points to ${request.name}`)}
+      onSend={(points) => {
+        const left = toNumber(bonus)
+        run(
+          request,
+          () => giftPoints(request.uid, points),
+          `Gifted ${points.toLocaleString('en-US')} points to ${request.name}`,
+          left != null ? `${Math.max(0, left - points).toLocaleString('en-US')} points left.` : undefined,
+        )
+      }}
     />
   )
 }
