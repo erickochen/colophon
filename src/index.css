@@ -441,6 +441,18 @@
   border-style: solid;
 }
 
+/* MAM's hidden-text blocks. The underscore in the class name reads as a space
+ * inside a Tailwind variant, so the frame is written here instead. */
+#mam-root .user-html .hide_block {
+  margin: 0.625rem 0;
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  background-color: color-mix(in oklab, var(--muted) 45%, transparent);
+  padding: 0.5rem 0.75rem;
+}
+
 /* Smilies are punctuation, not figures. Tailwind's preflight makes every <img> a
  * block, which drops each one onto its own line mid-sentence; the shoutbox and
  * torrent descriptions set their own img display, post bodies did not. */

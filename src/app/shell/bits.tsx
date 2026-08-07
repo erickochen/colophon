@@ -1,5 +1,5 @@
 // Small shared page components (Reading Room voice).
-import { useEffect, useState, type MouseEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { mutedUserColor } from '@/lib/colors'
 import { getPortalContainer } from '@/lib/portals'
@@ -115,6 +115,37 @@ function zoomableSrc(el: EventTarget | null): string | null {
   return el.currentSrc || el.src
 }
 
+// A hidden-text block is a link plus a hidden sibling. site.js delegates its
+// click on document, where the shadow boundary has already retargeted the event
+// to the host, so the toggle lives here instead.
+const HIDE_ICON_OPEN = '/pic/minus.gif'
+const HIDE_ICON_SHUT = '/pic/plus.gif'
+
+/** Opens or closes one hidden-text block. Returns false when the click landed
+ * somewhere else. Walks the block structure rather than the id, so posts that
+ * repeat an id still toggle the right body. */
+function toggleHiddenText(target: EventTarget | null): boolean {
+  const handle = target instanceof Element ? target.closest('[data-klappe]') : null
+  if (!handle) return false
+  const block = handle.closest('.hide_block')
+  const body = block
+    ? ([...block.children].find((c) => c !== handle && c instanceof HTMLElement) as HTMLElement | undefined)
+    : undefined
+  if (!body) return false
+  const wasShut = getComputedStyle(body).display === 'none'
+  body.style.display = wasShut ? 'block' : 'none'
+  handle.setAttribute('aria-expanded', String(wasShut))
+  const icon = handle.querySelector('img')
+  if (icon) icon.setAttribute('src', wasShut ? HIDE_ICON_OPEN : HIDE_ICON_SHUT)
+  return true
+}
+
+/** MAM writes the handle as an <a> without an href, which no browser puts in
+ * the tab order. Granting it one makes the block reachable by keyboard. */
+function withFocusableHandles(html: string): string {
+  return html.replace(/<a\b(?![^>]*\btabindex=)(?=[^>]*\bdata-klappe=)/gi, '<a tabindex="0"')
+}
+
 function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -139,12 +170,22 @@ function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
 /** MAM rich-content (sanitized upstream) in readable Reading Room typography. */
 export function RichHtml({ html, className }: { html: string; className?: string }) {
   const [zoom, setZoom] = useState<string | null>(null)
+  const body = useMemo(() => withFocusableHandles(html), [html])
 
   function onClick(e: MouseEvent<HTMLDivElement>) {
+    if (toggleHiddenText(e.target)) {
+      e.preventDefault()
+      return
+    }
     const src = zoomableSrc(e.target)
     if (!src) return
     e.preventDefault()
     setZoom(src)
+  }
+
+  function onKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
+    if (e.key !== 'Enter' && e.key !== ' ') return
+    if (toggleHiddenText(e.target)) e.preventDefault()
   }
 
   return (
@@ -152,12 +193,13 @@ export function RichHtml({ html, className }: { html: string; className?: string
     {zoom && <Lightbox src={zoom} onClose={() => setZoom(null)} />}
     <div
       onClick={onClick}
+      onKeyDown={onKeyDown}
       className={cn(
-        'user-html text-[13.5px] leading-relaxed [overflow-wrap:anywhere] [&_:where(:not(a))>img]:cursor-zoom-in [&_a]:text-brand [&_a]:underline [&_blockquote]:my-2 [&_blockquote]:rounded-md [&_blockquote]:bg-muted/50 [&_blockquote]:px-3 [&_blockquote]:py-2 [&_blockquote]:text-[13px] [&_img]:my-1 [&_img]:h-auto [&_img]:max-h-[600px] [&_img]:max-w-[min(600px,100%)] [&_img]:rounded-md [&_img:hover]:max-h-none [&_img:hover]:max-w-full [&_li]:ml-4 [&_ol]:list-decimal [&_p]:mb-2.5 [&_p:last-child]:mb-0 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-[12px] [&_table]:my-2 [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-1 [&_ul]:list-disc',
+        'user-html text-[13.5px] leading-relaxed [overflow-wrap:anywhere] [&_[data-klappe]]:cursor-pointer [&_[data-klappe]]:font-medium [&_[data-klappe]]:text-foreground [&_[data-klappe]]:no-underline [&_[data-klappe]]:select-none [&_[data-klappe]_img]:my-0 [&_[data-klappe]_img]:ml-1 [&_[data-klappe]_img]:inline [&_[data-klappe]_img]:cursor-pointer [&_:where(:not(a))>img]:cursor-zoom-in [&_a]:text-brand [&_a]:underline [&_blockquote]:my-2 [&_blockquote]:rounded-md [&_blockquote]:bg-muted/50 [&_blockquote]:px-3 [&_blockquote]:py-2 [&_blockquote]:text-[13px] [&_img]:my-1 [&_img]:h-auto [&_img]:max-h-[600px] [&_img]:max-w-[min(600px,100%)] [&_img]:rounded-md [&_img:hover]:max-h-none [&_img:hover]:max-w-full [&_li]:ml-4 [&_ol]:list-decimal [&_p]:mb-2.5 [&_p:last-child]:mb-0 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-[12px] [&_table]:my-2 [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-1 [&_ul]:list-disc',
         QUOTE_CLASSES,
         className
       )}
-      dangerouslySetInnerHTML={{ __html: html }}
+      dangerouslySetInnerHTML={{ __html: body }}
     />
     </>
   )
