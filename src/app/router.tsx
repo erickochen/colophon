@@ -38,7 +38,8 @@ import { StaffView } from '@/app/pages/staff'
 import { LottoWinnersView } from '@/app/pages/lotto-winners'
 import { HuntsView } from '@/app/pages/hunts'
 import { BannerWinnersView } from '@/app/pages/banner-winners'
-import { InvitesView, RecentlyDeletedView, PeersView, UserHistoryView, MediaTypesView, CategoriesView } from '@/app/pages/legacy-tables'
+import { RecentlyDeletedView, PeersView, UserHistoryView, MediaTypesView, CategoriesView } from '@/app/pages/legacy-tables'
+import { InvitesView, SendInviteView } from '@/app/pages/invites'
 import { AllowedClientsView } from '@/app/pages/allowed-clients'
 import { PostsHistoryView } from '@/app/pages/posts-history'
 import { TicketsView, TicketDetailView } from '@/app/pages/tickets'
@@ -134,6 +135,7 @@ export function resolveRoute(loc: Location): Route {
   if (p === '/games/hunts.php') return { id: 'hunts', View: HuntsView }
   if (p === '/banner/winners.php') return { id: 'banner-winners', View: BannerWinnersView }
   if (p === '/invite/unconfirmed.php') return { id: 'invites', View: InvitesView }
+  if (p === '/invite/send.php') return { id: 'invite-send', View: SendInviteView }
   if (p === '/tor/recentlyDeleted.php') return { id: 'recently-deleted', View: RecentlyDeletedView }
   if (p === '/tor/peers.php') return { id: 'peers', View: PeersView }
   if (p === '/userhistory.php') {

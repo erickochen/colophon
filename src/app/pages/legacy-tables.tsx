@@ -105,9 +105,6 @@ function LegacyTables({ props, title, sub }: { props: PageProps; title: string; 
   )
 }
 
-export function InvitesView(props: PageProps) {
-  return <LegacyTables props={props} title="Invites" sub="Invitations you have sent that are not yet confirmed." />
-}
 export function RecentlyDeletedView(props: PageProps) {
   return <LegacyTables props={props} title="Recently deleted" sub="Torrents removed from the library in the last while." />
 }
