@@ -6,6 +6,7 @@ import { RotateCcw, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { submitGuarded } from '@/lib/form-submit'
 import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 
@@ -29,7 +30,7 @@ export function SaveBar({
         <RotateCcw /> Revert
       </Button>
       {extra}
-      <Button size="sm" onClick={() => form.requestSubmit()}>
+      <Button size="sm" onClick={() => submitGuarded(form)}>
         <Save /> {submitLabel}
       </Button>
     </div>

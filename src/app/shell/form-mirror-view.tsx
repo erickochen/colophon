@@ -1,6 +1,7 @@
-import { createContext, useContext, useId, useReducer, useState, type ReactNode } from 'react'
+import { createContext, Fragment, useContext, useId, useReducer, useState, type ReactNode } from 'react'
 import { Paperclip, RotateCcw, Save } from 'lucide-react'
 import { asBooleanRadio, asBooleanSelect, cleanLabel, type MirrorControl, type MirrorForm, type MirrorRow } from '@/lib/form-mirror'
+import { submitGuarded } from '@/lib/form-submit'
 import { BBComposer } from '@/components/bb-composer'
 import { RichHtml } from '@/app/shell/bits'
 import { Button } from '@/components/ui/button'
@@ -306,8 +307,38 @@ function StackedControls({ row, onChange }: { row: MirrorRow; onChange: () => vo
   )
 }
 
+/** Two to four related controls under one label ("Receiving gifts"). The row is
+ * the container: title on the left, every control on the shared right line with
+ * its own short label. A heading would open a group the card never closes. */
+function GroupRow({
+  row, curated, onChange,
+}: { row: MirrorRow; curated: string | null; onChange: () => void }) {
+  const base = useId()
+  const titleId = `${base}-title`
+  return (
+    <div role="group" aria-labelledby={titleId} className="flex w-full flex-wrap items-start gap-x-8 gap-y-3 px-6 py-4">
+      <div className="min-w-0 grow basis-32">
+        <div id={titleId} className="text-[13.5px] font-medium leading-snug">{row.label}</div>
+        <Explain noteHtml={row.noteHtml} text={curated} />
+      </div>
+      <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2.5">
+        {row.controls.map((c, i) => {
+          const id = `${base}-${i}`
+          return (
+            <Fragment key={i}>
+              <span id={id} className="text-[12.5px] leading-snug text-muted-foreground">{ownLabel(c)}</span>
+              <RowLabelId.Provider value={id}>
+                <Widget c={c} onChange={onChange} />
+              </RowLabelId.Provider>
+            </Fragment>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function FieldRow({ row, onChange, layout }: { row: MirrorRow; onChange: () => void; layout: Layout }) {
-  const groupId = useId()
   const curated = !row.noteHtml ? CURATED_NOTES[row.controls[0]?.name ?? ''] ?? null : null
 
   // Compose forms (new topic, PM, comment) are for writing, not for tweaking:
@@ -327,29 +358,16 @@ function FieldRow({ row, onChange, layout }: { row: MirrorRow; onChange: () => v
     )
   }
 
-  // Group of compact controls (e.g. "Receiving gifts"): a caption over one
-  // sub-row per control. Every switch lands on the shared right edge, while the
-  // caption stays visibly a heading rather than a setting of its own.
-  if (row.controls.length > 1 && row.controls.every(isCompact) && row.controls.every((c) => ownLabel(c))) {
-    return (
-      <div className="py-1" role="group" aria-labelledby={row.label ? groupId : undefined}>
-        {(row.label || row.noteHtml || curated) && (
-          <div className="px-6 pb-1 pt-3.5">
-            {row.label && (
-              <div id={groupId} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {row.label}
-              </div>
-            )}
-            <Explain noteHtml={row.noteHtml} text={curated} />
-          </div>
-        )}
-        {row.controls.map((c, i) => (
-          <SettingRow key={i} title={ownLabel(c)} dense>
-            <Widget c={c} onChange={onChange} />
-          </SettingRow>
-        ))}
-      </div>
-    )
+  // A handful of labelled controls under one row label. Past four they outgrow
+  // the right column, so those fall through to the full-width stacked row.
+  if (
+    row.label &&
+    row.controls.length > 1 &&
+    row.controls.length <= 4 &&
+    row.controls.every(isCompact) &&
+    row.controls.every((c) => ownLabel(c))
+  ) {
+    return <GroupRow row={row} curated={curated} onChange={onChange} />
   }
 
   const single = row.controls.length === 1 ? row.controls[0] : null
@@ -386,12 +404,12 @@ export function FormMirrorView({
   const [, bump] = useReducer((x: number) => x + 1, 0)
 
   // Group settings into one card per section for clear, contained grouping.
-  const groups: { title: string | null; rows: MirrorRow[] }[] = []
-  let cur: { title: string | null; rows: MirrorRow[] } = { title: null, rows: [] }
+  const groups: { title: string | null; note: string | null; rows: MirrorRow[] }[] = []
+  let cur: { title: string | null; note: string | null; rows: MirrorRow[] } = { title: null, note: null, rows: [] }
   for (const row of form.rows) {
     if (row.kind === 'section') {
       if (cur.rows.length) groups.push(cur)
-      cur = { title: row.label, rows: [] }
+      cur = { title: row.label, note: row.noteHtml, rows: [] }
     } else {
       cur.rows.push(row)
     }
@@ -405,6 +423,9 @@ export function FormMirrorView({
           {g.title && (
             <CardHeader className="!py-3.5">
               <CardTitle>{g.title}</CardTitle>
+              {g.note && (
+                <RichHtml html={g.note} className="pt-0.5 text-[12px] leading-normal text-muted-foreground [&_a]:text-brand" />
+              )}
             </CardHeader>
           )}
           <CardContent className="grid px-0 py-1">
@@ -433,7 +454,7 @@ export function FormMirrorView({
             {a.label}
           </Button>
         ))}
-        <Button size="sm" onClick={() => form.el.requestSubmit(form.submitter)}>
+        <Button size="sm" onClick={() => submitGuarded(form.el, form.submitter)}>
           <Save /> {submitLabel}
         </Button>
       </div>

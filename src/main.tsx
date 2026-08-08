@@ -41,6 +41,13 @@ const DIALOG_BODY_CSS = `
 #dialog-message[slot] input[type=file]{font:inherit;color:inherit;display:block;margin:6px 0}
 #dialog-message[slot] input[type=file]::file-selector-button{font:500 12.5px/1 inherit;color:inherit;background:var(--muted)!important;border:0;border-radius:8px;padding:8px 12px;margin-right:10px;cursor:pointer}
 #dialog-message[slot] label{display:inline-flex;align-items:center;gap:6px}
+
+/* MAM writes the two-factor QR code and its verify button into #addTOTParea and
+ * binds handlers by id, so the node is slotted into our card as it is. */
+#addTOTParea[slot]{display:block;font:400 13px/1.6 ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--foreground)}
+#addTOTParea[slot] img{height:200px;width:auto;border-radius:10px;background:#fff;padding:8px;margin:2px 0 8px}
+#addTOTParea[slot] input{font:inherit;color:inherit;background:var(--muted);border:1px solid var(--border);border-radius:8px;padding:6px 10px;min-height:32px;margin:6px 8px 6px 0}
+#addTOTParea[slot] button{font:500 13px/1 inherit;color:var(--primary-foreground);background:var(--primary);border:0;border-radius:8px;padding:9px 14px;cursor:pointer;margin:2px 0}
 `.trim()
 
 function abort() {

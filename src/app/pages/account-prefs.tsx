@@ -1,13 +1,36 @@
-import { useMemo, useState, type ReactNode } from 'react'
-import { Check, Copy, KeyRound, Lock, Mail, Radio, ShieldCheck, X } from 'lucide-react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { AlertTriangle, Check, Copy, KeyRound, Lock, Mail, Radio, ShieldCheck, Smartphone, X } from 'lucide-react'
 import { LegacyView } from '@/app/pages/legacy'
 import type { PageProps } from '@/app/router'
-import { PrefCard, SaveBar } from '@/app/pages/prefs-bits'
+import { PrefCard, SaveBar, SettingRow } from '@/app/pages/prefs-bits'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
+
+/** MAM's own TOTP area stays a light-DOM node: their jQuery writes the QR code
+ * and the verify button into it and binds handlers by id. */
+export const TOTP_SLOT = 'mam-totp'
+
+interface TwoFactor {
+  /** What MAM reports today, e.g. "No 2FA set at this time". */
+  state: string | null
+  intro: string | null
+  warning: string | null
+  faqHref: string | null
+  yubi: HTMLInputElement | null
+  yubiHint: string | null
+  /** Only present once 2FA is active: the code that authorises a change. */
+  current: HTMLInputElement | null
+  totpButton: HTMLElement | null
+  totpArea: HTMLElement | null
+}
 
 interface AccountData {
   form: HTMLFormElement
@@ -21,6 +44,7 @@ interface AccountData {
   irc2: HTMLInputElement | null
   passkey: string | null
   ircNames: string | null
+  twoFactor: TwoFactor | null
 }
 
 const clean = (s: string | null | undefined) => s?.replace(/\s+/g, ' ').trim() || null
@@ -37,6 +61,42 @@ function rowValue(form: HTMLElement, re: RegExp): string | null {
     }
   }
   return null
+}
+
+/** Readable text of a block. MAM separates its sentences with `<br>`, which
+ * leaves no whitespace behind, so the breaks become spaces first. */
+function blockText(el: Element | null, drop = ''): string | null {
+  if (!el) return null
+  const copy = el.cloneNode(true) as HTMLElement
+  if (drop) copy.querySelectorAll(drop).forEach((c) => c.remove())
+  copy.querySelectorAll('br').forEach((br) => br.replaceWith(' '))
+  return clean(copy.textContent)
+}
+
+/** Text of the cell a control sits in, without the control itself. */
+function cellText(el: Element | null): string | null {
+  return blockText(el?.closest('td') ?? null, 'input, select, textarea, button')
+}
+
+/** The block MAM heads with "Two-Factor Authentication": intro, warning, FAQ. */
+function twoFactor(form: HTMLElement): TwoFactor | null {
+  const yubi = form.querySelector<HTMLInputElement>('input[name="newYubi"]')
+  const totpButton = form.querySelector<HTMLElement>('#addTOTP')
+  if (!yubi && !totpButton) return null
+  const heading = [...form.querySelectorAll('h2')].find((h) => /two-?factor/i.test(h.textContent ?? ''))
+  const cell = heading?.parentElement ?? null
+  const warnEl = cell?.querySelector('.error_red')?.closest('div') ?? null
+  return {
+    state: rowValue(form, /^current$/i),
+    intro: blockText(cell, 'h2, div, a'),
+    warning: blockText(warnEl)?.replace(/^warning:\s*/i, '') ?? null,
+    faqHref: cell?.querySelector('a[href*="faq"]')?.getAttribute('href') ?? null,
+    yubi,
+    yubiHint: cellText(yubi),
+    current: form.querySelector<HTMLInputElement>('input[name="2FA_cur"]'),
+    totpButton,
+    totpArea: document.getElementById('addTOTParea'),
+  }
 }
 
 function extract(): AccountData | null {
@@ -56,6 +116,7 @@ function extract(): AccountData | null {
     irc2: q<HTMLInputElement>('#irc2') ?? q<HTMLInputElement>('input[name="IRCpassword2"]'),
     passkey: rowValue(form, /passkey/i),
     ircNames: rowValue(form, /irc names/i),
+    twoFactor: twoFactor(form),
   }
 }
 
@@ -126,7 +187,107 @@ function Field({
   )
 }
 
-function AccountForm({ d }: { d: AccountData }) {
+/** MAM's two-factor block. The YubiKey field rides on Save like any other
+ * mirrored input; the TOTP flow stays MAM's, framed by our card. */
+function TwoFactorCard({ tf, host }: { tf: TwoFactor; host: HTMLElement }) {
+  const [yubi, setYubi] = useState(tf.yubi?.value ?? '')
+  const [current, setCurrent] = useState(tf.current?.value ?? '')
+  const active = !!tf.state && !/^no\b/i.test(tf.state)
+
+  useEffect(() => {
+    const area = tf.totpArea
+    if (!area) return
+    area.setAttribute('slot', TOTP_SLOT)
+    host.appendChild(area)
+    return () => area.removeAttribute('slot')
+  }, [tf.totpArea, host])
+
+  return (
+    <PrefCard
+      title={<span className="flex items-center gap-2"><ShieldCheck className="size-4" /> Two-factor authentication</span>}
+      note={tf.intro}
+    >
+      <SettingRow title="Current status">
+        <Badge variant="secondary" className={active ? 'bg-ok/15 text-ok' : undefined}>
+          {tf.state ?? 'Unknown'}
+        </Badge>
+      </SettingRow>
+
+      {tf.warning && (
+        <div className="flex items-start gap-2.5 rounded-lg bg-warn/15 px-4 py-3 text-[13px]">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" />
+          <p className="leading-normal">{tf.warning}</p>
+        </div>
+      )}
+
+      {tf.current && (
+        <Field label="Current two-factor code" hint="Needed to change two-factor on an account that already has it.">
+          <Input
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            value={current}
+            onChange={(e) => {
+              setCurrent(e.target.value)
+              tf.current!.value = e.target.value
+            }}
+            className="max-w-3xs"
+          />
+        </Field>
+      )}
+
+      {tf.yubi && (
+        <Field label="Add a YubiKey">
+          {tf.yubiHint && <p className="text-[11.5px] leading-normal text-muted-foreground">{tf.yubiHint}</p>}
+          <Input
+            autoComplete="off"
+            placeholder={tf.yubi.getAttribute('placeholder') ?? undefined}
+            value={yubi}
+            onChange={(e) => {
+              setYubi(e.target.value)
+              tf.yubi!.value = e.target.value
+            }}
+            className="max-w-sm"
+          />
+        </Field>
+      )}
+
+      {tf.totpButton && (
+        <div className="grid gap-3">
+          <AlertDialog>
+            <AlertDialogTrigger
+              render={
+                <Button variant="outline" size="sm" className="w-fit">
+                  <Smartphone /> Set up an authenticator app
+                </Button>
+              }
+            />
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Set up two-factor authentication?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {tf.warning ?? 'You will need your authenticator every time you sign in.'}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => tf.totpButton?.click()}>Continue setup</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <slot name={TOTP_SLOT} />
+        </div>
+      )}
+
+      {tf.faqHref && (
+        <a href={tf.faqHref} className="text-[12.5px] text-brand underline-offset-4 hover:underline">
+          Read how two-factor works on this site
+        </a>
+      )}
+    </PrefCard>
+  )
+}
+
+function AccountForm({ d, host }: { d: AccountData; host: HTMLElement }) {
   const [curpass, setCurpass] = useState(d.curpass?.value ?? '')
   const [email, setEmail] = useState(d.email?.value ?? '')
   const [pw, setPw] = useState(d.pass?.value ?? '')
@@ -181,6 +342,8 @@ function AccountForm({ d }: { d: AccountData }) {
         </Field>
       </PrefCard>
 
+      {d.twoFactor && <TwoFactorCard tf={d.twoFactor} host={host} />}
+
       {(d.pass || d.pass2) && (
         <PrefCard title={<span className="flex items-center gap-2"><Lock className="size-4" /> Password</span>}>
           <Field label="New password">
@@ -231,7 +394,7 @@ export function AccountPrefsView(props: PageProps) {
   if (!data) return <LegacyView {...props} />
   return (
     <div className="grid gap-4">
-      <AccountForm key={rev} d={data} />
+      <AccountForm key={rev} d={data} host={props.host} />
       <SaveBar form={data.form} onAfterRevert={() => setRev((r) => r + 1)} />
     </div>
   )
