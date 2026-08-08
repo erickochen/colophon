@@ -17,7 +17,7 @@ export const PAGE_BG = {
   light: 'oklch(0.985 0.003 80)',
   dark: 'oklch(0.172 0.005 56)',
   latte: 'oklch(0.933 0.009 265)',
-  solarized: 'oklch(0.974 0.026 90)',
+  solarized: 'oklch(0.952 0.026 91)',
   dracula: 'oklch(0.288 0.022 278)',
   onedark: 'oklch(0.293 0.016 264)',
 } as const
@@ -65,8 +65,6 @@ export function applyTheme(rootEl: HTMLElement, theme?: Theme) {
   const scheme = dark ? getDarkScheme() : getLightScheme()
   rootEl.classList.remove(...SCHEME_CLASSES)
   if (scheme !== 'default') rootEl.classList.add(`scheme-${scheme}`)
-  // Light-DOM marker: the slotted legacy dialog body cannot see the shadow class.
-  document.documentElement.classList.toggle('mam-dark', dark)
   // The canvas behind #mam-root: overscroll and anything reaching below the host
   // shows it, so it carries the page colour instead of the default white.
   document.documentElement.style.setProperty('background-color', pageBg(), 'important')

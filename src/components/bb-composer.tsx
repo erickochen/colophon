@@ -280,7 +280,7 @@ export function BBComposer({
   )
 
   return (
-    <div className={cn('overflow-hidden rounded-lg border border-input bg-background transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50', className)}>
+    <div className={cn('overflow-hidden rounded-lg border border-input bg-background transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring', className)}>
       <div className="flex flex-wrap items-center gap-0.5 border-b bg-muted/40 px-2 py-1.5">
         {/* Formatting toolbar shows when MAM's editor pref is on. In that mode the
             write surface is WYSIWYG; otherwise it's a BBCode textarea + preview.

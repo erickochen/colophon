@@ -282,7 +282,7 @@ type RowDropper = (ids: number[]) => void
 const ROW_ACTION =
   'grid size-[34px] place-items-center rounded-full border outline-none transition-[opacity,color,background-color,border-color] duration-200 ' +
   'hover:border-transparent hover:bg-primary hover:text-primary-foreground disabled:pointer-events-none ' +
-  'focus-visible:border-ring focus-visible:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/50'
+  'focus-visible:border-ring focus-visible:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring'
 
 /** Row bookmark toggle. Stays visible once bookmarked, so the state reads
  * without hovering the row first. */
@@ -344,12 +344,12 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech }: { t: Search
           <p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">
             {authors.map((a) => a.name).join(', ')}
             {narrators.length > 0 && (
-              <span className="text-muted-foreground/75">
+              <span className="text-muted-foreground">
                 {authors.length > 0 && ' · '}read by {narrators.map((n) => n.name).join(', ')}
               </span>
             )}
             {series.length > 0 && (
-              <span className="italic text-muted-foreground/75">
+              <span className="italic text-muted-foreground">
                 {(authors.length > 0 || narrators.length > 0) && ' · '}
                 {series.map((s) => s.name + (s.part ? ` #${s.part}` : '')).join(', ')}
               </span>
@@ -377,7 +377,7 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech }: { t: Search
           {cols.includes('size') && (
             <span className="font-mono text-[12.5px] text-muted-foreground">
               {t.size}
-              <span className="block font-sans text-[11px] text-muted-foreground/75">{fmtInt(t.numfiles)} file{t.numfiles === 1 ? '' : 's'}</span>
+              <span className="block font-sans text-[11px] text-muted-foreground">{fmtInt(t.numfiles)} file{t.numfiles === 1 ? '' : 's'}</span>
             </span>
           )}
           {cols.includes('peers') && (
@@ -385,11 +385,11 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech }: { t: Search
               <span className="text-ok" title="Seeders">{fmtInt(t.seeders)}</span>
               <span className="text-muted-foreground/60"> / </span>
               <span className="text-warn" title="Leechers">{fmtInt(t.leechers)}</span>
-              <span className="block font-sans text-[11px] text-muted-foreground/75" title="Times snatched">{fmtInt(t.times_completed)} snatched</span>
+              <span className="block font-sans text-[11px] text-muted-foreground" title="Times snatched">{fmtInt(t.times_completed)} snatched</span>
             </span>
           )}
           {cols.includes('added') && (
-            <span className="font-mono text-[12px] text-muted-foreground/80">{relTime(t.added)}</span>
+            <span className="font-mono text-[12px] text-muted-foreground">{relTime(t.added)}</span>
           )}
         </div>
       )}
@@ -645,7 +645,7 @@ function ColumnsMenu({ cols, onToggle }: { cols: ColKey[]; onToggle: (k: ColKey)
 }
 
 function ViewToggle({ view, onChange }: { view: ViewMode; onChange: (v: ViewMode) => void }) {
-  const base = 'grid h-[26px] w-7 place-items-center border transition-colors outline-none focus-visible:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50'
+  const base = 'grid h-[26px] w-7 place-items-center border transition-colors outline-none focus-visible:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring'
   const off = 'border-input bg-card text-muted-foreground hover:text-foreground'
   const on = 'border-transparent bg-brand-soft text-accent-foreground'
   return (

@@ -93,7 +93,7 @@ function PickCard({ p }: { p: Pick }) {
         {p.format && (
           <span className="absolute right-1 top-1 z-3 rounded bg-black/55 px-1 py-0.5 font-mono text-[8.5px] font-semibold uppercase tracking-wide text-white backdrop-blur-[2px]">{p.format}</span>
         )}
-        <span className="absolute bottom-1.5 left-1.5 z-3 flex items-center gap-1 rounded-full bg-[oklch(0.97_0.02_85/0.9)] px-1.5 py-0.5 text-[8.5px] font-semibold tracking-wide text-[oklch(0.45_0.09_150)]">
+        <span className="absolute bottom-1.5 left-1.5 z-3 flex items-center gap-1 rounded-full bg-card/90 px-1.5 py-0.5 text-[8.5px] font-semibold tracking-wide text-ok">
           <Sparkles className="size-2.5" /> FL
         </span>
       </span>

@@ -195,7 +195,7 @@ function KnowledgeBase({ title, sub, sections: raw, mode }: { title: string; sub
                 key={s.key}
                 value={s.key}
                 title={s.title}
-                className="h-auto flex-none rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] text-muted-foreground shadow-none transition-colors hover:bg-accent/50 data-active:border-brand/40 data-active:bg-brand-soft data-active:font-medium data-active:text-brand data-active:shadow-none"
+                className="h-auto flex-none rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] text-muted-foreground shadow-none transition-colors hover:bg-accent/50 data-active:border-brand/40 data-active:bg-brand-soft data-active:font-medium data-active:text-accent-foreground data-active:shadow-none"
               >
                 {shortLabel(s.title)}
                 <span className="ml-1.5 rounded-full bg-muted px-1.5 text-[10px] tabular-nums">{s.items.length}</span>

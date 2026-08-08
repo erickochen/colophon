@@ -120,7 +120,7 @@ function VaultDonations({ donations }: { donations: Donation[] }) {
                 </span>
                 <span className="text-[13px] text-muted-foreground">points given</span>
               </div>
-              <Progress value={Math.min(100, (total / WEDGE_BONUS_AT) * 100)} className="h-2 [&>div]:bg-brand" />
+              <Progress value={Math.min(100, (total / WEDGE_BONUS_AT) * 100)} className="h-2 [&>div]:bg-brand-fill" />
               <p className="text-[12px] text-muted-foreground">
                 {toBonus > 0
                   ? `${fmtInt(toBonus)} more to this pot for 8 extra wedges`
@@ -185,7 +185,7 @@ export function MillionaireVaultView(props: PageProps) {
               {data.started && <p className="mt-1 text-[12.5px] text-muted-foreground">Pot opened {data.started}</p>}
             </div>
             <div className="grid gap-1.5">
-              <Progress value={pct} className="h-2.5 [&>div]:bg-brand" />
+              <Progress value={pct} className="h-2.5 [&>div]:bg-brand-fill" />
               <div className="flex justify-between text-[12px] text-muted-foreground">
                 <span>{pct.toFixed(1)}% filled</span>
                 <span>{fmtInt(remaining)} points to go</span>
@@ -344,7 +344,7 @@ export function VaultDonateView(props: PageProps) {
             <div className="grid gap-1.5">
               <Slider
                 thumbLabel="Amount to give"
-                className="[&_[data-slot=slider-range]]:bg-brand"
+                className="[&_[data-slot=slider-range]]:bg-brand-fill"
                 value={amount}
                 onValueChange={(v) => setAmount(Array.isArray(v) ? (v[0] ?? min) : v)}
                 min={min}

@@ -40,6 +40,10 @@ interface AreaTrendProps<T> {
   className?: string
 }
 
+/* Dash patterns per series index, so the lines stay apart for readers who do not
+ * separate the hues. The first series stays solid. */
+const DASH = [undefined, '6 3', '2 3', '9 3 2 3', '1 3'] as const
+
 /** Slopes for a monotone cubic fit, so a spike never overshoots into a dip. */
 function slopes(pts: Pt[]): number[] {
   const n = pts.length
@@ -221,7 +225,7 @@ export function AreaTrend<T>({
     <div className={cn('flex flex-col text-xs', className)}>
       <div
         ref={plot}
-        className="relative min-h-0 flex-1 rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="relative min-h-0 flex-1 rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
         tabIndex={0}
         role="group"
         aria-label={`${summary}. Use the arrow keys to read each point.`}
@@ -263,10 +267,16 @@ export function AreaTrend<T>({
             )
           })}
 
-          {geo.bands.map((b) => (
+          {geo.bands.map((b, i) => (
             <g key={b.series.key}>
               <path d={b.area} fill={`url(#t${uid}-${b.series.key})`} fillOpacity={FILL_OPACITY} />
-              <path d={b.stroke} fill="none" stroke={b.series.color} strokeWidth={strokeWidth} />
+              <path
+                d={b.stroke}
+                fill="none"
+                stroke={b.series.color}
+                strokeWidth={strokeWidth}
+                strokeDasharray={geo.bands.length > 1 ? DASH[i % DASH.length] : undefined}
+              />
             </g>
           ))}
 
@@ -326,9 +336,17 @@ export function AreaTrend<T>({
 
       {legend && (
         <div className="flex items-center justify-center gap-4 pt-3">
-          {series.map((s) => (
+          {series.map((s, i) => (
             <div key={s.key} className="flex items-center gap-1.5">
-              <div className="h-2 w-2 shrink-0 rounded-[2px]" style={{ background: s.color }} />
+              {/* Repeats the line's own dash pattern so the key matches the plot. */}
+              <svg width="14" height="8" aria-hidden className="shrink-0 overflow-visible">
+                <line
+                  x1="0" y1="4" x2="14" y2="4"
+                  stroke={s.color}
+                  strokeWidth="2.5"
+                  strokeDasharray={series.length > 1 ? DASH[i % DASH.length] : undefined}
+                />
+              </svg>
               {s.label}
             </div>
           ))}

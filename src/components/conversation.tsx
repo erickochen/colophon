@@ -189,7 +189,7 @@ export function ConversationBubble({
       aria-setsize={total}
       className={cn(
         'group/bubble flex gap-3 rounded-xl',
-        navigable && 'focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
+        navigable && 'focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none',
         mine && 'flex-row-reverse'
       )}
     >

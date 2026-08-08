@@ -17,21 +17,30 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Kbd } from '@/components/ui/kbd'
+import { cn } from '@/lib/utils'
 
-const LIGHT_SCHEME_ITEMS: { value: LightScheme; label: string; dot: string }[] = [
-  { value: 'default', label: 'Reading Room', dot: 'oklch(0.473 0.078 46)' },
-  { value: 'latte', label: 'Catppuccin Latte', dot: 'oklch(0.555 0.25 297)' },
-  { value: 'solarized', label: 'Solarized Light', dot: 'oklch(0.56 0.13 245)' },
+const LIGHT_SCHEME_ITEMS: { value: LightScheme; label: string; scheme: string }[] = [
+  { value: 'default', label: 'Reading Room', scheme: 'scheme-rr' },
+  { value: 'latte', label: 'Catppuccin Latte', scheme: 'scheme-latte' },
+  { value: 'solarized', label: 'Solarized Light', scheme: 'scheme-solarized' },
 ]
 
-const DARK_SCHEME_ITEMS: { value: DarkScheme; label: string; dot: string }[] = [
-  { value: 'default', label: 'Reading Room', dot: 'oklch(0.75 0.09 70)' },
-  { value: 'dracula', label: 'Dracula', dot: 'oklch(0.742 0.149 302)' },
-  { value: 'onedark', label: 'One Dark Pro', dot: 'oklch(0.73 0.121 245)' },
+const DARK_SCHEME_ITEMS: { value: DarkScheme; label: string; scheme: string }[] = [
+  { value: 'default', label: 'Reading Room', scheme: 'dark' },
+  { value: 'dracula', label: 'Dracula', scheme: 'dark scheme-dracula' },
+  { value: 'onedark', label: 'One Dark Pro', scheme: 'dark scheme-onedark' },
 ]
 
-function SchemeDot({ color }: { color: string }) {
-  return <span className="size-2 shrink-0 rounded-full" style={{ background: color }} />
+/** The swatch wears the scheme class itself, so it paints that scheme's own page
+ * and brand colour. Both lists render at once, so the light rows keep their light
+ * colours while a dark scheme is active. */
+function SchemeDot({ scheme }: { scheme: string }) {
+  return (
+    <span
+      className={cn('size-3.5 shrink-0 rounded-full border', scheme)}
+      style={{ backgroundColor: 'var(--background)', borderColor: 'var(--brand)' }}
+    />
+  )
 }
 
 /** `href` mirrors where MAM's own header sends these numbers: Bonus and B/hr to
@@ -113,10 +122,16 @@ function NotifChips({ counts }: { counts: NotifCounts }) {
   )
 }
 
-/* MAM reports connectability per protocol; show both, like the site does. */
+/* MAM reports connectability per protocol; show both, like the site does.
+ * Filled means reachable and hollow means not, so the state survives without
+ * colour. The ring keeps the dot visible on fills that sit close to the page. */
 function ClientChip({ client }: { client: ShellData['client'] }) {
   const dot = (state: boolean | null) =>
-    state == null ? 'bg-muted-foreground/40' : state ? 'bg-ok' : 'bg-warn'
+    state == null
+      ? 'bg-transparent ring-1 ring-muted-foreground/50'
+      : state
+        ? 'bg-ok-fill ring-1 ring-foreground/20'
+        : 'bg-transparent ring-2 ring-warn'
   const word = (state: boolean | null) =>
     state == null ? 'unknown' : state ? 'connectable' : 'offline'
   return (
@@ -222,7 +237,7 @@ export function Topbar({ page, counts, onOpenSearch }: { page: ShellData; counts
             <DropdownMenuRadioGroup value={lightScheme} onValueChange={(v) => chooseLightScheme(v as LightScheme)}>
               {LIGHT_SCHEME_ITEMS.map((s) => (
                 <DropdownMenuRadioItem key={s.value} value={s.value}>
-                  <SchemeDot color={s.dot} /> {s.label}
+                  <SchemeDot scheme={s.scheme} /> {s.label}
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
@@ -231,7 +246,7 @@ export function Topbar({ page, counts, onOpenSearch }: { page: ShellData; counts
             <DropdownMenuRadioGroup value={darkScheme} onValueChange={(v) => chooseDarkScheme(v as DarkScheme)}>
               {DARK_SCHEME_ITEMS.map((s) => (
                 <DropdownMenuRadioItem key={s.value} value={s.value}>
-                  <SchemeDot color={s.dot} /> {s.label}
+                  <SchemeDot scheme={s.scheme} /> {s.label}
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>

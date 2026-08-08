@@ -100,7 +100,7 @@ export function BugReportView(props: PageProps) {
 
       {f.userScriptFree && (
         <Card className="relative overflow-hidden border-warn/40 bg-warn/5">
-          <ShineBorder shineColor={['oklch(0.57 0.16 55)', 'oklch(0.75 0.09 70)']} borderWidth={1} duration={12} />
+          <ShineBorder shineColor={['var(--warn)', 'var(--brand)']} borderWidth={1} duration={12} />
           <CardContent className="flex gap-3">
             <TriangleAlert className="mt-0.5 size-5 shrink-0 text-warn" />
             <div className="grid gap-1 text-[13px]">

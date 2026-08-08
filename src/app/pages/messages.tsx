@@ -117,7 +117,7 @@ function QuotedHistory({
       <CollapsibleTrigger
         tabIndex={tabIndex}
         aria-label={`Quoted history under ${author}: ${plural(quotes.length, 'quoted message')}`}
-        className="flex items-center gap-1 py-1 text-[11.5px] text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+        className="flex items-center gap-1 py-1 text-[11.5px] text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
       >
         <ChevronRight aria-hidden="true" className={cn('size-3 transition-transform', open && 'rotate-90')} />
         Quoted history
@@ -205,7 +205,7 @@ const ThreadBubble = memo(function ThreadBubble({
                 <DropdownMenuTrigger
                   tabIndex={actionTab}
                   aria-label={`More actions for ${who}${when}`}
-                  className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                  className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
                 >
                   <MoreHorizontal className="size-3.5" />
                 </DropdownMenuTrigger>
@@ -598,7 +598,7 @@ export function MessagesView(props: PageProps) {
                     )}
                   >
                     <span className="pt-1.5">
-                      {count > 0 && <span className="block size-2 rounded-full bg-brand" title={`${count} unread`} />}
+                      {count > 0 && <span className="block size-2 rounded-full bg-brand-fill" title={`${count} unread`} />}
                     </span>
                     <span className="min-w-0">
                       <span className="flex items-baseline justify-between gap-2">
@@ -727,7 +727,7 @@ export function MessagesView(props: PageProps) {
                                 setAnswering(null)
                                 setPicked(null)
                               }}
-                              className="shrink-0 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                              className="shrink-0 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
                             >
                               <X className="size-3.5" />
                             </button>

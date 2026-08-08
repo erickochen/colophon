@@ -48,7 +48,7 @@ export function PreferencesView(props: PageProps) {
               'shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-[13px] transition-colors',
               'xl:py-2',
               isActive
-                ? 'bg-brand-soft font-medium text-accent-foreground xl:text-brand'
+                ? 'bg-brand-soft font-medium text-accent-foreground'
                 : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground xl:hover:text-foreground'
             )}
           >

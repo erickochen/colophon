@@ -4,6 +4,7 @@ import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
 import { Card, CardContent } from '@/components/ui/card'
+import { mutedUserColor } from '@/lib/colors'
 
 interface Winner { name: string; uid: string; color: string | null }
 interface Tier { place: string; amount: string | null; winners: Winner[] }
@@ -71,7 +72,7 @@ export function LottoWinnersView(props: PageProps) {
               </div>
               <div className="flex flex-wrap gap-x-3 gap-y-1.5">
                 {t.winners.map((w, j) => (
-                  <a key={w.uid + j} href={`/u/${w.uid}`} className="text-[13px] font-medium hover:underline" style={{ color: w.color ?? undefined }}>
+                  <a key={w.uid + j} href={`/u/${w.uid}`} className="text-[13px] font-medium hover:underline" style={{ color: mutedUserColor(w.color) }}>
                     {w.name}
                   </a>
                 ))}

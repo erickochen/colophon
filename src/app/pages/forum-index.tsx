@@ -48,7 +48,7 @@ export function ForumIndexView(props: PageProps) {
               <div key={b.href} role="listitem" className="grid items-start gap-y-1 px-6 py-3.5 transition-colors hover:bg-accent/40 focus-within:bg-accent/40 lg:grid-cols-[minmax(0,1fr)_110px_minmax(180px,260px)] lg:gap-x-5">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    {b.hasNew && <span className="size-2 shrink-0 rounded-full bg-brand" title="new posts" />}
+                    {b.hasNew && <span className="size-2 shrink-0 rounded-full bg-brand-fill" title="new posts" />}
                     <a href={b.href} className="font-display truncate text-[14.5px] font-semibold hover:underline">{b.name}</a>
                     {b.locked && <Lock className="size-3.5 shrink-0 text-muted-foreground" />}
                   </div>
@@ -58,7 +58,7 @@ export function ForumIndexView(props: PageProps) {
                       {b.subBoards.map((s) => (
                         <Badge key={s.href} variant="secondary" asChild className="font-normal">
                           <a href={s.href}>
-                            {s.hasNew && <span className="mr-1 size-1.5 rounded-full bg-brand" />}
+                            {s.hasNew && <span className="mr-1 size-1.5 rounded-full bg-brand-fill" />}
                             {s.name}
                           </a>
                         </Badge>

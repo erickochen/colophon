@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
+import { mutedUserColor } from '@/lib/colors'
 
 interface Ticket {
   category: string[]
@@ -85,7 +86,7 @@ function TicketRow({ t }: { t: Ticket }) {
           {t.lastUpdate && (
             <>
               {' · '}last reply {relTime(t.lastUpdate)}
-              {t.lastBy && <> by <span className="font-medium" style={{ color: t.lastByColor ?? undefined }}>{t.lastBy}</span></>}
+              {t.lastBy && <> by <span className="font-medium" style={{ color: mutedUserColor(t.lastByColor) }}>{t.lastBy}</span></>}
             </>
           )}
         </div>

@@ -92,7 +92,7 @@ export function FilterSearch({
           type="button"
           aria-label="Clear search"
           onClick={() => onChange('')}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
         >
           <X className="size-3.5" />
         </button>
@@ -373,7 +373,7 @@ export function FilterSummary({
             type="button"
             aria-label={`Remove ${c.label}`}
             onClick={c.onRemove}
-            className="rounded-sm text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+            className="rounded-sm text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
           >
             <X className="size-3" />
           </button>

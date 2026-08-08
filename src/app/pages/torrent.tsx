@@ -82,7 +82,7 @@ function GuardSettings({ guard }: { guard: RatioGuard }) {
           type="button"
           aria-label="Ratio protection settings"
           title="Ratio protection settings"
-          className="-m-1 ml-0.5 inline-flex rounded p-1 align-[-4px] outline-none transition-colors hover:text-brand focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="-m-1 ml-0.5 inline-flex rounded p-1 align-[-4px] outline-none transition-colors hover:text-brand focus-visible:ring-[3px] focus-visible:ring-ring"
         >
           <Settings2 className="size-3.5" />
         </button>

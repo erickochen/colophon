@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { FilterSearch } from '@/components/filters'
 import { useGiftedSet } from '@/lib/giftmam'
+import { mutedUserColor } from '@/lib/colors'
 
 interface Member { uid: string; name: string; color: string | null; href: string }
 
@@ -55,7 +56,7 @@ export function NewMembersView(props: PageProps) {
                 </Avatar>
               </a>
               <a href={m.href} className="min-w-0 flex-1">
-                <span className="block truncate text-[13.5px] font-semibold hover:underline" style={{ color: m.color ?? undefined }}>{m.name}</span>
+                <span className="block truncate text-[13.5px] font-semibold hover:underline" style={{ color: mutedUserColor(m.color) }}>{m.name}</span>
                 {gifted.has(m.uid) ? (
                   <span className="flex items-center gap-1 text-[11.5px] text-gifted" title="Already gifted (GiftMAM)">
                     <Gift className="size-3" /> gifted

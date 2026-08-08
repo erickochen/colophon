@@ -74,7 +74,7 @@ function DocReader({ title, html }: { title: string; html: string }) {
                   className={cn(
                     'rounded-md px-2 py-1 text-[12px] leading-snug transition-colors hover:text-foreground',
                     t.level === 1 ? 'pl-3 font-medium' : t.level === 2 ? 'pl-5' : 'pl-7',
-                    active === t.id ? 'bg-brand-soft font-medium text-brand' : 'text-muted-foreground'
+                    active === t.id ? 'bg-brand-soft font-medium text-accent-foreground' : 'text-muted-foreground'
                   )}
                 >
                   {t.text}

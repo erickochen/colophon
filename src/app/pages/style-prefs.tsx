@@ -222,7 +222,7 @@ function CodeEditor({ el, note }: { el: HTMLTextAreaElement; note: string }) {
         maxLength={65000}
         placeholder="/* your custom CSS */"
         onChange={(e) => { setV(e.target.value); el.value = e.target.value }}
-        className="min-h-64 w-full resize-y rounded-lg bg-muted/70 px-3.5 py-3 font-mono text-[12.5px] leading-relaxed shadow-xs outline-none transition-[color,box-shadow] focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="min-h-64 w-full resize-y rounded-lg bg-muted/70 px-3.5 py-3 font-mono text-[12.5px] leading-relaxed shadow-xs outline-none transition-[color,box-shadow] focus-visible:ring-[3px] focus-visible:ring-ring"
       />
     </div>
   )

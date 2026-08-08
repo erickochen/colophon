@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator'
 import { ShineBorder } from '@/components/ui/shine-border'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from '@/components/ui/toast'
+import { mutedUserColor } from '@/lib/colors'
 
 interface LottoPlay {
   draw: string
@@ -238,7 +239,7 @@ export function LottoView(props: PageProps) {
         <CardContent className="flex flex-wrap gap-x-3 gap-y-1.5 py-4">
           {data.players.length > 0 ? (
             data.players.map((p, i) => (
-              <span key={i} className="text-[12.5px] font-medium" style={{ color: p.color ?? undefined }}>{p.name}</span>
+              <span key={i} className="text-[12.5px] font-medium" style={{ color: mutedUserColor(p.color) }}>{p.name}</span>
             ))
           ) : (
             <p className="text-sm text-muted-foreground">No tickets bought yet. Be the first.</p>

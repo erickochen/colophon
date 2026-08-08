@@ -28,9 +28,9 @@ type MetricKey = 'sat' | 'unsat' | 'leeching' | 'bonus' | 'pph' | 'ratio' | 'wed
 
 const METRICS: Record<MetricKey, { label: string; color: string }> = {
   sat: { label: 'Satisfied seeding', color: 'var(--chart-3)' },
-  unsat: { label: 'Unsatisfied seeding', color: 'var(--warn)' },
-  leeching: { label: 'Leeching', color: 'var(--user-2)' },
-  bonus: { label: 'Bonus points', color: 'var(--brand)' },
+  unsat: { label: 'Unsatisfied seeding', color: 'var(--chart-4)' },
+  leeching: { label: 'Leeching', color: 'var(--chart-2)' },
+  bonus: { label: 'Bonus points', color: 'var(--chart-1)' },
   pph: { label: 'Points / hour', color: 'var(--chart-2)' },
   ratio: { label: 'Ratio', color: 'var(--chart-5)' },
   wedges: { label: 'FL wedges', color: 'var(--chart-4)' },
@@ -107,7 +107,7 @@ function Stat({ icon, label, value, hint }: { icon: ReactNode; label: string; va
         <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-accent-foreground">{icon}</span>
         <div className="min-w-0">
           <div className="font-display text-2xl font-semibold tabular-nums">{value}</div>
-          <div className="text-[11.5px] text-muted-foreground">{label}{hint && <span className="text-muted-foreground/70"> · {hint}</span>}</div>
+          <div className="text-[11.5px] text-muted-foreground">{label}{hint && <span> · {hint}</span>}</div>
         </div>
       </CardContent>
     </Card>

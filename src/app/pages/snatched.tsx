@@ -179,7 +179,7 @@ function StatusBadge({ s }: { s: SnatchItem }) {
 
 function SnatchHeader({ sort, onSort }: { sort: SortState | null; onSort: (key: SortKey) => void }) {
   return (
-    <div className={cn('hidden border-b px-6 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70', SNATCH_COLS)}>
+    <div className={cn('hidden border-b px-6 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground', SNATCH_COLS)}>
       {SNATCH_HEADERS.map((h) => {
         if (!h.key) return <span key={h.label}>{h.label}</span>
         // Right-aligned columns carry the sort mark on the left, so the label
@@ -235,7 +235,7 @@ function SnatchRow({ s }: { s: SnatchItem }) {
           <NameLinks prefix="Narrated by" items={s.narrators} />
           {s.series && <> · <a href={s.series.href ?? '#'} className="hover:text-foreground hover:underline">{s.series.name}</a>{s.series.part && ` (#${s.series.part})`}</>}
         </div>
-        {s.meta && <div className="pt-0.5 text-[11.5px] text-muted-foreground/80">{s.meta}</div>}
+        {s.meta && <div className="pt-0.5 text-[11.5px] text-muted-foreground">{s.meta}</div>}
       </div>
 
       {/* Desktop grid cells */}
@@ -246,7 +246,7 @@ function SnatchRow({ s }: { s: SnatchItem }) {
       <Num value={s.seedtime} className={s.seedUnder ? 'text-warn' : 'text-muted-foreground'} />
       <span className="hidden text-right text-[11.5px] tabular-nums text-muted-foreground md:block">
         {s.seeders}/{s.leechers}
-        {s.snatched && <span className="block text-[10px] text-muted-foreground/70">{s.snatched} snatched</span>}
+        {s.snatched && <span className="block text-[10px] text-muted-foreground">{s.snatched} snatched</span>}
       </span>
       <span className="hidden md:flex md:justify-end">
         {s.downloadHref && <a href={s.downloadHref} title="Download .torrent" className="text-muted-foreground hover:text-brand"><Download className="size-4" /></a>}

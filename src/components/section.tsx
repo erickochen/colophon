@@ -29,7 +29,7 @@ export function CollapsibleSection({
       <CollapsibleTrigger
         className={cn(
           'group flex w-full items-center gap-2.5 px-4 py-3 text-left transition-colors hover:bg-accent/40',
-          'focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
+          'focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none',
           open && 'border-b'
         )}
       >

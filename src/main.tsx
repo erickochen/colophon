@@ -22,24 +22,24 @@ const LEGACY_ATTR = 'data-mam-legacy'
 // right around our mount and a hijacked textarea is invisible to FormMirror.
 preventWysiwyg()
 
+/* MAM's dialog body stays a light-DOM node, so these rules live in document.head
+ * while the colours come from the shadow tree: a slotted element inherits custom
+ * properties from the slot's parent, so the tokens follow the active scheme. */
 const DIALOG_BODY_CSS = `
 #dialog-message{display:none}
-#dialog-message[slot]{display:block!important;font:400 13.5px/1.6 ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#3a352f;background:none!important;border:0!important;padding:0!important;margin:0!important}
-html.mam-dark #dialog-message[slot]{color:#e9e6e1}
+#dialog-message[slot]{display:block!important;font:400 13.5px/1.6 ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--foreground);background:none!important;border:0!important;padding:0!important;margin:0!important}
 #dialog-message[slot] *{font-family:inherit!important;background:none!important;border-color:transparent!important;box-shadow:none!important;max-width:100%}
 #dialog-message[slot] h1,#dialog-message[slot] h2,#dialog-message[slot] h3{font-size:14px;font-weight:600;margin:.6em 0 .3em}
-#dialog-message[slot] a{color:#7a4a2f;text-decoration:underline}
-html.mam-dark #dialog-message[slot] a{color:#d9a273}
-#dialog-message[slot] pre{white-space:pre-wrap;word-break:break-word;font:400 11.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:rgba(120,110,100,.12)!important;padding:8px;border-radius:8px}
+#dialog-message[slot] a{color:var(--brand);text-decoration:underline}
+#dialog-message[slot] pre{white-space:pre-wrap;word-break:break-word;font:400 11.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--muted)!important;padding:8px;border-radius:8px}
 #dialog-message[slot] table{width:100%;border-collapse:collapse}
 #dialog-message[slot] td,#dialog-message[slot] th{padding:4px 8px 4px 0;text-align:left;vertical-align:top}
 #dialog-message[slot] input[type=text],#dialog-message[slot] input[type=number],#dialog-message[slot] input[type=password],#dialog-message[slot] select,#dialog-message[slot] textarea{
-  font:inherit;color:inherit;background:rgba(120,110,100,.12)!important;border-radius:8px;padding:6px 10px;margin:2px 0;min-height:32px}
+  font:inherit;color:inherit;background:var(--muted)!important;border-radius:8px;padding:6px 10px;margin:2px 0;min-height:32px}
 #dialog-message[slot] input[type=button],#dialog-message[slot] input[type=submit],#dialog-message[slot] button{
-  font:500 13px/1 inherit;color:#faf7f2;background:#2b2622!important;border-radius:8px;padding:9px 14px;cursor:pointer;margin:2px 0}
-html.mam-dark #dialog-message[slot] input[type=button],html.mam-dark #dialog-message[slot] input[type=submit],html.mam-dark #dialog-message[slot] button{color:#221f1c;background:#e7e3dd!important}
+  font:500 13px/1 inherit;color:var(--primary-foreground);background:var(--primary)!important;border-radius:8px;padding:9px 14px;cursor:pointer;margin:2px 0}
 #dialog-message[slot] input[type=file]{font:inherit;color:inherit;display:block;margin:6px 0}
-#dialog-message[slot] input[type=file]::file-selector-button{font:500 12.5px/1 inherit;color:inherit;background:rgba(120,110,100,.14)!important;border:0;border-radius:8px;padding:8px 12px;margin-right:10px;cursor:pointer}
+#dialog-message[slot] input[type=file]::file-selector-button{font:500 12.5px/1 inherit;color:inherit;background:var(--muted)!important;border:0;border-radius:8px;padding:8px 12px;margin-right:10px;cursor:pointer}
 #dialog-message[slot] label{display:inline-flex;align-items:center;gap:6px}
 `.trim()
 

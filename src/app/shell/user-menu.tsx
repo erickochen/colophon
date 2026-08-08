@@ -22,7 +22,7 @@ function StatusDot({ page, className }: { page: ShellData; className?: string })
     <span
       title={connectable ? 'Connectable' : 'Not connectable'}
       className={
-        'size-2 shrink-0 rounded-full ' + (connectable ? 'bg-ok' : 'bg-muted-foreground/60') + (className ? ' ' + className : '')
+        'size-2 shrink-0 rounded-full ' + (connectable ? 'bg-ok-fill ring-1 ring-foreground/20' : 'bg-transparent ring-1 ring-muted-foreground/60') + (className ? ' ' + className : '')
       }
     />
   )
@@ -59,7 +59,7 @@ export function UserMenu({ page }: { page: ShellData }) {
                 <span className="flex items-center gap-1 truncate text-[11px] text-muted-foreground">
                   <TrendingUp className="size-3 text-ok" />
                   <span className="tabular-nums">{fmtRatio(page.stats.ratio)}</span>
-                  <span className="text-muted-foreground/60">ratio</span>
+                  <span className="text-muted-foreground">ratio</span>
                 </span>
               </span>
               <ChevronsUpDown className="ml-auto size-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />

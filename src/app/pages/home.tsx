@@ -51,7 +51,7 @@ function HideButton({ label, onHide, className }: { label: string; onHide: () =>
           onClick={onHide}
           aria-label={`Hide ${label}`}
           className={cn(
-            'grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition-[opacity,color,background-color] hover:bg-accent/60 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none group-hover/sect:opacity-100',
+            'grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition-[opacity,color,background-color] hover:bg-accent/60 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none group-hover/sect:opacity-100',
             className
           )}
         >
@@ -125,7 +125,7 @@ function Shelf({ items }: { items: ShelfItem[] }) {
               </span>
             )}
             {(t.vip || t.explicit) && (
-              <span className="absolute bottom-2 left-2 z-3 rounded-full bg-[oklch(0.97_0.02_85/0.9)] px-2 py-0.5 text-[9.5px] font-semibold tracking-wide text-[oklch(0.4_0.07_50)]">
+              <span className="absolute bottom-2 left-2 z-3 rounded-full bg-brand-soft px-2 py-0.5 text-[9.5px] font-semibold tracking-wide text-accent-foreground">
                 {[t.vip ? 'VIP' : null, t.explicit ? '18+' : null].filter(Boolean).join(' · ')}
               </span>
             )}
@@ -355,7 +355,7 @@ export function HomeView({ page }: PageProps) {
                   </button>
                 )}
               </div>
-              <div className="flex h-10 items-center gap-1.5 rounded-lg border border-input bg-background pr-1 transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
+              <div className="flex h-10 items-center gap-1.5 rounded-lg border border-input bg-background pr-1 transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring">
                 <input
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
@@ -406,7 +406,7 @@ export function HomeView({ page }: PageProps) {
         <div className="grid gap-5">
           {!sections.isHidden('vault') && (
           <Card className="group/sect relative overflow-hidden">
-            <ShineBorder shineColor={['oklch(0.75 0.09 70)', 'oklch(0.473 0.078 46)']} duration={12} />
+            <ShineBorder shineColor={['var(--gifted)', 'var(--brand)']} duration={12} />
             <CardHeader>
               <CardTitle>Millionaire's vault</CardTitle>
               <CardAction>
@@ -417,7 +417,7 @@ export function HomeView({ page }: PageProps) {
               <span className="font-display text-2xl font-semibold tabular-nums">
                 {vaultNum > 0 ? <NumberRoll value={vaultNum} /> : page.vault ?? '–'}
               </span>
-              <Progress value={Math.min(100, (vaultNum / VAULT_GOAL) * 100)} className="[&>div]:bg-brand" />
+              <Progress value={Math.min(100, (vaultNum / VAULT_GOAL) * 100)} className="[&>div]:bg-brand-fill" />
               <span className="text-[12px] text-muted-foreground">of 20,000,000 points · everyone gets 2 wedges</span>
               <Button asChild variant="outline" size="sm" className="mt-1 w-fit">
                 <a href="/millionaires/pot.php">Donate up to 2,000/day</a>

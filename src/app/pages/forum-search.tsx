@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Spinner } from '@/components/ui/spinner'
 import { FacetOptions, FilterBar, FilterFacet, FilterRow, FilterSearch, FilterSelect } from '@/components/filters'
+import { mutedUserColor } from '@/lib/colors'
 
 const SEARCH_URL = 'https://cdn.myanonamouse.net/forums/json/search.php'
 const PAGE_SIZE = 25
@@ -80,7 +81,7 @@ function ResultCard({ r }: { r: Row }) {
         <a href={r.topic?.href ?? '#'} className="text-[14px] font-medium leading-snug hover:text-brand hover:underline">{r.topic?.name}</a>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pt-1 text-[12px] text-muted-foreground">
           {r.board && <a href={r.board.href}><Badge variant="secondary" className="text-[10.5px] hover:bg-secondary/80">{r.board.name}</Badge></a>}
-          {r.author && <span>by <span style={{ color: r.author.color ?? undefined }}>{r.author.name}</span></span>}
+          {r.author && <span>by <span style={{ color: mutedUserColor(r.author.color) }}>{r.author.name}</span></span>}
           {r.at && <span title={r.at}>· {relTime(r.at)}</span>}
         </div>
       </div>

@@ -215,7 +215,7 @@ function useFoldCount(ref: RefObject<HTMLDivElement | null>, max: number): numbe
 
 // Active row: soft fill plus accent text only.
 const ITEM_ACTIVE =
-  'transition-colors duration-150 data-[active=true]:bg-brand-soft data-[active=true]:font-medium data-[active=true]:text-brand'
+  'transition-colors duration-150 data-[active=true]:bg-brand-soft data-[active=true]:font-medium data-[active=true]:text-accent-foreground'
 
 function Badge({ value, accent }: { value: NavItem['badge']; accent?: boolean }) {
   if (value == null || value === 0) return null
@@ -224,7 +224,7 @@ function Badge({ value, accent }: { value: NavItem['badge']; accent?: boolean })
       key={String(value)}
       className={cn(
         'badge-pop font-mono text-[11px] font-normal',
-        accent ? 'rounded-full bg-brand-soft text-accent-foreground' : 'bg-transparent text-sidebar-foreground/60'
+        accent ? 'rounded-full bg-brand-soft text-accent-foreground' : 'bg-transparent text-muted-foreground'
       )}
     >
       {value}
@@ -279,7 +279,7 @@ function ItemRow({ item }: { item: NavItem }) {
         {item.icon && <item.icon />}
         {/* Collapsed rail hides badges, so a dot keeps live counts visible. */}
         {item.accent && item.badge != null && (
-          <span className="pointer-events-none absolute top-1 right-1 hidden size-1.5 rounded-full bg-brand group-data-[collapsible=icon]:block" />
+          <span className="pointer-events-none absolute top-1 right-1 hidden size-1.5 rounded-full bg-brand-fill group-data-[collapsible=icon]:block" />
         )}
         <span>{item.title}</span>
       </a>
@@ -301,7 +301,7 @@ function GroupFlyout({ group }: { group: NavGroup }) {
       <PopoverTrigger
         openOnHover
         delay={120}
-        className="group/head flex w-full items-center justify-between rounded-md px-2 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="group/head flex w-full items-center justify-between rounded-md px-2 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
       >
         <SidebarGroupLabel className="px-0 group-hover/head:text-sidebar-foreground">
           {group.label}

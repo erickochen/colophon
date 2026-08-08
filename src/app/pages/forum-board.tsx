@@ -14,7 +14,7 @@ function TopicRow({ t }: { t: NonNullable<ReturnType<typeof extractBoard>>['topi
     <TableRow className={t.sticky ? 'bg-brand-soft/40' : undefined}>
       <TableCell className="whitespace-normal">
         <div className="flex items-start gap-2">
-          {t.hasNew && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-brand" title="new posts" />}
+          {t.hasNew && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-brand-fill" title="new posts" />}
           <div className="min-w-0 max-w-[64ch]">
             <div className="flex flex-wrap items-center gap-1.5">
               {t.sticky && <Pin className="size-3.5 shrink-0 text-brand" />}

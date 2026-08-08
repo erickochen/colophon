@@ -133,7 +133,12 @@ function ClientCard({ c, testing, onTest }: { c: Client; testing: boolean; onTes
 
 /* Sitewide connectability per protocol, from the shell status. */
 function ProtocolDot({ label, state }: { label: string; state: boolean | null }) {
-  const dot = state == null ? 'bg-muted-foreground/40' : state ? 'bg-ok' : 'bg-warn'
+  const dot =
+    state == null
+      ? 'bg-transparent ring-1 ring-muted-foreground/50'
+      : state
+        ? 'bg-ok-fill ring-1 ring-foreground/20'
+        : 'bg-transparent ring-2 ring-warn'
   const word = state == null ? 'unknown' : state ? 'connectable' : 'offline'
   return (
     <span className="flex items-center gap-1.5">
