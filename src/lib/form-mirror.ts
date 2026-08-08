@@ -58,7 +58,17 @@ export function asBooleanSelect(c: MirrorControl): { onValue: string; offValue: 
   else if (on.test(norm(b.label)) && off.test(norm(a.label))) { onOpt = b; offOpt = a }
   if (!onOpt || !offOpt) return null
   const label = (onOpt.label.match(/(?:send me|receive|to me)\s+(.+)$/i)?.[1] ?? onOpt.label.replace(/^(allow|enable|show|yes,?)\s+/i, '')).trim()
-  return { onValue: onOpt.value, offValue: offOpt.value, label }
+  return { onValue: onOpt.value, offValue: offOpt.value, label: leadCap(label) }
+}
+
+/** Lift the first letter of a label taken from mid-sentence ("...send me
+ * points"). Words that carry their own capitals stay untouched: "FL wedges",
+ * "eBook". */
+function leadCap(s: string): string {
+  const first = s[0] ?? ''
+  if (first !== first.toLowerCase() || first === first.toUpperCase()) return s
+  const rest = s.split(/\s/)[0].slice(1)
+  return rest === rest.toLowerCase() ? first.toUpperCase() + s.slice(1) : s
 }
 
 /** Strip label decorations MAM uses around raw inputs ("No:", "yes  "). */

@@ -1,4 +1,4 @@
-import { useReducer, useState, type ReactNode } from 'react'
+import { createContext, useContext, useId, useReducer, useState, type ReactNode } from 'react'
 import { Paperclip, RotateCcw, Save } from 'lucide-react'
 import { asBooleanRadio, asBooleanSelect, cleanLabel, type MirrorControl, type MirrorForm, type MirrorRow } from '@/lib/form-mirror'
 import { BBComposer } from '@/components/bb-composer'
@@ -27,6 +27,10 @@ const SHORT_OPTION = 20
 
 type Layout = 'settings' | 'compose'
 
+/** Id of the row title a widget sits in. Widgets borrow it through
+ * `aria-labelledby`, so a switch is announced with the setting it belongs to. */
+const RowLabelId = createContext<string | undefined>(undefined)
+
 /** The label a control carries itself: checkbox text or the allow/deny wording
  * of a boolean select. Rows lift this to the left column so every widget can sit
  * on one shared right-hand alignment line. */
@@ -53,9 +57,10 @@ function isCompact(c: MirrorControl): boolean {
   }
 }
 
-function BoolSwitch({ on, off, onChange }: { on: { el: HTMLInputElement }; off: { el: HTMLInputElement }; onChange: () => void }) {
+function BoolSwitch({ on, off, onChange, labelledBy }: { on: { el: HTMLInputElement }; off: { el: HTMLInputElement }; onChange: () => void; labelledBy?: string }) {
   return (
     <Switch
+      aria-labelledby={labelledBy}
       defaultChecked={on.el.checked}
       onCheckedChange={(v) => {
         on.el.checked = v
@@ -88,15 +93,17 @@ function MirrorComposer({ c, onChange }: { c: Extract<MirrorControl, { kind: 'te
  * `wide` is set by compose forms, where fields fill the row instead of sitting
  * at the right edge like a setting. */
 function Widget({ c, onChange, wide }: { c: MirrorControl; onChange: () => void; wide?: boolean }) {
+  const labelledBy = useContext(RowLabelId)
   switch (c.kind) {
     case 'radio': {
       const bool = asBooleanRadio(c)
-      if (bool) return <BoolSwitch on={bool.on} off={bool.off} onChange={onChange} />
+      if (bool) return <BoolSwitch on={bool.on} off={bool.off} onChange={onChange} labelledBy={labelledBy} />
       const short = c.options.length <= 3 && c.options.every((o) => cleanLabel(o.label).length <= SHORT_OPTION)
       const value = c.options.find((o) => o.el.checked)?.value
       if (short) {
         return (
           <ToggleGroup
+            aria-labelledby={labelledBy}
             type="single"
             variant="outline"
             value={value}
@@ -116,6 +123,7 @@ function Widget({ c, onChange, wide }: { c: MirrorControl; onChange: () => void;
       // Descriptive options: the wording IS the explanation, so keep it in full.
       return (
         <RadioGroup
+          aria-labelledby={labelledBy}
           value={value}
           onValueChange={(v) => {
             for (const o of c.options) o.el.checked = o.value === v
@@ -136,6 +144,7 @@ function Widget({ c, onChange, wide }: { c: MirrorControl; onChange: () => void;
     case 'checkbox':
       return (
         <Switch
+          aria-labelledby={labelledBy}
           defaultChecked={c.el.checked}
           onCheckedChange={(v) => {
             c.el.checked = v === true
@@ -149,6 +158,7 @@ function Widget({ c, onChange, wide }: { c: MirrorControl; onChange: () => void;
       if (bool) {
         return (
           <Switch
+            aria-labelledby={labelledBy}
             defaultChecked={c.el.value === bool.onValue}
             onCheckedChange={(v) => {
               c.el.value = v ? bool.onValue : bool.offValue
@@ -173,7 +183,7 @@ function Widget({ c, onChange, wide }: { c: MirrorControl; onChange: () => void;
             onChange()
           }}
         >
-          <SelectTrigger size="sm" className="w-fit min-w-44 max-w-full"><SelectValue placeholder="Choose…" /></SelectTrigger>
+          <SelectTrigger aria-labelledby={labelledBy} size="sm" className="w-fit min-w-44 max-w-full"><SelectValue placeholder="Choose…" /></SelectTrigger>
           <SelectContent className="max-h-72">
             {[...groups].map(([group, options]) => {
               const items = options
@@ -194,6 +204,7 @@ function Widget({ c, onChange, wide }: { c: MirrorControl; onChange: () => void;
     case 'text':
       return (
         <Input
+          aria-labelledby={labelledBy}
           type={c.inputType === 'text' ? 'text' : c.inputType}
           defaultValue={c.el.value}
           placeholder={c.placeholder ?? (wide || c.el.value ? undefined : 'site default')}
@@ -228,25 +239,30 @@ function Explain({ noteHtml, text }: { noteHtml?: string | null; text?: string |
 }
 
 /** Standard settings row: label + explanation left, control on the shared right
- * alignment line. Every compact row in every tab uses this exact geometry. */
+ * alignment line. Every compact row in every tab uses this exact geometry.
+ * The label claims 8rem before the control drops to a line of its own, so a
+ * wide control (a segmented group) never pushes the row past its card. */
 function SettingRow({
   title, noteHtml, text, children, dense, flush,
 }: { title?: string | null; noteHtml?: string | null; text?: string | null; children: ReactNode; dense?: boolean; flush?: boolean }) {
+  const labelId = useId()
   const tall = (noteHtml?.length ?? 0) > 120
   return (
     <div
       className={cn(
-        'grid w-full grid-cols-[minmax(0,1fr)_auto] gap-x-8',
+        'flex w-full flex-wrap gap-x-8 gap-y-3',
         tall ? 'items-start' : 'items-center',
         flush ? 'px-0' : 'px-6',
         dense ? 'py-2.5' : 'py-4'
       )}
     >
-      <div className="min-w-0">
-        {title && <div className="text-[13.5px] font-medium leading-snug">{title}</div>}
+      <div className="min-w-0 grow basis-32">
+        {title && <div id={labelId} className="text-[13.5px] font-medium leading-snug">{title}</div>}
         <Explain noteHtml={noteHtml} text={text} />
       </div>
-      <div className={cn('flex shrink-0 justify-end', tall && 'pt-0.5')}>{children}</div>
+      <div className={cn('flex shrink-0 justify-end', tall && 'pt-0.5')}>
+        <RowLabelId.Provider value={title ? labelId : undefined}>{children}</RowLabelId.Provider>
+      </div>
     </div>
   )
 }
@@ -255,15 +271,18 @@ function SettingRow({
 function StackedRow({
   title, noteHtml, text, children,
 }: { title?: string | null; noteHtml?: string | null; text?: string | null; children: ReactNode }) {
+  const labelId = useId()
   return (
     <div className="grid gap-3 px-6 py-4">
       {(title || noteHtml || text) && (
         <div className="min-w-0">
-          {title && <div className="text-[13.5px] font-medium leading-snug">{title}</div>}
+          {title && <div id={labelId} className="text-[13.5px] font-medium leading-snug">{title}</div>}
           <Explain noteHtml={noteHtml} text={text} />
         </div>
       )}
-      <div className="grid w-full justify-items-start gap-2.5">{children}</div>
+      <div className="grid w-full justify-items-start gap-2.5">
+        <RowLabelId.Provider value={title ? labelId : undefined}>{children}</RowLabelId.Provider>
+      </div>
     </div>
   )
 }
@@ -288,6 +307,7 @@ function StackedControls({ row, onChange }: { row: MirrorRow; onChange: () => vo
 }
 
 function FieldRow({ row, onChange, layout }: { row: MirrorRow; onChange: () => void; layout: Layout }) {
+  const groupId = useId()
   const curated = !row.noteHtml ? CURATED_NOTES[row.controls[0]?.name ?? ''] ?? null : null
 
   // Compose forms (new topic, PM, comment) are for writing, not for tweaking:
@@ -307,14 +327,19 @@ function FieldRow({ row, onChange, layout }: { row: MirrorRow; onChange: () => v
     )
   }
 
-  // Group of compact controls (e.g. "Receiving gifts"): one sub-row per control
-  // so all switches land on the same right edge instead of trailing their label.
+  // Group of compact controls (e.g. "Receiving gifts"): a caption over one
+  // sub-row per control. Every switch lands on the shared right edge, while the
+  // caption stays visibly a heading rather than a setting of its own.
   if (row.controls.length > 1 && row.controls.every(isCompact) && row.controls.every((c) => ownLabel(c))) {
     return (
-      <div className="py-1">
+      <div className="py-1" role="group" aria-labelledby={row.label ? groupId : undefined}>
         {(row.label || row.noteHtml || curated) && (
-          <div className="px-6 pb-0.5 pt-3">
-            {row.label && <div className="text-[13.5px] font-medium leading-snug">{row.label}</div>}
+          <div className="px-6 pb-1 pt-3.5">
+            {row.label && (
+              <div id={groupId} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {row.label}
+              </div>
+            )}
             <Explain noteHtml={row.noteHtml} text={curated} />
           </div>
         )}
