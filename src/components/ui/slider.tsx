@@ -9,8 +9,12 @@ function Slider({
   value,
   min = 0,
   max = 100,
+  thumbLabel,
   ...props
-}: React.ComponentProps<typeof SliderPrimitive.Root>) {
+}: React.ComponentProps<typeof SliderPrimitive.Root> & {
+  /** Accessible name for the thumb; it carries the nested range input. */
+  thumbLabel?: string
+}) {
   const _values = React.useMemo(() => {
     const v = value ?? defaultValue
     if (Array.isArray(v)) return v
@@ -44,12 +48,14 @@ function Slider({
               "absolute rounded-full bg-primary data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full"
             )}
           />
+          {/* The thumb wraps the focusable range input, so the ring keys off that. */}
           {Array.from({ length: _values.length }, (_, index) => (
             <SliderPrimitive.Thumb
               data-slot="slider-thumb"
               key={index}
               index={index}
-              className="block size-4 shrink-0 rounded-full border border-primary bg-white shadow-sm ring-ring/50 transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
+              getAriaLabel={thumbLabel ? () => thumbLabel : undefined}
+              className="block size-4 shrink-0 rounded-full border border-primary bg-white shadow-sm ring-ring/50 transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden has-[:focus-visible]:ring-4 disabled:pointer-events-none disabled:opacity-50"
             />
           ))}
         </SliderPrimitive.Track>

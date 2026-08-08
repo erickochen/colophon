@@ -29,7 +29,7 @@ import { DonateView } from '@/app/pages/donate'
 import { RssView } from '@/app/pages/rss'
 import { ChatView } from '@/app/pages/chat'
 import { RulesView, FaqView } from '@/app/pages/knowledge'
-import { MillionaireVaultView } from '@/app/pages/millionaire-vault'
+import { MillionaireVaultView, VaultDonateView } from '@/app/pages/millionaire-vault'
 import { BookClubsView } from '@/app/pages/bookclubs'
 import { LottoView } from '@/app/pages/lotto'
 import { NewMembersView } from '@/app/pages/newmembers'
@@ -70,7 +70,6 @@ const DOC_PAGES = new Set([
 const SIMPLE_FORM_PAGES = new Set([
   '/tor/requestUpload.php',
   '/tor/editRequest.php',
-  '/millionaires/donate.php',
   '/comment.php',
   '/banner/index.php',
   '/tor/newRequest.php',
@@ -126,6 +125,7 @@ export function resolveRoute(loc: Location): Route {
     return new URLSearchParams(loc.search).has('gid') ? { id: 'guide', View: GuideView } : { id: 'guides', View: GuidesView }
   }
   if (p === '/millionaires/pot.php') return { id: 'vault', View: MillionaireVaultView }
+  if (p === '/millionaires/donate.php') return { id: 'vault-donate', View: VaultDonateView }
   if (p === '/tor/bookclubs.php') return { id: 'bookclubs', View: BookClubsView }
   if (p === '/play_lotto.php') return { id: 'lotto', View: LottoView }
   if (p === '/newUsers.php') return { id: 'newmembers', View: NewMembersView }
