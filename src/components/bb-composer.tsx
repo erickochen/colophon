@@ -405,7 +405,7 @@ export function BBComposer({
             className={cn(
               'block w-full overflow-y-auto bg-transparent px-3.5 py-2.5 text-[13.5px] leading-normal outline-none max-h-[70vh]',
               '[&_a]:font-medium [&_a]:text-brand [&_a]:underline [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-5',
-              '[&_blockquote]:my-1 [&_blockquote]:rounded-md [&_blockquote]:bg-muted/60 [&_blockquote]:px-3 [&_blockquote]:py-1.5 [&_blockquote]:text-muted-foreground',
+              '[&_blockquote]:my-1 [&_blockquote]:rounded-md [&_blockquote]:bg-muted [&_blockquote]:px-3 [&_blockquote]:py-1.5 [&_blockquote]:text-muted-foreground',
               QUOTE_CLASSES,
               '[&_pre]:my-1 [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:font-mono [&_pre]:text-[12.5px]',
               minHeightClass

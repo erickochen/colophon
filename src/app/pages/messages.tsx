@@ -126,7 +126,7 @@ function QuotedHistory({
       <CollapsibleContent>
         <div className="grid gap-2 pt-2">
           {quotes.map((q, i) => (
-            <div key={i} className="rounded-md bg-muted/60 px-3 py-2">
+            <div key={i} className="rounded-md bg-muted px-3 py-2">
               <div className="pb-1 text-[11px] font-semibold text-muted-foreground">{q.author} wrote</div>
               <RichHtml html={q.html} className={cn(POST_SPACING, 'text-[12.5px] text-foreground/75')} />
             </div>
