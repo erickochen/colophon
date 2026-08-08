@@ -12,7 +12,7 @@ export type MirrorControl =
   | { kind: 'file'; name: string; el: HTMLInputElement }
 
 export interface MirrorRow {
-  kind: 'field' | 'section'
+  kind: 'field' | 'section' | 'static'
   label: string
   noteHtml: string | null
   controls: MirrorControl[]
@@ -56,6 +56,9 @@ export function asBooleanSelect(c: MirrorControl): { onValue: string; offValue: 
   let offOpt: { value: string; label: string } | null = null
   if (on.test(norm(a.label)) && off.test(norm(b.label))) { onOpt = a; offOpt = b }
   else if (on.test(norm(b.label)) && off.test(norm(a.label))) { onOpt = b; offOpt = a }
+  // "X" against "Do not X" is the same toggle with the on-side implicit.
+  else if (off.test(norm(b.label)) && !off.test(norm(a.label))) { onOpt = a; offOpt = b }
+  else if (off.test(norm(a.label)) && !off.test(norm(b.label))) { onOpt = b; offOpt = a }
   if (!onOpt || !offOpt) return null
   const label = (onOpt.label.match(/(?:send me|receive|to me)\s+(.+)$/i)?.[1] ?? onOpt.label.replace(/^(allow|enable|show|yes,?)\s+/i, '')).trim()
   return { onValue: onOpt.value, offValue: offOpt.value, label: leadCap(label) }
@@ -175,9 +178,12 @@ function textAround(input: Element, cell: Element): string {
 
 /** A control MAM hides with inline display:none/visibility:hidden is not active
  * yet: cascading forms reveal fields step by step, like the ticket message box
- * that appears once a topic is picked. Those stay out of the mirror. */
+ * that appears once a topic is picked. Those stay out of the mirror. MAM also
+ * hides checkboxes behind its own toggle widgets with a hideMe class (searchIn,
+ * browse_lang, cats); those stay out too or every group renders twice. */
 function isInlineHidden(el: Element, stop: Element): boolean {
   for (let n: Element | null = el; n && n !== stop.parentElement; n = n.parentElement) {
+    if (n.classList.contains('hideMe') || n.classList.contains('hideme') || n.classList.contains('hiddenInput')) return true
     const s = (n as HTMLElement).style
     if (s && (s.display === 'none' || s.visibility === 'hidden')) return true
   }
@@ -310,6 +316,10 @@ export function parseForm(form: HTMLFormElement, titleEl?: Element | null, retri
       const text = texts.join(' ')
       if (texts.length === 1 && text.length <= 80 && rows.at(-1)?.label !== cleanLabel(text)) {
         rows.push({ kind: 'section', label: cleanLabel(text), noteHtml: null, controls: [] })
+      } else if (texts.length >= 2 && texts[0].length <= 80 && cells.every((c) => c.tagName !== 'TH')) {
+        // Label + value with no control: a fact MAM states ("Tracker HTTPS:
+        // you are on the default tracker"). Kept as a read-only row.
+        rows.push({ kind: 'static', label: cleanLabel(texts[0]), noteHtml: texts.slice(1).join(' · '), controls: [] })
       }
       continue
     }

@@ -1,6 +1,8 @@
-import { createContext, Fragment, useContext, useId, useReducer, useState, type ReactNode } from 'react'
+import { createContext, Fragment, useContext, useEffect, useId, useReducer, useRef, useState, type ReactNode } from 'react'
 import { Paperclip, RotateCcw, Save } from 'lucide-react'
 import { asBooleanRadio, asBooleanSelect, cleanLabel, type MirrorControl, type MirrorForm, type MirrorRow } from '@/lib/form-mirror'
+import { registerInvalidAnchor } from '@/lib/invalid-anchor'
+import { rewriteFor, STATIC_LABELS } from '@/lib/pref-labels'
 import { submitGuarded } from '@/lib/form-submit'
 import { BBComposer } from '@/components/bb-composer'
 import { RichHtml } from '@/app/shell/bits'
@@ -20,9 +22,12 @@ import { cn } from '@/lib/utils'
 /** Help for settings MAM itself leaves unexplained, keyed by input name. Only
  * add an entry when the page shows no explanation of its own. */
 const CURATED_NOTES: Record<string, string> = {
-  acceptpms: 'Who is allowed to send you private messages.',
   country: 'Shown as a flag next to your name on your profile.',
+  disableWysiwyg: 'Rich text editing for posts and messages. Screen readers may work better with it off.',
 }
+
+/** Notes MAM prints that a renamed row makes contradictory or redundant. */
+const DROP_NOTES = new Set(['disableWysiwyg', 'acceptpms'])
 
 const SHORT_OPTION = 20
 
@@ -34,8 +39,10 @@ const RowLabelId = createContext<string | undefined>(undefined)
 
 /** The label a control carries itself: checkbox text or the allow/deny wording
  * of a boolean select. Rows lift this to the left column so every widget can sit
- * on one shared right-hand alignment line. */
+ * on one shared right-hand alignment line. Rewritten names win over MAM's. */
 function ownLabel(c: MirrorControl): string | null {
+  const rewrite = rewriteFor(c.name)
+  if (rewrite) return rewrite.title
   if (c.kind === 'checkbox') return cleanLabel(c.label) || null
   const bool = asBooleanSelect(c)
   return bool?.label || null
@@ -58,14 +65,15 @@ function isCompact(c: MirrorControl): boolean {
   }
 }
 
-function BoolSwitch({ on, off, onChange, labelledBy }: { on: { el: HTMLInputElement }; off: { el: HTMLInputElement }; onChange: () => void; labelledBy?: string }) {
+function BoolSwitch({ on, off, onChange, labelledBy, invert }: { on: { el: HTMLInputElement }; off: { el: HTMLInputElement }; onChange: () => void; labelledBy?: string; invert?: boolean }) {
+  const [yes, no] = invert ? [off, on] : [on, off]
   return (
     <Switch
       aria-labelledby={labelledBy}
-      defaultChecked={on.el.checked}
+      defaultChecked={yes.el.checked}
       onCheckedChange={(v) => {
-        on.el.checked = v
-        off.el.checked = !v
+        yes.el.checked = v
+        no.el.checked = !v
         onChange()
       }}
     />
@@ -95,10 +103,11 @@ function MirrorComposer({ c, onChange }: { c: Extract<MirrorControl, { kind: 'te
  * at the right edge like a setting. */
 function Widget({ c, onChange, wide }: { c: MirrorControl; onChange: () => void; wide?: boolean }) {
   const labelledBy = useContext(RowLabelId)
+  const invert = rewriteFor(c.name)?.invert
   switch (c.kind) {
     case 'radio': {
       const bool = asBooleanRadio(c)
-      if (bool) return <BoolSwitch on={bool.on} off={bool.off} onChange={onChange} labelledBy={labelledBy} />
+      if (bool) return <BoolSwitch on={bool.on} off={bool.off} onChange={onChange} labelledBy={labelledBy} invert={invert} />
       const short = c.options.length <= 3 && c.options.every((o) => cleanLabel(o.label).length <= SHORT_OPTION)
       const value = c.options.find((o) => o.el.checked)?.value
       if (short) {
@@ -157,12 +166,13 @@ function Widget({ c, onChange, wide }: { c: MirrorControl; onChange: () => void;
     case 'select': {
       const bool = asBooleanSelect(c)
       if (bool) {
+        const [onV, offV] = invert ? [bool.offValue, bool.onValue] : [bool.onValue, bool.offValue]
         return (
           <Switch
             aria-labelledby={labelledBy}
-            defaultChecked={c.el.value === bool.onValue}
+            defaultChecked={c.el.value === onV}
             onCheckedChange={(v) => {
-              c.el.value = v ? bool.onValue : bool.offValue
+              c.el.value = v ? onV : offV
               c.el.dispatchEvent(new Event('change', { bubbles: true }))
               onChange()
             }}
@@ -339,74 +349,104 @@ function GroupRow({
 }
 
 function FieldRow({ row, onChange, layout }: { row: MirrorRow; onChange: () => void; layout: Layout }) {
-  const curated = !row.noteHtml ? CURATED_NOTES[row.controls[0]?.name ?? ''] ?? null : null
+  const anchor = useRef<HTMLDivElement>(null)
+  const [invalid, setInvalid] = useState<string | null>(null)
 
-  // Compose forms (new topic, PM, comment) are for writing, not for tweaking:
-  // every field gets its label on top and the full width underneath.
-  if (layout === 'compose') {
-    return (
-      <StackedRow title={row.label} noteHtml={row.noteHtml} text={curated}>
-        {row.controls.map((c, i) => (
-          <div key={i} className="w-full">
-            {row.controls.length > 1 && ownLabel(c) && (
-              <div className="pb-1 text-[12.5px] text-muted-foreground">{ownLabel(c)}</div>
-            )}
-            <Widget c={c} onChange={onChange} wide />
-          </div>
-        ))}
-      </StackedRow>
-    )
+  // Every original control this row mirrors points back here, so a rejected
+  // validity check has a visible row to highlight.
+  useEffect(() => {
+    const els = row.controls.flatMap((c) => (c.kind === 'radio' ? c.options.map((o) => o.el) : [c.el]))
+    const offs = els.map((el) => registerInvalidAnchor(el, { node: () => anchor.current, mark: setInvalid }))
+    return () => offs.forEach((off) => off())
+  }, [row])
+
+  const change = () => {
+    setInvalid(null)
+    onChange()
   }
 
-  // A handful of labelled controls under one row label. Past four they outgrow
-  // the right column, so those fall through to the full-width stacked row.
-  if (
-    row.label &&
-    row.controls.length > 1 &&
-    row.controls.length <= 4 &&
-    row.controls.every(isCompact) &&
-    row.controls.every((c) => ownLabel(c))
-  ) {
-    return <GroupRow row={row} curated={curated} onChange={onChange} />
-  }
-
-  const single = row.controls.length === 1 ? row.controls[0] : null
-
-  if (single && isCompact(single)) {
-    const own = ownLabel(single)
-    // No row label? The control's own wording becomes the title. Otherwise it
-    // reads as the explanation under the title - never next to the switch.
-    const title = row.label || own
-    const text = row.label && own && own !== row.label ? own : curated
+  if (row.kind === 'static') {
     return (
-      <SettingRow title={title} noteHtml={row.noteHtml} text={text}>
-        <Widget c={single} onChange={onChange} />
+      <SettingRow title={STATIC_LABELS[row.label] ?? row.label}>
+        <span className="text-[13px] text-muted-foreground">{row.noteHtml}</span>
       </SettingRow>
     )
   }
 
+  const firstName = row.controls[0]?.name
+  const rewrite = row.controls.length === 1 ? rewriteFor(firstName) : null
+  const rowLabel = rewrite?.title ?? row.label
+  const noteHtml = firstName && DROP_NOTES.has(firstName) ? null : row.noteHtml
+  const curated = !noteHtml ? CURATED_NOTES[firstName ?? ''] ?? null : null
+
+  const body = (() => {
+    // Compose forms (new topic, PM, comment) are for writing, not for tweaking:
+    // every field gets its label on top and the full width underneath.
+    if (layout === 'compose') {
+      return (
+        <StackedRow title={rowLabel} noteHtml={noteHtml} text={curated}>
+          {row.controls.map((c, i) => (
+            <div key={i} className="w-full">
+              {row.controls.length > 1 && ownLabel(c) && (
+                <div className="pb-1 text-[12.5px] text-muted-foreground">{ownLabel(c)}</div>
+              )}
+              <Widget c={c} onChange={change} wide />
+            </div>
+          ))}
+        </StackedRow>
+      )
+    }
+
+    // A handful of labelled controls under one row label. Past four they outgrow
+    // the right column, so those fall through to the full-width stacked row.
+    if (
+      row.label &&
+      row.controls.length > 1 &&
+      row.controls.length <= 4 &&
+      row.controls.every(isCompact) &&
+      row.controls.every((c) => ownLabel(c))
+    ) {
+      return <GroupRow row={row} curated={curated} onChange={change} />
+    }
+
+    const single = row.controls.length === 1 ? row.controls[0] : null
+
+    if (single && isCompact(single)) {
+      const own = ownLabel(single)
+      // No row label? The control's own wording becomes the title. Otherwise it
+      // reads as the explanation under the title - never next to the switch.
+      const title = rowLabel || own
+      const text = row.label && own && own !== title ? own : curated
+      return (
+        <SettingRow title={title} noteHtml={noteHtml} text={text}>
+          <Widget c={single} onChange={change} />
+        </SettingRow>
+      )
+    }
+
+    return (
+      <StackedRow title={rowLabel} noteHtml={noteHtml} text={curated}>
+        <StackedControls row={row} onChange={change} />
+      </StackedRow>
+    )
+  })()
+
   return (
-    <StackedRow title={row.label} noteHtml={row.noteHtml} text={curated}>
-      <StackedControls row={row} onChange={onChange} />
-    </StackedRow>
+    <div ref={anchor} className={invalid ? 'rounded-lg ring-2 ring-destructive/45' : undefined}>
+      {body}
+      {invalid && <p className="-mt-1 px-6 pb-3 text-[12px] leading-normal text-destructive">{invalid}</p>}
+    </div>
   )
 }
 
-export function FormMirrorView({
-  form, submitLabel = 'Save changes', layout = 'settings', extraActions = [],
-}: {
-  form: MirrorForm
-  submitLabel?: string
-  layout?: Layout
-  /** Buttons the original page offers besides submit (Preview, Check All, ...). */
-  extraActions?: { label: string; el: HTMLElement }[]
-}) {
+/** The section-grouped cards for a set of mirrored rows, without the save bar.
+ * Bespoke views mix these leftovers in with their own cards. */
+export function MirrorCards({ rows, layout = 'settings' }: { rows: MirrorRow[]; layout?: Layout }) {
   const [, bump] = useReducer((x: number) => x + 1, 0)
 
-  // Group settings into one card per section for clear, contained grouping.
   const groups: { title: string | null; note: string | null; rows: MirrorRow[] }[] = []
   let cur: { title: string | null; note: string | null; rows: MirrorRow[] } = { title: null, note: null, rows: [] }
-  for (const row of form.rows) {
+  for (const row of rows) {
     if (row.kind === 'section') {
       if (cur.rows.length) groups.push(cur)
       cur = { title: row.label, note: row.noteHtml, rows: [] }
@@ -417,7 +457,7 @@ export function FormMirrorView({
   if (cur.rows.length) groups.push(cur)
 
   return (
-    <div className="grid gap-4">
+    <>
       {groups.map((g, gi) => (
         <Card key={gi} className="gap-0 py-0">
           {g.title && (
@@ -437,13 +477,36 @@ export function FormMirrorView({
           </CardContent>
         </Card>
       ))}
+    </>
+  )
+}
+
+export function FormMirrorView({
+  form, submitLabel = 'Save changes', layout = 'settings', extraActions = [], tail,
+}: {
+  form: MirrorForm
+  submitLabel?: string
+  layout?: Layout
+  /** Buttons the original page offers besides submit (Preview, Check All, ...). */
+  extraActions?: { label: string; el: HTMLElement }[]
+  /** Bespoke cards that belong to the same form, kept above the save bar. */
+  tail?: ReactNode
+}) {
+  // Revert remounts the cards, so every uncontrolled widget re-reads the
+  // freshly reset originals.
+  const [rev, bumpRev] = useReducer((x: number) => x + 1, 0)
+
+  return (
+    <div className="grid gap-4">
+      <MirrorCards key={rev} rows={form.rows} layout={layout} />
+      {tail}
       <div className="sticky bottom-4 z-10 mt-1 flex items-center justify-end gap-2 rounded-xl bg-background/95 px-3 py-2.5 shadow-lg backdrop-blur">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => {
             form.el.reset()
-            bump()
+            bumpRev()
             toast.info('Changes reverted')
           }}
         >

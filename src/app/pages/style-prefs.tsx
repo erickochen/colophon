@@ -1,7 +1,9 @@
 import { useMemo, useReducer, useState } from 'react'
+import { ChevronDown, ChevronUp, GripVertical, RotateCcw } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { MirrorSelect, PrefCard, SaveBar, SettingRow } from '@/app/pages/prefs-bits'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -129,18 +131,21 @@ function labelOf(el: Element): string {
   return clean(c.textContent).replace(/:$/, '')
 }
 
-/** Mirrors an original text/number/url input into a shadcn Input. */
+/** Mirrors an original text/number/url input into a shadcn Input. A value the
+ * original's pattern rejects shows up right away instead of at save time. */
 function InputMirror({ el, className }: { el: HTMLInputElement; className?: string }) {
   const [v, setV] = useState(el.value)
   const type = el.type === 'number' ? 'number' : el.type === 'url' ? 'url' : 'text'
+  const bad = v.trim() !== '' && !el.checkValidity()
   return (
     <Input
       type={type}
       value={v}
       placeholder={el.getAttribute('placeholder') ?? undefined}
       spellCheck={false}
+      aria-invalid={bad || undefined}
       onChange={(e) => { setV(e.target.value); el.value = e.target.value }}
-      className={cn('h-8 text-[13px]', className)}
+      className={cn('h-8 text-[13px]', bad && 'ring-2 ring-destructive/45')}
     />
   )
 }
@@ -175,6 +180,125 @@ function ColorControl({ el, dark }: { el: HTMLInputElement; dark: string }) {
         />
       </div>
     </div>
+  )
+}
+
+// --- order groups ----------------------------------------------------------
+
+const ORDER_FORMAT = /order number/i
+
+/** A matrix whose every field is an order number is a sequence, not a form. */
+function isOrderMatrix(fields: Field[]): boolean {
+  return fields.length > 1 && fields.every((f) => ORDER_FORMAT.test(f.format))
+}
+
+/** Render order the torrent page uses for groups whose defaults are all zero,
+ * so the list starts in the order the page actually shows. Unlisted items
+ * follow in MAM's own field order. Keyed by the group's shared name prefix. */
+const LIVE_ORDER: Record<string, string[]> = {
+  'Torrent Page|Torrent': ['Ratio', 'Download', 'Seed/Leech/Snatch', 'Reseed Request', 'Added', 'Uploader'],
+  'Torrent Page|File Info': ['Size', 'Files', 'Filetypes'],
+}
+
+function orderGroupKey(fields: Field[]): string {
+  const m = fields[0]?.el.name.match(/^style\[([^\]]+)\]\[([^\]]+)\]/)
+  return m ? `${m[1]}|${m[2]}` : ''
+}
+
+/** Current effective sequence: explicit values first, then theme defaults,
+ * ties broken by the measured live order. */
+function sortOrderFields(fields: Field[]): Field[] {
+  const seed = LIVE_ORDER[orderGroupKey(fields)] ?? []
+  const keyed = fields.map((f, i) => {
+    const explicit = f.el.value.trim()
+    const v = explicit !== '' ? parseInt(explicit, 10) : parseInt(f.dark, 10)
+    const s = seed.indexOf(f.label)
+    return { f, p: Number.isFinite(v) ? v : 0, t: s === -1 ? seed.length + i : s }
+  })
+  return keyed.sort((a, b) => a.p - b.p || a.t - b.t).map((k) => k.f)
+}
+
+/** The 62 position fields as a list you rearrange. Nothing is written until
+ * the first move: blank fields keep meaning "use the site default". */
+function OrderCard({ heading, fields }: { heading: string | null; fields: Field[] }) {
+  const [items, setItems] = useState(() => sortOrderFields(fields))
+  const [touched, setTouched] = useState(() => fields.some((f) => f.el.value.trim() !== ''))
+
+  const move = (from: number, to: number) => {
+    if (to < 0 || to >= items.length) return
+    const next = [...items]
+    const [picked] = next.splice(from, 1)
+    next.splice(to, 0, picked)
+    next.forEach((f, i) => { f.el.value = String(i + 1) })
+    setItems(next)
+    setTouched(true)
+  }
+
+  const reset = () => {
+    fields.forEach((f) => { f.el.value = '' })
+    setItems(sortOrderFields(fields))
+    setTouched(false)
+  }
+
+  return (
+    <PrefCard
+      title={
+        <span className="flex flex-wrap items-center justify-between gap-2">
+          {heading ?? 'Order'}
+          {touched && (
+            <Button variant="ghost" size="sm" className="h-7 text-[12px] font-normal text-muted-foreground" onClick={reset}>
+              <RotateCcw /> Reset to site default
+            </Button>
+          )}
+        </span>
+      }
+      note={
+        touched
+          ? 'Your own order. It takes effect after you save.'
+          : 'The site default order. Move an item to set your own.'
+      }
+      contentClassName="gap-0 px-3 py-2"
+    >
+      {items.map((f, i) => (
+        <div
+          key={f.el.name}
+          className="grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-x-2.5 rounded-lg px-3 py-1.5 transition-colors hover:bg-accent/40"
+        >
+          <GripVertical className="size-4 text-muted-foreground/50" aria-hidden />
+          <span
+            className={cn(
+              'flex size-6 items-center justify-center rounded-md text-[11.5px] font-medium tabular-nums',
+              touched ? 'bg-brand-soft text-accent-foreground' : 'bg-muted text-muted-foreground'
+            )}
+          >
+            {i + 1}
+          </span>
+          <span className="truncate text-[13px]" title={f.label}>{f.label}</span>
+          <span className="flex gap-0.5">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="size-7"
+              aria-label={`Move ${f.label} up`}
+              disabled={i === 0}
+              onClick={() => move(i, i - 1)}
+            >
+              <ChevronUp />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="size-7"
+              aria-label={`Move ${f.label} down`}
+              disabled={i === items.length - 1}
+              onClick={() => move(i, i + 1)}
+            >
+              <ChevronDown />
+            </Button>
+          </span>
+        </div>
+      ))}
+    </PrefCard>
   )
 }
 
@@ -387,7 +511,11 @@ function PanelView({ panel }: { panel: PanelData }) {
     <div className="grid gap-4">
       {panel.blocks.map((b, i) =>
         b.kind === 'matrix' ? (
-          <MatrixCard key={i} heading={b.heading} fields={b.fields} />
+          isOrderMatrix(b.fields) ? (
+            <OrderCard key={i} heading={b.heading} fields={b.fields} />
+          ) : (
+            <MatrixCard key={i} heading={b.heading} fields={b.fields} />
+          )
         ) : (
           b.rows.map((r, j) => (
             <PrefCard key={`${i}-${j}`} title={r.label || undefined}>
@@ -439,7 +567,7 @@ export function StylePrefsView(props: PageProps) {
 
         {data.panels.length > 0 && (
           <Tabs defaultValue={data.panels[0].id}>
-            <TabsList className="flex-wrap">
+            <TabsList className="h-auto flex-wrap">
               {data.panels.map((p) => (
                 <TabsTrigger key={p.id} value={p.id}>{p.label}</TabsTrigger>
               ))}

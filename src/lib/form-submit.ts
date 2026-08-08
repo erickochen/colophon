@@ -1,4 +1,5 @@
 import { cleanLabel, humanizeFieldName } from '@/lib/form-mirror'
+import { markInvalid } from '@/lib/invalid-anchor'
 import { toast } from '@/components/ui/toast'
 
 /** How many field names a message lists before it starts summarising. */
@@ -13,13 +14,21 @@ function labelFor(el: Element): string {
 
 /** Submits the original form, unless a value fails its own pattern. A browser
  * refuses to focus a hidden invalid control, so it blocks the submit silently.
- * The check runs here instead plus it names the fields holding it up. */
+ * The check runs here instead: rows that mirror an invalid control get marked
+ * in place, anything unmapped is named in the toast. */
 export function submitGuarded(form: HTMLFormElement, submitter?: HTMLElement | null): boolean {
   if (form.checkValidity()) {
     form.requestSubmit(submitter instanceof HTMLElement ? submitter : undefined)
     return true
   }
   const bad = [...form.querySelectorAll<HTMLElement>(':invalid')]
+  const marked = markInvalid(bad)
+  if (marked > 0) {
+    toast.error(marked === 1 ? 'One field needs a different value' : `${marked} fields need a different value`, {
+      description: 'Fix the highlighted fields, then save again.',
+    })
+    return false
+  }
   const names = bad.slice(0, NAMED_FIELDS).map(labelFor)
   const rest = bad.length - names.length
   if (bad.length === 1) {

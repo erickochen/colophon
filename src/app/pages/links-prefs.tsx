@@ -1,23 +1,29 @@
 import { useMemo, useState } from 'react'
-import { Link2, Plus, Trash2 } from 'lucide-react'
+import { Copy, Link2, Plus, Trash2 } from 'lucide-react'
 import { LegacyView } from '@/app/pages/legacy'
 import type { PageProps } from '@/app/router'
-import { PrefCard, SaveBar } from '@/app/pages/prefs-bits'
+import { PrefCard } from '@/app/pages/prefs-bits'
+import { submitGuarded } from '@/lib/form-submit'
+import { findSubmitter } from '@/lib/form-mirror'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
+import { toast } from '@/components/ui/toast'
 
-interface ExistingLink {
-  id: string
-  linkText: string
-  linkHref: string | null
+interface TinyLink {
+  code: string
+  shortHref: string
+  target: string
   note: string
   del: HTMLInputElement | null
-  delAnchor: HTMLAnchorElement | null
 }
 interface LinksData {
   form: HTMLFormElement
-  existing: ExistingLink[]
+  links: TinyLink[]
   urlEl: HTMLInputElement | null
   noteEl: HTMLInputElement | null
 }
@@ -27,76 +33,132 @@ const clean = (s: string | null | undefined) => s?.replace(/\s+/g, ' ').trim() ?
 function extract(): LinksData | null {
   const form = document.querySelector<HTMLFormElement>('#prefForm')
   if (!form) return null
-  const table = [...form.querySelectorAll('table')].find((t) => /link\s*id/i.test(t.querySelector('thead')?.textContent ?? ''))
+  // Only the inner list table has a direct thead; the outer layout table
+  // matches the same text through a descendant lookup and must lose.
+  const table = [...form.querySelectorAll('table')].find((t) => /link\s*id/i.test(t.querySelector(':scope > thead')?.textContent ?? ''))
   const urlEl = form.querySelector<HTMLInputElement>('input[name="url"]')
   const noteEl = form.querySelector<HTMLInputElement>('input[name="note"]')
 
-  const existing: ExistingLink[] = []
+  // Row shape: the id cell links to the short URL, the second cell holds the
+  // target as plain text, then the note and a delete[] checkbox.
+  const links: TinyLink[] = []
   for (const tr of table?.querySelectorAll(':scope > tbody > tr') ?? []) {
-    // The add-new row is the one carrying the url/note inputs; skip it here.
     if (tr.querySelector('input[name="url"]')) continue
     const cells = [...tr.querySelectorAll(':scope > td')]
     if (cells.length < 2) continue
-    existing.push({
-      id: clean(cells[0]?.textContent),
-      linkText: clean(cells[1]?.querySelector('a')?.textContent ?? cells[1]?.textContent),
-      linkHref: cells[1]?.querySelector('a')?.getAttribute('href') ?? null,
+    const anchor = cells[0]?.querySelector('a')
+    links.push({
+      code: clean(anchor?.textContent ?? cells[0]?.textContent),
+      shortHref: anchor?.getAttribute('href') ?? '',
+      target: clean(cells[1]?.textContent),
       note: clean(cells[2]?.textContent),
-      del: tr.querySelector<HTMLInputElement>('input[type="checkbox"]'),
-      delAnchor: tr.querySelector<HTMLAnchorElement>('a[href*="del" i], a[onclick]'),
+      del: tr.querySelector<HTMLInputElement>('input[name="delete[]"], input[type="checkbox"]'),
     })
   }
-  return { form, existing, urlEl, noteEl }
+  return { form, links, urlEl, noteEl }
+}
+
+function copyLink(href: string) {
+  navigator.clipboard.writeText(href).then(
+    () => toast.success('Link copied'),
+    () => toast.error('Could not copy - select it manually')
+  )
+}
+
+function LinkRow({ link, onDelete }: { link: TinyLink; onDelete: (link: TinyLink) => void }) {
+  const shown = link.shortHref.replace(/^https?:\/\//, '')
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-6 py-3.5">
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <a href={link.shortHref} className="truncate font-mono text-[13px] text-brand hover:underline" title={link.shortHref}>
+            {shown || link.code}
+          </a>
+          <button
+            type="button"
+            onClick={() => copyLink(link.shortHref)}
+            aria-label={`Copy ${shown}`}
+            className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
+          >
+            <Copy className="size-3.5" />
+          </button>
+        </div>
+        <div className="truncate pt-0.5 text-[12px] text-muted-foreground" title={link.target}>
+          {link.target}
+          {link.note && <span> · {link.note}</span>}
+        </div>
+      </div>
+      {link.del && (
+        <AlertDialog>
+          <AlertDialogTrigger
+            render={
+              <Button variant="ghost" size="icon-sm" aria-label={`Delete ${shown}`} className="text-muted-foreground hover:text-destructive">
+                <Trash2 />
+              </Button>
+            }
+          />
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this tiny URL?</AlertDialogTitle>
+              <AlertDialogDescription className="break-all">
+                {shown} stops working right away. It points to {link.target}.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep it</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" onClick={() => onDelete(link)}>
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </div>
+  )
 }
 
 function LinksForm({ d }: { d: LinksData }) {
   const [url, setUrl] = useState(d.urlEl?.value ?? '')
   const [note, setNote] = useState(d.noteEl?.value ?? '')
 
+  // Deleting rides on the same POST as adding, so the add fields are cleared
+  // first: a delete should never quietly create the link still sitting there.
+  const remove = (link: TinyLink) => {
+    if (!link.del) return
+    link.del.checked = true
+    if (d.urlEl) d.urlEl.value = ''
+    if (d.noteEl) d.noteEl.value = ''
+    submitGuarded(d.form, findSubmitter(d.form))
+  }
+
+  const add = () => {
+    if (!url.trim()) {
+      toast.warning('Paste the long link first.')
+      return
+    }
+    submitGuarded(d.form, findSubmitter(d.form))
+  }
+
   return (
     <div className="grid gap-4">
-      <PrefCard title="Your tiny URLs" contentClassName="gap-0 px-0 py-0">
-        {d.existing.length > 0 ? (
-          <div className="grid">
-            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-x-4 border-b px-6 py-2 text-[11.5px] font-medium uppercase tracking-wide text-muted-foreground">
-              <span>ID</span>
-              <span>Link</span>
-              <span>Delete</span>
-            </div>
-            {d.existing.map((l, i) => (
-              <div key={i} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 px-6 py-3">
-                <span className="font-mono text-[12px] text-muted-foreground">{l.id || '-'}</span>
-                <span className="min-w-0">
-                  {l.linkHref ? (
-                    <a href={l.linkHref} className="break-all text-[13px] text-brand hover:underline">{l.linkText || l.linkHref}</a>
-                  ) : (
-                    <span className="break-all text-[13px]">{l.linkText || '-'}</span>
-                  )}
-                  {l.note && <span className="block text-[12px] text-muted-foreground">{l.note}</span>}
-                </span>
-                {l.del ? (
-                  <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
-                    <Switch defaultChecked={l.del.checked} onCheckedChange={(v) => { l.del!.checked = v === true }} />
-                  </label>
-                ) : l.delAnchor ? (
-                  <button type="button" onClick={() => l.delAnchor!.click()} className="text-muted-foreground hover:text-destructive">
-                    <Trash2 className="size-4" />
-                  </button>
-                ) : (
-                  <span className="text-[12px] text-muted-foreground">-</span>
-                )}
-              </div>
-            ))}
-          </div>
+      <PrefCard title="Your tiny URLs" contentClassName="gap-0 px-0 py-1">
+        {d.links.length > 0 ? (
+          d.links.map((l, i) => <LinkRow key={i} link={l} onDelete={remove} />)
         ) : (
-          <p className="px-6 py-8 text-center text-[13px] text-muted-foreground">You have no tiny URLs yet.</p>
+          <div className="grid justify-items-center gap-1.5 px-6 py-10 text-center">
+            <Link2 className="size-5 text-muted-foreground/60" />
+            <p className="text-[13.5px] font-medium">No tiny URLs yet</p>
+            <p className="max-w-sm text-[12.5px] leading-normal text-muted-foreground">
+              Turn a long link, like a saved search, into a short one you can paste anywhere.
+            </p>
+          </div>
         )}
       </PrefCard>
 
       {(d.urlEl || d.noteEl) && (
         <PrefCard title={<span className="flex items-center gap-2"><Plus className="size-4" /> Add a link</span>}>
           <div className="grid gap-1.5">
-            <Label className="text-[13px]">URL</Label>
+            <Label className="text-[13px]">Long link</Label>
             <Input
               type="url"
               value={url}
@@ -110,14 +172,16 @@ function LinksForm({ d }: { d: LinksData }) {
               type="text"
               maxLength={100}
               value={note}
-              placeholder="note for link"
+              placeholder="What is this link for?"
               onChange={(e) => { setNote(e.target.value); if (d.noteEl) d.noteEl.value = e.target.value }}
               className="max-w-md"
             />
           </div>
-          <p className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-            <Link2 className="size-3.5" /> A tiny URL gives a long link a short, shareable alias.
-          </p>
+          <div>
+            <Button size="sm" onClick={add}>
+              <Plus /> Create tiny URL
+            </Button>
+          </div>
         </PrefCard>
       )}
     </div>
@@ -126,12 +190,6 @@ function LinksForm({ d }: { d: LinksData }) {
 
 export function LinksPrefsView(props: PageProps) {
   const data = useMemo(extract, [])
-  const [rev, setRev] = useState(0)
   if (!data) return <LegacyView {...props} />
-  return (
-    <div className="grid gap-4">
-      <LinksForm key={rev} d={data} />
-      <SaveBar form={data.form} onAfterRevert={() => setRev((r) => r + 1)} />
-    </div>
-  )
+  return <LinksForm d={data} />
 }

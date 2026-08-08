@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { parseForm, type MirrorRow } from '@/lib/form-mirror'
 import { cleanHtml } from '@/lib/sanitize'
@@ -20,10 +21,10 @@ import { cn } from '@/lib/utils'
 
 /** MAM sends the General tab as one flat list with no sections of its own, so
  * the cards are ours. Keyed by input name, in MAM's own row order, with a
- * catch-all so a field MAM adds later still shows up somewhere. */
-const GENERAL_GROUPS: { title: string; names: string[]; note?: RegExp }[] = [
-  { title: 'Your account', names: ['parked', 'displayVIPexpire'] },
-  { title: 'Editor', names: ['disableWysiwyg'] },
+ * catch-all so a field MAM adds later still shows up somewhere. Control-less
+ * status rows (Tracker HTTPS) are keyed by their MAM label instead. */
+const GENERAL_GROUPS: { title: string; names: string[]; labels?: string[]; note?: RegExp }[] = [
+  { title: 'Your account', names: ['parked', 'disableWysiwyg', 'displayVIPexpire'], labels: ['Tracker HTTPS'] },
   { title: 'Private messages', names: ['acceptpms', 'deletepms', 'savepms', 'pmnotif'] },
   { title: 'What others can send you', names: ['receiveGift[points]', 'receiveGift[wedges]'] },
   { title: 'Profile', names: ['country', 'avatarUrl', 'avatar', 'deleteAvatar', 'info'] },
@@ -33,6 +34,31 @@ const GENERAL_GROUPS: { title: string; names: string[]; note?: RegExp }[] = [
     note: /date and time format/i,
   },
 ]
+
+/** The two send-screen defaults read as one setting, so they share a row. */
+const PM_PAIR = ['deletepms', 'savepms']
+
+/** MAM's response to a rejected save: the form is replaced by an "Error"
+ * heading plus the reason in a table cell. Any .error_red outside the form
+ * counts too; standing warnings (the 2FA note on Account, the password note
+ * on Security) live inside the form and stay out of this list. */
+function saveErrors(form: HTMLFormElement | null): string[] {
+  const out: string[] = []
+  const main = document.querySelector('#mainBody')
+  const h2 = [...(main?.querySelectorAll('h2') ?? [])].find((h) => /^error$/i.test(h.textContent?.trim() ?? ''))
+  if (h2) {
+    for (const td of main!.querySelectorAll('td.text')) {
+      const text = td.textContent?.replace(/\s+/g, ' ').trim()
+      if (text) out.push(text)
+    }
+  }
+  for (const el of main?.querySelectorAll('.error_red') ?? []) {
+    if (form?.contains(el)) continue
+    const text = el.textContent?.replace(/\s+/g, ' ').trim()
+    if (text) out.push(text)
+  }
+  return [...new Set(out)]
+}
 
 /** The copy MAM puts in a heading row that carries no control of its own. */
 function headingNote(match: RegExp): string | null {
@@ -49,8 +75,12 @@ function groupGeneral(rows: MirrorRow[]): MirrorRow[] {
   const rest: MirrorRow[] = []
   for (const row of rows) {
     if (row.kind === 'section') continue
+    // A heading row already lifted into a card note is not a fact to repeat.
+    if (row.kind === 'static' && GENERAL_GROUPS.some((g) => g.note?.test(row.label))) continue
     const names = row.controls.map((c) => c.name)
-    const group = GENERAL_GROUPS.find((g) => g.names.some((n) => names.includes(n)))
+    const group = GENERAL_GROUPS.find((g) =>
+      row.kind === 'static' ? g.labels?.includes(row.label) : g.names.some((n) => names.includes(n))
+    )
     if (!group) {
       rest.push(row)
       continue
@@ -59,6 +89,28 @@ function groupGeneral(rows: MirrorRow[]): MirrorRow[] {
     list.push(row)
     buckets.set(group.title, list)
   }
+
+  // The delete/save defaults become one labelled pair instead of two rows.
+  const pms = buckets.get('Private messages')
+  if (pms) {
+    const pair = PM_PAIR.map((n) => pms.find((r) => r.controls.some((c) => c.name === n))).filter(
+      (r): r is MirrorRow => !!r
+    )
+    if (pair.length === PM_PAIR.length) {
+      const merged: MirrorRow = {
+        kind: 'field',
+        label: 'Message defaults',
+        noteHtml: 'Starting values for the matching options when you send or reply.',
+        controls: pair.flatMap((r) => r.controls),
+      }
+      const at = pms.indexOf(pair[0])
+      buckets.set(
+        'Private messages',
+        pms.flatMap((r, i) => (i === at ? [merged] : pair.includes(r) ? [] : [r]))
+      )
+    }
+  }
+
   const out: MirrorRow[] = []
   const section = (label: string, noteHtml: string | null): MirrorRow => ({ kind: 'section', label, noteHtml, controls: [] })
   for (const g of GENERAL_GROUPS) {
@@ -105,6 +157,7 @@ export function PreferencesView(props: PageProps) {
   // whatever was typed here.
   const { isDirty, leave } = useUnsavedGuard(form)
   const [pending, setPending] = useState<string | null>(null)
+  const rejected = useMemo(() => saveErrors(form), [form])
 
   const nav = (
     <nav className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 xl:sticky xl:top-20 xl:mx-0 xl:flex-col xl:gap-0.5 xl:self-start xl:overflow-visible xl:px-0 xl:pb-0">
@@ -142,10 +195,30 @@ export function PreferencesView(props: PageProps) {
       <div className="grid gap-6 xl:grid-cols-[180px_minmax(0,1fr)]">
         {nav}
         <div className="min-w-0 max-w-3xl">
-          {/* Bespoke views own the tabs whose forms the generic FormMirror
+          {rejected.length > 0 && (
+            <div className="mb-4 flex items-start gap-2.5 rounded-lg bg-destructive/10 px-4 py-3 text-[13px]">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
+              <div className="grid gap-1">
+                <span className="font-medium">These changes were not saved</span>
+                {rejected.map((t, i) => (
+                  <span key={i} className="leading-normal">{t}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* A rejected save replaces the whole form with MAM's error page, so
+              there is nothing to edit here until the reader goes back. */}
+          {rejected.length > 0 && !form ? (
+            <a
+              href={`/preferences/index.php?view=${active}`}
+              className="inline-flex h-8 items-center rounded-md bg-brand-soft px-3 text-[12.5px] font-medium text-accent-foreground transition-colors hover:opacity-90"
+            >
+              Back to {TABS.find((t) => t.view === active)?.label ?? 'settings'}
+            </a>
+          ) : /* Bespoke views own the tabs whose forms the generic FormMirror
               mangles (matrix tables, nested widgets, live meters). The rest
-              stay plain FormMirror. */}
-          {active === 'security' ? (
+              stay plain FormMirror. */
+          active === 'security' ? (
             <SecuritySessions {...props} />
           ) : active === 'search' ? (
             <SearchPrefsView {...props} />

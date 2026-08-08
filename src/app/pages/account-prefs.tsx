@@ -312,6 +312,19 @@ function AccountForm({ d, host }: { d: AccountData; host: HTMLElement }) {
 
   return (
     <div className="grid gap-4">
+      {d.passkey && (
+        <PrefCard title={<span className="flex items-center gap-2"><KeyRound className="size-4" /> Passkey</span>} note="Your private torrent passkey. Keep it secret.">
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="min-w-0 flex-1 truncate rounded-md bg-muted/70 px-3 py-2 font-mono text-[13px]" title={d.passkey}>
+              {d.passkey}
+            </code>
+            <Button variant="outline" size="sm" onClick={copyPasskey}>
+              <Copy /> Copy
+            </Button>
+          </div>
+        </PrefCard>
+      )}
+
       <PrefCard title={<span className="flex items-center gap-2"><ShieldCheck className="size-4" /> Confirm it is you</span>}>
         <Field
           label="Current password"
@@ -372,18 +385,6 @@ function AccountForm({ d, host }: { d: AccountData; host: HTMLElement }) {
         </PrefCard>
       )}
 
-      {d.passkey && (
-        <PrefCard title={<span className="flex items-center gap-2"><KeyRound className="size-4" /> Passkey</span>} note="Your private torrent passkey. Keep it secret.">
-          <div className="flex flex-wrap items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded-md bg-muted/70 px-3 py-2 font-mono text-[13px]" title={d.passkey}>
-              {d.passkey}
-            </code>
-            <Button variant="outline" size="sm" onClick={copyPasskey}>
-              <Copy /> Copy
-            </Button>
-          </div>
-        </PrefCard>
-      )}
     </div>
   )
 }

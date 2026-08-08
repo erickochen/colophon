@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef } from 'react'
 
+/** Forms whose next navigation is deliberate: a native form.submit() fires no
+ * submit event, so callers flag it here before the guard would step in. */
+const deliberate = new WeakSet<HTMLFormElement>()
+
+export function allowNavigation(form: HTMLFormElement) {
+  deliberate.add(form)
+}
+
 /** Every value in the form as one comparable string. Our controls write into
  * the original elements without firing events, so change listeners would miss
  * most edits; comparing the whole form catches them all. */
@@ -46,7 +54,7 @@ export function useUnsavedGuard(form: HTMLFormElement | null): {
     // A submit navigates by design, so the prompt has to stand down for it.
     const onSubmit = () => { leaving.current = true }
     const onUnload = (e: BeforeUnloadEvent) => {
-      if (leaving.current || initial.current === null) return
+      if (leaving.current || deliberate.has(form) || initial.current === null) return
       if (signature(form) !== initial.current) e.preventDefault()
     }
     form.addEventListener('submit', onSubmit)
