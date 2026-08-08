@@ -95,7 +95,7 @@ function TagCard({ tag, copy, copied }: { tag: BbTag; copy: (t: string, w: strin
             {/* Rendered with the same BBCode renderer as the composer preview,
              * so what you see here is exactly what the editor will show. */}
             <div
-              className="rounded-md bg-muted/60 px-2.5 py-2 text-[13px] [overflow-wrap:anywhere] [&_a]:text-brand [&_a]:underline [&_blockquote]:rounded [&_blockquote]:bg-background/60 [&_blockquote]:px-2 [&_blockquote]:py-1 [&_img]:max-h-16 [&_li]:ml-4 [&_ol]:list-decimal [&_pre]:bg-background/60 [&_pre]:p-1.5 [&_pre]:font-mono [&_pre]:text-[11.5px] [&_ul]:list-disc"
+              className="rounded-md border px-2.5 py-2 text-[13px] [overflow-wrap:anywhere] [&_a]:text-brand [&_a]:underline [&_.quote]:rounded [&_.quote]:bg-muted [&_.quote]:px-2 [&_.quote]:py-1.5 [&_.quote>span]:mb-1 [&_.quote>span]:block [&_.quote>span]:text-[11.5px] [&_.quote>span]:font-semibold [&_.quote>span]:text-muted-foreground [&_img]:max-h-16 [&_li]:ml-4 [&_ol]:list-decimal [&_pre]:bg-muted [&_pre]:p-1.5 [&_pre]:font-mono [&_pre]:text-[11.5px] [&_ul]:list-disc"
               dangerouslySetInnerHTML={{ __html: bbToHtml(tag.example || tag.syntax) }}
             />
           </div>
