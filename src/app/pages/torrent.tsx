@@ -8,10 +8,12 @@ import { cleanHtml } from '@/lib/sanitize'
 import { swapStatusIcons } from '@/lib/status-dots'
 import { mutedUserColor } from '@/lib/colors'
 import { fmtInt, fmtRatio, initials, relTime } from '@/lib/format'
-import { searchTorrents, parsePeople, coverUrl, torrentUrl } from '@/lib/mam-api'
+import { searchTorrents, parsePeople, coverUrl, torrentUrl, type SearchTorrent } from '@/lib/mam-api'
+import { useFeature } from '@/lib/settings'
 import { HARD_FLOOR, TRIVIAL_DROP, useRatioGuard, type RatioGuard, type RatioLevel } from '@/lib/ratio-protect'
 import { cn } from '@/lib/utils'
 import { Book, Book3D, BookAmbilight } from '@/components/book'
+import { TorLinks } from '@/components/tor-links'
 import { WedgeDetailButton } from '@/components/wedge-download'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -493,6 +495,104 @@ function SeriesStrip({ data }: { data: TorrentDetail }) {
   )
 }
 
+// A title search returns plenty of noise, so fetch wide and show a short list.
+const EDITIONS_FETCH_MAX = 25
+const EDITIONS_SHOWN_MAX = 10
+
+/** Other torrents of the same book: same title, overlapping author. Renders
+ * nothing while loading, on errors and when this is the only edition. */
+function EditionsStrip({ data }: { data: TorrentDetail }) {
+  const [enabled] = useFeature('otherEditions')
+  const [items, setItems] = useState<SearchTorrent[] | null>(null)
+  const title = data.title
+
+  useEffect(() => {
+    if (!enabled || !title) return
+    let live = true
+    searchTorrents({ text: title, srchIn: ['title'], perpage: EDITIONS_FETCH_MAX })
+      .then((res) => {
+        if (!live) return
+        // Series share titles across books, so an author must match too.
+        const own = data.authors.map((a) => a.name.trim().toLowerCase())
+        setItems(
+          res.data.filter((t) => {
+            if (t.id === data.id) return false
+            if (own.length === 0) return true
+            return parsePeople(t.author_info).some((p) => own.includes(p.name.trim().toLowerCase()))
+          })
+        )
+      })
+      .catch(() => {
+        if (live) setItems([])
+      })
+    return () => {
+      live = false
+    }
+  }, [enabled, title, data])
+
+  if (!enabled || !title || !items || items.length === 0) return null
+  const shown = items.slice(0, EDITIONS_SHOWN_MAX)
+  const browseHref = `/tor/browse.php?tor[text]=${encodeURIComponent(title)}&tor[srchIn][title]=true`
+
+  return (
+    <BlurFade direction="up" offset={8}>
+      <Card className="gap-0 py-0">
+        <CardHeader className="!py-3.5">
+          <CardTitle>Other editions</CardTitle>
+          <CardAction>
+            <a href={browseHref} className="text-[12px] text-brand hover:underline">See all</a>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="px-0 py-1">
+          <div className="divide-y divide-border">
+            {shown.map((t) => {
+              const authors = parsePeople(t.author_info)
+              return (
+                <a
+                  key={t.id}
+                  href={torrentUrl(t.id)}
+                  className="group grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3.5 px-6 py-2.5 transition-colors hover:bg-foreground/[0.028]"
+                >
+                  <span className="text-[7px]">
+                    <Book poster={t.poster_type ? coverUrl(t.id) : null} title={t.title} size="row" plain />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[13.5px] font-medium leading-snug transition-colors group-hover:text-brand">
+                      {t.title}
+                    </span>
+                    <span className="mt-1 flex flex-wrap items-center gap-1">
+                      {t.filetype && (
+                        <Badge variant="outline" className="font-mono text-[10px] uppercase">{t.filetype.split(' ')[0]}</Badge>
+                      )}
+                      {t.catname && <Badge variant="outline" className="text-[10.5px]">{t.catname}</Badge>}
+                      {t.vip === 1 && <Badge className="bg-brand-soft text-accent-foreground" variant="secondary">VIP</Badge>}
+                      {(t.free === 1 || t.personal_freeleech === 1) && (
+                        <Badge className="bg-ok/15 text-ok" variant="secondary">Freeleech</Badge>
+                      )}
+                      {t.my_snatched === 1 && <Badge variant="secondary">Snatched</Badge>}
+                      {authors.length > 0 && (
+                        <span className="text-[11.5px] text-muted-foreground">{authors.map((a) => a.name).join(', ')}</span>
+                      )}
+                    </span>
+                  </span>
+                  <span className="text-right font-mono text-[12px] tabular-nums text-muted-foreground" title="Seeders">
+                    {fmtInt(t.seeders)} <span className="text-ok">↑</span>
+                  </span>
+                </a>
+              )
+            })}
+          </div>
+          {items.length > shown.length && (
+            <p className="px-6 py-2 text-[12px] text-muted-foreground">
+              {fmtInt(items.length - shown.length)} more via See all.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </BlurFade>
+  )
+}
+
 export function TorrentView(props: PageProps) {
   const data = useMemo(() => extractTorrent(document), [])
   const [points, setPoints] = useState('')
@@ -601,6 +701,8 @@ export function TorrentView(props: PageProps) {
                 </p>
               )}
 
+              <TorLinks data={data} />
+
               {stats.length > 0 && (
                 <div className="mt-5 flex flex-wrap gap-x-7 gap-y-3 border-t pt-4">
                   {stats.map((s) => <Stat key={s.label} label={s.label} value={s.value} title={s.title} />)}
@@ -637,6 +739,8 @@ export function TorrentView(props: PageProps) {
           )}
 
           {data.series.length > 0 && <SeriesStrip data={data} />}
+
+          <EditionsStrip data={data} />
 
           {(data.mediaInfo.length > 0 || data.mediaInfoHtml) && (
             <Card>
