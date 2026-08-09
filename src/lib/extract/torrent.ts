@@ -183,6 +183,14 @@ export function extractTorrent(doc: Document): TorrentDetail | null {
   }
 
   const right = (label: string) => byLabel.get(label)?.querySelector('.torDetRight') ?? null
+  // MAM pluralises these row labels when a book has more than one name.
+  const rightAny = (...labels: string[]) => {
+    for (const label of labels) {
+      const el = right(label)
+      if (el) return el
+    }
+    return null
+  }
 
   const seriesEls = con.querySelectorAll<HTMLAnchorElement>('.torDetRow .torDetRight a[href*="browse.php?series"], .torSeries a')
   const series = [...seriesEls].map((a) => ({
@@ -272,8 +280,8 @@ export function extractTorrent(doc: Document): TorrentDetail | null {
     id: Number(location.pathname.match(/\/t\/(\d+)/)?.[1] ?? doc.querySelector('#thanksArea input[name="tid"]')?.getAttribute('value')) || null,
     poster: doc.querySelector<HTMLImageElement>('#torDetPoster')?.getAttribute('src') ?? null,
     title: txt(con.querySelector('.TorrentTitle')),
-    authors: links(right('author'), 'a'),
-    narrators: links(right('narrator'), 'a'),
+    authors: links(rightAny('author', 'authors'), 'a'),
+    narrators: links(rightAny('narrator', 'narrators'), 'a'),
     series,
     tags: txt(right('tags and labels')),
     // Language entries carry class "language", same marker home.ts relies on.
