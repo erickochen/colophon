@@ -279,6 +279,29 @@ export async function bookmarkCleanup(type: BookmarkCleanup): Promise<number> {
   return typeof json?.changes === 'number' ? json.changes : 0
 }
 
+/** What /jsonPostTest.php answers: rendered HTML or its own error text. */
+export type PostPreviewResult = { ok: true; html: string } | { ok: false; message: string }
+
+// Same ceiling site.js puts on its own store calls.
+const POST_PREVIEW_TIMEOUT_MS = 20_000
+
+/** Server-side render of a post body, through the same endpoint MAM's own
+ * preview button uses. Stores nothing. */
+export async function postPreview(source: string, signal?: AbortSignal): Promise<PostPreviewResult> {
+  const timeout = AbortSignal.timeout(POST_PREVIEW_TIMEOUT_MS)
+  const res = await fetch('/jsonPostTest.php', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ messageToTest: source }).toString(),
+    signal: signal ? AbortSignal.any([timeout, signal]) : timeout,
+  })
+  if (!res.ok) throw new Error(`postTest failed: ${res.status}`)
+  const json = (await res.json()) as { message?: string; Error?: string }
+  if (json.Error != null) return { ok: false, message: String(json.Error) }
+  return { ok: true, html: String(json.message ?? '') }
+}
+
 /** Zip of every bookmark, whatever the current search shows. */
 export const BOOKMARKS_ZIP_URL = 'https://cdn.myanonamouse.net/DownloadZips.php?type=bookmarks'
 

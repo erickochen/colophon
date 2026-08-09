@@ -1,4 +1,4 @@
-import { useImperativeHandle, useLayoutEffect, useRef, useState, type ComponentType } from 'react'
+import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type ComponentType } from 'react'
 import {
   Bold, Braces, ChevronDown, Code, Eye, FileCode2, Image as ImageIcon, Italic, Link2, List,
   ListOrdered, Palette, PencilLine, Quote, Strikethrough, Type, Underline,
@@ -8,6 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { POST_SPACING, QUOTE_CLASSES, RichHtml } from '@/app/shell/bits'
+import { postPreview } from '@/lib/mam-api'
 import { cleanHtml } from '@/lib/sanitize'
 import { cn } from '@/lib/utils'
 
@@ -82,10 +83,26 @@ export function bbToHtml(src: string): string {
   }
   // Newlines that only pad block tags are HTML layout; collapse those, turn the
   // rest into <br> (plain-text line breaks), then sanitize the whole fragment.
+  // DOMParser parses in an inert document, so embedded images do not load here.
   s = s.replace(/>\s*\n\s*</g, '><').replace(/\n/g, '<br/>')
-  const div = document.createElement('div')
-  div.innerHTML = s
-  return cleanHtml(div) ?? ''
+  return cleanHtml(new DOMParser().parseFromString(s, 'text/html').body) ?? ''
+}
+
+/** Server HTML -> cleaned fragment for RichHtml, parsed in an inert document.
+ * Preview links open a new tab, so a click cannot drop the unsent draft. */
+function serverHtml(html: string): string {
+  const body = new DOMParser().parseFromString(html, 'text/html').body
+  for (const a of body.querySelectorAll('a')) {
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+  }
+  return cleanHtml(body) ?? ''
+}
+
+/** An emptied contentEditable keeps a stray <br> or empty wrapper, so a plain
+ * whitespace test would still send a body to the preview endpoint. */
+function isBlankSource(src: string): boolean {
+  return !src.replace(/<br\s*\/?>/gi, '').replace(/<\/?(?:div|p)>/gi, '').replace(/&nbsp;/gi, ' ').trim()
 }
 
 /** A tool carries both its BBCode wrap (plain textarea mode) and its execCommand
@@ -134,6 +151,13 @@ export interface ComposerHandle {
   focus: () => void
 }
 
+type PreviewState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'done'; html: string }
+  | { status: 'server-error'; message: string }
+  | { status: 'error' }
+
 export function BBComposer({
   value,
   onChange,
@@ -153,10 +177,10 @@ export function BBComposer({
 }) {
   const [enabled] = useState(wysiwygEnabled)
   const wysiwyg = enabled
-  // 'source' is the raw-markup view behind the rich editor; 'preview' is the
-  // rendered view behind the plain BBCode textarea. Never both: which pair the
-  // toggle offers depends on the mode.
+  // 'preview' is the server-rendered view; 'source' is the raw markup behind
+  // the rich editor and only exists in that mode.
   const [tab, setTab] = useState<'write' | 'preview' | 'source'>('write')
+  const [preview, setPreview] = useState<PreviewState>({ status: 'idle' })
   const taRef = useRef<HTMLTextAreaElement>(null)
   const edRef = useRef<HTMLDivElement>(null)
   const lastEmit = useRef<string | null>(null)
@@ -170,7 +194,12 @@ export function BBComposer({
   }
 
   useImperativeHandle(ref, () => ({
-    focus: () => (edRef.current ?? taRef.current)?.focus(),
+    // The write surface may be unmounted (Preview tab active), so switch back
+    // first and focus once the node is there.
+    focus: () => {
+      setTab('write')
+      requestAnimationFrame(() => (edRef.current ?? taRef.current)?.focus())
+    },
   }))
 
   // Plain textarea auto-grow so a long post never edits through a tiny window;
@@ -203,9 +232,31 @@ export function BBComposer({
     if (!el) return
     el.innerHTML = value ? bbToHtml(value) : ''
     lastEmit.current = value
+    // The refilled surface holds fresh nodes; a range saved on the previous
+    // nodes is detached, so restoring it would make execCommand a no-op.
+    savedRange.current = null
     syncEmpty()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only on a view switch
   }, [tab])
+
+  // Fetch on every switch into Preview: the source only changes in the other
+  // views, so a switch is the only moment a refresh is needed. The cleanup
+  // aborts the request when the view moves on before the answer is in.
+  useEffect(() => {
+    if (tab !== 'preview') return
+    if (isBlankSource(value)) {
+      setPreview({ status: 'idle' })
+      return
+    }
+    const ctrl = new AbortController()
+    setPreview({ status: 'loading' })
+    postPreview(value, ctrl.signal)
+      .then((r) => setPreview(r.ok ? { status: 'done', html: serverHtml(r.html) } : { status: 'server-error', message: r.message }))
+      .catch(() => {
+        if (!ctrl.signal.aborted) setPreview({ status: 'error' })
+      })
+    return () => ctrl.abort()
+  }, [tab, value])
 
   function saveSel() {
     const sel = document.getSelection()
@@ -352,12 +403,11 @@ export function BBComposer({
           </>
         )}
 
-        {/* Second view depends on the mode: the rich editor already renders the
-            result, so its counterpart is the raw markup; the plain textarea shows
-            markup already, so its counterpart is the rendered preview. */}
+        {/* Preview is server-rendered through /jsonPostTest.php in both modes. The
+            rich editor keeps its raw-markup Code view as a third option. */}
         <div className="ml-auto flex items-center gap-0.5 rounded-md bg-muted/70 p-0.5">
           {(wysiwyg
-            ? ([['write', PencilLine, 'Write'], ['source', FileCode2, 'Code']] as const)
+            ? ([['write', PencilLine, 'Write'], ['preview', Eye, 'Preview'], ['source', FileCode2, 'Code']] as const)
             : ([['write', PencilLine, 'Write'], ['preview', Eye, 'Preview']] as const)
           ).map(([key, Icon, label]) => (
             <button
@@ -375,7 +425,24 @@ export function BBComposer({
         </div>
       </div>
 
-      {wysiwyg && tab === 'source' ? (
+      {tab === 'preview' ? (
+        <div className={cn('px-3.5 py-2.5', minHeightClass)} aria-busy={preview.status === 'loading'}>
+          {preview.status === 'loading' ? (
+            <p role="status" className="text-[13px] text-muted-foreground">Rendering preview&hellip;</p>
+          ) : preview.status === 'error' ? (
+            <>
+              <p role="status" className="mb-2 text-[12px] text-muted-foreground">Server preview unavailable, this is the local approximation.</p>
+              <RichHtml html={bbToHtml(value)} className={POST_SPACING} />
+            </>
+          ) : preview.status === 'server-error' ? (
+            <p role="status" className="text-[13px] text-muted-foreground">{preview.message}</p>
+          ) : preview.status === 'done' ? (
+            <RichHtml html={preview.html} className={POST_SPACING} />
+          ) : (
+            <p className="text-[13px] text-muted-foreground">Nothing to preview yet.</p>
+          )}
+        </div>
+      ) : wysiwyg && tab === 'source' ? (
         <textarea
           ref={taRef}
           value={value}
@@ -412,7 +479,7 @@ export function BBComposer({
             )}
           />
         </div>
-      ) : tab === 'write' ? (
+      ) : (
         <textarea
           ref={taRef}
           value={value}
@@ -422,12 +489,6 @@ export function BBComposer({
           aria-describedby={describedBy}
           className={cn('block w-full resize-none overflow-y-auto bg-transparent px-3.5 py-2.5 text-[13.5px] outline-none placeholder:text-muted-foreground max-h-[70vh]', minHeightClass)}
         />
-      ) : (
-        <div className={cn('px-3.5 py-2.5', minHeightClass)}>
-          {value.trim()
-            ? <RichHtml html={bbToHtml(value)} className={POST_SPACING} />
-            : <p className="text-[13px] text-muted-foreground">Nothing to preview yet.</p>}
-        </div>
       )}
     </div>
   )
