@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Eye, Headset, Mail, Moon, PackageCheck, Search, Settings2, Sun, SunMoon } from 'lucide-react'
 import type { ShellData } from '@/lib/extract/shell'
 import { applyTheme, getDarkScheme, getLightScheme, getTheme, isDark, setDarkScheme, setLightScheme, type DarkScheme, type LightScheme, type Theme } from '@/lib/theme'
 import { NOTIF_TARGETS, type NotifCounts } from '@/lib/notify'
 import { useLiveBonus, useLiveWedges } from '@/lib/bonus'
+import { readFeature } from '@/lib/settings'
+import { NumberRoll } from '@/components/ui/number-roll'
 import { Button } from '@/components/ui/button'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import {
@@ -43,16 +45,51 @@ function SchemeDot({ scheme }: { scheme: string }) {
   )
 }
 
+// Session key holding the exact bonus stand last shown to this reader.
+const BONUS_SEEN_KEY = 'colophon:bonus-seen'
+// The gain marker leaves again after this long, so the bar stays quiet.
+const DELTA_VISIBLE_MS = 6000
+
+function parseBonus(v: string | null): number | null {
+  if (v == null) return null
+  const n = Number(v.replace(/,/g, ''))
+  return Number.isFinite(n) ? n : null
+}
+
+/** Points gained since the previous page in this tab, shown once per load. */
+function useBonusDelta(current: string | null): number | null {
+  const [delta, setDelta] = useState<number | null>(null)
+  const announced = useRef(false)
+  useEffect(() => {
+    if (!readFeature('bonusDelta')) return
+    const now = parseBonus(current)
+    if (now == null) return
+    try {
+      const prev = Number(sessionStorage.getItem(BONUS_SEEN_KEY))
+      if (!announced.current && Number.isFinite(prev) && prev > 0 && Math.floor(now) > Math.floor(prev)) {
+        announced.current = true
+        setDelta(Math.floor(now - prev))
+        window.setTimeout(() => setDelta(null), DELTA_VISIBLE_MS)
+      }
+      sessionStorage.setItem(BONUS_SEEN_KEY, String(now))
+    } catch {
+      // private mode: no snapshot, so no delta either
+    }
+  }, [current])
+  return delta
+}
+
 /** `href` mirrors where MAM's own header sends these numbers: Bonus and B/hr to
  * the store, Unsat(s) to the snatch summary. Wedges carry no link there either. */
 function StatChip({
-  label, value, tone, href, hint,
+  label, value, tone, href, hint, suffix,
 }: {
   label: string
   value: string | number | null
   tone?: 'ok' | 'warn'
   href?: string
   hint?: string
+  suffix?: React.ReactNode
 }) {
   if (value == null) return null
   const body = (
@@ -66,6 +103,7 @@ function StatChip({
       )}
       {label}
       <span className="font-medium tabular-nums text-foreground">{value}</span>
+      {suffix}
     </>
   )
   const base = 'hidden items-center gap-1.5 text-[12.5px] text-muted-foreground md:flex'
@@ -165,6 +203,7 @@ export function Topbar({ page, counts, onOpenSearch }: { page: ShellData; counts
   const [darkScheme, setDarkState] = useState<DarkScheme>(getDarkScheme)
   const bonus = useLiveBonus(page.stats.bonus)
   const wedges = useLiveWedges(page.stats.wedges)
+  const bonusDelta = useBonusDelta(bonus)
 
   // On auto the icon has to follow the system, so track the media query.
   useEffect(() => {
@@ -211,7 +250,19 @@ export function Topbar({ page, counts, onOpenSearch }: { page: ShellData; counts
       <div className="ml-auto flex items-center gap-4">
         <NotifChips counts={counts} />
         <ClientChip client={page.client} />
-        <StatChip label="Bonus" value={bonus} href="/store.php" hint="Spend bonus points in the store" />
+        <StatChip
+          label="Bonus"
+          value={bonus}
+          href="/store.php"
+          hint="Spend bonus points in the store"
+          suffix={
+            bonusDelta != null && (
+              <span className="animate-in fade-in slide-in-from-bottom-1 rounded-full bg-ok/15 px-1.5 py-px text-[11px] font-semibold tabular-nums text-ok motion-reduce:animate-none">
+                +<NumberRoll value={bonusDelta} className="text-ok" />
+              </span>
+            )
+          }
+        />
         <StatChip label="Wedges" value={wedges} />
         <StatChip
           label="Unsats"
