@@ -1,6 +1,7 @@
 // Ratio impact of a download, following the MAM+ ratioProtect thresholds.
 // Exact byte totals come from /jsonLoad.php; the torrent size from the page.
 import { useEffect, useState } from 'react'
+import { useFeature, useRatioFloor } from '@/lib/settings'
 
 // Drops at or under this are noise (MAM+ trivial threshold).
 export const TRIVIAL_DROP = 0.009
@@ -22,46 +23,6 @@ export interface RatioImpact {
   /** null when there is no current ratio to drop from. */
   drop: number | null
   level: RatioLevel
-}
-
-const FLOOR_KEY = 'colophon:ratio-floor'
-const ENABLED_KEY = 'colophon:ratio-protect'
-
-/** Whether the guard may lock downloads; the impact note always shows. */
-export function readRatioProtectEnabled(): boolean {
-  try {
-    return localStorage.getItem(ENABLED_KEY) !== 'off'
-  } catch {
-    return true
-  }
-}
-
-export function writeRatioProtectEnabled(v: boolean): void {
-  try {
-    if (v) localStorage.removeItem(ENABLED_KEY)
-    else localStorage.setItem(ENABLED_KEY, 'off')
-  } catch {
-    // private mode: the choice lives for this page only
-  }
-}
-
-/** Personal minimum ratio; null means only the hard floor applies. */
-export function readRatioFloor(): number | null {
-  try {
-    const v = Number(localStorage.getItem(FLOOR_KEY))
-    return Number.isFinite(v) && v > 0 ? v : null
-  } catch {
-    return null
-  }
-}
-
-export function writeRatioFloor(v: number | null): void {
-  try {
-    if (v == null || !Number.isFinite(v) || v <= 0) localStorage.removeItem(FLOOR_KEY)
-    else localStorage.setItem(FLOOR_KEY, String(v))
-  } catch {
-    // private mode: the floor lives for this page only
-  }
 }
 
 const SIZE_UNITS: Record<string, number> = {
@@ -152,17 +113,9 @@ export interface RatioGuard {
 export function useRatioGuard(sizeText: string | null): RatioGuard | null {
   const sizeBytes = parseSizeBytes(sizeText)
   const totals = useByteTotals(sizeBytes != null)
-  const [floor, setFloorState] = useState<number | null>(readRatioFloor)
-  const [enabled, setEnabledState] = useState<boolean>(readRatioProtectEnabled)
+  const [floor, setFloor] = useRatioFloor()
+  const [enabled, setEnabled] = useFeature('ratioProtect')
   if (sizeBytes == null || totals == null) return null
-  const setFloor = (v: number | null) => {
-    writeRatioFloor(v)
-    setFloorState(v)
-  }
-  const setEnabled = (v: boolean) => {
-    writeRatioProtectEnabled(v)
-    setEnabledState(v)
-  }
   const impact = assessRatio(totals.uploaded, totals.downloaded, sizeBytes, floor)
   if (!enabled) impact.level = 'none'
   return { impact, wedges: totals.wedges, floor, setFloor, enabled, setEnabled }
