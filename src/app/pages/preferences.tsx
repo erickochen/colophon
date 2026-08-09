@@ -15,6 +15,7 @@ import { AccountPrefsView } from '@/app/pages/account-prefs'
 import { StylePrefsView } from '@/app/pages/style-prefs'
 import { ForumsPrefsView } from '@/app/pages/forums-prefs'
 import { LinksPrefsView } from '@/app/pages/links-prefs'
+import { ColophonPrefsView } from '@/app/pages/colophon-prefs'
 import { PageHeader } from '@/app/shell/bits'
 import { FormMirrorView } from '@/app/shell/form-mirror-view'
 import { cn } from '@/lib/utils'
@@ -136,6 +137,9 @@ const TABS = [
   { view: 'security', label: 'Security' },
   { view: 'style', label: 'Style' },
   { view: 'links', label: 'Tiny URL' },
+  // Colophon's own tab: client-side settings, no MAM form behind it. The server
+  // answers the unknown view param with the general page, which stays unused.
+  { view: 'colophon', label: 'Colophon' },
 ]
 
 export function PreferencesView(props: PageProps) {
@@ -175,13 +179,14 @@ export function PreferencesView(props: PageProps) {
             }}
             aria-current={isActive ? 'page' : undefined}
             className={cn(
-              'shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-[13px] transition-colors',
+              'flex shrink-0 items-center whitespace-nowrap rounded-md px-3 py-1.5 text-[13px] transition-colors',
               'xl:py-2',
               isActive
                 ? 'bg-brand-soft font-medium text-accent-foreground'
                 : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground xl:hover:text-foreground'
             )}
           >
+            {t.view === 'colophon' && <span aria-hidden="true" className="mr-1.5 size-1.5 rounded-full bg-brand" />}
             {t.label}
           </a>
         )
@@ -208,7 +213,9 @@ export function PreferencesView(props: PageProps) {
           )}
           {/* A rejected save replaces the whole form with MAM's error page, so
               there is nothing to edit here until the reader goes back. */}
-          {rejected.length > 0 && !form ? (
+          {active === 'colophon' ? (
+            <ColophonPrefsView {...props} />
+          ) : rejected.length > 0 && !form ? (
             <a
               href={`/preferences/index.php?view=${active}`}
               className="inline-flex h-8 items-center rounded-md bg-brand-soft px-3 text-[12.5px] font-medium text-accent-foreground transition-colors hover:opacity-90"

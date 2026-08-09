@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Eye, Headset, Mail, Moon, PackageCheck, Search, Sun, SunMoon } from 'lucide-react'
+import { Eye, Headset, Mail, Moon, PackageCheck, Search, Settings2, Sun, SunMoon } from 'lucide-react'
 import type { ShellData } from '@/lib/extract/shell'
 import { applyTheme, getDarkScheme, getLightScheme, getTheme, isDark, setDarkScheme, setLightScheme, type DarkScheme, type LightScheme, type Theme } from '@/lib/theme'
 import { NOTIF_TARGETS, type NotifCounts } from '@/lib/notify'
@@ -220,6 +220,16 @@ export function Topbar({ page, counts, onOpenSearch }: { page: ShellData; counts
           href="/snatch_summary.php#unsat"
           hint="Review your unsatisfied snatches"
         />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button asChild variant="ghost" size="icon" className="size-8">
+              <a href="/preferences/index.php?view=colophon" aria-label="Colophon settings">
+                <Settings2 className="size-4" />
+              </a>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Colophon settings</TooltipContent>
+        </Tooltip>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="size-8" aria-label={`Appearance: ${theme}`}>
