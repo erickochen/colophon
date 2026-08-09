@@ -5,12 +5,14 @@ import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader, RichHtml } from '@/app/shell/bits'
 import { fmtInt } from '@/lib/format'
 import { cleanHtml } from '@/lib/sanitize'
+import { readFeature } from '@/lib/settings'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { NumberRoll } from '@/components/ui/number-roll'
 import { Progress } from '@/components/ui/progress'
 import { ShineBorder } from '@/components/ui/shine-border'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Slider } from '@/components/ui/slider'
 import { toast } from '@/components/ui/toast'
 
@@ -20,6 +22,7 @@ const WEDGE_BONUS_AT = 2000
 const DAILY_MAX = 2000
 // Shortcuts next to the slider; anything above the day's allowance is dropped.
 const QUICK_AMOUNTS = [100, 500, 1000]
+const DAY_MS = 24 * 60 * 60 * 1000
 
 interface Donation {
   at: Date | null
@@ -42,10 +45,10 @@ interface DonateData {
   thanks: number | null
   donatedToday: boolean | null
   notice: string | null
-  donations: Donation[]
 }
 
-/** Both vault pages end in the same Date/Amount table of your own donations. */
+/** Your own donations, from the Date/Amount table. The one on pot.php covers
+ * the whole pot; the one on donate.php only covers today. */
 function readDonations(main: Element): Donation[] {
   const out: Donation[] = []
   for (const table of main.querySelectorAll('table')) {
@@ -66,20 +69,24 @@ function readDonations(main: Element): Donation[] {
   return out.sort((a, b) => (b.at?.getTime() ?? 0) - (a.at?.getTime() ?? 0))
 }
 
-function sameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
-}
+const dayKey = (d: Date, utc: boolean) =>
+  utc
+    ? `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`
+    : `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
 
-/** Donations are stamped in UTC; read them back in the reader's own clock. */
+/** Donations are stamped in UTC; the local-time setting decides which clock
+ * the reader sees. */
 function whenLabel(d: Donation): string {
   if (!d.at) return d.raw
-  const time = d.at.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+  const utc = !readFeature('localTime')
+  const zone = utc ? 'UTC' : undefined
+  const time = d.at.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: zone })
   const now = new Date()
-  if (sameDay(d.at, now)) return `Today ${time}`
-  const yesterday = new Date(now)
-  yesterday.setDate(yesterday.getDate() - 1)
-  if (sameDay(d.at, yesterday)) return `Yesterday ${time}`
-  return `${d.at.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })} ${time}`
+  const yesterday = new Date(now.getTime() - DAY_MS)
+  if (dayKey(d.at, utc) === dayKey(now, utc)) return `Today ${time}`
+  if (dayKey(d.at, utc) === dayKey(yesterday, utc)) return `Yesterday ${time}`
+  const date = d.at.toLocaleDateString('en-US', { day: 'numeric', month: 'short', timeZone: zone })
+  return `${date} ${time}`
 }
 
 function donatedTodayFrom(doc: Document): boolean | null {
@@ -97,8 +104,9 @@ function DonatedBadge({ donated }: { donated: boolean | null }) {
   )
 }
 
-function VaultDonations({ donations }: { donations: Donation[] }) {
-  const total = donations.reduce((sum, d) => sum + d.amount, 0)
+/** `donations` is null while the pot page is still on its way. */
+function VaultDonations({ donations, failed }: { donations: Donation[] | null; failed?: boolean }) {
+  const total = (donations ?? []).reduce((sum, d) => sum + d.amount, 0)
   const toBonus = Math.max(0, WEDGE_BONUS_AT - total)
 
   return (
@@ -109,7 +117,17 @@ function VaultDonations({ donations }: { donations: Donation[] }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="px-0 pb-2">
-        {donations.length === 0 ? (
+        {failed ? (
+          <p className="px-6 pb-6 text-[13px] text-muted-foreground">
+            The pot page did not answer, so your donations stay hidden this time.
+          </p>
+        ) : donations === null ? (
+          <div className="grid gap-2 px-6 pb-6">
+            <Skeleton className="h-8 w-40" />
+            <Skeleton className="h-2 w-full" />
+            <Skeleton className="h-4 w-56" />
+          </div>
+        ) : donations.length === 0 ? (
           <p className="px-6 pb-6 text-[13px] text-muted-foreground">Nothing given to this pot yet.</p>
         ) : (
           <>
@@ -259,7 +277,6 @@ function readDonate(doc: Document): DonateData | null {
     thanks: thanks ? Number(thanks.replace(/,/g, '')) || null : null,
     donatedToday: donatedTodayFrom(doc),
     notice,
-    donations: readDonations(main),
   }
 }
 
@@ -272,6 +289,29 @@ export function VaultDonateView(props: PageProps) {
   // The site preselects the largest amount you may still give; keep that.
   const [amount, setAmount] = useState(max)
   const [sending, setSending] = useState(false)
+  const [potGiving, setPotGiving] = useState<Donation[] | null>(null)
+  const [potFailed, setPotFailed] = useState(false)
+
+  // This page only tables what you gave today, so the run for the whole pot
+  // comes from the pot page.
+  useEffect(() => {
+    if (!data) return
+    let alive = true
+    fetch('/millionaires/pot.php', { credentials: 'include' })
+      .then((r) => r.text())
+      .then((html) => {
+        if (!alive) return
+        const main = new DOMParser().parseFromString(html, 'text/html').querySelector('#mainBody')
+        if (main) setPotGiving(readDonations(main))
+        else setPotFailed(true)
+      })
+      .catch(() => {
+        if (alive) setPotFailed(true)
+      })
+    return () => {
+      alive = false
+    }
+  }, [data])
 
   // A page restored from the back/forward cache keeps its React state, so the
   // button would still read as sending.
@@ -385,7 +425,7 @@ export function VaultDonateView(props: PageProps) {
         </Card>
       )}
 
-      <VaultDonations donations={data.donations} />
+      <VaultDonations donations={potGiving} failed={potFailed} />
     </div>
   )
 }
