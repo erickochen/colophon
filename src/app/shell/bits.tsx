@@ -35,9 +35,10 @@ export function Crumbs({ items }: { items: { name: string; href: string | null }
   )
 }
 
-export function UserLink({ name, href, color, className }: { name: string | null; href?: string | null; color?: string | null; className?: string }) {
+export function UserLink({ name, href, color, exactColor, className }: { name: string | null; href?: string | null; color?: string | null; exactColor?: string | null; className?: string }) {
   if (!name) return null
-  const style = color ? { color: mutedUserColor(color) } : undefined
+  // exactColor skips the muting map, for tints that are already theme-tuned.
+  const style = exactColor ? { color: exactColor } : color ? { color: mutedUserColor(color) } : undefined
   return href ? (
     <a href={href} className={cn('font-medium hover:underline', className)} style={style}>{name}</a>
   ) : (

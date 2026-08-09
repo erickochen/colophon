@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ArrowDown, AtSign, History, Pencil, Quote as QuoteIcon, Send, Smile, X } from 'lucide-react'
+import { ArrowDown, AtSign, History, MoreHorizontal, Pencil, Quote as QuoteIcon, Send, Smile, Star, StarOff, Volume2, VolumeX, X } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { extractShouts, type Shout } from '@/lib/extract/home'
 import { PageHeader, UserLink } from '@/app/shell/bits'
 import { initials, localDate, localHm, relTime, utcTitle } from '@/lib/format'
+import { stableUserColor } from '@/lib/colors'
+import { useFeature, useUserList } from '@/lib/settings'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
@@ -51,6 +54,15 @@ function dayLabel(t: string | null): string {
   if (same(d, today)) return 'Today'
   if (same(d, y)) return 'Yesterday'
   return d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
+}
+
+/** Whether a shout talks to or about the reader: a link to their profile or
+ * their name written out. */
+function mentionsMe(item: ShoutItem, myUid: number | null, myName: string | null): boolean {
+  if (myUid != null && item.html?.includes(`/u/${myUid}"`)) return true
+  if (!myName) return false
+  const esc = myName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`(^|[^\\w])@?${esc}([^\\w]|$)`, 'i').test(item.text)
 }
 
 /** Rendered shout body: keep MAM's smilies as small inline images and its
@@ -129,11 +141,20 @@ function EmojiPicker({ onPick }: { onPick: (code: string) => void }) {
   )
 }
 
-export function ShoutboxView(_props: PageProps) {
+export function ShoutboxView(props: PageProps) {
   const myUid = useMemo(
     () => Number(document.querySelector('a.myInfo[href^="/u/"]')?.getAttribute('href')?.match(/\d+/)?.[0]) || null,
     []
   )
+  const myName = props.page.user.name || null
+  const [mentionsOn] = useFeature('sbMentions')
+  const [mutesOn] = useFeature('sbMutes')
+  const [emphasisOn] = useFeature('sbEmphasis')
+  const [colorsOn] = useFeature('sbColors')
+  const muted = useUserList('sb-muted')
+  const emphasized = useUserList('sb-emphasized')
+  // Which muted groups the reader opened, per occurrence, for this visit only.
+  const [revealedMutes, setRevealedMutes] = useState<Set<string>>(() => new Set())
   const [shouts, setShouts] = useState<Shout[]>(() => extractShouts(document.querySelector('#sbf') ?? document))
   const [draft, setDraft] = useState('')
   const [quoting, setQuoting] = useState<{ code: string; label: string } | null>(null)
@@ -307,15 +328,39 @@ export function ShoutboxView(_props: PageProps) {
               const day = dayOf(g.items[0].time)
               const showDay = day && day !== lastDay
               if (day) lastDay = day
+              const uidS = g.user?.uid != null ? String(g.user.uid) : null
+              const dayNode = showDay ? (
+                <div className="my-2 flex items-center gap-3 px-1">
+                  <span className="h-px flex-1 bg-border" />
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{dayLabel(g.items[0].time)}</span>
+                  <span className="h-px flex-1 bg-border" />
+                </div>
+              ) : null
+              if (mutesOn && uidS && !g.own && muted.has(uidS) && !revealedMutes.has(g.items[0].id)) {
+                return (
+                  <div key={g.items[0].id}>
+                    {dayNode}
+                    <div className="flex items-center gap-2 px-2 py-1 text-[12px] text-muted-foreground">
+                      <VolumeX aria-hidden="true" className="size-3.5 shrink-0" />
+                      <span className="italic">
+                        Muted: {g.user?.name} · {g.items.length === 1 ? '1 shout' : `${g.items.length} shouts`}
+                      </span>
+                      <button
+                        type="button"
+                        className="rounded text-brand hover:underline focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
+                        onClick={() => setRevealedMutes((s) => new Set(s).add(g.items[0].id))}
+                      >
+                        show
+                      </button>
+                    </div>
+                  </div>
+                )
+              }
+              const nameColor = colorsOn && uidS ? stableUserColor(uidS) : null
+              const emphasize = emphasisOn && uidS != null && emphasized.has(uidS)
               return (
                 <div key={g.items[0].id}>
-                  {showDay && (
-                    <div className="my-2 flex items-center gap-3 px-1">
-                      <span className="h-px flex-1 bg-border" />
-                      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{dayLabel(g.items[0].time)}</span>
-                      <span className="h-px flex-1 bg-border" />
-                    </div>
-                  )}
+                  {dayNode}
                   <div
                     className={cn(
                       'flex min-w-0 gap-2.5 rounded-xl px-2 py-1.5 transition-colors',
@@ -323,10 +368,10 @@ export function ShoutboxView(_props: PageProps) {
                       groupNew && 'animate-in fade-in slide-in-from-bottom-1 duration-300'
                     )}
                   >
-                    <Avatar className={cn('mt-0.5 size-7 shrink-0 rounded-lg', g.own && 'ring-2 ring-brand/40')}>
+                    <Avatar className={cn('mt-0.5 size-7 shrink-0 rounded-lg', g.own && 'ring-2 ring-brand/40', emphasize && 'ring-2 ring-brand/60')}>
                       <AvatarFallback
                         className="rounded-lg text-[10.5px] font-medium"
-                        style={g.user?.color ? { color: g.user.color } : undefined}
+                        style={nameColor ? { color: nameColor } : g.user?.color ? { color: g.user.color } : undefined}
                       >
                         {initials(g.user?.name ?? 'SY')}
                       </AvatarFallback>
@@ -334,10 +379,17 @@ export function ShoutboxView(_props: PageProps) {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline gap-2">
                         {g.user ? (
-                          <UserLink name={g.user.name} href={g.user.uid ? `/u/${g.user.uid}` : null} color={g.user.color} className="text-[13px]" />
+                          <UserLink
+                            name={g.user.name}
+                            href={g.user.uid ? `/u/${g.user.uid}` : null}
+                            color={g.user.color}
+                            exactColor={nameColor}
+                            className="text-[13px]"
+                          />
                         ) : (
                           <span className="text-[13px] font-medium text-muted-foreground">system</span>
                         )}
+                        {emphasize && <Star aria-label="Emphasized" className="size-3 shrink-0 self-center fill-brand text-brand" />}
                         {g.user?.country && (
                           <img
                             src={g.user.country.src}
@@ -351,8 +403,16 @@ export function ShoutboxView(_props: PageProps) {
                         <span className="text-[10.5px] text-muted-foreground" title={utcTitle(g.items[0].time)}>{relTime(g.items[0].time)}</span>
                       </div>
                       <div className="grid gap-0.5">
-                        {g.items.map((it) => (
-                          <div key={it.id} className="group flex items-baseline gap-2 text-[13.5px] pointer-coarse:flex-wrap">
+                        {g.items.map((it) => {
+                          const mentioned = mentionsOn && !g.own && mentionsMe(it, myUid, myName)
+                          return (
+                          <div
+                            key={it.id}
+                            className={cn(
+                              'group flex items-baseline gap-2 text-[13.5px] pointer-coarse:flex-wrap',
+                              mentioned && '-mx-1.5 rounded-md bg-brand/10 px-1.5 py-0.5'
+                            )}
+                          >
                             <ShoutBody item={it} />
                             <div className="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100">
                               <span className="mr-1 font-mono text-[10px] text-muted-foreground" title={utcTitle(it.time)}>{localHm(it.time)}</span>
@@ -368,9 +428,44 @@ export function ShoutboxView(_props: PageProps) {
                               {it.editable && (
                                 <IconAction label="Edit" onClick={() => openEdit(it.numId)}><Pencil className="size-3" /></IconAction>
                               )}
+                              {uidS && !g.own && (mutesOn || emphasisOn) && (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger
+                                    aria-label={`More actions for ${g.user?.name}`}
+                                    className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none pointer-coarse:size-8"
+                                  >
+                                    <MoreHorizontal className="size-3" />
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    {mutesOn && (
+                                      muted.has(uidS) ? (
+                                        <DropdownMenuItem onClick={() => muted.remove(uidS)}>
+                                          <Volume2 /> Unmute {g.user?.name}
+                                        </DropdownMenuItem>
+                                      ) : (
+                                        <DropdownMenuItem onClick={() => muted.add({ uid: uidS, name: g.user?.name ?? uidS })}>
+                                          <VolumeX /> Mute {g.user?.name}
+                                        </DropdownMenuItem>
+                                      )
+                                    )}
+                                    {emphasisOn && (
+                                      emphasized.has(uidS) ? (
+                                        <DropdownMenuItem onClick={() => emphasized.remove(uidS)}>
+                                          <StarOff /> Remove emphasis
+                                        </DropdownMenuItem>
+                                      ) : (
+                                        <DropdownMenuItem onClick={() => emphasized.add({ uid: uidS, name: g.user?.name ?? uidS })}>
+                                          <Star /> Emphasize {g.user?.name}
+                                        </DropdownMenuItem>
+                                      )
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              )}
                             </div>
                           </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
                   </div>

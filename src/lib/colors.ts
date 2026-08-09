@@ -1,5 +1,17 @@
 let ctx: CanvasRenderingContext2D | null | undefined
 
+// Spread hashed hues far enough apart that neighbouring uids stay tellable.
+const HASH_HUE_STEPS = 24
+
+/** Steady per-user tint from the uid alone, same on every visit. Lightness and
+ * chroma come from theme tokens so both sides stay readable. */
+export function stableUserColor(uid: string): string {
+  let hash = 5381
+  for (let i = 0; i < uid.length; i++) hash = ((hash << 5) + hash + uid.charCodeAt(i)) >>> 0
+  const hue = (hash % HASH_HUE_STEPS) * (360 / HASH_HUE_STEPS)
+  return `oklch(var(--user-hash-l, 0.55) var(--user-hash-c, 0.09) ${hue})`
+}
+
 /* MAM paints usernames in saturated class colors that fight the paper
  * palette. Map any CSS color onto the nearest muted user tint by hue;
  * near-grays fall back to muted-foreground. */
