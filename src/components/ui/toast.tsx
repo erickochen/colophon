@@ -13,7 +13,11 @@ import { getPortalContainer } from "@/lib/portals"
 
 const manager = ToastPrimitive.createToastManager()
 
-type ToastOptions = { description?: React.ReactNode; duration?: number }
+type ToastOptions = {
+  description?: React.ReactNode
+  duration?: number
+  action?: { label: string; onClick: () => void }
+}
 
 function add(type: string, title: React.ReactNode, opts?: ToastOptions) {
   return manager.add({
@@ -21,6 +25,7 @@ function add(type: string, title: React.ReactNode, opts?: ToastOptions) {
     description: opts?.description,
     type,
     timeout: opts?.duration,
+    actionProps: opts?.action ? { children: opts.action.label, onClick: opts.action.onClick } : undefined,
   })
 }
 
@@ -71,6 +76,9 @@ function ToastList() {
             <div className="grid flex-1 gap-1">
               <ToastPrimitive.Title className="text-[13.5px] leading-snug font-medium" />
               <ToastPrimitive.Description className="text-[12.5px] leading-snug text-muted-foreground" />
+              {t.actionProps && (
+                <ToastPrimitive.Action className="mt-1 h-7 w-fit rounded-md border px-2.5 text-[12px] font-medium transition-colors hover:bg-accent" />
+              )}
             </div>
             <ToastPrimitive.Close
               aria-label="Close"

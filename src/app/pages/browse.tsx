@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlignJustify, Bookmark, BookmarkCheck, BookmarkX, ChevronDown, Columns3, Download, FileArchive, Filter, LayoutGrid, Loader2, Search, Trash2 } from 'lucide-react'
+import { AlignJustify, Bookmark, BookmarkCheck, BookmarkX, ChevronDown, Columns3, Download, EyeOff, FileArchive, Filter, LayoutGrid, Loader2, Search, Trash2, Undo2 } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import {
   bookmarkCleanup, bookmarkMass, BookmarkMassError, bookmarkOne, downloadZipOf, searchTorrents, parsePeople,
@@ -9,6 +9,7 @@ import {
 import { CONTENT_FLAGS, LANGUAGES, MAIN_CATS, SORT_OPTIONS } from '@/lib/mam-facets'
 import { wedgeHelps } from '@/lib/wedge'
 import { mamBrowseDefaults, readSticky, writeSticky, type StickyFilters } from '@/lib/browse-sticky'
+import { useFeature, useIgnoredTorrents } from '@/lib/settings'
 import { fmtInt, plural, relTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Book } from '@/components/book'
@@ -91,6 +92,13 @@ function readCols(): ColKey[] {
 
 const PERPAGE_OPTIONS = [25, 50, 100]
 const DEFAULT_PERPAGE = PERPAGE_OPTIONS[0]
+
+// Long enough to hit Undo after the row leaves the list.
+const IGNORE_TOAST_MS = 6000
+
+/** Why a row is not shown: on the personal ignore list or snatched while the
+ * hide-snatched filter is on. */
+type HiddenReason = 'ignored' | 'snatched'
 
 type SrchField = (typeof SRCH_FIELDS)[number][0]
 
@@ -325,7 +333,7 @@ function RowBookmark({ t, onBookmark, onRemoved }: { t: SearchTorrent; onBookmar
   )
 }
 
-function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech }: { t: SearchTorrent; cols: ColKey[]; onBookmark: BookmarkSetter; onRemoved?: RowDropper; onFreeleech?: (id: number) => void }) {
+function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onUnignore, hiddenReason }: { t: SearchTorrent; cols: ColKey[]; onBookmark: BookmarkSetter; onRemoved?: RowDropper; onFreeleech?: (id: number) => void; onIgnore?: (t: SearchTorrent) => void; onUnignore?: (id: number) => void; hiddenReason?: HiddenReason | null }) {
   const authors = parsePeople(t.author_info)
   const narrators = cols.includes('narrators') ? parsePeople(t.narrator_info) : []
   const series = cols.includes('series') ? parsePeople(t.series_info) : []
@@ -334,7 +342,8 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech }: { t: Search
     <div
       className={cn(
         'group grid items-center gap-[18px] px-[22px] py-3.5 transition-colors hover:bg-foreground/[0.028]',
-        stats.length ? 'grid-cols-[88px_1fr_auto_auto]' : 'grid-cols-[88px_1fr_auto]'
+        stats.length ? 'grid-cols-[88px_1fr_auto_auto]' : 'grid-cols-[88px_1fr_auto]',
+        hiddenReason && 'opacity-60'
       )}
     >
       <RowCover t={t} />
@@ -393,58 +402,92 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech }: { t: Search
           )}
         </div>
       )}
-      <div className="flex items-center gap-1.5">
-        <RowBookmark t={t} onBookmark={onBookmark} onRemoved={onRemoved} />
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <a
-              href={downloadUrl(t.id)}
-              aria-label="Download .torrent"
+      {hiddenReason === 'ignored' && onUnignore ? (
+        <div className="flex items-center gap-1.5">
+          <Button variant="outline" size="sm" className="h-8 text-[12.5px]" onClick={() => onUnignore(t.id)}>
+            <Undo2 className="size-3.5" /> Unignore
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1.5">
+          <RowBookmark t={t} onBookmark={onBookmark} onRemoved={onRemoved} />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <a
+                href={downloadUrl(t.id)}
+                aria-label="Download .torrent"
+                className={cn(ROW_ACTION, 'border-input text-muted-foreground opacity-0 group-hover:opacity-100')}
+              >
+                <Download className="size-[15px]" />
+              </a>
+            </TooltipTrigger>
+            <TooltipContent>Download .torrent</TooltipContent>
+          </Tooltip>
+          {onFreeleech && wedgeHelps(t) && (
+            <WedgeRowButton
+              target={{ id: t.id, title: t.title, size: t.size }}
+              onDone={() => onFreeleech(t.id)}
               className={cn(ROW_ACTION, 'border-input text-muted-foreground opacity-0 group-hover:opacity-100')}
-            >
-              <Download className="size-[15px]" />
-            </a>
-          </TooltipTrigger>
-          <TooltipContent>Download .torrent</TooltipContent>
-        </Tooltip>
-        {onFreeleech && wedgeHelps(t) && (
-          <WedgeRowButton
-            target={{ id: t.id, title: t.title, size: t.size }}
-            onDone={() => onFreeleech(t.id)}
-            className={cn(ROW_ACTION, 'border-input text-muted-foreground opacity-0 group-hover:opacity-100')}
-          />
-        )}
-      </div>
+            />
+          )}
+          {onIgnore && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Ignore this torrent"
+                  onClick={() => onIgnore(t)}
+                  className={cn(ROW_ACTION, 'border-input text-muted-foreground opacity-0 group-hover:opacity-100')}
+                >
+                  <EyeOff className="size-[15px]" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Ignore this torrent</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+      )}
     </div>
   )
 }
 
-function GalleryItem({ t }: { t: SearchTorrent }) {
+function GalleryItem({ t, hiddenReason, onUnignore }: { t: SearchTorrent; hiddenReason?: HiddenReason | null; onUnignore?: (id: number) => void }) {
   const authors = parsePeople(t.author_info)
   const authorsText = authors.map((a) => a.name).join(', ')
   return (
-    <a href={torrentUrl(t.id)} className="group block">
-      <span className="relative block text-[11px] transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1.5 motion-reduce:transition-none">
-        <Book
-          poster={t.poster_type ? coverUrl(t.id) : null}
-          title={t.title}
-          author={authorsText || undefined}
-          naturalRatio
-          size="shelf"
-          className="group-hover:shadow-book-lift"
-        />
-        {!!t.bookmarked && (
-          <span
-            aria-label="Bookmarked"
-            className="absolute right-1.5 top-1.5 z-3 grid size-[22px] place-items-center rounded-full bg-card/90 text-brand shadow-sm"
-          >
-            <BookmarkCheck className="size-[13px]" />
-          </span>
-        )}
-      </span>
-      <span className="font-display mt-2.5 line-clamp-2 block text-[13px] font-medium leading-[1.35]">{t.title}</span>
-      {authorsText && <span className="mt-0.5 line-clamp-1 block text-[11.5px] text-muted-foreground">{authorsText}</span>}
-    </a>
+    <span className={cn('relative block', hiddenReason && 'opacity-60')}>
+      <a href={torrentUrl(t.id)} className="group block">
+        <span className="relative block text-[11px] transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1.5 motion-reduce:transition-none">
+          <Book
+            poster={t.poster_type ? coverUrl(t.id) : null}
+            title={t.title}
+            author={authorsText || undefined}
+            naturalRatio
+            size="shelf"
+            className="group-hover:shadow-book-lift"
+          />
+          {!!t.bookmarked && (
+            <span
+              aria-label="Bookmarked"
+              className="absolute right-1.5 top-1.5 z-3 grid size-[22px] place-items-center rounded-full bg-card/90 text-brand shadow-sm"
+            >
+              <BookmarkCheck className="size-[13px]" />
+            </span>
+          )}
+        </span>
+        <span className="font-display mt-2.5 line-clamp-2 block text-[13px] font-medium leading-[1.35]">{t.title}</span>
+        {authorsText && <span className="mt-0.5 line-clamp-1 block text-[11.5px] text-muted-foreground">{authorsText}</span>}
+      </a>
+      {hiddenReason === 'ignored' && onUnignore && (
+        <button
+          type="button"
+          onClick={() => onUnignore(t.id)}
+          className="absolute left-1.5 top-1.5 z-3 flex items-center gap-1 rounded-full bg-card/90 px-2 py-1 text-[11px] font-medium shadow-sm transition-colors hover:text-brand"
+        >
+          <Undo2 className="size-3" /> Unignore
+        </button>
+      )}
+    </span>
   )
 }
 
@@ -689,6 +732,10 @@ export function BrowseView(props: PageProps) {
   })
   const [cols, setCols] = useState<ColKey[]>(readCols)
   const seq = useRef(0)
+  const [hideSnatched, setHideSnatched] = useFeature('hideSnatched')
+  const [ignoreOn] = useFeature('ignoreAction')
+  const ignored = useIgnoredTorrents()
+  const [showHidden, setShowHidden] = useState(false)
 
   const setViewMode = (v: ViewMode) => {
     setView(v)
@@ -810,10 +857,36 @@ export function BrowseView(props: PageProps) {
 
   const dropOnUnbookmark = state.searchIn === 'bookmarks' ? dropRows : undefined
 
+  /** Ignore wins over hide-snatched, so a row is counted once. */
+  const hiddenReason = useCallback(
+    (t: SearchTorrent): HiddenReason | null =>
+      ignored.has(t.id) ? 'ignored' : hideSnatched && t.my_snatched === 1 ? 'snatched' : null,
+    [ignored, hideSnatched]
+  )
+  const shownItems = useMemo(
+    () => (showHidden ? items : items.filter((t) => !hiddenReason(t))),
+    [items, showHidden, hiddenReason]
+  )
+  const hiddenIgnored = items.filter((t) => hiddenReason(t) === 'ignored').length
+  const hiddenSnatched = items.filter((t) => hiddenReason(t) === 'snatched').length
+  const hiddenCount = hiddenIgnored + hiddenSnatched
+  const hiddenParts = [
+    hiddenSnatched > 0 ? `${fmtInt(hiddenSnatched)} snatched` : null,
+    hiddenIgnored > 0 ? `${fmtInt(hiddenIgnored)} ignored` : null,
+  ].filter(Boolean).join(', ')
+
+  const ignoreTorrent = (t: SearchTorrent) => {
+    ignored.add({ id: t.id, title: t.title ?? null })
+    toast(`Ignored ${t.title ?? `#${t.id}`}`, {
+      action: { label: 'Undo', onClick: () => ignored.remove(t.id) },
+      duration: IGNORE_TOAST_MS,
+    })
+  }
+
   const from = items.length === 0 ? 0 : baseStart + 1
   const to = Math.min(found, baseStart + items.length)
   const remaining = Math.max(0, found - to)
-  const activeFilters = state.cat.length + state.langs.length + state.flags.length
+  const activeFilters = state.cat.length + state.langs.length + state.flags.length + (hideSnatched ? 1 : 0)
   const sortLabel = SORT_OPTIONS.find((o) => o.value === state.sort)?.label ?? state.sort
 
   const facetSummary = useMemo(() => {
@@ -882,6 +955,9 @@ export function BrowseView(props: PageProps) {
           onRemove: () => apply({ searchIn: 'torrents' }),
         }]
       : []),
+    ...(hideSnatched
+      ? [{ key: 'hideSnatched', label: 'Hide snatched', onRemove: () => setHideSnatched(false) }]
+      : []),
   ]
 
   return (
@@ -938,6 +1014,12 @@ export function BrowseView(props: PageProps) {
                     </div>
                   ))}
                 </div>
+              </FacetSection>
+              <FacetSection title="Personal" note="only in this browser">
+                <Label className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
+                  <Checkbox checked={hideSnatched} onCheckedChange={(v) => setHideSnatched(!!v)} />
+                  Hide snatched torrents
+                </Label>
               </FacetSection>
               <FacetSection
                 title="Content flags"
@@ -1007,9 +1089,9 @@ export function BrowseView(props: PageProps) {
       >
         <ViewToggle view={view} onChange={setViewMode} />
         {view === 'list' && <ColumnsMenu cols={cols} onToggle={toggleCol} />}
-        {!loading && items.length > 0 && (
+        {!loading && shownItems.length > 0 && (
           <ResultActions
-            items={items}
+            items={shownItems}
             bookmarksView={state.searchIn === 'bookmarks'}
             onBookmark={setBookmarked}
             onRemoved={dropOnUnbookmark}
@@ -1059,9 +1141,15 @@ export function BrowseView(props: PageProps) {
                 : 'Nothing on these shelves. Loosen a filter or try different words.'}
           </div>
         )}
-        {!loading && items.length > 0 && view === 'list' && (
+        {!loading && !error && items.length > 0 && shownItems.length === 0 && (
+          <div className="py-12 text-center text-sm text-muted-foreground">
+            All {fmtInt(hiddenCount)} loaded results are hidden ({hiddenParts}).{' '}
+            <button className="underline" onClick={() => setShowHidden(true)}>Show them</button>
+          </div>
+        )}
+        {!loading && shownItems.length > 0 && view === 'list' && (
           <div className="divide-y divide-border">
-            {items.map((t) => (
+            {shownItems.map((t) => (
               <TorrentRow
                 key={t.id}
                 t={t}
@@ -1069,13 +1157,18 @@ export function BrowseView(props: PageProps) {
                 onBookmark={setBookmarked}
                 onRemoved={dropOnUnbookmark}
                 onFreeleech={setPersonalFreeleech}
+                onIgnore={ignoreOn ? ignoreTorrent : undefined}
+                onUnignore={ignored.remove}
+                hiddenReason={showHidden ? hiddenReason(t) : null}
               />
             ))}
           </div>
         )}
-        {!loading && items.length > 0 && view === 'grid' && (
+        {!loading && shownItems.length > 0 && view === 'grid' && (
           <div className="grid grid-cols-3 items-end gap-x-[22px] gap-y-7 p-[26px] sm:grid-cols-4 lg:grid-cols-6">
-            {items.map((t) => <GalleryItem key={t.id} t={t} />)}
+            {shownItems.map((t) => (
+              <GalleryItem key={t.id} t={t} hiddenReason={showHidden ? hiddenReason(t) : null} onUnignore={ignored.remove} />
+            ))}
           </div>
         )}
         {!loading && items.length > 0 && (remaining > 0 || loadingMore || error) && (
@@ -1095,8 +1188,28 @@ export function BrowseView(props: PageProps) {
       </Card>
 
       <div className="flex items-center justify-between">
-        <span className="text-[12.5px] tabular-nums text-muted-foreground">
-          {loading ? <Loader2 className="size-3.5 animate-spin" /> : `Showing ${fmtInt(from)}–${fmtInt(to)} of ${fmtInt(found)}`}
+        <span className="flex items-center gap-2 text-[12.5px] tabular-nums text-muted-foreground">
+          {loading ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <>
+              {`Showing ${fmtInt(from)}–${fmtInt(to)} of ${fmtInt(found)}`}
+              {hiddenCount > 0 && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  {`${fmtInt(hiddenCount)} hidden (${hiddenParts})`}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-[12.5px]"
+                    onClick={() => setShowHidden((v) => !v)}
+                  >
+                    {showHidden ? 'Hide again' : 'Show'}
+                  </Button>
+                </>
+              )}
+            </>
+          )}
         </span>
         <FilterSelect
           value={String(state.perpage)}
