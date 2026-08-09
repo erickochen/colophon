@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlignJustify, Bookmark, BookmarkCheck, BookmarkX, ChevronDown, Columns3, Download, EyeOff, FileArchive, Filter, LayoutGrid, Loader2, Search, Trash2, Undo2 } from 'lucide-react'
+import { AlignJustify, Bookmark, BookmarkCheck, BookmarkX, ChevronDown, Columns3, Dices, Download, EyeOff, FileArchive, Filter, LayoutGrid, Loader2, Search, Trash2, Undo2 } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import {
   bookmarkCleanup, bookmarkMass, BookmarkMassError, bookmarkOne, downloadZipOf, searchTorrents, parsePeople,
@@ -854,6 +854,29 @@ export function BrowseView(props: PageProps) {
     void run(next, { append: true })
   }
 
+  const [rolling, setRolling] = useState(false)
+
+  /** Opens a random torrent inside the active filters. */
+  async function randomBook() {
+    setRolling(true)
+    try {
+      const probe = await searchTorrents({ ...toQuery(state), perpage: 1, startNumber: 0 })
+      if (!probe.found) {
+        toast.warning('Nothing to pick from with these filters.')
+        return
+      }
+      const offset = Math.floor(Math.random() * probe.found)
+      const res = await searchTorrents({ ...toQuery(state), perpage: 1, startNumber: offset })
+      const hit = res.data[0]
+      if (hit) location.assign(torrentUrl(hit.id))
+      else toast.error('That roll came up empty. Try again.')
+    } catch {
+      toast.error('Could not pick a random book.')
+    } finally {
+      setRolling(false)
+    }
+  }
+
 
   const dropOnUnbookmark = state.searchIn === 'bookmarks' ? dropRows : undefined
 
@@ -962,11 +985,22 @@ export function BrowseView(props: PageProps) {
 
   return (
     <div className="grid gap-4">
-      <div>
-        <h1 className="font-display text-[26px] font-semibold tracking-tight">Browse the library</h1>
-        <p className="mt-0.5 text-[13px] text-muted-foreground">
-          {loading ? 'Searching…' : `${fmtInt(found)} torrents${facetSummary ? ` · ${facetSummary}` : ''}`}
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-[26px] font-semibold tracking-tight">Browse the library</h1>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">
+            {loading ? 'Searching…' : `${fmtInt(found)} torrents${facetSummary ? ` · ${facetSummary}` : ''}`}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 text-[12.5px]"
+          onClick={() => void randomBook()}
+          disabled={rolling}
+        >
+          {rolling ? <Loader2 className="animate-spin" /> : <Dices />} Random book
+        </Button>
       </div>
 
       <FilterBar>
