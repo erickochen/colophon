@@ -175,7 +175,7 @@ export function Topbar({ page, counts, onOpenSearch }: { page: ShellData; counts
   }, [])
 
   function shadowRootEl() {
-    return document.querySelector<HTMLElement>('#mam-remaster-host')?.shadowRoot?.getElementById('mam-root') ?? null
+    return document.querySelector<HTMLElement>('#colophon-host')?.shadowRoot?.getElementById('mam-root') ?? null
   }
 
   function chooseTheme(next: Theme) {

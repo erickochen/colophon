@@ -11,8 +11,9 @@ import { cacheWysiwygPref } from '@/components/bb-composer'
 import { preventWysiwyg } from '@/lib/wysiwyg'
 import { applyTheme, watchSystemTheme } from '@/lib/theme'
 import { applyMobileViewport, removeMobileViewport } from '@/lib/viewport'
+import { migrateLegacyKeys } from '@/lib/settings'
 
-const HOST_ID = 'mam-remaster-host'
+const HOST_ID = 'colophon-host'
 
 // Marks MAM's own body children. Anything appended later (other userscripts
 // such as GiftMAM) is left alone so its UI stays visible next to ours.
@@ -21,6 +22,9 @@ const LEGACY_ATTR = 'data-mam-legacy'
 // Before MAM's scripts load: stop TinyMCE from claiming body textareas. It fires
 // right around our mount and a hijacked textarea is invisible to FormMirror.
 preventWysiwyg()
+
+// Old storage prefixes rename to colophon: before anything reads them.
+migrateLegacyKeys()
 
 /* MAM's dialog body stays a light-DOM node, so these rules live in document.head
  * while the colours come from the shadow tree: a slotted element inherits custom
@@ -54,7 +58,7 @@ function abort() {
   revealPage()
   removeMobileViewport()
   document.getElementById(HOST_ID)?.remove()
-  document.getElementById('mam-remaster-hide')?.remove()
+  document.getElementById('colophon-hide')?.remove()
   document.documentElement.style.removeProperty('background-color')
   document.querySelectorAll(`[${LEGACY_ATTR}]`).forEach((el) => el.removeAttribute(LEGACY_ATTR))
 }
@@ -130,7 +134,7 @@ function boot() {
     // MAM's CSS sets html font-size 12px (rem leaks into shadow DOM) and adds
     // margins/padding around body.
     const hide = document.createElement('style')
-    hide.id = 'mam-remaster-hide'
+    hide.id = 'colophon-hide'
     hide.textContent = [
       // jQuery-UI dialogs (session manager, cookie viewer) must stay visible:
       // MAM's JS appends them to <body> and our proxied buttons open them.
@@ -191,7 +195,7 @@ function boot() {
     // Reveal on the next frame, after React has painted the shell.
     requestAnimationFrame(() => requestAnimationFrame(revealPage))
   } catch (err) {
-    console.error('[MAM Remaster] boot failed, restoring original page', err)
+    console.error('[Colophon] boot failed, restoring original page', err)
     abort()
   }
 }

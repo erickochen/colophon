@@ -56,10 +56,10 @@ const SEARCH_INS = [
 const REFRESH_POLL_MS = 1000
 const REFRESH_POLL_TRIES = 5
 
-const VIEW_KEY = 'muisstil:browse-view'
+const VIEW_KEY = 'colophon:browse-view'
 type ViewMode = 'list' | 'grid'
 
-const COLS_KEY = 'muisstil:browse-cols'
+const COLS_KEY = 'colophon:browse-cols'
 type ColKey = 'narrators' | 'series' | 'filetype' | 'size' | 'peers' | 'added'
 
 // List-row fields the reader can hide; track = width in the stats grid.

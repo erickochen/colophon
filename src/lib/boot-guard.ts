@@ -2,7 +2,7 @@
 // The loader puts the veil up; the payload finds it in place and leaves it be.
 import { PAGE_BG, pageBg } from '@/lib/theme'
 
-const GUARD_ID = 'mam-remaster-guard'
+const GUARD_ID = 'colophon-guard'
 
 // Set on <html> once the page has been handed back, so a second bundle in the
 // same document does not hide a page the reader is already looking at. It lives

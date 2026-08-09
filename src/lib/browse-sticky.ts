@@ -1,7 +1,7 @@
 // The browse filters a reader keeps coming back to. Stored per browser and
 // seeded once from the defaults MAM renders into its own browse form.
 
-const KEY = 'muisstil:browse-filters'
+const KEY = 'colophon:browse-filters'
 
 export interface StickyFilters {
   mainCat: number[]

@@ -3,7 +3,7 @@
 // ticker, so there is no server-side flag to mirror - we keep the set locally.
 import { useCallback, useSyncExternalStore } from 'react'
 
-const KEY = 'muisstil:hidden-sections'
+const KEY = 'colophon:hidden-sections'
 
 const listeners = new Set<() => void>()
 let cache: string[] | null = null

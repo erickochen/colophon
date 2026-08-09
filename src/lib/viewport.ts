@@ -4,7 +4,7 @@
 // experience because those layouts are not responsive yet.
 const MOBILE_READY = [/^\/shoutbox\//]
 
-const META_ID = 'mam-remaster-viewport'
+const META_ID = 'colophon-viewport'
 
 export function applyMobileViewport(): void {
   if (!MOBILE_READY.some((re) => re.test(location.pathname))) return

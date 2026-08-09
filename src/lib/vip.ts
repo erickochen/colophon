@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react'
 
-const CACHE_PREFIX = 'muisstil:vip-until:'
+const CACHE_PREFIX = 'colophon:vip-until:'
 
 /** undefined = never fetched this session, null = fetched and no VIP row. */
 function readCache(uid: number): string | null | undefined {

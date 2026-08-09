@@ -25,7 +25,7 @@ function quoteAttribution(who: string): string {
   return m ? `${m[1].trim()} in post #${m[2]} wrote:` : `${who.trim()} wrote:`
 }
 
-const WYSIWYG_KEY = 'muisstil:wysiwyg'
+const WYSIWYG_KEY = 'colophon:wysiwyg'
 
 /** Cache MAM's "Disable WYSIWYG" preference when its radio is on this page. */
 export function cacheWysiwygPref(doc: Document) {

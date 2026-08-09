@@ -2,7 +2,7 @@
 // the shape they left it in.
 import { useCallback, useSyncExternalStore } from 'react'
 
-const PREFIX = 'muisstil:collapsed:'
+const PREFIX = 'colophon:collapsed:'
 
 const listeners = new Set<() => void>()
 const cache = new Map<string, string[]>()

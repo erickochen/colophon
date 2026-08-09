@@ -5,9 +5,27 @@ export type Theme = 'light' | 'dark' | 'auto'
 export type LightScheme = 'default' | 'latte' | 'solarized'
 export type DarkScheme = 'default' | 'dracula' | 'onedark'
 
-export const THEME_KEY = 'mam-remaster:theme'
-export const SCHEME_LIGHT_KEY = 'mam-remaster:scheme-light'
-export const SCHEME_DARK_KEY = 'mam-remaster:scheme-dark'
+export const THEME_KEY = 'colophon:theme'
+export const SCHEME_LIGHT_KEY = 'colophon:scheme-light'
+export const SCHEME_DARK_KEY = 'colophon:scheme-dark'
+
+// One-time rename from the old prefix. This module loads first and stays
+// import-free, so it migrates its own keys inline before the first read.
+try {
+  for (const [oldKey, newKey] of [
+    ['mam-remaster:theme', THEME_KEY],
+    ['mam-remaster:scheme-light', SCHEME_LIGHT_KEY],
+    ['mam-remaster:scheme-dark', SCHEME_DARK_KEY],
+  ]) {
+    const value = localStorage.getItem(oldKey)
+    if (value !== null) {
+      if (localStorage.getItem(newKey) === null) localStorage.setItem(newKey, value)
+      localStorage.removeItem(oldKey)
+    }
+  }
+} catch {
+  // private mode
+}
 
 const LIGHT_SCHEMES: readonly LightScheme[] = ['default', 'latte', 'solarized']
 const DARK_SCHEMES: readonly DarkScheme[] = ['default', 'dracula', 'onedark']
