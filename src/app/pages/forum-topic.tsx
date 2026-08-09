@@ -4,7 +4,7 @@ import type { PageProps } from '@/app/router'
 import { extractTopic, type TopicPost } from '@/lib/extract/forum'
 import { LegacyView } from '@/app/pages/legacy'
 import { Crumbs, Pager, POST_SPACING, RichHtml } from '@/app/shell/bits'
-import { initials } from '@/lib/format'
+import { initials, localDateTime, utcTitle } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { BBComposer } from '@/components/bb-composer'
@@ -32,8 +32,8 @@ function Post({ p, onQuote, myUid }: { p: TopicPost; onQuote: (p: TopicPost) => 
           {p.author && <a href={p.author.href} className="truncate font-semibold hover:underline">{p.author.name}</a>}
           {p.authorTitle && <span className="truncate text-muted-foreground">({p.authorTitle})</span>}
         </div>
-        <span className="shrink-0 text-[11.5px] text-muted-foreground" title={p.at ?? ''}>
-          {p.rel ?? p.at ?? ''}
+        <span className="shrink-0 text-[11.5px] text-muted-foreground" title={utcTitle(p.at)}>
+          {p.rel ?? localDateTime(p.at)}
         </span>
       </div>
       <CardContent className="grid gap-4 px-6 py-4 sm:grid-cols-[150px_minmax(0,1fr)]">

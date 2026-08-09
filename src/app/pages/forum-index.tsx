@@ -4,7 +4,7 @@ import type { PageProps } from '@/app/router'
 import { extractForumIndex } from '@/lib/extract/forum'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader, UserLink } from '@/app/shell/bits'
-import { relTime, fmtInt } from '@/lib/format'
+import { relTime, fmtInt, utcTitle } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -67,7 +67,7 @@ export function ForumIndexView(props: PageProps) {
                   )}
                   <div className="mt-1 font-mono text-[11.5px] tabular-nums text-muted-foreground lg:hidden">
                     {fmtInt(b.topics)} topics · {fmtInt(b.posts)} posts
-                    {b.last.at && <> · {relTime(b.last.at)}</>}
+                    {b.last.at && <> · <span title={utcTitle(b.last.at)}>{relTime(b.last.at)}</span></>}
                   </div>
                 </div>
                 <div className="hidden text-right font-mono text-[12px] tabular-nums text-muted-foreground lg:block">
@@ -80,7 +80,7 @@ export function ForumIndexView(props: PageProps) {
                     <>
                       <a href={b.last.href ?? '#'} className="line-clamp-1 font-medium text-foreground hover:underline">{b.last.topic}</a>
                       <span>
-                        by <UserLink name={b.last.by} color={b.last.byColor} /> · {relTime(b.last.at)}
+                        by <UserLink name={b.last.by} color={b.last.byColor} /> · <span title={utcTitle(b.last.at)}>{relTime(b.last.at)}</span>
                       </span>
                     </>
                   ) : (

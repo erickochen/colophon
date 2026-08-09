@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { LegacyView } from '@/app/pages/legacy'
 import type { PageProps } from '@/app/router'
-import { relTime } from '@/lib/format'
+import { relTime, utcTitle } from '@/lib/format'
 import { allowNavigation } from '@/lib/form-dirty'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -318,8 +318,8 @@ function SessionCard({ s, d }: { s: Session; d: SecData }) {
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-0.5 pt-1 text-[12px] text-muted-foreground">
           {s.ip && <span className="flex items-center gap-1"><Globe className="size-3" /> {s.ip}</span>}
-          {s.created && <span>Signed in {relTime(s.created)}</span>}
-          {s.lastAccess && <span>Active {relTime(s.lastAccess)}</span>}
+          {s.created && <span title={utcTitle(s.created)}>Signed in {relTime(s.created)}</span>}
+          {s.lastAccess && <span title={utcTitle(s.lastAccess)}>Active {relTime(s.lastAccess)}</span>}
         </div>
 
         <div className="mt-2.5 flex flex-wrap gap-1.5">

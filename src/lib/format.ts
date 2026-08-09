@@ -1,3 +1,5 @@
+import { readFeature } from '@/lib/settings'
+
 export function fmtInt(n: number | string | null | undefined): string {
   if (n == null) return '–'
   const v = typeof n === 'string' ? Number(n.replace(/,/g, '')) : n
@@ -30,6 +32,51 @@ export function initials(name: string): string {
 /** Server timestamp without its clock time, so "2026-07-30 08:12:00" reads as a date. */
 export function dateOnly(s: string | null | undefined): string {
   return s?.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? s ?? ''
+}
+
+function parseUtcMs(iso: string): number | null {
+  const t = Date.parse(iso.replace(' ', 'T') + (iso.includes('+') || iso.endsWith('Z') ? '' : 'Z'))
+  return Number.isNaN(t) ? null : t
+}
+
+const pad2 = (n: number) => String(n).padStart(2, '0')
+
+/** Server timestamp (UTC) rendered in the reader's timezone, same shape as the
+ * raw string. With the local-time setting off, the raw UTC string comes back. */
+export function localDateTime(iso: string | null | undefined): string {
+  if (!iso) return ''
+  if (!readFeature('localTime')) return iso
+  const t = parseUtcMs(iso)
+  if (t == null) return iso
+  const d = new Date(t)
+  const date = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+  if (!/\d{2}:\d{2}/.test(iso)) return date
+  return `${date} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+}
+
+/** Date part of a UTC timestamp in the reader's timezone. */
+export function localDate(iso: string | null | undefined): string {
+  if (!iso) return ''
+  if (!readFeature('localTime')) return dateOnly(iso)
+  const t = parseUtcMs(iso)
+  if (t == null) return dateOnly(iso)
+  const d = new Date(t)
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+}
+
+/** Clock time of a UTC timestamp in the reader's timezone. */
+export function localHm(iso: string | null | undefined): string {
+  if (!iso) return ''
+  if (!readFeature('localTime')) return iso.slice(11, 16)
+  const t = parseUtcMs(iso)
+  if (t == null) return iso.slice(11, 16)
+  const d = new Date(t)
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+}
+
+/** Tooltip value keeping the exact server stamp reachable. */
+export function utcTitle(iso: string | null | undefined): string {
+  return iso ? `${iso} UTC` : ''
 }
 
 /** Count with its noun, singular at one: "1 member", "12 members". */

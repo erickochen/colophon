@@ -6,7 +6,7 @@ import {
   type KeyboardEvent, type ReactNode,
 } from 'react'
 import { mutedUserColor } from '@/lib/colors'
-import { dateOnly, initials, relTime } from '@/lib/format'
+import { dateOnly, initials, relTime, utcTitle } from '@/lib/format'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 
@@ -212,9 +212,9 @@ export function ConversationBubble({
           )}
           {badge}
           {at && (
-            <time dateTime={at.replace(' ', 'T')} className="text-[11px] text-muted-foreground">
+            <time dateTime={at.replace(' ', 'T') + 'Z'} title={utcTitle(at)} className="text-[11px] text-muted-foreground">
               {relTime(at)}
-              <span className="sr-only"> ({at})</span>
+              <span className="sr-only"> ({at} UTC)</span>
             </time>
           )}
           {actions}

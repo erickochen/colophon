@@ -31,7 +31,7 @@ import {
 import { MemberPicker } from '@/components/member-picker'
 import { BBComposer, type ComposerHandle } from '@/components/bb-composer'
 import { FilterBar, FilterRow, FilterSearch, FilterSegments } from '@/components/filters'
-import { dateOnly, plural, relTime } from '@/lib/format'
+import { dateOnly, plural, relTime, utcTitle } from '@/lib/format'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -607,7 +607,7 @@ export function MessagesView(props: PageProps) {
                           color={t.party?.color}
                           className={cn('truncate text-[12.5px]', count > 0 && 'font-semibold')}
                         />
-                        <span className="shrink-0 text-[11px] text-muted-foreground">{relTime(t.last.date)}</span>
+                        <span className="shrink-0 text-[11px] text-muted-foreground" title={utcTitle(t.last.date)}>{relTime(t.last.date)}</span>
                       </span>
                       <span
                         className={cn(

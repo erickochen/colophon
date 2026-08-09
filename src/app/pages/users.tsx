@@ -4,7 +4,7 @@ import type { PageProps } from '@/app/router'
 import { MEMBER_PAGE_SIZE, searchMembers, type UserRow } from '@/lib/extract/users'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
-import { dateOnly, plural, relTime } from '@/lib/format'
+import { localDate, plural, relTime, utcTitle } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -105,8 +105,8 @@ export function UsersView(props: PageProps) {
                       {u.flag && <img src={u.flag} alt="" className="h-3.5 w-auto" />}
                       <span className="hidden sm:inline">{u.country ?? ''}</span>
                     </span>
-                    <span className="text-[12px] text-muted-foreground" title={u.registered}>{dateOnly(u.registered)}</span>
-                    <span className="text-[12px] text-muted-foreground" title={u.lastAccess}>{relTime(u.lastAccess)}</span>
+                    <span className="text-[12px] text-muted-foreground" title={utcTitle(u.registered)}>{localDate(u.registered)}</span>
+                    <span className="text-[12px] text-muted-foreground" title={utcTitle(u.lastAccess)}>{relTime(u.lastAccess)}</span>
                   </a>
                 ))}
               </CardContent>

@@ -7,7 +7,7 @@ import { RichHtml } from '@/app/shell/bits'
 import { cleanHtml } from '@/lib/sanitize'
 import { swapStatusIcons } from '@/lib/status-dots'
 import { mutedUserColor } from '@/lib/colors'
-import { fmtInt, fmtRatio, initials, relTime } from '@/lib/format'
+import { fmtInt, fmtRatio, initials, relTime, utcTitle } from '@/lib/format'
 import { searchTorrents, parsePeople, coverUrl, torrentUrl, type SearchTorrent } from '@/lib/mam-api'
 import { useFeature } from '@/lib/settings'
 import { HARD_FLOOR, TRIVIAL_DROP, useRatioGuard, type RatioGuard, type RatioLevel } from '@/lib/ratio-protect'
@@ -286,7 +286,7 @@ function Comment({ c }: { c: TorrentComment }) {
           )}
           {c.authorClass && <span className="text-[11px] text-muted-foreground">({c.authorClass})</span>}
           {c.donor && <span title="Donor" className="text-[11px] text-warn">★</span>}
-          <span className="ml-auto text-[11px] text-muted-foreground" title={c.at ?? ''}>{relTime(c.at)}</span>
+          <span className="ml-auto text-[11px] text-muted-foreground" title={utcTitle(c.at)}>{relTime(c.at)}</span>
         </div>
         <RichHtml html={c.bodyHtml} className="mt-1 text-[13.5px]" />
       </div>
@@ -626,7 +626,7 @@ export function TorrentView(props: PageProps) {
     { label: 'seeders', value: data.seeders && fmtInt(data.seeders) },
     { label: 'leechers', value: data.leechers && fmtInt(data.leechers) },
     { label: 'snatched', value: data.snatched && fmtInt(data.snatched) },
-    { label: 'added', value: data.added && relTime(data.added), title: data.added ?? undefined },
+    { label: 'added', value: data.added && relTime(data.added), title: utcTitle(data.added) || undefined },
   ].filter((s): s is { label: string; value: string; title?: string } => !!s.value)
 
   return (

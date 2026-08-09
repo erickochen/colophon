@@ -4,7 +4,7 @@ import type { PageProps } from '@/app/router'
 import { cleanHtml } from '@/lib/sanitize'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader, RichHtml } from '@/app/shell/bits'
-import { relTime } from '@/lib/format'
+import { relTime, utcTitle } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { BBComposer } from '@/components/bb-composer'
@@ -82,10 +82,10 @@ function TicketRow({ t }: { t: Ticket }) {
           ))}
         </div>
         <div className="pt-1 text-[12px] text-muted-foreground">
-          Opened {t.added ? relTime(t.added) : '–'}
+          Opened <span title={utcTitle(t.added)}>{t.added ? relTime(t.added) : '–'}</span>
           {t.lastUpdate && (
             <>
-              {' · '}last reply {relTime(t.lastUpdate)}
+              {' · '}last reply <span title={utcTitle(t.lastUpdate)}>{relTime(t.lastUpdate)}</span>
               {t.lastBy && <> by <span className="font-medium" style={{ color: mutedUserColor(t.lastByColor) }}>{t.lastBy}</span></>}
             </>
           )}

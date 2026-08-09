@@ -10,7 +10,7 @@ import { CONTENT_FLAGS, LANGUAGES, MAIN_CATS, SORT_OPTIONS } from '@/lib/mam-fac
 import { wedgeHelps } from '@/lib/wedge'
 import { mamBrowseDefaults, readSticky, writeSticky, type StickyFilters } from '@/lib/browse-sticky'
 import { useFeature, useIgnoredTorrents } from '@/lib/settings'
-import { fmtInt, plural, relTime } from '@/lib/format'
+import { fmtInt, plural, relTime, utcTitle } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Book } from '@/components/book'
 import { WedgeRowButton } from '@/components/wedge-download'
@@ -398,7 +398,7 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onU
             </span>
           )}
           {cols.includes('added') && (
-            <span className="font-mono text-[12px] text-muted-foreground">{relTime(t.added)}</span>
+            <span className="font-mono text-[12px] text-muted-foreground" title={utcTitle(t.added)}>{relTime(t.added)}</span>
           )}
         </div>
       )}

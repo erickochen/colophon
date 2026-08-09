@@ -4,7 +4,7 @@ import type { PageProps } from '@/app/router'
 import { cleanHtml } from '@/lib/sanitize'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader, POST_SPACING, RichHtml } from '@/app/shell/bits'
-import { relTime } from '@/lib/format'
+import { localDateTime, utcTitle } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 
@@ -68,7 +68,7 @@ export function PostsHistoryView(props: PageProps) {
               {p.forum && <Badge variant="secondary" className="text-[10.5px]">{p.forum}</Badge>}
               <span className="ml-auto flex items-center gap-2 text-muted-foreground">
                 {p.postHref && <a href={p.postHref} className="font-mono hover:underline">#{p.postNum}</a>}
-                <span title={p.date}>{p.rel ?? p.date}</span>
+                <span title={utcTitle(p.date)}>{p.rel ?? localDateTime(p.date)}</span>
               </span>
             </div>
             <CardContent className="py-4">

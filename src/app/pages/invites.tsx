@@ -3,7 +3,7 @@ import { AtSign, CircleCheck, Inbox, MessageSquare, Send, TriangleAlert, UserPlu
 import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { extractInvites, extractSendForm, type SendForm } from '@/lib/extract/invites'
-import { dateOnly, plural } from '@/lib/format'
+import { localDate, plural, utcTitle } from '@/lib/format'
 import { cleanHtml } from '@/lib/sanitize'
 import { PageHeader, RichHtml } from '@/app/shell/bits'
 import {
@@ -94,8 +94,8 @@ export function InvitesView(props: PageProps) {
             <TableBody>
               {data.unstarted.map((r, i) => (
                 <TableRow key={i}>
-                  <TableCell className="text-[13px] tabular-nums">{dateOnly(r.added)}</TableCell>
-                  <TableCell className="text-[13px] tabular-nums">{dateOnly(r.expires)}</TableCell>
+                  <TableCell className="text-[13px] tabular-nums" title={utcTitle(r.added)}>{localDate(r.added)}</TableCell>
+                  <TableCell className="text-[13px] tabular-nums" title={utcTitle(r.expires)}>{localDate(r.expires)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

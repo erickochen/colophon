@@ -5,6 +5,7 @@ import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
 import { Card, CardContent } from '@/components/ui/card'
 import { FilterSearch } from '@/components/filters'
+import { localDateTime, utcTitle } from '@/lib/format'
 
 interface Hunt { date: string; name: string; href: string }
 
@@ -41,7 +42,9 @@ export function HuntsView(props: PageProps) {
                 <Sparkles className="size-3.5 shrink-0 text-brand" />
                 <span className="truncate text-[13.5px] font-medium">{h.name}</span>
               </span>
-              <span className="shrink-0 font-mono text-[12px] tabular-nums text-muted-foreground">{h.date}</span>
+              <span className="shrink-0 font-mono text-[12px] tabular-nums text-muted-foreground" title={utcTitle(h.date)}>
+                {localDateTime(h.date)}
+              </span>
             </a>
           ))}
           {shown.length === 0 && <p className="px-6 py-10 text-center text-sm text-muted-foreground">No hunt matches “{q.trim()}”.</p>}

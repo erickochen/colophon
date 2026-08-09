@@ -3,7 +3,7 @@ import { CheckCheck, Eye, MessagesSquare } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader, Pager, UserLink } from '@/app/shell/bits'
-import { fmtInt, relTime } from '@/lib/format'
+import { fmtInt, relTime, utcTitle } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -111,7 +111,7 @@ function TopicRow({ t, selectable, checked, onToggle }: {
               <span>by <UserLink name={t.author.name} href={t.author.href} /></span>
             </>
           )}
-          {t.postedAt && <><span>·</span><span title={t.postedAt}>{relTime(t.postedAt)}</span></>}
+          {t.postedAt && <><span>·</span><span title={utcTitle(t.postedAt)}>{relTime(t.postedAt)}</span></>}
         </div>
       </div>
       {t.views && (

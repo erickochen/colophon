@@ -3,7 +3,7 @@ import { ArrowDown, AtSign, History, Pencil, Quote as QuoteIcon, Send, Smile, X 
 import type { PageProps } from '@/app/router'
 import { extractShouts, type Shout } from '@/lib/extract/home'
 import { PageHeader, UserLink } from '@/app/shell/bits'
-import { initials, relTime } from '@/lib/format'
+import { initials, localDate, localHm, relTime, utcTitle } from '@/lib/format'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -39,8 +39,8 @@ function groupShouts(shouts: Shout[], myUid: number | null): ShoutGroup[] {
   return groups
 }
 
-const hhmm = (t: string | null) => (t ? t.slice(11, 16) : '')
-const dayOf = (t: string | null) => (t ? t.slice(0, 10) : '')
+// Group shouts by the same day the labels below name, local when enabled.
+const dayOf = (t: string | null) => (t ? localDate(t) : '')
 
 function dayLabel(t: string | null): string {
   if (!t) return ''
@@ -348,14 +348,14 @@ export function ShoutboxView(_props: PageProps) {
                           />
                         )}
                         {g.own && <span className="rounded bg-brand/15 px-1.5 py-px text-[9.5px] font-semibold uppercase tracking-wide text-brand">you</span>}
-                        <span className="text-[10.5px] text-muted-foreground" title={g.items[0].time ?? undefined}>{relTime(g.items[0].time)}</span>
+                        <span className="text-[10.5px] text-muted-foreground" title={utcTitle(g.items[0].time)}>{relTime(g.items[0].time)}</span>
                       </div>
                       <div className="grid gap-0.5">
                         {g.items.map((it) => (
                           <div key={it.id} className="group flex items-baseline gap-2 text-[13.5px] pointer-coarse:flex-wrap">
                             <ShoutBody item={it} />
                             <div className="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100">
-                              <span className="mr-1 font-mono text-[10px] text-muted-foreground">{hhmm(it.time)}</span>
+                              <span className="mr-1 font-mono text-[10px] text-muted-foreground" title={utcTitle(it.time)}>{localHm(it.time)}</span>
                               {g.user?.uid && (
                                 <>
                                   <IconAction label="Quote" onClick={() => quoteShout(it, g.user)}><QuoteIcon className="size-3" /></IconAction>

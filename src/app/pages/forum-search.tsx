@@ -4,7 +4,7 @@ import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader, RichHtml } from '@/app/shell/bits'
 import { cleanHtml } from '@/lib/sanitize'
-import { relTime } from '@/lib/format'
+import { relTime, utcTitle } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -82,7 +82,7 @@ function ResultCard({ r }: { r: Row }) {
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pt-1 text-[12px] text-muted-foreground">
           {r.board && <a href={r.board.href}><Badge variant="secondary" className="text-[10.5px] hover:bg-secondary/80">{r.board.name}</Badge></a>}
           {r.author && <span>by <span style={{ color: mutedUserColor(r.author.color) }}>{r.author.name}</span></span>}
-          {r.at && <span title={r.at}>· {relTime(r.at)}</span>}
+          {r.at && <span title={utcTitle(r.at)}>· {relTime(r.at)}</span>}
         </div>
       </div>
       {r.bodyHtml && (

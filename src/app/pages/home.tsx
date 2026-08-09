@@ -4,7 +4,7 @@ import type { PageProps } from '@/app/router'
 import { extractHome, extractShouts, type HomeTorrent, type Shout } from '@/lib/extract/home'
 import { searchTorrents, parsePeople, coverUrl } from '@/lib/mam-api'
 import { mutedUserColor } from '@/lib/colors'
-import { fmtInt, relTime } from '@/lib/format'
+import { fmtInt, localHm, relTime, utcTitle } from '@/lib/format'
 import { useHiddenSections, type HiddenSections } from '@/lib/hidden-sections'
 import { useGiftedSet, uidFromHref } from '@/lib/giftmam'
 import { cn } from '@/lib/utils'
@@ -162,7 +162,7 @@ function ShoutList({ shouts }: { shouts: Shout[] }) {
     <div className="grid gap-1.5">
       {shouts.map((s) => (
         <div key={s.id} className="flex min-w-0 items-baseline gap-2 text-[13px]">
-          <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground">{s.time?.slice(11, 16) ?? ''}</span>
+          <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground" title={utcTitle(s.time)}>{localHm(s.time)}</span>
           {s.user && (
             <a
               href={s.user.uid ? `/u/${s.user.uid}` : '#'}
@@ -391,7 +391,7 @@ export function HomeView({ page }: PageProps) {
                   <span className="min-w-0">
                     <span className="font-display block truncate text-[14px] font-medium">{p.title}</span>
                     <span className="block text-[12px] text-muted-foreground">
-                      {p.board} · last by {p.lastBy ?? p.author} · {relTime(p.lastAt)}
+                      {p.board} · last by {p.lastBy ?? p.author} · <span title={utcTitle(p.lastAt)}>{relTime(p.lastAt)}</span>
                     </span>
                   </span>
                   <span className="shrink-0 font-mono text-[11.5px] text-muted-foreground">{fmtInt(p.replies)} replies</span>

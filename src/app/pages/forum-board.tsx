@@ -4,7 +4,7 @@ import type { PageProps } from '@/app/router'
 import { extractBoard } from '@/lib/extract/forum'
 import { LegacyView } from '@/app/pages/legacy'
 import { Crumbs, PageHeader, Pager, UserLink } from '@/app/shell/bits'
-import { fmtInt, relTime } from '@/lib/format'
+import { fmtInt, relTime, utcTitle } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -40,7 +40,7 @@ function TopicRow({ t }: { t: NonNullable<ReturnType<typeof extractBoard>>['topi
         <div className="mt-1">{fmtInt(t.views)} views</div>
       </TableCell>
       <TableCell className="text-[12px] text-muted-foreground">
-        <a href={t.last.href ?? '#'} className="block hover:underline">{relTime(t.last.at)}</a>
+        <a href={t.last.href ?? '#'} className="block hover:underline" title={utcTitle(t.last.at)}>{relTime(t.last.at)}</a>
         by <UserLink name={t.last.by} color={t.last.byColor} />
       </TableCell>
     </TableRow>
