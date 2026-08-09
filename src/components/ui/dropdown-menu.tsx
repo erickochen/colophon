@@ -46,11 +46,14 @@ function DropdownMenuContent({
   >) {
   return (
     <DropdownMenuPrimitive.Portal container={getPortalContainer()}>
+      {/* Fixed positioning: the absolute path mislays anchors that sit inside a
+          scrolled container within the shadow root. */}
       <DropdownMenuPrimitive.Positioner
         side={side}
         align={align}
         sideOffset={sideOffset}
         alignOffset={alignOffset}
+        positionMethod="fixed"
         className="z-50"
       >
         <DropdownMenuPrimitive.Popup
@@ -248,7 +251,7 @@ function DropdownMenuSubContent({
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Popup>) {
   return (
     <DropdownMenuPrimitive.Portal container={getPortalContainer()}>
-      <DropdownMenuPrimitive.Positioner className="z-50">
+      <DropdownMenuPrimitive.Positioner positionMethod="fixed" className="z-50">
         <DropdownMenuPrimitive.Popup
           data-slot="dropdown-menu-sub-content"
           className={cn(

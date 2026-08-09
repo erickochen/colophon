@@ -42,11 +42,14 @@ function TooltipContent({
   >) {
   return (
     <TooltipPrimitive.Portal container={getPortalContainer()}>
+      {/* Fixed positioning: the absolute path mislays anchors that sit inside a
+          scrolled container within the shadow root. */}
       <TooltipPrimitive.Positioner
         side={side}
         align={align}
         sideOffset={sideOffset}
         alignOffset={alignOffset}
+        positionMethod="fixed"
         className="z-50"
       >
         <TooltipPrimitive.Popup

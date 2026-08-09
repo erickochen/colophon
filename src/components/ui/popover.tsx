@@ -32,11 +32,14 @@ function PopoverContent({
   >) {
   return (
     <PopoverPrimitive.Portal container={getPortalContainer()}>
+      {/* Fixed positioning: the absolute path mislays anchors that sit inside a
+          scrolled container within the shadow root. */}
       <PopoverPrimitive.Positioner
         side={side}
         align={align}
         sideOffset={sideOffset}
         alignOffset={alignOffset}
+        positionMethod="fixed"
         className="z-50"
       >
         <PopoverPrimitive.Popup
