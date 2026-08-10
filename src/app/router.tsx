@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import type { ShellData } from '@/lib/extract/shell'
+import { isRequestSearch } from '@/lib/mam-api'
 import { HomeView } from '@/app/pages/home'
 import { BrowseView } from '@/app/pages/browse'
 import { TorrentView } from '@/app/pages/torrent'
@@ -100,7 +101,10 @@ export function resolveRoute(loc: Location): Route {
   if (p === '/tags.php') return { id: 'tags', View: TagsView }
   if (p === '/smilies.php') return { id: 'smilies', View: SmiliesView }
   if (p === '/tor/upload.php') return { id: 'simple-form', View: SimpleFormView }
-  if (p === '/tor/search.php') return { id: 'browse', View: BrowseView }
+  if (p === '/tor/search.php') {
+    // One page serves both lists; the s= blob says which one.
+    return isRequestSearch(loc) ? { id: 'requests', View: RequestsView } : { id: 'browse', View: BrowseView }
+  }
   if (/^\/f\/t\/\d+/.test(p)) return { id: 'topic', View: ForumTopicView }
   if (p === '/messages.php') return { id: 'messages', View: MessagesView }
   if (p === '/sendmessage.php') return { id: 'compose-message', View: ComposeMessageView }
@@ -108,7 +112,6 @@ export function resolveRoute(loc: Location): Route {
   if (p.startsWith('/shoutbox/')) return { id: 'shoutbox', View: ShoutboxView }
   if (p === '/preferences/index.php') return { id: 'preferences', View: PreferencesView }
   if (p === '/store.php') return { id: 'store', View: StoreView }
-  if (p === '/tor/requests2.php' || p === '/tor/requests.php') return { id: 'requests', View: RequestsView }
   if (p === '/stats/top10Tor.php') return { id: 'top10', View: Top10View }
   if (p === '/freeleech.php') return { id: 'freeleech', View: FreeleechView }
   if (p === '/snatch_summary.php') return { id: 'snatched', View: SnatchedView }
@@ -178,6 +181,9 @@ export function isActive(href: string, loc: Location = location): boolean {
   if (target.pathname === '/') return loc.pathname === '/' || loc.pathname === '/index.php'
   const samePath = loc.pathname === target.pathname || loc.pathname.startsWith(target.pathname + '/')
   if (!samePath) return false
+  // The search page serves torrents and requests off one pathname, so the list
+  // a link opens lives in its s blob rather than in a query param.
+  if (target.pathname === '/tor/search.php' && isRequestSearch(target) !== isRequestSearch(loc)) return false
   const cur = new URLSearchParams(loc.search)
   for (const [key, fallback] of Object.entries(ACTIVE_DISCRIMINATORS)) {
     const linkVal = target.searchParams.get(key)

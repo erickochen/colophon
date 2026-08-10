@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { BookOpen, CornerDownLeft, Loader2, MessagesSquare, Search, UserRound, UsersRound } from 'lucide-react'
-import { searchTorrents, parsePeople, type SearchTorrent } from '@/lib/mam-api'
+import { searchTorrents, parsePeople, requestsUrl, type SearchTorrent } from '@/lib/mam-api'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   Command,
@@ -18,7 +18,7 @@ const NAV = [
   { title: 'Browse torrents', href: '/tor/browse.php' },
   { title: 'Freeleech picks', href: '/freeleech.php' },
   { title: 'Top 10', href: '/stats/top10Tor.php' },
-  { title: 'Requests', href: '/tor/requests2.php' },
+  { title: 'Requests', href: requestsUrl() },
   { title: 'Forum', href: '/f' },
   { title: 'Messages', href: '/messages.php?action=viewmailbox' },
   { title: 'Store', href: '/store.php' },
@@ -131,7 +131,7 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
                   <CommandItem value="s-forum" onSelect={() => go(`/f/s?text=${enc}`)}>
                     <MessagesSquare /> Forum posts about <b>{query.trim()}</b>
                   </CommandItem>
-                  <CommandItem value="s-req" onSelect={() => go(`/tor/requests2.php?tor%5Btext%5D=${enc}`)}>
+                  <CommandItem value="s-req" onSelect={() => go(requestsUrl({ text: query.trim() }))}>
                     <UsersRound /> Requests for <b>{query.trim()}</b>
                   </CommandItem>
                 </CommandGroup>

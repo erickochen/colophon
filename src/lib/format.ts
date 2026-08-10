@@ -79,6 +79,28 @@ export function utcTitle(iso: string | null | undefined): string {
   return iso ? `${iso} UTC` : ''
 }
 
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+}
+
+const MAX_CODE_POINT = 0x10ffff
+
+/** Plain text out of an HTML-escaped string. The request search escapes its
+ * titles, the torrent search does not. */
+export function decodeEntities(s: string): string {
+  if (!s.includes('&')) return s
+  return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, body: string) => {
+    if (body[0] !== '#') return NAMED_ENTITIES[body.toLowerCase()] ?? whole
+    const code = body[1].toLowerCase() === 'x' ? parseInt(body.slice(2), 16) : Number(body.slice(1))
+    return Number.isFinite(code) && code > 0 && code <= MAX_CODE_POINT ? String.fromCodePoint(code) : whole
+  })
+}
+
 /** Count with its noun, singular at one: "1 member", "12 members". */
 export function plural(n: number, word: string): string {
   return `${fmtInt(n)} ${word}${n === 1 ? '' : 's'}`

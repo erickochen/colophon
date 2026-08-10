@@ -25,7 +25,8 @@ import {
 import type { ShellData } from '@/lib/extract/shell'
 import { isActive } from '@/app/router'
 import { extractNewPosts } from '@/app/pages/subscriptions'
-import type { NotifCounts } from '@/lib/notify'
+import { NOTIF_TARGETS, type NotifCounts } from '@/lib/notify'
+import { requestsUrl } from '@/lib/mam-api'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -102,11 +103,11 @@ function groups(page: ShellData, counts: NotifCounts): { dashboard: NavItem; gro
           { title: 'Browse', href: '/tor/browse.php', icon: Search },
           { title: 'Freeleech picks', href: '/freeleech.php', icon: Sparkles },
           { title: 'Top 10', href: '/stats/top10Tor.php', icon: TrendingUp },
-          { title: 'Requests', href: '/tor/requests2.php', icon: Gift, fold: 1 },
+          { title: 'Requests', href: requestsUrl(), icon: Gift, fold: 1 },
           { title: 'Book clubs', href: '/tor/bookclubs.php', icon: BookOpen, fold: 3 },
         ],
         more: [
-          { title: 'Updated requests', href: '/tor/requests.php?tor[viewType]=vfn', icon: PackageCheck, badge: counts.requests || null, accent: true },
+          { title: 'Requests I voted for', href: NOTIF_TARGETS.requests.href, icon: PackageCheck, badge: counts.requests || null, accent: true },
           { title: 'Reseed requests', href: '/tor/search.php?s=%7B%22tor%22%3A%7B%22rr%22%3A%22reseed%22%7D%2C%22searchType%22%3A%22Torrents%22%7D' },
           { title: 'Recently deleted', href: '/tor/recentlyDeleted.php' },
           { title: 'RSS feeds', href: '/getrss.php' },

@@ -1,6 +1,7 @@
 // Live notification counts for the sidebar. MAM serves its header counters
 // empty and fills them from a poll, so polling is the only way to show them.
 import { useEffect, useState } from 'react'
+import { requestsUrl } from '@/lib/mam-api'
 import { toast } from '@/components/ui/toast'
 
 /** How often the badges refresh. MAM's own header polls every second. */
@@ -100,9 +101,9 @@ export const NOTIF_TARGETS: Record<keyof NotifCounts, { href: string; label: str
     describe: (n) => (n === 1 ? 'A ticket got an update' : `${n} tickets got updates`),
   },
   requests: {
-    href: '/tor/requests.php?tor[viewType]=vfn',
+    href: requestsUrl({ filled: 'either', requester: 'voted' }),
     label: 'View requests',
-    describe: (n) => (n === 1 ? 'A request you follow was updated' : `${n} requests you follow were updated`),
+    describe: (n) => (n === 1 ? 'A request you voted for was updated' : `${n} requests you voted for were updated`),
   },
 }
 

@@ -1,8 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Gift } from 'lucide-react'
 import type { PageProps } from '@/app/router'
-import { parsePeople } from '@/lib/mam-api'
-import { fmtInt } from '@/lib/format'
+import type { RequestQuery, RequestRow } from '@/lib/mam-api'
+import {
+  REQUESTERS,
+  REQUESTS_PER_PAGE,
+  REQUEST_FILL_STATES,
+  REQUEST_SORTS,
+  parsePeople,
+  requestQueryFromUrl,
+  requestUrl,
+  requestedAt,
+  requestsUrl,
+  searchRequests,
+} from '@/lib/mam-api'
+import { dateOnly, decodeEntities, fmtInt, localDate, plural, utcTitle } from '@/lib/format'
 import { PageHeader } from '@/app/shell/bits'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -11,110 +23,62 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FilterBar, FilterRow, FilterSearch, FilterSegments, FilterSelect } from '@/components/filters'
 
-interface RequestRow {
-  id: number
-  title: string
-  cat_name: string
-  lang_code: string | null
-  votes: number
-  filled: number
-  torsatch: number
-  pubusername: string | null
-  authors: string | null
-  narrators: string | null
-  series: string | null
-  releasedate: string | null
+const SKELETON_ROWS = 8
+
+/** Names come back HTML-escaped, same as the titles. */
+function names(info: string | null): { name: string; part?: string }[] {
+  return parsePeople(info).map((p) => ({ ...p, name: decodeEntities(p.name) }))
 }
 
-const VIEW_TYPES = [
-  { value: 'unful', label: 'Unfulfilled' },
-  { value: 'filled', label: 'Filled' },
-  { value: 'mine', label: 'Mine' },
-  { value: 'vf', label: 'Voted for' },
-  { value: 'all', label: 'All' },
-]
-
-/** View behind MAM's header notification link. Not part of the site's own
- * select, so it only shows as a segment when the URL asks for it. */
-const UPDATED_VIEW = { value: 'vfn', label: 'Updated' }
-
-function viewTypeFromUrl(): string {
-  const v = new URLSearchParams(location.search).get('tor[viewType]')
-  return v && [...VIEW_TYPES, UPDATED_VIEW].some((o) => o.value === v) ? v : VIEW_TYPES[0].value
+/** A request without a release date carries MAM's zero stamp. */
+function released(value: string | null): string | null {
+  return value && !value.startsWith('0000-') ? dateOnly(value) : null
 }
-
-const SORTS = [
-  { value: 'dateD', label: 'Newest first' },
-  { value: 'dateA', label: 'Oldest first' },
-  { value: 'votesD', label: 'Most votes' },
-  { value: 'votesA', label: 'Fewest votes' },
-  { value: 'fillD', label: 'Recently filled' },
-  { value: 'titleA', label: 'Title A–Z' },
-  { value: 'catA', label: 'Category' },
-]
 
 export function RequestsView(_props: PageProps) {
-  const [text, setText] = useState(new URLSearchParams(location.search).get('tor[text]') ?? '')
-  const [viewType, setViewType] = useState(viewTypeFromUrl)
-  const [viewOptions] = useState(() =>
-    viewTypeFromUrl() === UPDATED_VIEW.value ? [...VIEW_TYPES, UPDATED_VIEW] : VIEW_TYPES
-  )
-  const [sort, setSort] = useState('dateD')
-  const [start, setStart] = useState(0)
+  const [state, setState] = useState(requestQueryFromUrl)
+  const [text, setText] = useState(state.text)
   const [found, setFound] = useState(0)
   const [rows, setRows] = useState<RequestRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const seq = useRef(0)
-  const perpage = 50
 
-  const load = useCallback(async (q: { text: string; viewType: string; sort: string; start: number }) => {
+  const load = useCallback(async (q: RequestQuery) => {
     const mine = ++seq.current
     setRows(null)
     setError(null)
-    const body = new URLSearchParams()
-    body.set('tor[text]', q.text)
-    body.set('tor[srchIn][title]', 'true')
-    body.set('tor[viewType]', q.viewType)
-    body.set('tor[startDate]', '')
-    body.set('tor[endDate]', '')
-    body.set('tor[startNumber]', String(q.start))
-    body.set('tor[sortType]', q.sort)
-    body.set('perpage', String(perpage))
     try {
-      const res = await fetch('/tor/json/loadRequests.php', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body.toString(),
-      })
-      const json = await res.json()
+      const res = await searchRequests(q)
       if (seq.current !== mine) return
-      setRows(Array.isArray(json.data) ? json.data : [])
-      setFound(json.found ?? 0)
+      setRows(res.data)
+      setFound(res.found ?? 0)
     } catch (e) {
       if (seq.current === mine) setError(e instanceof Error ? e.message : 'Loading failed')
     }
   }, [])
 
   useEffect(() => {
-    void load({ text, viewType, sort, start })
+    void load(state)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const apply = (patch: Partial<{ text: string; viewType: string; sort: string; start: number }>) => {
-    const next = { text, viewType, sort, start: 0, ...patch }
-    setText(next.text)
-    setViewType(next.viewType)
-    setSort(next.sort)
-    setStart(next.start)
+  const run = (next: Required<RequestQuery>) => {
+    setState(next)
+    history.replaceState(null, '', requestsUrl(next))
     void load(next)
   }
+
+  /** Filter change: takes whatever sits in the search box along with it. */
+  const apply = (patch: Partial<RequestQuery>) => run({ ...state, text, start: 0, ...patch })
+
+  /** Paging stays on the query that produced this page, typing or not. */
+  const goTo = (start: number) => run({ ...state, start })
 
   return (
     <div className="grid gap-4">
       <PageHeader
         title="Requests"
-        sub={rows ? `${fmtInt(found)} requests` : 'Loading…'}
+        sub={rows ? plural(found, 'request') : 'Loading…'}
         action={
           <Button asChild size="sm">
             <a href="/tor/newRequest.php"><Gift /> New request</a>
@@ -125,11 +89,21 @@ export function RequestsView(_props: PageProps) {
       <FilterBar>
         <FilterSearch value={text} onChange={setText} onSubmit={() => apply({})} placeholder="Search requests…" />
         <FilterRow>
-          <FilterSegments options={viewOptions} value={viewType} onChange={(v) => apply({ viewType: v })} />
+          <FilterSegments
+            options={[...REQUEST_FILL_STATES]}
+            value={state.filled}
+            onChange={(v) => apply({ filled: v })}
+          />
           <FilterSelect
-            value={sort}
-            onChange={(v) => apply({ sort: v })}
-            options={SORTS}
+            value={state.requester}
+            onChange={(v) => apply({ requester: v })}
+            options={[...REQUESTERS]}
+            ariaLabel="Requested by"
+          />
+          <FilterSelect
+            value={state.sortType}
+            onChange={(v) => apply({ sortType: v })}
+            options={[...REQUEST_SORTS]}
             align="end"
             ariaLabel="Sort order"
             className="ml-auto"
@@ -142,19 +116,19 @@ export function RequestsView(_props: PageProps) {
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead>Request</TableHead>
-              <TableHead className="w-24 text-right">Votes</TableHead>
-              <TableHead className="w-28">Status</TableHead>
-              <TableHead className="w-28 text-right">Requested</TableHead>
+              <TableHead className="w-14 text-right md:w-24">Votes</TableHead>
+              <TableHead className="hidden w-24 md:table-cell">Status</TableHead>
+              <TableHead className="hidden w-28 text-right md:table-cell">Requested</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows === null && !error &&
-              Array.from({ length: 8 }).map((_, i) => (
+              Array.from({ length: SKELETON_ROWS }).map((_, i) => (
                 <TableRow key={i}>
                   <TableCell><Skeleton className="mb-1.5 h-4 w-2/3" /><Skeleton className="h-3 w-1/3" /></TableCell>
                   <TableCell><Skeleton className="ml-auto h-4 w-8" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                  <TableCell><Skeleton className="ml-auto h-4 w-16" /></TableCell>
+                  <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell className="hidden md:table-cell"><Skeleton className="ml-auto h-4 w-16" /></TableCell>
                 </TableRow>
               ))}
             {error && (
@@ -164,35 +138,47 @@ export function RequestsView(_props: PageProps) {
               <TableRow><TableCell colSpan={4} className="py-12 text-center text-sm text-muted-foreground">No requests match.</TableCell></TableRow>
             )}
             {rows?.map((r) => {
-              const authors = parsePeople(r.authors)
-              const narrators = parsePeople(r.narrators)
-              const series = parsePeople(r.series)
+              const authors = names(r.author_info)
+              const narrators = names(r.narrator_info)
+              const series = names(r.series_info)
+              const stamp = requestedAt(r.id)
+              const releaseDate = released(r.releasedate)
               return (
                 <TableRow key={r.id}>
                   <TableCell className="whitespace-normal">
-                    {/* URL id = JSON id / 1e5 with 5 decimals (timestamp.frac) */}
-                    <a href={`/t/r/${(r.id / 100000).toFixed(5)}`} className="grid gap-0.5">
-                      <span className="font-display text-[14px] font-medium leading-snug hover:underline">{r.title}</span>
+                    <a href={requestUrl(r.id)} className="grid gap-0.5">
+                      <span className="font-display text-[14px] font-medium leading-snug hover:underline">
+                        {decodeEntities(r.title)}
+                      </span>
                       <span className="text-[12px] text-muted-foreground">
                         {authors.length > 0 && <>by {authors.map((a) => a.name).join(', ')}</>}
                         {narrators.length > 0 && <> · read by {narrators.map((x) => x.name).join(', ')}</>}
                         {series.length > 0 && <> · {series.map((s) => s.name + (s.part ? ` #${s.part}` : '')).join(', ')}</>}
+                        {releaseDate && <> · released {releaseDate}</>}
+                        <span className="md:hidden"> · requested {localDate(stamp)}</span>
                       </span>
                       <span className="mt-0.5 flex flex-wrap gap-1">
                         <Badge variant="outline">{r.cat_name}</Badge>
                         {r.lang_code && r.lang_code !== 'ENG' && <Badge variant="outline">{r.lang_code}</Badge>}
+                        {r.filled ? (
+                          <Badge className="bg-ok/15 text-ok md:hidden" variant="secondary">Filled</Badge>
+                        ) : (
+                          <Badge className="md:hidden" variant="secondary">Open</Badge>
+                        )}
                       </span>
                     </a>
                   </TableCell>
                   <TableCell className="text-right font-mono text-[13px] tabular-nums">{fmtInt(r.votes)}</TableCell>
-                  <TableCell>
+                  <TableCell className="hidden md:table-cell">
                     {r.filled ? (
                       <Badge className="bg-ok/15 text-ok" variant="secondary">Filled</Badge>
                     ) : (
                       <Badge variant="secondary">Open</Badge>
                     )}
                   </TableCell>
-                  <TableCell className="text-right text-[12.5px] text-muted-foreground">{r.releasedate ?? '–'}</TableCell>
+                  <TableCell className="hidden text-right text-[12.5px] text-muted-foreground md:table-cell" title={utcTitle(stamp)}>
+                    {localDate(stamp)}
+                  </TableCell>
                 </TableRow>
               )
             })}
@@ -202,12 +188,24 @@ export function RequestsView(_props: PageProps) {
 
       <div className="flex items-center justify-end gap-2">
         <span className="mr-auto text-[12.5px] text-muted-foreground">
-          {rows ? `Showing ${fmtInt(found === 0 ? 0 : start + 1)}–${fmtInt(Math.min(found, start + (rows?.length ?? 0)))} of ${fmtInt(found)}` : ''}
+          {rows ? `Showing ${fmtInt(found === 0 ? 0 : state.start + 1)}–${fmtInt(Math.min(found, state.start + rows.length))} of ${fmtInt(found)}` : ''}
         </span>
-        <Button variant="outline" size="sm" className="h-8" disabled={start === 0 || rows === null} onClick={() => apply({ start: Math.max(0, start - perpage) })}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8"
+          disabled={state.start === 0 || rows === null}
+          onClick={() => goTo(Math.max(0, state.start - REQUESTS_PER_PAGE))}
+        >
           <ChevronLeft className="size-4" /> Prev
         </Button>
-        <Button variant="outline" size="sm" className="h-8" disabled={rows === null || start + perpage >= found} onClick={() => apply({ start: start + perpage })}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8"
+          disabled={rows === null || state.start + REQUESTS_PER_PAGE >= found}
+          onClick={() => goTo(state.start + REQUESTS_PER_PAGE)}
+        >
           Next <ChevronRight className="size-4" />
         </Button>
       </div>

@@ -151,6 +151,181 @@ export async function searchTorrents(query: SearchQuery, opts: { dlLink?: boolea
   return json as SearchResult
 }
 
+// Requests live on the shared search endpoint. The page URL carries one JSON
+// blob (s={"com":{…},"req":{…}}) and the POST body is that blob flattened.
+export const REQUEST_FILL_STATES = [
+  { value: 'unfil', label: 'Unfulfilled' },
+  { value: 'filled', label: 'Filled' },
+  { value: 'either', label: 'All' },
+] as const
+
+export const REQUESTERS = [
+  { value: 'any', label: 'From anyone' },
+  { value: 'notMe', label: 'From anyone but me' },
+  { value: 'me', label: 'From me' },
+  { value: 'voted', label: 'I voted for' },
+] as const
+
+// The endpoint answers to date, votes and fillDesc. Title, release and fillAsc
+// come back in default order, so they are left out.
+export const REQUEST_SORTS = [
+  { value: 'dateDesc', label: 'Newest first' },
+  { value: 'dateAsc', label: 'Oldest first' },
+  { value: 'votesDesc', label: 'Most votes' },
+  { value: 'votesAsc', label: 'Fewest votes' },
+  { value: 'fillDesc', label: 'Recently filled' },
+] as const
+
+export const REQUEST_DEFAULTS = { filled: 'unfil', requester: 'any', sortType: 'dateDesc' }
+
+export const REQUESTS_PER_PAGE = 50
+
+/** Fields MAM ticks by default in its own request search. */
+const REQUEST_SEARCH_FIELDS = ['title', 'author']
+
+export interface RequestQuery {
+  text?: string
+  filled?: string
+  requester?: string
+  sortType?: string
+  start?: number
+  /** Blob fields the view has no control for, carried through untouched so a
+   * link from MAM's own advanced search keeps filtering. */
+  extra?: { com?: Record<string, unknown>; req?: Record<string, unknown> }
+}
+
+export interface RequestRow {
+  id: number
+  title: string
+  cat_name: string
+  lang_code: string | null
+  votes: number
+  filled: number
+  author_info: string | null
+  narrator_info: string | null
+  series_info: string | null
+  releasedate: string | null
+}
+
+export interface RequestResult {
+  perpage: number
+  start: number
+  data: RequestRow[]
+  found: number
+}
+
+interface RequestSearchJson {
+  com?: Record<string, unknown>
+  req?: Record<string, unknown>
+  perPage?: number
+  searchType?: string
+  start?: string | number
+}
+
+/** Keys the view owns; anything else in the blob is somebody else's filter. */
+const OWNED_COM_KEYS = ['text', 'searchIn', 'sortType']
+const OWNED_REQ_KEYS = ['filled', 'requester']
+
+function requestSearchJson(q: RequestQuery): RequestSearchJson {
+  const com: Record<string, unknown> = { ...q.extra?.com }
+  if (q.text) {
+    com.text = q.text
+    com.searchIn = REQUEST_SEARCH_FIELDS
+  }
+  if (q.sortType && q.sortType !== REQUEST_DEFAULTS.sortType) com.sortType = q.sortType
+  const req: Record<string, unknown> = { ...q.extra?.req }
+  if (q.filled && q.filled !== REQUEST_DEFAULTS.filled) req.filled = q.filled
+  if (q.requester && q.requester !== REQUEST_DEFAULTS.requester) req.requester = q.requester
+  const json: RequestSearchJson = {}
+  if (Object.keys(com).length) json.com = com
+  if (Object.keys(req).length) json.req = req
+  if (q.start) json.start = String(q.start)
+  json.perPage = REQUESTS_PER_PAGE
+  json.searchType = 'Requests'
+  return json
+}
+
+/** PHP array notation for one blob branch: com[cat][]=13. */
+function appendParam(body: URLSearchParams, key: string, value: unknown): void {
+  if (value == null) return
+  if (Array.isArray(value)) {
+    for (const v of value) appendParam(body, `${key}[]`, v)
+    return
+  }
+  if (typeof value === 'object') {
+    for (const [k, v] of Object.entries(value)) appendParam(body, `${key}[${k}]`, v)
+    return
+  }
+  body.append(key, String(value))
+}
+
+/** Page URL in MAM's own shape, so the link still works with the script off. */
+export function requestsUrl(q: RequestQuery = {}): string {
+  return `/tor/search.php?s=${encodeURIComponent(JSON.stringify(requestSearchJson(q)))}`
+}
+
+const omit = (source: Record<string, unknown> | undefined, owned: string[]): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(source ?? {}).filter(([k]) => !owned.includes(k)))
+
+export function requestQueryFromUrl(loc: { search: string } = location): Required<RequestQuery> {
+  const raw = new URLSearchParams(loc.search).get('s')
+  let s: RequestSearchJson = {}
+  if (raw) {
+    try {
+      s = JSON.parse(raw) as RequestSearchJson
+    } catch {
+      s = {}
+    }
+  }
+  const str = (v: unknown) => (typeof v === 'string' ? v : undefined)
+  const pick = (options: readonly { value: string }[], v: unknown, fallback: string) =>
+    options.some((o) => o.value === v) ? (v as string) : fallback
+  return {
+    text: str(s.com?.text) ?? '',
+    filled: pick(REQUEST_FILL_STATES, s.req?.filled, REQUEST_DEFAULTS.filled),
+    requester: pick(REQUESTERS, s.req?.requester, REQUEST_DEFAULTS.requester),
+    sortType: pick(REQUEST_SORTS, s.com?.sortType, REQUEST_DEFAULTS.sortType),
+    start: Number(s.start) || 0,
+    extra: { com: omit(s.com, OWNED_COM_KEYS), req: omit(s.req, OWNED_REQ_KEYS) },
+  }
+}
+
+/** True when this search page is showing requests rather than torrents. */
+export function isRequestSearch(loc: { search: string } = location): boolean {
+  const raw = new URLSearchParams(loc.search).get('s')
+  if (!raw) return false
+  try {
+    return (JSON.parse(raw) as RequestSearchJson).searchType === 'Requests'
+  } catch {
+    // MAM repairs a malformed blob only after the page loads, so read the text.
+    return /"searchType"\s*:\s*"Requests"/.test(raw)
+  }
+}
+
+export async function searchRequests(q: RequestQuery): Promise<RequestResult> {
+  const json = requestSearchJson(q)
+  const body = new URLSearchParams()
+  appendParam(body, 'com', json.com)
+  appendParam(body, 'req', json.req)
+  // The blob leaves defaults out, the POST states them.
+  body.set('com[sortType]', q.sortType ?? REQUEST_DEFAULTS.sortType)
+  body.set('req[filled]', q.filled ?? REQUEST_DEFAULTS.filled)
+  body.set('req[requester]', q.requester ?? REQUEST_DEFAULTS.requester)
+  if (q.start) body.set('start', String(q.start))
+  body.set('perPage', String(REQUESTS_PER_PAGE))
+  body.set('searchType', 'Requests')
+  const res = await fetch('/tor/json/search.php', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  })
+  if (!res.ok) throw new Error(`request search failed: ${res.status}`)
+  const parsed = await res.json()
+  if (!Array.isArray(parsed.data)) return { perpage: REQUESTS_PER_PAGE, start: 0, data: [], found: 0 }
+  return parsed as RequestResult
+}
+
 export interface UserLive {
   username: string
   uid: string
@@ -329,6 +504,20 @@ export function downloadZipOf(ids: number[]): void {
 
 export function torrentUrl(id: number) {
   return `/t/${id}`
+}
+
+// A request id is its creation time: unix seconds carrying a fraction. The
+// detail URL uses that number as-is.
+export function requestUrl(id: number) {
+  return `/t/r/${id}`
+}
+
+const MS_PER_SECOND = 1000
+const STAMP_LENGTH = 'YYYY-MM-DD HH:MM:SS'.length
+
+/** Request id read back as the UTC stamp it encodes. */
+export function requestedAt(id: number): string {
+  return new Date(id * MS_PER_SECOND).toISOString().replace('T', ' ').slice(0, STAMP_LENGTH)
 }
 
 export function downloadUrl(id: number, useWedge = false) {
