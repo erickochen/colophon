@@ -2,8 +2,10 @@ import { useMemo, useState } from 'react'
 import { CheckCheck, Copy, Plus, Search, ThumbsUp } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { cleanHtml } from '@/lib/sanitize'
+import { useFeature } from '@/lib/settings'
 import { LegacyView } from '@/app/pages/legacy'
 import { RichHtml } from '@/app/shell/bits'
+import { ExternalSearchLinks } from '@/components/tor-links'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -41,18 +43,27 @@ function extract(doc: Document) {
   const actions: Action[] = [...doc.querySelectorAll<HTMLElement>('#mainBody input[type="button"], #mainBody button')]
     .map((b, index) => ({ label: (b as HTMLInputElement).value || b.textContent?.trim() || '', index }))
     .filter((a) => a.label)
+  // The author cell links each name. Older requests print them as plain text,
+  // which the row text still covers.
+  const authorRow = [...con.querySelectorAll(':scope .torDetRow')].find((r) =>
+    /^author/i.test(r.querySelector('.torDetLeft')?.textContent?.trim() ?? '')
+  )
+  const authorNames = [...(authorRow?.querySelectorAll<HTMLAnchorElement>('.torDetRight a') ?? [])]
+    .map((a) => a.textContent?.trim() ?? '')
+    .filter(Boolean)
   const votes = con.textContent?.match(/Vote\(s\):?\s*([\d,]+)/)?.[1] ?? null
   // Fill-flow controls live in the "Filled:" and "Torrent search" rows; their
   // text is empty so the generic row list drops them - surface them here.
   const hasFill = !!con.querySelector('input[name="fillTorrent"]')
   const copyHref = con.querySelector<HTMLAnchorElement>('#votesRight a[href*="clone"]')?.getAttribute('href') ?? null
   const hasSearch = !!con.querySelector('form[action*="browse.php"] input[type="submit"]')
-  return { rows, actions, votes, hasFill, copyHref, hasSearch }
+  return { rows, actions, authorNames, votes, hasFill, copyHref, hasSearch }
 }
 
 export function RequestDetailView(props: PageProps) {
   const data = useMemo(() => extract(document), [])
   const [fillValue, setFillValue] = useState('')
+  const [linksOn] = useFeature('externalLinks')
   if (!data) return <LegacyView {...props} />
 
   const title = data.rows.find((r) => /^title/i.test(r.label))
@@ -69,6 +80,9 @@ export function RequestDetailView(props: PageProps) {
   // Category cell = "Audiobooks - Self-Help  Self-Help" (cat name + loose genre
   // link); keep the first segment only for the badge.
   const catLabel = category?.text.split(/\s{2,}/)[0].trim()
+
+  const searchTitle = title?.text || props.page.title
+  const searchAuthor = data.authorNames[0] ?? author?.text.split(',')[0].trim() ?? null
 
   const voteAction = data.actions.find((a) => /vote/i.test(a.label))
   const addAction = data.actions.find((a) => /add torrent/i.test(a.label))
@@ -121,7 +135,17 @@ export function RequestDetailView(props: PageProps) {
         <h1 className="font-display text-[28px] font-semibold leading-tight tracking-tight">
           {title?.text || props.page.title}
         </h1>
-        {author && <p className="text-[14.5px] text-muted-foreground">by {author.text}</p>}
+        {/* MAM puts no separator between the author links, so use the names. */}
+        {author && (
+          <p className="text-[14.5px] text-muted-foreground">
+            by {data.authorNames.length > 0 ? data.authorNames.join(', ') : author.text}
+          </p>
+        )}
+        {linksOn && searchTitle && (
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12.5px] text-muted-foreground">
+            <ExternalSearchLinks title={searchTitle} author={searchAuthor} />
+          </div>
+        )}
         <div className="flex flex-wrap gap-2 pt-1">
           {voteAction && (
             <Button size="sm" onClick={() => act(voteAction.index, 'Vote registered.')}>

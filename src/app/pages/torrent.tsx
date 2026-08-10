@@ -13,6 +13,7 @@ import { useFeature } from '@/lib/settings'
 import { HARD_FLOOR, TRIVIAL_DROP, useRatioGuard, type RatioGuard, type RatioLevel } from '@/lib/ratio-protect'
 import { cn } from '@/lib/utils'
 import { Book, Book3D, BookAmbilight } from '@/components/book'
+import { TagLinks } from '@/components/tag-links'
 import { TorLinks } from '@/components/tor-links'
 import { WedgeDetailButton } from '@/components/wedge-download'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -811,7 +812,11 @@ export function TorrentView(props: PageProps) {
                 </KV>
               )}
 
-              {data.tags && <KV label="Tags" full>{data.tags}</KV>}
+              {data.tags && (
+                <KV label="Tags" full>
+                  <TagLinks raw={data.tags} full />
+                </KV>
+              )}
 
               {(data.freeleech || data.ratio || data.ratioHtml) && (
                 <KV label="Ratio after" full>

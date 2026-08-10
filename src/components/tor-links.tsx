@@ -40,7 +40,24 @@ export function buildReadingSnippet(data: TorrentDetail): string | null {
   return `[url=/t/${data.id}]${data.title}[/url] by [i]${authors.join(', ')}[/i]`
 }
 
-const LINK_CLS = 'transition-colors hover:text-brand hover:underline'
+const LINK_CLS =
+  'rounded-sm transition-colors hover:text-brand hover:underline focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none'
+
+/** The search row itself, as bare flex children so the caller owns the row.
+ * Used by torrent detail and by a request page, which have no shape in common
+ * beyond a title and an author. */
+export function ExternalSearchLinks({ title, author }: { title: string; author: string | null }) {
+  return (
+    <>
+      <span className="text-muted-foreground/70">Find on</span>
+      {searchTargets(title, author).map((l) => (
+        <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" className={LINK_CLS}>
+          {l.label}
+        </a>
+      ))}
+    </>
+  )
+}
 
 export function TorLinks({ data }: { data: TorrentDetail }) {
   const [linksOn] = useFeature('externalLinks')
@@ -50,8 +67,7 @@ export function TorLinks({ data }: { data: TorrentDetail }) {
 
   if (!data.title) return null
   const snippet = snippetOn ? buildReadingSnippet(data) : null
-  const links = linksOn ? searchTargets(data.title, data.authors[0]?.name ?? null) : []
-  if (links.length === 0 && !snippet) return null
+  if (!linksOn && !snippet) return null
 
   async function copySnippet() {
     if (!snippet) return
@@ -68,19 +84,10 @@ export function TorLinks({ data }: { data: TorrentDetail }) {
 
   return (
     <div className="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12.5px] text-muted-foreground">
-      {links.length > 0 && (
-        <>
-          <span className="text-muted-foreground/70">Find on</span>
-          {links.map((l) => (
-            <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" className={LINK_CLS}>
-              {l.label}
-            </a>
-          ))}
-        </>
-      )}
+      {linksOn && <ExternalSearchLinks title={data.title} author={data.authors[0]?.name ?? null} />}
       {snippet && (
         <>
-          {links.length > 0 && <span aria-hidden="true" className="text-muted-foreground/50">·</span>}
+          {linksOn && <span aria-hidden="true" className="text-muted-foreground/50">·</span>}
           <button
             type="button"
             onClick={copySnippet}

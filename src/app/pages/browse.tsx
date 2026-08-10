@@ -13,6 +13,7 @@ import { useFeature, useIgnoredTorrents } from '@/lib/settings'
 import { fmtInt, plural, relTime, utcTitle } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Book } from '@/components/book'
+import { TagLinks } from '@/components/tag-links'
 import { WedgeRowButton } from '@/components/wedge-download'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -95,6 +96,10 @@ const DEFAULT_PERPAGE = PERPAGE_OPTIONS[0]
 
 // Long enough to hit Undo after the row leaves the list.
 const IGNORE_TOAST_MS = 6000
+
+// Tags per row before the rest becomes a count. Keeps a padded tag field from
+// pushing the row over two lines.
+const ROW_TAG_LIMIT = 4
 
 /** Why a row is not shown: on the personal ignore list or snatched while the
  * hide-snatched filter is on. */
@@ -347,32 +352,36 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onU
       )}
     >
       <RowCover t={t} />
-      <a href={torrentUrl(t.id)} className="min-w-0">
-        <h3 className="font-display text-[15px] font-medium leading-[1.3] transition-colors group-hover:text-brand">{t.title}</h3>
-        {(authors.length > 0 || narrators.length > 0 || series.length > 0) && (
-          <p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">
-            {authors.map((a) => a.name).join(', ')}
-            {narrators.length > 0 && (
-              <span className="text-muted-foreground">
-                {authors.length > 0 && ' · '}read by {narrators.map((n) => n.name).join(', ')}
-              </span>
-            )}
-            {series.length > 0 && (
-              <span className="italic text-muted-foreground">
-                {(authors.length > 0 || narrators.length > 0) && ' · '}
-                {series.map((s) => s.name + (s.part ? ` #${s.part}` : '')).join(', ')}
-              </span>
-            )}
-          </p>
-        )}
-        <span className="mt-1.5 flex flex-wrap items-center gap-1">
-          {t.vip === 1 && <Badge className="bg-brand-soft text-accent-foreground" variant="secondary">VIP</Badge>}
-          {(t.free === 1 || t.personal_freeleech === 1) && <Badge className="bg-ok/15 text-ok" variant="secondary">Freeleech</Badge>}
-          {t.my_snatched === 1 && <Badge variant="secondary">Snatched</Badge>}
-          <Badge variant="outline">{t.catname || catName(t.category)}</Badge>
-          {t.lang_code && t.lang_code !== 'ENG' && <Badge variant="outline">{t.lang_code}</Badge>}
-        </span>
-      </a>
+      {/* Tags sit outside the row link: a link inside a link is invalid. */}
+      <div className="min-w-0">
+        <a href={torrentUrl(t.id)} className="block min-w-0">
+          <h3 className="font-display text-[15px] font-medium leading-[1.3] transition-colors group-hover:text-brand">{t.title}</h3>
+          {(authors.length > 0 || narrators.length > 0 || series.length > 0) && (
+            <p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">
+              {authors.map((a) => a.name).join(', ')}
+              {narrators.length > 0 && (
+                <span className="text-muted-foreground">
+                  {authors.length > 0 && ' · '}read by {narrators.map((n) => n.name).join(', ')}
+                </span>
+              )}
+              {series.length > 0 && (
+                <span className="italic text-muted-foreground">
+                  {(authors.length > 0 || narrators.length > 0) && ' · '}
+                  {series.map((s) => s.name + (s.part ? ` #${s.part}` : '')).join(', ')}
+                </span>
+              )}
+            </p>
+          )}
+          <span className="mt-1.5 flex flex-wrap items-center gap-1">
+            {t.vip === 1 && <Badge className="bg-brand-soft text-accent-foreground" variant="secondary">VIP</Badge>}
+            {(t.free === 1 || t.personal_freeleech === 1) && <Badge className="bg-ok/15 text-ok" variant="secondary">Freeleech</Badge>}
+            {t.my_snatched === 1 && <Badge variant="secondary">Snatched</Badge>}
+            <Badge variant="outline">{t.catname || catName(t.category)}</Badge>
+            {t.lang_code && t.lang_code !== 'ENG' && <Badge variant="outline">{t.lang_code}</Badge>}
+          </span>
+        </a>
+        <TagLinks raw={t.tags} limit={ROW_TAG_LIMIT} className="mt-1.5 text-[11px] text-muted-foreground" />
+      </div>
       {stats.length > 0 && (
         <div
           className="grid items-baseline gap-x-[18px] text-right tabular-nums"
