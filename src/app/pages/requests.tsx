@@ -141,12 +141,12 @@ export function RequestsView(_props: PageProps) {
               const authors = names(r.author_info)
               const narrators = names(r.narrator_info)
               const series = names(r.series_info)
-              const stamp = requestedAt(r.id)
+              const stamp = requestedAt(r.requesttime)
               const releaseDate = released(r.releasedate)
               return (
-                <TableRow key={r.id}>
+                <TableRow key={r.requesttime}>
                   <TableCell className="whitespace-normal">
-                    <a href={requestUrl(r.id)} className="grid gap-0.5">
+                    <a href={requestUrl(r.requesttime)} className="grid gap-0.5">
                       <span className="font-display text-[14px] font-medium leading-snug hover:underline">
                         {decodeEntities(r.title)}
                       </span>

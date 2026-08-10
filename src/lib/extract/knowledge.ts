@@ -58,12 +58,14 @@ export function extractFaq(doc: Document): KbSection[] {
   for (const sec of doc.querySelectorAll('.faqMSec')) {
     const h3 = sec.querySelector('h3')
     const items: KbItem[] = []
-    for (const det of sec.querySelectorAll('details')) {
-      const q = headingText(det.querySelector('summary h4') ?? det.querySelector('summary'))
-      const bodyEl = det.querySelector('.answer')
+    // Direct children only: an answer can nest its own <details> blocks (per
+    // client walkthroughs) and those belong inside their parent's body.
+    for (const det of sec.querySelectorAll(':scope > details')) {
+      const q = headingText(det.querySelector(':scope > summary h4') ?? det.querySelector(':scope > summary'))
+      const bodyEl = det.querySelector(':scope > .answer')
       if (!q) continue
       items.push({
-        id: det.querySelector('summary a[id]')?.id || `faq-${items.length}`,
+        id: det.querySelector(':scope > summary a[id]')?.id || `faq-${items.length}`,
         title: q,
         bodyHtml: cleanHtml(bodyEl) ?? '',
         text: (q + ' ' + txt(bodyEl)).toLowerCase(),

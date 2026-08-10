@@ -136,26 +136,64 @@ interface BrowseState {
   perpage: number
 }
 
-/** MAM's newer /tor/search.php passes one JSON blob: s={"tor":{…}}. Map the
- * shapes it actually links to (bookmarks, reseed, an uploader, free text) onto
- * our own browse state so those links land on a real result set. */
+// The new search page files everything under a media type; the classic browse
+// files periodicals, manga and comics under audiobooks or ebooks instead.
+const MEDIATYPE_TO_MAINCAT: Record<number, number> = {
+  1: 13, // Audiobook
+  8: 13, // Periodical Audiobook
+  2: 14, // Ebook
+  5: 14, // Manga
+  6: 14, // Comic Book / Graphic Novel
+  7: 14, // Periodical Ebook
+  3: 15, // Musicology
+  4: 16, // Radio
+}
+
+/** MAM's newer /tor/search.php passes one JSON blob: s={"com":{…},"tor":{…}}.
+ * Map the fields our browse controls cover onto our own state, so a shared or
+ * menu link lands on the matching result set. Fields with no counterpart here
+ * (genre categories, size bounds, date ranges) are left out. */
 function stateFromSearchJson(raw: string, myUid: string | null): Partial<BrowseState> | null {
-  let parsed: { tor?: Record<string, unknown> }
+  let parsed: { com?: unknown; tor?: unknown; start?: unknown; perPage?: unknown }
   try {
     parsed = JSON.parse(raw)
   } catch {
     return null
   }
-  const tor = parsed?.tor
-  if (!tor || typeof tor !== 'object') return null
+  if (!parsed || typeof parsed !== 'object') return null
+  const com: Record<string, unknown> = typeof parsed.com === 'object' && parsed.com !== null ? (parsed.com as Record<string, unknown>) : {}
+  const tor: Record<string, unknown> = typeof parsed.tor === 'object' && parsed.tor !== null ? (parsed.tor as Record<string, unknown>) : {}
   const out: Partial<BrowseState> = {}
-  if (typeof tor.text === 'string') out.text = tor.text
+  const text = typeof com.text === 'string' ? com.text : typeof tor.text === 'string' ? tor.text : null
+  if (text !== null) out.text = text
+  if (Array.isArray(com.searchIn)) {
+    const fields = SRCH_FIELDS.map(([k]) => k).filter((k) => (com.searchIn as unknown[]).includes(k))
+    if (fields.length) out.srchIn = fields
+  }
+  if (typeof com.sortType === 'string' && SORT_OPTIONS.some((o) => o.value === com.sortType)) out.sort = com.sortType
+  // Languages carry over only in include mode; we have no exclude control.
+  if (Array.isArray(com.browse_lang) && com.ble !== 'not') {
+    const langs = com.browse_lang.map(Number).filter((l) => LANGUAGES.some((x) => x.id === l))
+    if (langs.length) out.langs = langs
+  }
+  if (Array.isArray(com.mediaType)) {
+    const mains = [...new Set(com.mediaType.map((m) => MEDIATYPE_TO_MAINCAT[Number(m)]).filter(Boolean))]
+    if (mains.length) out.mainCat = mains
+  }
+  // The freeleech, VIP and seed-state dropdowns all land in one slot here.
+  if (tor.fl === 'gfl' || tor.fl === 'pfl' || tor.fl === 'fl') out.searchType = 'fl'
+  else if (tor.vip === 'vip' || tor.vip === 'temp' || tor.vip === 'perm') out.searchType = 'VIP'
+  else if (tor.vip === 'not') out.searchType = 'nVIP'
+  else if (tor.state === 'seeded') out.searchType = 'active'
+  else if (tor.state === 'unseeded') out.searchType = 'inactive'
   if (tor.bookmarked === 'only') out.searchIn = 'bookmarks'
   else if (tor.rr === 'reseed') out.searchIn = 'allReseed'
-  else if (typeof tor.uploader === 'string') {
-    out.searchIn = myUid && tor.uploader === `u${myUid}` ? 'mine' : 'torrents'
-    if (!out.text && !myUid) out.text = ''
-  }
+  else if (tor.rr === 'myReseeds') out.searchIn = 'myReseed'
+  else if (tor.uploader === 'me' || (myUid != null && tor.uploader === `u${myUid}`)) out.searchIn = 'mine'
+  const start = Number(parsed.start)
+  if (Number.isFinite(start) && start > 0) out.start = start
+  const perPage = Number(parsed.perPage)
+  if (PERPAGE_OPTIONS.includes(perPage)) out.perpage = perPage
   return Object.keys(out).length ? out : null
 }
 
@@ -202,25 +240,28 @@ function initialState(myUid: string | null): BrowseState {
   if (s.searchIn !== 'torrents') return s
   const saved: Partial<StickyFilters> = readSticky() ?? mamBrowseDefaults() ?? {}
   const p = new URLSearchParams(location.search)
+  // A filter the link itself names is a choice, whether it rides in as a
+  // tor[...] param or inside the s= blob of the newer search page.
+  const blob = p.get('s') ? stateFromSearchJson(p.get('s')!, myUid) : null
   // MAM's own scripts rewrite the URL once their search returns, leaving neutral
   // values behind: tor[cat][]=0 for every category and tor[sortType]=default.
   // Those are not a choice, so they must not shut the saved filters out.
   const picked = (key: string) => p.getAll(key).some((v) => Number(v) > 0)
   const urlSort = p.get('tor[sortType]')
   const next = { ...s }
-  if (!picked('tor[main_cat][]') && !picked('tor[cat][]')) {
+  if (!picked('tor[main_cat][]') && !picked('tor[cat][]') && !blob?.mainCat) {
     next.mainCat = saved.mainCat ?? next.mainCat
     next.cat = saved.cat ?? next.cat
   }
-  if (!picked('tor[browse_lang][]')) next.langs = saved.langs ?? next.langs
+  if (!picked('tor[browse_lang][]') && !blob?.langs) next.langs = saved.langs ?? next.langs
   if (!picked('tor[browseFlags][]')) {
     next.flagsMode = saved.flagsMode ?? next.flagsMode
     next.flags = (saved.flags ?? next.flags).filter((f) => CONTENT_FLAGS.some((x) => x.bit === f))
   }
-  if ((!urlSort || urlSort === 'default') && saved.sort && SORT_OPTIONS.some((o) => o.value === saved.sort)) {
+  if ((!urlSort || urlSort === 'default') && !blob?.sort && saved.sort && SORT_OPTIONS.some((o) => o.value === saved.sort)) {
     next.sort = saved.sort
   }
-  if (!p.has('perpage') && saved.perpage && PERPAGE_OPTIONS.includes(saved.perpage)) {
+  if (!p.has('perpage') && !blob?.perpage && saved.perpage && PERPAGE_OPTIONS.includes(saved.perpage)) {
     next.perpage = saved.perpage
   }
   return next

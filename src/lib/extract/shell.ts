@@ -45,7 +45,11 @@ function userMenuValue(doc: Document, label: RegExp): string | null {
 
 export function capturePage(doc: Document): ShellData {
   const myInfo = doc.querySelector<HTMLAnchorElement>('li.mmUserStats a.myInfo')
-  const uid = num(myInfo?.getAttribute('href')?.match(/\/u\/(\d+)/)?.[1] ?? null)
+  // Preferences and other userscripts can reshape the menu; the session cookie
+  // carries the uid whatever the markup looks like.
+  const uid =
+    num(myInfo?.getAttribute('href')?.match(/\/u\/(\d+)/)?.[1] ?? null) ??
+    num(doc.cookie.match(/(?:^|;\s*)uid=(\d+)/)?.[1] ?? null)
 
   // #userMenu's first text node is the username (icons and arrows follow).
   const userMenu = doc.querySelector('#userMenu')

@@ -666,7 +666,9 @@ export function TorrentView(props: PageProps) {
   ].filter((s): s is { label: string; value: string; title?: string } => !!s.value)
 
   return (
-    <div className="grid gap-5">
+    // grid-cols-1 pins the tracks to the page width; a bare grid would widen
+    // to the min-content of the series strip and push cards past the card edge.
+    <div className="grid grid-cols-1 gap-5">
       {/* HERO: ambilight glow from the cover, 3D book, kicker and statline */}
       <BlurFade direction="up" offset={12}>
         <div className="relative overflow-hidden rounded-xl border bg-card shadow-card">
@@ -761,7 +763,7 @@ export function TorrentView(props: PageProps) {
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         {/* MAIN COLUMN: description, series strip, media info, files, peers */}
-        <div className="grid min-w-0 gap-5">
+        <div className="grid min-w-0 grid-cols-1 gap-5">
           {data.descriptionHtml && (
             <Card>
               <CardHeader><CardTitle>Description</CardTitle></CardHeader>

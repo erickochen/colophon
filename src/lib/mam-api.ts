@@ -215,7 +215,8 @@ export interface RequestQuery {
 }
 
 export interface RequestRow {
-  id: number
+  /** Creation time in unix seconds with a fraction; doubles as the request's key. */
+  requesttime: number
   title: string
   cat_name: string
   lang_code: string | null
@@ -343,7 +344,11 @@ export async function searchRequests(q: RequestQuery): Promise<RequestResult> {
   if (!res.ok) throw new Error(`request search failed: ${res.status}`)
   const parsed = await res.json()
   if (!Array.isArray(parsed.data)) return { perpage: REQUESTS_PER_PAGE, start: 0, data: [], found: 0 }
-  return parsed as RequestResult
+  // Older answers carried the creation time as "id"; keep reading those.
+  const data = (parsed.data as (RequestRow & { id?: number })[]).map((r) =>
+    r.requesttime != null ? r : { ...r, requesttime: r.id ?? 0 }
+  )
+  return { ...parsed, data } as RequestResult
 }
 
 export interface UserLive {
@@ -526,18 +531,19 @@ export function torrentUrl(id: number) {
   return `/t/${id}`
 }
 
-// A request id is its creation time: unix seconds carrying a fraction. The
-// detail URL uses that number as-is.
-export function requestUrl(id: number) {
-  return `/t/r/${id}`
+// A request is addressed by its creation time: unix seconds carrying a
+// fraction. The detail URL uses that number as-is.
+export function requestUrl(requesttime: number) {
+  return `/t/r/${requesttime}`
 }
 
 const MS_PER_SECOND = 1000
 const STAMP_LENGTH = 'YYYY-MM-DD HH:MM:SS'.length
 
-/** Request id read back as the UTC stamp it encodes. */
-export function requestedAt(id: number): string {
-  return new Date(id * MS_PER_SECOND).toISOString().replace('T', ' ').slice(0, STAMP_LENGTH)
+/** Request time read back as the UTC stamp it encodes. */
+export function requestedAt(requesttime: number): string {
+  if (!Number.isFinite(requesttime)) return ''
+  return new Date(requesttime * MS_PER_SECOND).toISOString().replace('T', ' ').slice(0, STAMP_LENGTH)
 }
 
 export function downloadUrl(id: number, useWedge = false) {
