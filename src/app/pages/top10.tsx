@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Filter } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { searchTorrents, parsePeople, coverUrl, type SearchTorrent } from '@/lib/mam-api'
+import { coverShape } from '@/lib/cover-shape'
 import { MAIN_CATS } from '@/lib/mam-facets'
 import { fmtInt } from '@/lib/format'
 import { PageHeader } from '@/app/shell/bits'
@@ -210,6 +211,7 @@ export function Top10View(_props: PageProps) {
                     poster={t.poster_type ? coverUrl(t.id) : null}
                     title={t.title}
                     author={authors[0]?.name}
+                    shape={coverShape({ mediatype: t.mediatype, mainCat: t.main_cat })}
                     size="row"
                     plain
                     className="w-18 shrink-0"

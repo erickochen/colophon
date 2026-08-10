@@ -1,8 +1,10 @@
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
 import { Ticket } from 'lucide-react'
 import { applyPointsUpdate, useLiveWedges } from '@/lib/bonus'
-import { fmtRatio } from '@/lib/format'
+import { fmtInt, fmtRatio, plural } from '@/lib/format'
+import { buyPersonalFreeleech, downloadZipOf, ZIP_BATCH_MAX } from '@/lib/mam-api'
 import { TRIVIAL_DROP, useRatioGuard } from '@/lib/ratio-protect'
+import { useFeature } from '@/lib/settings'
 import { spendWedgeAndDownload } from '@/lib/wedge'
 import { cn } from '@/lib/utils'
 import {
@@ -10,6 +12,8 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
 import { Spinner } from '@/components/ui/spinner'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { toast } from '@/components/ui/toast'
@@ -28,21 +32,22 @@ export interface WedgeTarget {
   href?: string | null
 }
 
-/** Confirm step for a spend that cannot be undone: names the torrent, the ratio
- * it saves and what the stash looks like afterwards. */
-function WedgeConfirm({ target, onDone, onClose }: { target: WedgeTarget; onDone: () => void; onClose: () => void }) {
-  const guard = useRatioGuard(target.size)
-  const wedges = useLiveWedges(null)
+/** A held Enter auto-repeats into the freshly focused confirm, so only a
+ * released plus re-pressed key may activate it. */
+function blockHeldEnter(e: KeyboardEvent) {
+  if (e.key === 'Enter' && e.repeat) e.preventDefault()
+}
+
+/** The spend itself, without any UI around it. Both the confirm dialog and the
+ * skip path call this, so the toast and the stash update read the same. The
+ * boolean says whether the spend landed. */
+export function useSpendWedge(target: WedgeTarget, onDone: () => void): { spend: () => Promise<boolean>; busy: boolean } {
   const [busy, setBusy] = useState(false)
   // The button goes disabled a render later, so a held Enter can fire twice.
   const inFlight = useRef(false)
-  const left = wedges != null ? Number(wedges.replace(/,/g, '')) : null
-  const none = left === 0
-  const drop = guard?.impact.drop
-  const showRatio = guard != null && (drop == null || drop > TRIVIAL_DROP)
 
-  async function spend() {
-    if (inFlight.current || none) return
+  const spend = useCallback(async () => {
+    if (inFlight.current) return false
     inFlight.current = true
     setBusy(true)
     try {
@@ -55,18 +60,46 @@ function WedgeConfirm({ target, onDone, onClose }: { target: WedgeTarget; onDone
           : `${after.toLocaleString('en-US')} wedge${after === 1 ? '' : 's'} left. The download is on its way.`,
       })
       onDone()
-      onClose()
+      return true
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'The wedge did not go through, so nothing was downloaded.')
+      return false
     } finally {
       inFlight.current = false
       setBusy(false)
     }
+  }, [target.id, target.href, onDone])
+
+  return { spend, busy }
+}
+
+/** Confirm step for a spend that cannot be undone: names the torrent, the ratio
+ * it saves and what the stash looks like afterwards. */
+function WedgeConfirm({ target, onDone, onClose }: { target: WedgeTarget; onDone: () => void; onClose: () => void }) {
+  const guard = useRatioGuard(target.size)
+  const wedges = useLiveWedges(null)
+  const [, setSkip] = useFeature('skipWedgeConfirm')
+  const [dontAsk, setDontAsk] = useState(false)
+  const confirmRef = useRef<HTMLElement>(null)
+  const { spend, busy } = useSpendWedge(target, onDone)
+  const left = wedges != null ? Number(wedges.replace(/,/g, '')) : null
+  const none = left === 0
+  const drop = guard?.impact.drop
+  const showRatio = guard != null && (drop == null || drop > TRIVIAL_DROP)
+
+  // A refused spend keeps the dialog open and never saves the checkbox, so a
+  // failure cannot switch the confirm off.
+  async function confirm() {
+    if (none) return
+    const landed = await spend()
+    if (!landed) return
+    if (dontAsk) setSkip(true)
+    onClose()
   }
 
   return (
     <AlertDialog open onOpenChange={(open) => !open && onClose()}>
-      <AlertDialogContent size="sm" className="gap-4">
+      <AlertDialogContent size="sm" className="gap-4" initialFocus={confirmRef}>
         <AlertDialogHeader>
           <AlertDialogTitle className="font-display">Spend a freeleech wedge?</AlertDialogTitle>
           <AlertDialogDescription>
@@ -90,14 +123,23 @@ function WedgeConfirm({ target, onDone, onClose }: { target: WedgeTarget; onDone
             )}
           </p>
         </div>
+        <Label className="flex items-center gap-2 text-[12.5px] font-normal">
+          <Checkbox checked={dontAsk} onCheckedChange={(v) => setDontAsk(!!v)} />
+          Don't ask again
+        </Label>
         <AlertDialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           {none ? (
             <Button asChild>
-              <a href={STORE_URL}><Ticket /> Get wedges</a>
+              <a ref={confirmRef as RefObject<HTMLAnchorElement>} href={STORE_URL}><Ticket /> Get wedges</a>
             </Button>
           ) : (
-            <Button onClick={spend} disabled={busy}>
+            <Button
+              ref={confirmRef as RefObject<HTMLButtonElement>}
+              onClick={() => void confirm()}
+              onKeyDown={blockHeldEnter}
+              disabled={busy}
+            >
               {busy ? <Spinner /> : <Ticket />}
               {busy ? 'Spending' : 'Spend wedge'}
             </Button>
@@ -112,12 +154,20 @@ function WedgeConfirm({ target, onDone, onClose }: { target: WedgeTarget; onDone
  * bookmark and download buttons beside it. */
 export function WedgeRowButton({ target, className, onDone }: { target: WedgeTarget; className?: string; onDone: () => void }) {
   const [open, setOpen] = useState(false)
+  const [skip] = useFeature('skipWedgeConfirm')
+  const { spend, busy } = useSpendWedge(target, onDone)
   return (
     <>
       <Tooltip>
         <TooltipTrigger asChild>
-          <button type="button" onClick={() => setOpen(true)} aria-label={LABEL} className={className}>
-            <Ticket className="size-[15px]" />
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => (skip ? void spend() : setOpen(true))}
+            aria-label={LABEL}
+            className={className}
+          >
+            {busy ? <Spinner className="size-[15px]" /> : <Ticket className="size-[15px]" />}
           </button>
         </TooltipTrigger>
         <TooltipContent>{LABEL}</TooltipContent>
@@ -130,12 +180,120 @@ export function WedgeRowButton({ target, className, onDone }: { target: WedgeTar
 /** Wedge download on the torrent page, sitting next to the plain Download. */
 export function WedgeDetailButton({ target, emphasis, onDone }: { target: WedgeTarget; emphasis?: boolean; onDone?: () => void }) {
   const [open, setOpen] = useState(false)
+  const [skip] = useFeature('skipWedgeConfirm')
+  const { spend, busy } = useSpendWedge(target, onDone ?? (() => {}))
   return (
     <>
-      <Button variant={emphasis ? 'default' : 'outline'} onClick={() => setOpen(true)} className={cn(emphasis && 'font-medium')}>
-        <Ticket /> {LABEL}
+      <Button
+        variant={emphasis ? 'default' : 'outline'}
+        disabled={busy}
+        onClick={() => (skip ? void spend() : setOpen(true))}
+        className={cn(emphasis && 'font-medium')}
+      >
+        {busy ? <Spinner /> : <Ticket />} {LABEL}
       </Button>
       {open && <WedgeConfirm target={target} onDone={() => onDone?.()} onClose={() => setOpen(false)} />}
+    </>
+  )
+}
+
+/** Wedging a whole selection. One confirm for the batch, because asking per
+ * torrent turns the question into noise the reader stops reading. The spends
+ * run one by one; the files follow as a single zip, since a chain of
+ * programmatic downloads trips the browser's multiple-download block. */
+export function WedgeBatchButton({ targets, onDone }: { targets: WedgeTarget[]; onDone: (ids: number[]) => void }) {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [doneCount, setDoneCount] = useState(0)
+  const stopAsked = useRef(false)
+  const wedges = useLiveWedges(null)
+  const batch = targets.slice(0, ZIP_BATCH_MAX)
+  const left = wedges != null ? Number(wedges.replace(/,/g, '')) : null
+  const short = left != null && left < batch.length
+  const confirmRef = useRef<HTMLElement>(null)
+
+  async function run() {
+    setBusy(true)
+    stopAsked.current = false
+    const landed: number[] = []
+    try {
+      for (const t of batch) {
+        if (stopAsked.current) break
+        const result = await buyPersonalFreeleech(t.id)
+        applyPointsUpdate(result)
+        landed.push(t.id)
+        setDoneCount(landed.length)
+      }
+      toast.success(`${plural(landed.length, 'wedge')} applied`, {
+        description: 'One zip with every torrent is on its way.',
+      })
+    } catch (e) {
+      // Wedges cannot be refunded, so a half finished run has to name itself.
+      toast.error(e instanceof Error ? e.message : 'The run stopped early.', {
+        description: landed.length > 0
+          ? `${plural(landed.length, 'wedge')} went through before it stopped. Their zip is on its way; the rest is untouched.`
+          : 'Nothing was spent.',
+      })
+    } finally {
+      // A stopped run still zips what landed; those wedges are spent either way.
+      if (landed.length > 0) downloadZipOf(landed)
+      onDone(landed)
+      setBusy(false)
+      setDoneCount(0)
+      setOpen(false)
+    }
+  }
+
+  if (batch.length === 0) return null
+  return (
+    <>
+      <Button variant="outline" size="sm" className="h-8 text-[12.5px]" onClick={() => setOpen(true)}>
+        <Ticket /> Wedge {fmtInt(batch.length)}
+      </Button>
+      {open && (
+        <AlertDialog open onOpenChange={(v) => !v && !busy && setOpen(false)}>
+          <AlertDialogContent size="sm" className="gap-4" initialFocus={confirmRef}>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="font-display">
+                Spend {plural(batch.length, 'freeleech wedge')}?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                None of these downloads count against your ratio. The torrents arrive as one zip.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="min-w-0 rounded-lg bg-muted/50 px-3 py-2 text-left">
+              <p className="text-[12px] text-muted-foreground">
+                {left == null
+                  ? 'Stash unknown'
+                  : short
+                    ? `Only ${plural(left, 'wedge')} left, so this needs ${fmtInt(batch.length - left)} more.`
+                    : `${fmtInt(left)} wedges now, ${fmtInt(left - batch.length)} after this.`}
+                {targets.length > batch.length && ` First ${fmtInt(batch.length)} of the selection; one zip takes no more.`}
+              </p>
+            </div>
+            <AlertDialogFooter>
+              <Button variant="ghost" onClick={() => (busy ? (stopAsked.current = true) : setOpen(false))}>
+                {busy ? 'Stop after this one' : 'Cancel'}
+              </Button>
+              {short ? (
+                <Button asChild>
+                  <a ref={confirmRef as RefObject<HTMLAnchorElement>} href={STORE_URL}><Ticket /> Get wedges</a>
+                </Button>
+              ) : (
+                <Button
+                  ref={confirmRef as RefObject<HTMLButtonElement>}
+                  onClick={() => void run()}
+                  onKeyDown={blockHeldEnter}
+                  disabled={busy}
+                >
+                  {busy ? <Spinner /> : <Ticket />}
+                  {busy ? `Spending ${fmtInt(doneCount)} of ${fmtInt(batch.length)}` : `Spend ${fmtInt(batch.length)} wedges`}
+                </Button>
+              )}
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </>
   )
 }

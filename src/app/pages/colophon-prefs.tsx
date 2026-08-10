@@ -203,6 +203,11 @@ export function ColophonPrefsView(_props: PageProps) {
           note={`Locks the plain download on a heavy ratio drop or when it would cross ratio ${HARD_FLOOR}. Switched off, the impact still shows but nothing locks.`}
         />
         <RatioFloorRow />
+        <FeatureRow
+          feature="skipWedgeConfirm"
+          title="Skip the wedge confirmation"
+          note="Spends the wedge straight from the button. The toast still names what is left of your stash. A spent wedge cannot be taken back."
+        />
       </PrefCard>
 
       <PrefCard title="Browse">

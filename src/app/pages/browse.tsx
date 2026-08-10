@@ -1,20 +1,24 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { AlignJustify, Bookmark, BookmarkCheck, BookmarkX, ChevronDown, Columns3, Dices, Download, EyeOff, FileArchive, Filter, LayoutGrid, Loader2, Search, Trash2, Undo2 } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import {
-  bookmarkCleanup, bookmarkMass, BookmarkMassError, bookmarkOne, downloadZipOf, searchTorrents, parsePeople,
-  downloadUrl, coverUrl, torrentUrl, BOOKMARKS_ZIP_URL, ZIP_BATCH_MAX,
+  bookmarkCleanup, bookmarkMass, BookmarkMassError, bookmarkOne, downloadZipOf, searchAllTorrents, searchTorrents,
+  parsePeople, downloadUrl, coverUrl, torrentUrl, BOOKMARKS_ZIP_URL, ZIP_BATCH_MAX,
   type BookmarkCleanup, type SearchQuery, type SearchTorrent,
 } from '@/lib/mam-api'
+import { groupBySeries, type SeriesGroup } from '@/lib/series'
 import { CONTENT_FLAGS, LANGUAGES, MAIN_CATS, SORT_OPTIONS } from '@/lib/mam-facets'
+import { coverShape } from '@/lib/cover-shape'
 import { wedgeHelps } from '@/lib/wedge'
 import { mamBrowseDefaults, readSticky, writeSticky, type StickyFilters } from '@/lib/browse-sticky'
 import { useFeature, useIgnoredTorrents } from '@/lib/settings'
 import { fmtInt, plural, relTime, utcTitle } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Book } from '@/components/book'
+import { CollapsibleSection } from '@/components/section'
+import { SeriesHeader } from '@/components/series-header'
 import { TagLinks } from '@/components/tag-links'
-import { WedgeRowButton } from '@/components/wedge-download'
+import { WedgeBatchButton, WedgeRowButton } from '@/components/wedge-download'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -100,6 +104,12 @@ const IGNORE_TOAST_MS = 6000
 // Tags per row before the rest becomes a count. Keeps a padded tag field from
 // pushing the row over two lines.
 const ROW_TAG_LIMIT = 4
+
+// Cover slot in a list row. Fixed height keeps every title on one scan line
+// whatever shape the cover turns out to be; the narrow value keeps a square
+// cover off a third of a phone screen.
+const ROW_COVER_H = 132
+const ROW_COVER_H_SM = 96
 
 /** Why a row is not shown: on the personal ignore list or snatched while the
  * hide-snatched filter is on. */
@@ -264,12 +274,19 @@ function catName(id: number): string {
   return `cat ${id}`
 }
 
-/** Row cover with a large natural-ratio peek beside it while hovered. */
+/** Row cover in a fixed-height slot, with a large peek beside it while
+ * hovered. The slot pins the height plus centers whatever shape fits in it. */
 function RowCover({ t }: { t: SearchTorrent }) {
   const poster = t.poster_type ? coverUrl(t.id) : null
+  const shape = coverShape({ mediatype: t.mediatype, mainCat: t.main_cat })
   const cover = (
-    <a href={torrentUrl(t.id)} tabIndex={-1} className="block text-[9px]">
-      <Book poster={poster} title={t.title} size="row" plain className="transition-shadow group-hover:shadow-book-lift" />
+    <a
+      href={torrentUrl(t.id)}
+      tabIndex={-1}
+      className="flex h-[var(--cover-h)] items-center justify-center text-[9px] sm:h-[var(--cover-h-lg)]"
+      style={{ '--cover-h': `${ROW_COVER_H_SM}px`, '--cover-h-lg': `${ROW_COVER_H}px` } as CSSProperties}
+    >
+      <Book poster={poster} title={t.title} shape={shape} fit="height" plain className="transition-shadow group-hover:shadow-book-lift" />
     </a>
   )
   if (!poster) return cover
@@ -278,7 +295,7 @@ function RowCover({ t }: { t: SearchTorrent }) {
       <HoverCardTrigger asChild delay={250} closeDelay={100}>{cover}</HoverCardTrigger>
       <HoverCardContent side="right" sideOffset={16} className="w-[230px] rounded-none border-0 bg-transparent p-0 shadow-none">
         <span className="block rounded-[6px_10px_10px_6px] shadow-book-lift">
-          <Book poster={poster} title={t.title} naturalRatio size="hero" className="rounded-[6px_10px_10px_6px]" />
+          <Book poster={poster} title={t.title} shape={shape} size="hero" className="rounded-[6px_10px_10px_6px]" />
         </span>
       </HoverCardContent>
     </HoverCard>
@@ -338,7 +355,7 @@ function RowBookmark({ t, onBookmark, onRemoved }: { t: SearchTorrent; onBookmar
   )
 }
 
-function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onUnignore, hiddenReason }: { t: SearchTorrent; cols: ColKey[]; onBookmark: BookmarkSetter; onRemoved?: RowDropper; onFreeleech?: (id: number) => void; onIgnore?: (t: SearchTorrent) => void; onUnignore?: (id: number) => void; hiddenReason?: HiddenReason | null }) {
+function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onUnignore, hiddenReason, selectable, checked, onCheck }: { t: SearchTorrent; cols: ColKey[]; onBookmark: BookmarkSetter; onRemoved?: RowDropper; onFreeleech?: (id: number) => void; onIgnore?: (t: SearchTorrent) => void; onUnignore?: (id: number) => void; hiddenReason?: HiddenReason | null; selectable?: boolean; checked?: boolean; onCheck?: (id: number, on: boolean) => void }) {
   const authors = parsePeople(t.author_info)
   const narrators = cols.includes('narrators') ? parsePeople(t.narrator_info) : []
   const series = cols.includes('series') ? parsePeople(t.series_info) : []
@@ -347,10 +364,24 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onU
     <div
       className={cn(
         'group grid items-center gap-[18px] px-[22px] py-3.5 transition-colors hover:bg-foreground/[0.028]',
-        stats.length ? 'grid-cols-[88px_1fr_auto_auto]' : 'grid-cols-[88px_1fr_auto]',
+        selectable
+          ? stats.length
+            ? 'grid-cols-[28px_96px_1fr_auto_auto] sm:grid-cols-[28px_132px_1fr_auto_auto]'
+            : 'grid-cols-[28px_96px_1fr_auto] sm:grid-cols-[28px_132px_1fr_auto]'
+          : stats.length
+            ? 'grid-cols-[96px_1fr_auto_auto] sm:grid-cols-[132px_1fr_auto_auto]'
+            : 'grid-cols-[96px_1fr_auto] sm:grid-cols-[132px_1fr_auto]',
         hiddenReason && 'opacity-60'
       )}
     >
+      {selectable && (
+        <Checkbox
+          checked={!!checked}
+          onCheckedChange={(v) => onCheck?.(t.id, !!v)}
+          aria-label={`Select ${t.title}`}
+          className="justify-self-center"
+        />
+      )}
       <RowCover t={t} />
       {/* Tags sit outside the row link: a link inside a link is invalid. */}
       <div className="min-w-0">
@@ -471,7 +502,7 @@ function GalleryItem({ t, hiddenReason, onUnignore }: { t: SearchTorrent; hidden
             poster={t.poster_type ? coverUrl(t.id) : null}
             title={t.title}
             author={authorsText || undefined}
-            naturalRatio
+            shape={coverShape({ mediatype: t.mediatype, mainCat: t.main_cat })}
             size="shelf"
             className="group-hover:shadow-book-lift"
           />
@@ -745,6 +776,30 @@ export function BrowseView(props: PageProps) {
   const [ignoreOn] = useFeature('ignoreAction')
   const ignored = useIgnoredTorrents()
   const [showHidden, setShowHidden] = useState(false)
+  // Selection for the series bulk actions, cleared on every new search so a
+  // stale id never reaches an action.
+  const [selected, setSelected] = useState<Set<number>>(() => new Set())
+  const [nonePartsOpen, setNonePartsOpen] = useState(false)
+
+  const toggleSelect = useCallback((id: number, on: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (on) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }, [])
+
+  const toggleGroupSelect = useCallback((ids: number[], on: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      for (const id of ids) {
+        if (on) next.add(id)
+        else next.delete(id)
+      }
+      return next
+    })
+  }, [])
 
   const setViewMode = (v: ViewMode) => {
     setView(v)
@@ -769,21 +824,25 @@ export function BrowseView(props: PageProps) {
 
   const run = useCallback(async (s: BrowseState, opts: { append?: boolean; push?: boolean } = {}) => {
     const { append = false, push = true } = opts
+    // A series loads whole from row 0, so an offset riding in on the URL must
+    // not skew the shown count.
+    const q = s.seriesID && s.start !== 0 ? { ...s, start: 0 } : s
     const mine = ++seq.current
     if (append) {
       setLoadingMore(true)
     } else {
       setLoading(true)
       setItems([])
+      setSelected(new Set())
     }
     setError(null)
-    if (push) history.replaceState(null, '', urlFromState(s))
+    if (push) history.replaceState(null, '', urlFromState(q))
     try {
-      const res = await searchTorrents(toQuery(s))
+      const res = q.seriesID ? await searchAllTorrents(toQuery(q)) : await searchTorrents(toQuery(q))
       if (seq.current !== mine) return
       setFound(res.found)
       setItems((prev) => (append ? [...prev, ...res.data] : res.data))
-      if (!append) setBaseStart(s.start)
+      if (!append) setBaseStart(q.start)
     } catch (e) {
       if (seq.current === mine) setError(e instanceof Error ? e.message : 'Search failed')
     } finally {
@@ -947,6 +1006,67 @@ export function BrowseView(props: PageProps) {
           label: `${kind[0].toUpperCase()}${kind.slice(1)}: ${entityName(kind, id) ?? `#${id}`}`,
           onRemove,
         }]
+
+  // Grouping computes from items, not shownItems: the progress header keeps
+  // counting snatched parts while the hide-snatched filter empties the list.
+  const seriesGroups = useMemo(
+    () => (state.seriesID ? groupBySeries(items, state.seriesID) : []),
+    [items, state.seriesID]
+  )
+  const firstRange = seriesGroups.find((g) => g.kind === 'range')?.key
+  const groupRows = (g: SeriesGroup) => (showHidden ? g.rows : g.rows.filter((t) => !hiddenReason(t)))
+  // entityName JSON-parses every row it scans and the view rerenders per
+  // keystroke, which at a whole series is real work.
+  const seriesName = useMemo(
+    () => (state.seriesID ? entityName('series', state.seriesID) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [items, state.seriesID]
+  )
+
+  // Acting ids come from the rendered rows, so an id that left the list can
+  // never reach an action.
+  const selectedIds = useMemo(
+    () => items.filter((t) => selected.has(t.id)).map((t) => t.id),
+    [items, selected]
+  )
+  const wedgeTargets = useMemo(
+    () => items.filter((t) => selected.has(t.id) && wedgeHelps(t)).map((t) => ({ id: t.id, title: t.title, size: t.size })),
+    [items, selected]
+  )
+  const [barBusy, setBarBusy] = useState(false)
+
+  async function bookmarkSelected() {
+    setBarBusy(true)
+    setBookmarked(selectedIds, true)
+    try {
+      await bookmarkMass(selectedIds, 'add')
+      toast.success(`Bookmarked ${plural(selectedIds.length, 'torrent')}`)
+    } catch (e) {
+      const landed = new Set(e instanceof BookmarkMassError ? e.applied : [])
+      setBookmarked(selectedIds.filter((id) => !landed.has(id)), false)
+      toast.error(e instanceof Error ? e.message : 'That did not go through.')
+    } finally {
+      setBarBusy(false)
+    }
+  }
+
+  function zipSelected() {
+    downloadZipOf(selectedIds)
+    toast.success(`Zipping ${plural(Math.min(selectedIds.length, ZIP_BATCH_MAX), 'torrent')}`, {
+      description: 'MAM builds the file, your browser takes it from there.',
+    })
+  }
+
+  /** Every landed id turns personal freeleech and leaves the selection. */
+  const onBatchFreeleech = useCallback((ids: number[]) => {
+    const hit = new Set(ids)
+    setItems((prev) => prev.map((t) => (hit.has(t.id) ? { ...t, personal_freeleech: 1, fl_vip: 1 } : t)))
+    setSelected((prev) => {
+      const next = new Set(prev)
+      for (const id of ids) next.delete(id)
+      return next
+    })
+  }, [])
 
   // Every active filter gets a chip. Nothing should narrow the list from a place
   // the reader cannot see. Clear all only appears once a chip does.
@@ -1128,7 +1248,7 @@ export function BrowseView(props: PageProps) {
       <FilterSummary
         chips={chips}
         onClearAll={() => apply({ mainCat: [], cat: [], langs: [], flags: [], searchType: 'all', searchIn: 'torrents', authorID: null, narratorID: null, seriesID: null })}
-        meta={loading ? 'Searching…' : `${fmtInt(found)} results · ${sortLabel}`}
+        meta={loading ? 'Searching…' : state.seriesID ? `${fmtInt(found)} results · grouped by part` : `${fmtInt(found)} results · ${sortLabel}`}
       >
         <ViewToggle view={view} onChange={setViewMode} />
         {view === 'list' && <ColumnsMenu cols={cols} onToggle={toggleCol} />}
@@ -1143,12 +1263,16 @@ export function BrowseView(props: PageProps) {
         )}
       </FilterSummary>
 
+      {state.seriesID != null && seriesGroups.length > 0 && (
+        <SeriesHeader name={seriesName ?? 'This series'} groups={seriesGroups} total={found} />
+      )}
+
       <Card className="overflow-hidden py-0">
         {loading && view === 'list' && (
           <div className="divide-y divide-border">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="grid grid-cols-[88px_1fr_auto] items-center gap-[18px] px-[22px] py-3.5">
-                <Skeleton className="aspect-[3/4.5] w-[76px] rounded-[4px_7px_7px_4px]" />
+              <div key={i} className="grid grid-cols-[96px_1fr_auto] items-center gap-[18px] px-[22px] py-3.5 sm:grid-cols-[132px_1fr_auto]">
+                <Skeleton className="mx-auto h-[96px] w-[64px] rounded-[4px_7px_7px_4px] sm:h-[132px] sm:w-[88px]" />
                 <div className="min-w-0">
                   <Skeleton className="h-4 w-2/3" />
                   <Skeleton className="mt-2 h-3 w-2/5" />
@@ -1190,7 +1314,7 @@ export function BrowseView(props: PageProps) {
             <button className="underline" onClick={() => setShowHidden(true)}>Show them</button>
           </div>
         )}
-        {!loading && shownItems.length > 0 && view === 'list' && (
+        {!loading && shownItems.length > 0 && !state.seriesID && view === 'list' && (
           <div className="divide-y divide-border">
             {shownItems.map((t) => (
               <TorrentRow
@@ -1207,14 +1331,82 @@ export function BrowseView(props: PageProps) {
             ))}
           </div>
         )}
-        {!loading && shownItems.length > 0 && view === 'grid' && (
+        {!loading && shownItems.length > 0 && !state.seriesID && view === 'grid' && (
           <div className="grid grid-cols-3 items-end gap-x-[22px] gap-y-7 p-[26px] sm:grid-cols-4 lg:grid-cols-6">
             {shownItems.map((t) => (
               <GalleryItem key={t.id} t={t} hiddenReason={showHidden ? hiddenReason(t) : null} onUnignore={ignored.remove} />
             ))}
           </div>
         )}
-        {!loading && items.length > 0 && (remaining > 0 || loadingMore || error) && (
+        {!loading && shownItems.length > 0 && state.seriesID != null && (
+          <div className="divide-y divide-border">
+            {seriesGroups.map((g) => {
+              const rows = groupRows(g)
+              if (rows.length === 0) return null
+              const rowIds = rows.map((t) => t.id)
+              const checkedCount = rowIds.filter((id) => selected.has(id)).length
+              const body = view === 'list' ? (
+                <div className="divide-y divide-border">
+                  {rows.map((t) => (
+                    <TorrentRow
+                      key={t.id}
+                      t={t}
+                      cols={cols}
+                      onBookmark={setBookmarked}
+                      onRemoved={dropOnUnbookmark}
+                      onFreeleech={setPersonalFreeleech}
+                      onIgnore={ignoreOn ? ignoreTorrent : undefined}
+                      onUnignore={ignored.remove}
+                      hiddenReason={showHidden ? hiddenReason(t) : null}
+                      selectable
+                      checked={selected.has(t.id)}
+                      onCheck={toggleSelect}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 items-end gap-x-[22px] gap-y-7 p-[26px] sm:grid-cols-4 lg:grid-cols-6">
+                  {rows.map((t) => (
+                    <GalleryItem key={t.id} t={t} hiddenReason={showHidden ? hiddenReason(t) : null} onUnignore={ignored.remove} />
+                  ))}
+                </div>
+              )
+              if (g.kind === 'none') {
+                return (
+                  <CollapsibleSection
+                    key={g.key}
+                    title="No part number"
+                    count={rows.length}
+                    open={nonePartsOpen}
+                    onOpenChange={setNonePartsOpen}
+                  >
+                    {body}
+                  </CollapsibleSection>
+                )
+              }
+              return (
+                <div key={g.key}>
+                  {g.kind === 'range' && firstRange === g.key && (
+                    <h3 className="border-t px-[22px] pt-4 pb-1 font-display text-[13px] font-semibold">Boxsets and collections</h3>
+                  )}
+                  <h3 className="flex items-center gap-2.5 bg-muted/40 px-[22px] py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                    {view === 'list' && (
+                      <Checkbox
+                        checked={checkedCount > 0 && checkedCount === rowIds.length}
+                        indeterminate={checkedCount > 0 && checkedCount < rowIds.length}
+                        onCheckedChange={(v) => toggleGroupSelect(rowIds, !!v)}
+                        aria-label={`Select every edition of part ${g.part}`}
+                      />
+                    )}
+                    Part {g.part}
+                  </h3>
+                  {body}
+                </div>
+              )
+            })}
+          </div>
+        )}
+        {!loading && items.length > 0 && !state.seriesID && (remaining > 0 || loadingMore || error) && (
           <div className="flex items-center justify-center border-t py-4">
             {error ? (
               <span className="text-sm text-destructive">
@@ -1229,6 +1421,23 @@ export function BrowseView(props: PageProps) {
           </div>
         )}
       </Card>
+
+      {state.seriesID != null && selected.size > 0 && (
+        <div
+          aria-live="polite"
+          className="fixed inset-x-0 bottom-4 z-40 mx-auto flex w-fit max-w-[calc(100%-2rem)] flex-wrap items-center justify-center gap-2 rounded-xl border bg-card px-6 py-2.5 shadow-lg"
+        >
+          <span className="text-[12.5px] tabular-nums">{plural(selected.size, 'torrent')} selected</span>
+          <Button variant="outline" size="sm" disabled={barBusy} className="h-8 text-[12.5px]" onClick={() => void bookmarkSelected()}>
+            {barBusy ? <Loader2 className="animate-spin" /> : <Bookmark />} Bookmark
+          </Button>
+          <Button variant="outline" size="sm" className="h-8 text-[12.5px]" onClick={zipSelected}>
+            <FileArchive /> {selectedIds.length > ZIP_BATCH_MAX ? `Zip first ${fmtInt(ZIP_BATCH_MAX)}` : 'Download .zip'}
+          </Button>
+          <WedgeBatchButton targets={wedgeTargets} onDone={onBatchFreeleech} />
+          <Button variant="ghost" size="sm" className="h-8 text-[12.5px]" onClick={() => setSelected(new Set())}>Clear</Button>
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-2 text-[12.5px] tabular-nums text-muted-foreground">
@@ -1254,13 +1463,15 @@ export function BrowseView(props: PageProps) {
             </>
           )}
         </span>
-        <FilterSelect
-          value={String(state.perpage)}
-          onChange={(v) => apply({ perpage: Number(v) })}
-          options={PERPAGE_OPTIONS.map((n) => ({ value: String(n), label: `${n} / page` }))}
-          align="end"
-          ariaLabel="Results per page"
-        />
+        {!state.seriesID && (
+          <FilterSelect
+            value={String(state.perpage)}
+            onChange={(v) => apply({ perpage: Number(v) })}
+            options={PERPAGE_OPTIONS.map((n) => ({ value: String(n), label: `${n} / page` }))}
+            align="end"
+            ariaLabel="Results per page"
+          />
+        )}
       </div>
     </div>
   )

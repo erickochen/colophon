@@ -9,6 +9,8 @@ import { swapStatusIcons } from '@/lib/status-dots'
 import { mutedUserColor } from '@/lib/colors'
 import { fmtInt, fmtRatio, initials, relTime, utcTitle } from '@/lib/format'
 import { searchTorrents, parsePeople, coverUrl, torrentUrl, type SearchTorrent } from '@/lib/mam-api'
+import { coverShape, mediaTypeFromHref, type CoverShape } from '@/lib/cover-shape'
+import { seriesEntry } from '@/lib/series'
 import { useFeature } from '@/lib/settings'
 import { HARD_FLOOR, TRIVIAL_DROP, useRatioGuard, type RatioGuard, type RatioLevel } from '@/lib/ratio-protect'
 import { cn } from '@/lib/utils'
@@ -415,49 +417,81 @@ function RemotePanel({ title, icon, url, fallback }: { title: string; icon: Reac
   )
 }
 
-interface SeriesEntry {
+interface StripEntry {
   id: number
   href: string
   title: string
   poster: string | null
   part: string | null
+  weight: number
+  shape: CoverShape
   current: boolean
 }
 
-function partNum(part: string | null): number {
-  const n = parseFloat(part ?? '')
-  return Number.isNaN(n) ? Number.POSITIVE_INFINITY : n
+/** A strip row with no entry for this series sorts after every numbered one. */
+const STRIP_NO_ENTRY_WEIGHT = Number.POSITIVE_INFINITY
+
+/** MAM's weight is the first number of the part; derive it where a row only
+ * names the part as text. */
+function partWeight(part: string | null | undefined): number {
+  const n = Number.parseFloat(part ?? '')
+  return Number.isNaN(n) ? STRIP_NO_ENTRY_WEIGHT : n
 }
 
 /** Mini shelf of the other books in the first series, fetched via the search
  * API. Hidden while loading, on fetch errors and when this book is alone. */
 function SeriesStrip({ data }: { data: TorrentDetail }) {
   const series = data.series[0]
-  const [items, setItems] = useState<SeriesEntry[] | null>(null)
+  const [items, setItems] = useState<StripEntry[] | null>(null)
+  const heroShape = coverShape({ mediatype: mediaTypeFromHref(data.catIconHref) })
+  // The series link carries the id, which beats matching on a name two series
+  // can share.
+  const seriesId = Number(/[?&]series=(\d+)/.exec(series.href)?.[1]) || null
 
   useEffect(() => {
     let live = true
-    searchTorrents({ text: series.name, srchIn: ['series'], perpage: 8 })
+    const query = seriesId != null
+      ? { seriesID: seriesId, perpage: 8 }
+      : { text: series.name, srchIn: ['series' as const], perpage: 8 }
+    searchTorrents(query)
       .then((res) => {
         if (!live) return
         const wanted = series.name.trim().toLowerCase()
-        const found: SeriesEntry[] = []
+        const found: StripEntry[] = []
         for (const t of res.data) {
-          const entry = parsePeople(t.series_info).find((s) => s.name.trim().toLowerCase() === wanted)
+          const entry = seriesId != null
+            ? seriesEntry(t, seriesId)
+            : (() => {
+                const hit = parsePeople(t.series_info).find((s) => s.name.trim().toLowerCase() === wanted)
+                return hit ? { name: hit.name, part: hit.part ?? '', weight: partWeight(hit.part) } : null
+              })()
           if (!entry) continue
           found.push({
             id: t.id,
             href: torrentUrl(t.id),
             title: t.title,
             poster: t.poster_type ? coverUrl(t.id) : null,
-            part: entry.part ?? null,
+            part: entry.part || null,
+            // MAM flags an unnumbered row as -1; in the strip those trail the
+            // numbered parts, matching the browse grouping.
+            weight: entry.weight < 0 ? STRIP_NO_ENTRY_WEIGHT : entry.weight,
+            shape: coverShape({ mediatype: t.mediatype, mainCat: t.main_cat }),
             current: t.id === data.id,
           })
         }
         if (data.id && !found.some((f) => f.current)) {
-          found.push({ id: data.id, href: torrentUrl(data.id), title: data.title ?? '', poster: data.poster, part: series.part, current: true })
+          found.push({
+            id: data.id,
+            href: torrentUrl(data.id),
+            title: data.title ?? '',
+            poster: data.poster,
+            part: series.part,
+            weight: partWeight(series.part),
+            shape: heroShape,
+            current: true,
+          })
         }
-        found.sort((a, b) => partNum(a.part) - partNum(b.part))
+        found.sort((a, b) => a.weight - b.weight)
         setItems(found)
       })
       .catch(() => {
@@ -466,6 +500,7 @@ function SeriesStrip({ data }: { data: TorrentDetail }) {
     return () => {
       live = false
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, series])
 
   if (!items || items.length < 2) return null
@@ -482,7 +517,7 @@ function SeriesStrip({ data }: { data: TorrentDetail }) {
           {items.map((it) => (
             <a key={it.id} href={it.href} title={it.title} className="group w-[88px] shrink-0 text-[10px]">
               <span className="block transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1 motion-reduce:transition-none">
-                <Book poster={it.poster} title={it.title} naturalRatio plain size="mini" className="group-hover:shadow-book-lift" />
+                <Book poster={it.poster} title={it.title} shape={it.shape} plain size="mini" className="group-hover:shadow-book-lift" />
               </span>
               <span className={cn('mt-2 block font-mono text-[11px] tabular-nums', it.current ? 'font-semibold text-brand' : 'text-muted-foreground')}>
                 {it.part && `#${it.part}`}
@@ -555,7 +590,7 @@ function EditionsStrip({ data }: { data: TorrentDetail }) {
                   className="group grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3.5 px-6 py-2.5 transition-colors hover:bg-foreground/[0.028]"
                 >
                   <span className="text-[7px]">
-                    <Book poster={t.poster_type ? coverUrl(t.id) : null} title={t.title} size="row" plain />
+                    <Book poster={t.poster_type ? coverUrl(t.id) : null} title={t.title} shape={coverShape({ mediatype: t.mediatype, mainCat: t.main_cat })} size="row" plain />
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-[13.5px] font-medium leading-snug transition-colors group-hover:text-brand">
@@ -646,7 +681,7 @@ export function TorrentView(props: PageProps) {
           )}
           <div className="relative z-2 grid gap-8 p-6 sm:grid-cols-[252px_minmax(0,1fr)] sm:p-8">
             <div className="mx-auto w-full max-w-[252px] sm:mx-0">
-              <Book3D poster={data.poster} title={data.title} naturalRatio className="text-[15px]" />
+              <Book3D poster={data.poster} title={data.title} shape={coverShape({ mediatype: mediaTypeFromHref(data.catIconHref) })} className="text-[15px]" />
             </div>
 
             <div className="min-w-0">

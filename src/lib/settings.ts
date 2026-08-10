@@ -5,6 +5,7 @@ import { useCallback, useSyncExternalStore } from 'react'
 
 export type FeatureKey =
   | 'ratioProtect'
+  | 'skipWedgeConfirm'
   | 'otherEditions'
   | 'externalLinks'
   | 'forumSnippet'
@@ -26,6 +27,7 @@ interface FeatureDef {
 
 export const FEATURES: Record<FeatureKey, FeatureDef> = {
   ratioProtect: { key: 'colophon:ratio-protect', enabledByDefault: true },
+  skipWedgeConfirm: { key: 'colophon:skip-wedge-confirm', enabledByDefault: false },
   otherEditions: { key: 'colophon:other-editions', enabledByDefault: true },
   externalLinks: { key: 'colophon:external-links', enabledByDefault: true },
   forumSnippet: { key: 'colophon:forum-snippet', enabledByDefault: true },

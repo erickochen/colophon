@@ -3,6 +3,7 @@ import { AudioLines, BookImage, BookOpen, Headphones, Music, Newspaper, Radio, T
 import type { ReactNode } from 'react'
 import type { PageProps } from '@/app/router'
 import { extractFreeleech, type FlItem } from '@/lib/extract/freeleech'
+import { coverShape } from '@/lib/cover-shape'
 import { coverUrl } from '@/lib/mam-api'
 import { useCollapsed } from '@/lib/collapsed'
 import { Book } from '@/components/book'
@@ -277,7 +278,7 @@ export function FreeleechView(props: PageProps) {
           <div className="grid grid-cols-1 items-start gap-x-6 px-4 py-3 sm:grid-cols-2 xl:grid-cols-3">
             {s.items.map((i) => (
               <a key={i.tid} href={`/t/${i.tid}`} className="group flex min-w-0 items-start gap-2.5 rounded-md px-2 py-1.5 hover:bg-accent/50">
-                <Book poster={coverUrl(Number(i.tid))} title={i.title} size="mini" plain className="w-12 shrink-0" />
+                <Book poster={coverUrl(Number(i.tid))} title={i.title} shape={coverShape({ mediatype: i.mediaTypeId })} size="mini" plain className="w-12 shrink-0" />
                 <span className="min-w-0">
                   <span className="font-display block truncate text-[13px] font-medium group-hover:underline">{i.title}</span>
                   <span className="mt-0.5 flex flex-wrap items-center gap-1">

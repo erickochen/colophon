@@ -85,7 +85,6 @@ function PickCard({ p }: { p: Pick }) {
           poster={p.tid ? coverUrl(p.tid) : null}
           title={p.title}
           author={p.author}
-          naturalRatio
           plain
           size="shelf"
           className="group-hover:shadow-book-lift"

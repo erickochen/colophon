@@ -1,5 +1,6 @@
 import * as React from "react"
 
+import { COVER_RATIO, type CoverShape } from "@/lib/cover-shape"
 import { cn } from "@/lib/utils"
 
 // Deterministic linen color for covers that never arrive.
@@ -9,53 +10,64 @@ export function bookSpineHue(title: string): number {
   return h
 }
 
-const SIZES = {
-  mini: "w-full",
-  row: "w-full",
-  shelf: "w-full",
-  hero: "w-full",
-} as const
+// The fallback picks its text treatment by slot size; no classes hang off this.
+type BookSize = "mini" | "row" | "shelf" | "hero"
 
 type BookProps = {
   poster: string | null
   title: string
   author?: string
-  /** Natural image ratio (shelf, hero); false crops to the uniform 3/4.5 frame. */
-  naturalRatio?: boolean
+  /** Reserves the frame before the image lands; the loaded image corrects it. */
+  shape?: CoverShape
+  /** Which axis the frame fills. Lists pin the height, grids pin the width. */
+  fit?: "width" | "height"
   /** Skip the spine and fore-edge; small covers keep their detail this way. */
   plain?: boolean
-  size?: keyof typeof SIZES
+  size?: BookSize
   className?: string
   style?: React.CSSProperties
 }
 
 /* The physical book: spine light strip, fore-edge, asymmetric radius and the
  * layered shadow. Block-level on purpose: transforms no-op on inline boxes. */
-export function Book({ poster, title, author, naturalRatio = false, plain = false, size = "row", className, style }: BookProps) {
+export function Book({ poster, title, author, shape = "portrait", fit = "width", plain = false, size = "row", className, style }: BookProps) {
   const [failed, setFailed] = React.useState(false)
+  const [measured, setMeasured] = React.useState<{ w: number; h: number } | null>(null)
   const showFallback = !poster || failed
+  // The measured image corrects the reserved guess, for the frame and for the
+  // treatment both. The physical book only makes sense on a portrait cover;
+  // square and landscape art gets the flat sleeve.
+  const measuredShape: CoverShape | null = measured ? (measured.w < measured.h ? "portrait" : "square") : null
+  const bookish = !plain && (measuredShape ?? shape) === "portrait"
+  const ratio = measured ? `${measured.w} / ${measured.h}` : COVER_RATIO[shape]
+  // A landscape image filling the slot height would run out of its column, so
+  // it fills the width instead and lets the flex slot center it vertically.
+  const fillsWidth = fit === "width" || (measured != null && measured.w > measured.h)
   return (
     <span
-      style={style}
+      style={{ ...style, aspectRatio: ratio }}
       className={cn(
         "book relative block overflow-visible bg-card",
-        plain
-          ? "rounded-md shadow-[0_0_0_1px_oklch(from_var(--foreground)_l_c_h/0.07),0_2px_6px_-1px_oklch(0.2_0.02_50/0.2)]"
-          : cn(
+        fillsWidth ? "w-full" : "h-full w-auto",
+        bookish
+          ? cn(
               "rounded-[4px_7px_7px_4px] shadow-book",
               "after:pointer-events-none after:absolute after:inset-0 after:z-2 after:rounded-[inherit]",
               "after:bg-[linear-gradient(90deg,oklch(0_0_0/0.22)_0,oklch(1_0_0/0.18)_5.5%,oklch(0_0_0/0.08)_9%,transparent_13%)]",
               "before:pointer-events-none before:absolute before:inset-y-px before:right-px before:z-2 before:w-[2.5px] before:rounded-r-[6px]",
               "before:bg-[repeating-linear-gradient(oklch(0.97_0.004_85),oklch(0.97_0.004_85)_1px,oklch(0.86_0.008_80)_1px,oklch(0.86_0.008_80)_2px)] before:opacity-85"
-            ),
-        SIZES[size],
+            )
+          : "rounded-md shadow-[0_0_0_1px_oklch(from_var(--foreground)_l_c_h/0.07),0_2px_6px_-1px_oklch(0.2_0.02_50/0.2)]",
         className
       )}
     >
       {showFallback ? (
-        /* Clipped, so the frame holds its 3/4.5 ratio at any title length. */
+        /* Clipped, so the frame holds its reserved ratio at any title length. */
         <span
-          className="flex aspect-[3/4.5] w-full flex-col justify-between overflow-hidden rounded-[inherit] p-[9%_8%_8%_14%] text-[oklch(0.97_0.005_85)]"
+          className={cn(
+            "flex size-full flex-col justify-between overflow-hidden rounded-[inherit] text-[oklch(0.97_0.005_85)]",
+            bookish ? "p-[9%_8%_8%_14%]" : "p-[9%_8%]"
+          )}
           style={{
             background: `linear-gradient(160deg, oklch(0.46 0.08 ${bookSpineHue(title)}), oklch(0.3 0.06 ${(bookSpineHue(title) + 12) % 360}))`,
           }}
@@ -78,10 +90,13 @@ export function Book({ poster, title, author, naturalRatio = false, plain = fals
           alt=""
           loading="lazy"
           onError={() => setFailed(true)}
-          className={cn(
-            "block w-full rounded-[inherit] object-cover dark:brightness-[.88]",
-            naturalRatio ? "h-auto" : "aspect-[3/4.5]"
-          )}
+          onLoad={(e) => {
+            const im = e.currentTarget
+            if (im.naturalWidth > 0 && im.naturalHeight > 0) {
+              setMeasured({ w: im.naturalWidth, h: im.naturalHeight })
+            }
+          }}
+          className="block size-full rounded-[inherit] object-cover dark:brightness-[.88]"
         />
       )}
     </span>

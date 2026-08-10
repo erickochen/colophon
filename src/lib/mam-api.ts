@@ -151,6 +151,26 @@ export async function searchTorrents(query: SearchQuery, opts: { dlLink?: boolea
   return json as SearchResult
 }
 
+// The largest page /tor/js/loadSearchJSONbasic.php serves in one answer.
+export const SERIES_PAGE = 100
+// Ceiling on a single series run. The largest series hold a few hundred
+// torrents, so this leaves room without letting a runaway filter page forever.
+export const SERIES_FETCH_MAX = 1000
+
+/** Every row of a query, paged. Stops at the cap and reports the server's own
+ * total, so a caller can say how much was left out. */
+export async function searchAllTorrents(query: SearchQuery, cap = SERIES_FETCH_MAX): Promise<SearchResult> {
+  const first = await searchTorrents({ ...query, startNumber: 0, perpage: SERIES_PAGE })
+  const rows = [...first.data]
+  const target = Math.min(first.found, cap)
+  while (rows.length < target && first.data.length > 0) {
+    const next = await searchTorrents({ ...query, startNumber: rows.length, perpage: SERIES_PAGE })
+    if (next.data.length === 0) break
+    rows.push(...next.data)
+  }
+  return { ...first, data: rows.slice(0, cap), start: 0 }
+}
+
 // Requests live on the shared search endpoint. The page URL carries one JSON
 // blob (s={"com":{…},"req":{…}}) and the POST body is that blob flattened.
 export const REQUEST_FILL_STATES = [

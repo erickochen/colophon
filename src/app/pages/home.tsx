@@ -3,6 +3,7 @@ import { ArrowDown, ArrowRight, Gift, Megaphone, Plus, Send, X } from 'lucide-re
 import type { PageProps } from '@/app/router'
 import { extractHome, extractShouts, type HomeTorrent, type Shout } from '@/lib/extract/home'
 import { searchTorrents, parsePeople, coverUrl } from '@/lib/mam-api'
+import { coverShape, type CoverShape } from '@/lib/cover-shape'
 import { mutedUserColor } from '@/lib/colors'
 import { fmtInt, localHm, relTime, utcTitle } from '@/lib/format'
 import { useHiddenSections, type HiddenSections } from '@/lib/hidden-sections'
@@ -109,6 +110,7 @@ interface ShelfItem {
   vip: boolean
   explicit: boolean
   poster: string | null
+  shape: CoverShape
 }
 
 function Shelf({ items }: { items: ShelfItem[] }) {
@@ -118,7 +120,7 @@ function Shelf({ items }: { items: ShelfItem[] }) {
         <BlurFade key={t.id} delay={0.06 * i} direction="up" offset={10}>
         <a href={t.href} className="group grid content-end gap-2.5">
           <span className="relative block transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1.5 motion-reduce:transition-none">
-            <Book poster={t.poster} title={t.title} author={t.authorsText} naturalRatio size="shelf" className="group-hover:shadow-book-lift" />
+            <Book poster={t.poster} title={t.title} author={t.authorsText} shape={t.shape} size="shelf" className="group-hover:shadow-book-lift" />
             {t.fileType && (
               <span className="absolute right-1.5 top-1.5 z-3 rounded bg-black/55 px-1.5 py-0.5 font-mono text-[9.5px] font-semibold uppercase tracking-wide text-white backdrop-blur-[2px]">
                 {t.fileType}
@@ -153,6 +155,7 @@ function shelfFromDom(torrents: HomeTorrent[]): ShelfItem[] {
     // The front-page table carries no poster URLs; covers arrive via the
     // search API refresh below.
     poster: null,
+    shape: 'portrait',
   }))
 }
 
@@ -208,6 +211,7 @@ export function HomeView({ page }: PageProps) {
             // The search API carries no explicit flag; keep what the page said.
             explicit: cur.find((c) => c.id === t.id)?.explicit ?? false,
             poster: t.poster_type ? coverUrl(t.id) : null,
+            shape: coverShape({ mediatype: t.mediatype, mainCat: t.main_cat }),
           }))
         )
       })
