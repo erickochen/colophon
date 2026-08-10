@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type ComponentType } from 'react'
+import { useEffect, useId, useImperativeHandle, useLayoutEffect, useRef, useState, type ComponentType } from 'react'
 import {
   Bold, Braces, ChevronDown, Code, Eye, FileCode2, Image as ImageIcon, Italic, Link2, List,
   ListOrdered, Palette, PencilLine, Quote, Strikethrough, Type, Underline,
@@ -183,8 +183,16 @@ export function BBComposer({
   const [preview, setPreview] = useState<PreviewState>({ status: 'idle' })
   const taRef = useRef<HTMLTextAreaElement>(null)
   const edRef = useRef<HTMLDivElement>(null)
+  const pvRef = useRef<HTMLDivElement>(null)
+  const barRef = useRef<HTMLDivElement>(null)
   const lastEmit = useRef<string | null>(null)
   const savedRange = useRef<Range | null>(null)
+  // Which toolbar button the shortcut returns to.
+  const barAt = useRef(0)
+  // The visible hint only shows from md up, so the shortcut also travels to
+  // screen readers as a description of the write surface.
+  const hintId = useId()
+  const describe = describedBy ? `${describedBy} ${hintId}` : hintId
   // contentEditable keeps a stray <br> when emptied, so :empty is unreliable for
   // a CSS placeholder; track emptiness ourselves and overlay the placeholder.
   const [empty, setEmpty] = useState(true)
@@ -220,6 +228,8 @@ export function BBComposer({
     if (!el || value === lastEmit.current) return
     el.innerHTML = value ? bbToHtml(value) : ''
     lastEmit.current = value
+    // Fresh nodes, so a range saved on the old ones points at nothing.
+    savedRange.current = null
     syncEmpty()
   }, [value, wysiwyg, tab])
 
@@ -237,6 +247,11 @@ export function BBComposer({
     savedRange.current = null
     syncEmpty()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only on a view switch
+  }, [tab])
+
+  // Each view puts different buttons in the bar, so the remembered spot starts over.
+  useEffect(() => {
+    barAt.current = 0
   }, [tab])
 
   // Fetch on every switch into Preview: the source only changes in the other
@@ -258,10 +273,28 @@ export function BBComposer({
     return () => ctrl.abort()
   }, [tab, value])
 
+  /** The shadow root answers first: for a selection made inside it the document
+   * API reports an anchor outside the root, so the range would be dropped. Writing
+   * a range back does go through the document API, which execCommand reads. */
   function saveSel() {
-    const sel = document.getSelection()
+    const root = edRef.current?.getRootNode() as (Node & { getSelection?: () => Selection | null }) | undefined
+    const own = root && root !== document ? root.getSelection?.() : null
+    const sel = own?.rangeCount ? own : document.getSelection()
     if (sel && sel.rangeCount && edRef.current?.contains(sel.anchorNode)) {
       savedRange.current = sel.getRangeAt(0).cloneRange()
+    }
+  }
+  /** Hands focus back to whatever surface this view shows, caret included.
+   * Popovers, dropdowns and the toolbar all collapse the selection when they take
+   * focus. */
+  function focusSurface() {
+    const el = edRef.current ?? taRef.current ?? pvRef.current
+    if (!el) return
+    el.focus()
+    const sel = document.getSelection()
+    if (edRef.current && savedRange.current && sel) {
+      sel.removeAllRanges()
+      sel.addRange(savedRange.current)
     }
   }
   function emitWys() {
@@ -272,15 +305,8 @@ export function BBComposer({
     syncEmpty()
   }
   function exec(cmd: string, arg?: string) {
-    const el = edRef.current
-    if (!el) return
-    el.focus()
-    // Popovers/dropdowns steal focus and collapse the selection; restore it.
-    const sel = document.getSelection()
-    if (savedRange.current && sel) {
-      sel.removeAllRanges()
-      sel.addRange(savedRange.current)
-    }
+    if (!edRef.current) return
+    focusSurface()
     document.execCommand(cmd, false, arg)
     saveSel()
     emitWys()
@@ -311,6 +337,47 @@ export function BBComposer({
     if (t.cmd) exec(t.cmd, t.arg)
   }
 
+  function barButtons(): HTMLButtonElement[] {
+    return [...(barRef.current?.querySelectorAll<HTMLButtonElement>('button') ?? [])].filter((b) => !b.disabled)
+  }
+
+  /** Alt+F10 reaches the toolbar from the text, the shortcut MAM's own editor
+   * carries. It keeps the toolbar out of the tab order, so Tab moves from the
+   * field above straight into the message. */
+  function onSurfaceKeyDown(e: React.KeyboardEvent) {
+    if (!e.altKey || e.key !== 'F10') return
+    const btns = barButtons()
+    if (!btns.length) return
+    e.preventDefault()
+    saveSel()
+    btns[Math.min(barAt.current, btns.length - 1)].focus()
+  }
+
+  /** Arrows walk the toolbar, Escape hands the caret back. */
+  function onBarKeyDown(e: React.KeyboardEvent) {
+    const btns = barButtons()
+    const root = barRef.current?.getRootNode() as ShadowRoot | Document | undefined
+    const at = btns.indexOf(root?.activeElement as HTMLButtonElement)
+    if (at < 0) return
+    const go = (n: number) => {
+      e.preventDefault()
+      barAt.current = (n + btns.length) % btns.length
+      btns[barAt.current].focus()
+    }
+    if (e.key === 'ArrowRight') go(at + 1)
+    else if (e.key === 'ArrowLeft') go(at - 1)
+    else if (e.key === 'Home') go(0)
+    else if (e.key === 'End') go(btns.length - 1)
+    else if (e.key === 'Escape') {
+      e.preventDefault()
+      // Escape here only leaves the toolbar. Pages around the composer use the
+      // same key to drop a reply target, so it must not travel further.
+      e.stopPropagation()
+      barAt.current = at
+      focusSurface()
+    }
+  }
+
   const iconBtn = (t: ToolAction) => (
     <Tooltip key={t.label}>
       <TooltipTrigger asChild>
@@ -318,6 +385,7 @@ export function BBComposer({
           type="button"
           variant="ghost"
           size="icon"
+          tabIndex={-1}
           aria-label={t.label}
           className="size-7 text-muted-foreground hover:text-foreground"
           onMouseDown={(e) => e.preventDefault()}
@@ -331,8 +399,17 @@ export function BBComposer({
   )
 
   return (
-    <div className={cn('overflow-hidden rounded-lg border border-input bg-background transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring', className)}>
-      <div className="flex flex-wrap items-center gap-0.5 border-b bg-muted/40 px-2 py-1.5">
+    <div className={cn('group overflow-hidden rounded-lg border border-input bg-background transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring', className)}>
+      <div
+        ref={barRef}
+        role="toolbar"
+        aria-label="Editor toolbar"
+        aria-orientation="horizontal"
+        // Capture phase: the tooltip on a button answers Escape first and keeps
+        // the focus on itself, so the bar has to see the key before it does.
+        onKeyDownCapture={onBarKeyDown}
+        className="flex flex-wrap items-center gap-0.5 border-b bg-muted/40 px-2 py-1.5"
+      >
         {/* Formatting toolbar shows when MAM's editor pref is on. In that mode the
             write surface is WYSIWYG; otherwise it's a BBCode textarea + preview.
             Hidden in the Code view: execCommand has no editable to act on there. */}
@@ -342,8 +419,8 @@ export function BBComposer({
 
         <Popover>
           <PopoverTrigger asChild>
-          <Button type="button" variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground" title="Text color" onMouseDown={saveSel}>
-            <Palette className="size-3.5" />
+          <Button type="button" variant="ghost" size="icon" tabIndex={-1} aria-label="Text color" className="size-7 text-muted-foreground hover:text-foreground" title="Text color" onMouseDown={saveSel}>
+            <Palette aria-hidden="true" className="size-3.5" />
           </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-2" align="start">
@@ -353,6 +430,7 @@ export function BBComposer({
                   key={c}
                   type="button"
                   title={c}
+                  aria-label={c}
                   onClick={() => (wysiwyg ? exec('foreColor', c) : insert(`[color=${c}]`, '[/color]'))}
                   className="size-6 rounded-full border border-black/10 transition-transform hover:scale-110"
                   style={{ backgroundColor: c }}
@@ -364,8 +442,8 @@ export function BBComposer({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button type="button" variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground" title="Text size" onMouseDown={saveSel}>
-              <Type className="size-3.5" />
+            <Button type="button" variant="ghost" size="icon" tabIndex={-1} aria-label="Text size" className="size-7 text-muted-foreground hover:text-foreground" title="Text size" onMouseDown={saveSel}>
+              <Type aria-hidden="true" className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
@@ -377,13 +455,13 @@ export function BBComposer({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <span className="mx-1 h-4 w-px bg-border" />
+        <span role="separator" aria-orientation="vertical" className="mx-1 h-4 w-px bg-border" />
         {INSERT_TOOLS.map(iconBtn)}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-1.5 text-[11px] text-muted-foreground hover:text-foreground" onMouseDown={saveSel}>
-              <Braces className="size-3.5" /> more <ChevronDown className="size-3" />
+            <Button type="button" variant="ghost" size="sm" tabIndex={-1} className="h-7 gap-1 px-1.5 text-[11px] text-muted-foreground hover:text-foreground" onMouseDown={saveSel}>
+              <Braces aria-hidden="true" className="size-3.5" /> more <ChevronDown aria-hidden="true" className="size-3" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
@@ -405,28 +483,47 @@ export function BBComposer({
 
         {/* Preview is server-rendered through /jsonPostTest.php in both modes. The
             rich editor keeps its raw-markup Code view as a third option. */}
-        <div className="ml-auto flex items-center gap-0.5 rounded-md bg-muted/70 p-0.5">
-          {(wysiwyg
-            ? ([['write', PencilLine, 'Write'], ['preview', Eye, 'Preview'], ['source', FileCode2, 'Code']] as const)
-            : ([['write', PencilLine, 'Write'], ['preview', Eye, 'Preview']] as const)
-          ).map(([key, Icon, label]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setTab(key)}
-              className={cn(
-                'flex items-center gap-1 rounded px-2 py-0.5 text-[11.5px] transition-colors',
-                tab === key ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <Icon className="size-3" /> {label}
-            </button>
-          ))}
+        <div className="ml-auto flex items-center gap-2">
+          <span aria-hidden="true" className="hidden text-[10.5px] text-muted-foreground opacity-0 transition-opacity group-focus-within:opacity-100 md:inline">
+            Alt+F10 for the toolbar
+          </span>
+          <div className="flex items-center gap-0.5 rounded-md bg-muted/70 p-0.5">
+            {(wysiwyg
+              ? ([['write', PencilLine, 'Write'], ['preview', Eye, 'Preview'], ['source', FileCode2, 'Code']] as const)
+              : ([['write', PencilLine, 'Write'], ['preview', Eye, 'Preview']] as const)
+            ).map(([key, Icon, label]) => (
+              <button
+                key={key}
+                type="button"
+                tabIndex={-1}
+                aria-pressed={tab === key}
+                onClick={() => setTab(key)}
+                className={cn(
+                  'flex items-center gap-1 rounded px-2 py-0.5 text-[11.5px] transition-colors',
+                  tab === key ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <Icon aria-hidden="true" className="size-3" /> {label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
+      <span id={hintId} className="sr-only">Press Alt+F10 to reach the formatting toolbar.</span>
+
       {tab === 'preview' ? (
-        <div className={cn('px-3.5 py-2.5', minHeightClass)} aria-busy={preview.status === 'loading'}>
+        <div
+          ref={pvRef}
+          role="region"
+          aria-label="Preview"
+          tabIndex={0}
+          aria-describedby={describe}
+          aria-keyshortcuts="Alt+F10"
+          onKeyDown={onSurfaceKeyDown}
+          className={cn('px-3.5 py-2.5 outline-none', minHeightClass)}
+          aria-busy={preview.status === 'loading'}
+        >
           {preview.status === 'loading' ? (
             <p role="status" className="text-[13px] text-muted-foreground">Rendering preview&hellip;</p>
           ) : preview.status === 'error' ? (
@@ -450,7 +547,9 @@ export function BBComposer({
           spellCheck={false}
           placeholder={placeholder}
           aria-label={placeholder}
-          aria-describedby={describedBy}
+          aria-describedby={describe}
+          aria-keyshortcuts="Alt+F10"
+          onKeyDown={onSurfaceKeyDown}
           className={cn('block w-full resize-none overflow-y-auto bg-transparent px-3.5 py-2.5 font-mono text-[12.5px] leading-relaxed outline-none placeholder:text-muted-foreground max-h-[70vh]', minHeightClass)}
         />
       ) : wysiwyg ? (
@@ -465,8 +564,10 @@ export function BBComposer({
             role="textbox"
             aria-multiline="true"
             aria-label={placeholder}
-            aria-describedby={describedBy}
+            aria-describedby={describe}
+            aria-keyshortcuts="Alt+F10"
             onInput={emitWys}
+            onKeyDown={onSurfaceKeyDown}
             onKeyUp={saveSel}
             onMouseUp={saveSel}
             className={cn(
@@ -486,7 +587,9 @@ export function BBComposer({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           aria-label={placeholder}
-          aria-describedby={describedBy}
+          aria-describedby={describe}
+          aria-keyshortcuts="Alt+F10"
+          onKeyDown={onSurfaceKeyDown}
           className={cn('block w-full resize-none overflow-y-auto bg-transparent px-3.5 py-2.5 text-[13.5px] outline-none placeholder:text-muted-foreground max-h-[70vh]', minHeightClass)}
         />
       )}
