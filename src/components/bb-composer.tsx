@@ -105,6 +105,22 @@ function isBlankSource(src: string): boolean {
   return !src.replace(/<br\s*\/?>/gi, '').replace(/<\/?(?:div|p)>/gi, '').replace(/&nbsp;/gi, ' ').trim()
 }
 
+/** Chrome wraps text it lifts out of a list in a span holding nothing but a
+ * transparent background. Unwrap those so the source stays readable. The parse runs
+ * in an inert document, so nothing in the fragment loads. */
+const TRANSPARENT_BG = 'rgba(0, 0, 0, 0)'
+
+function stripDeadSpans(html: string): string {
+  if (!html.includes(TRANSPARENT_BG)) return html
+  const body = new DOMParser().parseFromString(html, 'text/html').body
+  for (const span of [...body.querySelectorAll<HTMLElement>('span[style]')]) {
+    if (span.style.length === 1 && span.style.backgroundColor === TRANSPARENT_BG) {
+      span.replaceWith(...span.childNodes)
+    }
+  }
+  return body.innerHTML
+}
+
 /** A tool carries both its BBCode wrap (plain textarea mode) and its execCommand
  * mapping (WYSIWYG mode). `prompt` marks tools that ask for a URL first. */
 interface ToolAction {
@@ -254,6 +270,17 @@ export function BBComposer({
     barAt.current = 0
   }, [tab])
 
+  // selectionchange catches every way of selecting, a drag that lets go outside the
+  // surface included, where mouseup lands on another element. The handler writes a
+  // ref only, so it never re-renders the editor while a selection is being made.
+  useEffect(() => {
+    if (!wysiwyg || tab !== 'write') return
+    const onChangeSel = () => saveSel()
+    document.addEventListener('selectionchange', onChangeSel)
+    return () => document.removeEventListener('selectionchange', onChangeSel)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reads refs only
+  }, [wysiwyg, tab])
+
   // Fetch on every switch into Preview: the source only changes in the other
   // views, so a switch is the only moment a refresh is needed. The cleanup
   // aborts the request when the view moves on before the answer is in.
@@ -273,35 +300,47 @@ export function BBComposer({
     return () => ctrl.abort()
   }, [tab, value])
 
-  /** The shadow root answers first: for a selection made inside it the document
-   * API reports an anchor outside the root, so the range would be dropped. Writing
-   * a range back does go through the document API, which execCommand reads. */
-  function saveSel() {
-    const root = edRef.current?.getRootNode() as (Node & { getSelection?: () => Selection | null }) | undefined
-    const own = root && root !== document ? root.getSelection?.() : null
+  /** What is selected inside the write surface right now, null when the selection
+   * sits elsewhere. The shadow root answers first: for a selection made inside it the
+   * document API reports a collapsed range anchored outside the root. */
+  function liveRange(): Range | null {
+    const el = edRef.current
+    if (!el) return null
+    const root = el.getRootNode() as Node & { getSelection?: () => Selection | null }
+    const own = root !== document ? root.getSelection?.() : null
     const sel = own?.rangeCount ? own : document.getSelection()
-    if (sel && sel.rangeCount && edRef.current?.contains(sel.anchorNode)) {
-      savedRange.current = sel.getRangeAt(0).cloneRange()
-    }
+    if (!sel?.rangeCount) return null
+    const r = sel.getRangeAt(0)
+    return el.contains(r.startContainer) && el.contains(r.endContainer) ? r : null
   }
-  /** Hands focus back to whatever surface this view shows, caret included.
-   * Popovers, dropdowns and the toolbar all collapse the selection when they take
-   * focus. */
+  function saveSel() {
+    const r = liveRange()
+    if (r) savedRange.current = r.cloneRange()
+  }
+  /** Hands focus back to whatever surface this view shows, caret included. The
+   * saved range steps in only when the surface holds no selection of its own or
+   * when a popup collapsed one to a caret, so a command acts on whatever is
+   * selected at that moment. */
   function focusSurface() {
     const el = edRef.current ?? taRef.current ?? pvRef.current
     if (!el) return
+    const live = liveRange()
+    const saved = savedRange.current
     el.focus()
+    if (!edRef.current || !saved) return
+    if (live && (!live.collapsed || saved.collapsed)) return
     const sel = document.getSelection()
-    if (edRef.current && savedRange.current && sel) {
-      sel.removeAllRanges()
-      sel.addRange(savedRange.current)
-    }
+    if (!sel) return
+    sel.removeAllRanges()
+    sel.addRange(saved)
   }
   function emitWys() {
     const el = edRef.current
     if (!el) return
-    lastEmit.current = el.innerHTML
-    onChange(el.innerHTML)
+    // Cleaned on the way out only, so the nodes the caret sits in stay untouched.
+    const html = stripDeadSpans(el.innerHTML)
+    lastEmit.current = html
+    onChange(html)
     syncEmpty()
   }
   function exec(cmd: string, arg?: string) {
