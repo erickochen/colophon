@@ -2,6 +2,7 @@
 // empty and fills them from a poll, so polling is the only way to show them.
 import { useEffect, useState } from 'react'
 import { requestsUrl } from '@/lib/mam-api'
+import { readFeature, subscribeSettings } from '@/lib/settings'
 import { toast } from '@/components/ui/toast'
 
 /** How often the badges refresh. MAM's own header polls every second. */
@@ -110,6 +111,7 @@ export const NOTIF_TARGETS: Record<keyof NotifCounts, { href: string; label: str
 /** Toasts added while mount effects are still flushing never reach the
  * toaster, so announcements wait a beat. */
 function announceArrivals(prev: NotifCounts, next: NotifCounts): void {
+  if (!readFeature('notifToasts')) return
   window.setTimeout(() => {
     for (const key of COUNTER_KEYS) {
       if (next[key] <= prev[key]) continue
@@ -128,6 +130,8 @@ function announceArrivals(prev: NotifCounts, next: NotifCounts): void {
 /** Unread PM prefix on the tab title, mail style. Only the prefix this module
  * wrote gets stripped, so a page title of its own shape stays untouched. */
 let appliedTitlePrefix = ''
+// Last polled PM count, so a settings flip can redraw the title right away.
+let lastPms = 0
 
 function applyTitleBadge(pms: number): void {
   const current = document.title
@@ -135,7 +139,7 @@ function applyTitleBadge(pms: number): void {
     appliedTitlePrefix && current.startsWith(appliedTitlePrefix)
       ? current.slice(appliedTitlePrefix.length)
       : current
-  appliedTitlePrefix = pms > 0 ? `(${pms}) ` : ''
+  appliedTitlePrefix = pms > 0 && readFeature('notifTitle') ? `(${pms}) ` : ''
   const next = appliedTitlePrefix + bare
   if (current !== next) document.title = next
 }
@@ -158,6 +162,7 @@ export function useNotifCounts(initialPms: number): NotifCounts {
       prev = next
       setCounts(next)
       writeSnapshot(next)
+      lastPms = next.pms
       applyTitleBadge(next.pms)
     }
     void tick()
@@ -166,10 +171,13 @@ export function useNotifCounts(initialPms: number): NotifCounts {
       if (!document.hidden) void tick()
     }
     document.addEventListener('visibilitychange', onVisible)
+    // Flipping the title switch redraws at once instead of at the next poll.
+    const unsubscribe = subscribeSettings(() => applyTitleBadge(lastPms))
     return () => {
       alive = false
       window.clearInterval(timer)
       document.removeEventListener('visibilitychange', onVisible)
+      unsubscribe()
     }
   }, [])
   return counts

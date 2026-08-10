@@ -774,12 +774,20 @@ export function BrowseView(props: PageProps) {
   const seq = useRef(0)
   const [hideSnatched, setHideSnatched] = useFeature('hideSnatched')
   const [ignoreOn] = useFeature('ignoreAction')
+  const [seriesViewOn] = useFeature('seriesView')
+  const [seriesBulkOn] = useFeature('seriesBulk')
   const ignored = useIgnoredTorrents()
   const [showHidden, setShowHidden] = useState(false)
   // Selection for the series bulk actions, cleared on every new search so a
   // stale id never reaches an action.
   const [selected, setSelected] = useState<Set<number>>(() => new Set())
   const [nonePartsOpen, setNonePartsOpen] = useState(false)
+
+  // With the bulk actions off there is nothing to act on, so nothing may stay
+  // selected behind the scenes either.
+  useEffect(() => {
+    if (!seriesBulkOn) setSelected(new Set())
+  }, [seriesBulkOn])
 
   const toggleSelect = useCallback((id: number, on: boolean) => {
     setSelected((prev) => {
@@ -1010,8 +1018,8 @@ export function BrowseView(props: PageProps) {
   // Grouping computes from items, not shownItems: the progress header keeps
   // counting snatched parts while the hide-snatched filter empties the list.
   const seriesGroups = useMemo(
-    () => (state.seriesID ? groupBySeries(items, state.seriesID) : []),
-    [items, state.seriesID]
+    () => (state.seriesID && seriesViewOn ? groupBySeries(items, state.seriesID) : []),
+    [items, state.seriesID, seriesViewOn]
   )
   const firstRange = seriesGroups.find((g) => g.kind === 'range')?.key
   const groupRows = (g: SeriesGroup) => (showHidden ? g.rows : g.rows.filter((t) => !hiddenReason(t)))
@@ -1248,7 +1256,7 @@ export function BrowseView(props: PageProps) {
       <FilterSummary
         chips={chips}
         onClearAll={() => apply({ mainCat: [], cat: [], langs: [], flags: [], searchType: 'all', searchIn: 'torrents', authorID: null, narratorID: null, seriesID: null })}
-        meta={loading ? 'Searching…' : state.seriesID ? `${fmtInt(found)} results · grouped by part` : `${fmtInt(found)} results · ${sortLabel}`}
+        meta={loading ? 'Searching…' : state.seriesID && seriesViewOn ? `${fmtInt(found)} results · grouped by part` : `${fmtInt(found)} results · ${sortLabel}`}
       >
         <ViewToggle view={view} onChange={setViewMode} />
         {view === 'list' && <ColumnsMenu cols={cols} onToggle={toggleCol} />}
@@ -1314,7 +1322,7 @@ export function BrowseView(props: PageProps) {
             <button className="underline" onClick={() => setShowHidden(true)}>Show them</button>
           </div>
         )}
-        {!loading && shownItems.length > 0 && !state.seriesID && view === 'list' && (
+        {!loading && shownItems.length > 0 && (!state.seriesID || !seriesViewOn) && view === 'list' && (
           <div className="divide-y divide-border">
             {shownItems.map((t) => (
               <TorrentRow
@@ -1331,14 +1339,14 @@ export function BrowseView(props: PageProps) {
             ))}
           </div>
         )}
-        {!loading && shownItems.length > 0 && !state.seriesID && view === 'grid' && (
+        {!loading && shownItems.length > 0 && (!state.seriesID || !seriesViewOn) && view === 'grid' && (
           <div className="grid grid-cols-3 items-end gap-x-[22px] gap-y-7 p-[26px] sm:grid-cols-4 lg:grid-cols-6">
             {shownItems.map((t) => (
               <GalleryItem key={t.id} t={t} hiddenReason={showHidden ? hiddenReason(t) : null} onUnignore={ignored.remove} />
             ))}
           </div>
         )}
-        {!loading && shownItems.length > 0 && state.seriesID != null && (
+        {!loading && shownItems.length > 0 && state.seriesID != null && seriesViewOn && (
           <div className="divide-y divide-border">
             {seriesGroups.map((g) => {
               const rows = groupRows(g)
@@ -1358,7 +1366,7 @@ export function BrowseView(props: PageProps) {
                       onIgnore={ignoreOn ? ignoreTorrent : undefined}
                       onUnignore={ignored.remove}
                       hiddenReason={showHidden ? hiddenReason(t) : null}
-                      selectable
+                      selectable={seriesBulkOn}
                       checked={selected.has(t.id)}
                       onCheck={toggleSelect}
                     />
@@ -1390,7 +1398,7 @@ export function BrowseView(props: PageProps) {
                     <h3 className="border-t px-[22px] pt-4 pb-1 font-display text-[13px] font-semibold">Boxsets and collections</h3>
                   )}
                   <h3 className="flex items-center gap-2.5 bg-muted/40 px-[22px] py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                    {view === 'list' && (
+                    {view === 'list' && seriesBulkOn && (
                       <Checkbox
                         checked={checkedCount > 0 && checkedCount === rowIds.length}
                         indeterminate={checkedCount > 0 && checkedCount < rowIds.length}
@@ -1422,7 +1430,7 @@ export function BrowseView(props: PageProps) {
         )}
       </Card>
 
-      {state.seriesID != null && selected.size > 0 && (
+      {state.seriesID != null && seriesViewOn && seriesBulkOn && selected.size > 0 && (
         <div
           aria-live="polite"
           className="fixed inset-x-0 bottom-4 z-40 mx-auto flex w-fit max-w-[calc(100%-2rem)] flex-wrap items-center justify-center gap-2 rounded-xl border bg-card px-6 py-2.5 shadow-lg"

@@ -2,8 +2,12 @@
 // write the settings store directly and apply immediately, so there is no form
 // and no save bar.
 import { useRef, useState } from 'react'
-import { BookMarked, Download, Upload } from 'lucide-react'
+import { BookMarked, Download, Moon, Sun, SunMoon, Upload } from 'lucide-react'
 import type { PageProps } from '@/app/router'
+import type { DarkScheme, LightScheme, Theme } from '@/lib/theme'
+import {
+  chooseDarkScheme, chooseLightScheme, chooseTheme, DARK_SCHEME_ITEMS, LIGHT_SCHEME_ITEMS, SchemeDot, useAppearance,
+} from '@/components/appearance'
 import {
   exportSettings, importSettings, useFeature, useIgnoredTorrents, useRatioFloor, useUserList,
   useUserNotes, type FeatureKey, type UserListKind,
@@ -14,14 +18,26 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { toast } from '@/components/ui/toast'
 
 const EXPORT_FILENAME = 'colophon-settings.json'
 
-function FeatureRow({ feature, title, note }: { feature: FeatureKey; title: string; note: string }) {
+/** The source that had the idea first, named the way the release topic does. */
+function noteWithCredit(note: string, credit?: string): React.ReactNode {
+  if (!credit) return note
+  return (
+    <>
+      {note}
+      <span className="mt-0.5 block text-[11px] text-muted-foreground/70">Idea from {credit}</span>
+    </>
+  )
+}
+
+function FeatureRow({ feature, title, note, credit }: { feature: FeatureKey; title: string; note: string; credit?: string }) {
   const [on, setOn] = useFeature(feature)
   return (
-    <SettingRow title={title} note={note}>
+    <SettingRow title={title} note={noteWithCredit(note, credit)}>
       <Switch checked={on} onCheckedChange={setOn} aria-label={title} />
     </SettingRow>
   )
@@ -30,11 +46,14 @@ function FeatureRow({ feature, title, note }: { feature: FeatureKey; title: stri
 function RatioFloorRow() {
   const [enabled] = useFeature('ratioProtect')
   const [floor, setFloor] = useRatioFloor()
-  const [text, setText] = useState(floor != null ? String(floor) : '')
+  // While the field holds focus the typed text wins; otherwise it mirrors the
+  // store, so a settings import or the lock dialog shows up here at once.
+  const [draft, setDraft] = useState<string | null>(null)
+  const shown = draft ?? (floor != null ? String(floor) : '')
   return (
     <SettingRow
       title="Minimum ratio"
-      note="Also lock when a download would push your ratio below this number."
+      note="Also lock when a download would push your ratio below this number. Empty keeps only the hard floor."
     >
       <Input
         type="number"
@@ -43,15 +62,100 @@ function RatioFloorRow() {
         placeholder="off"
         aria-label="Minimum ratio"
         disabled={!enabled}
-        value={text}
+        value={shown}
+        onFocus={() => setDraft(floor != null ? String(floor) : '')}
+        onBlur={() => setDraft(null)}
         onChange={(e) => {
-          setText(e.target.value)
+          setDraft(e.target.value)
           const v = Number(e.target.value)
           setFloor(e.target.value !== '' && Number.isFinite(v) && v > 0 ? v : null)
         }}
         className="h-8 w-24 text-[12.5px]"
       />
     </SettingRow>
+  )
+}
+
+function SeriesBulkRow() {
+  const [viewOn] = useFeature('seriesView')
+  const [on, setOn] = useFeature('seriesBulk')
+  return (
+    <SettingRow
+      title="Bulk actions"
+      note="Checkboxes on the parts plus a bar to bookmark, zip or wedge the selection in one go."
+    >
+      <Switch checked={on} onCheckedChange={setOn} disabled={!viewOn} aria-label="Bulk actions" />
+    </SettingRow>
+  )
+}
+
+const APPEARANCE_ITEM = 'gap-1.5 text-[12.5px] data-pressed:bg-brand-soft'
+
+/** Title above the group instead of beside it: three scheme names never fit
+ * next to a label on a phone. */
+function AppearanceRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid gap-1.5">
+      <div className="text-[13.5px] font-medium leading-snug">{label}</div>
+      {children}
+    </div>
+  )
+}
+
+function AppearanceCard() {
+  const { theme, lightScheme, darkScheme } = useAppearance()
+  return (
+    <PrefCard title="Appearance" note="The sun and moon button in the topbar carries the same choices.">
+      <AppearanceRow label="Mode">
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          value={theme}
+          onValueChange={(v) => v && chooseTheme(v as Theme)}
+          className="flex-wrap"
+          aria-label="Mode"
+        >
+          <ToggleGroupItem value="light" className={APPEARANCE_ITEM}><Sun className="size-3.5" /> Light</ToggleGroupItem>
+          <ToggleGroupItem value="dark" className={APPEARANCE_ITEM}><Moon className="size-3.5" /> Dark</ToggleGroupItem>
+          <ToggleGroupItem value="auto" className={APPEARANCE_ITEM}><SunMoon className="size-3.5" /> Auto</ToggleGroupItem>
+        </ToggleGroup>
+      </AppearanceRow>
+      <AppearanceRow label="Light scheme">
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          value={lightScheme}
+          onValueChange={(v) => v && chooseLightScheme(v as LightScheme)}
+          className="flex-wrap"
+          aria-label="Light scheme"
+        >
+          {LIGHT_SCHEME_ITEMS.map((s) => (
+            <ToggleGroupItem key={s.value} value={s.value} className={APPEARANCE_ITEM}>
+              <SchemeDot scheme={s.scheme} /> {s.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </AppearanceRow>
+      <AppearanceRow label="Dark scheme">
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          value={darkScheme}
+          onValueChange={(v) => v && chooseDarkScheme(v as DarkScheme)}
+          className="flex-wrap"
+          aria-label="Dark scheme"
+        >
+          {DARK_SCHEME_ITEMS.map((s) => (
+            <ToggleGroupItem key={s.value} value={s.value} className={APPEARANCE_ITEM}>
+              <SchemeDot scheme={s.scheme} /> {s.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </AppearanceRow>
+    </PrefCard>
   )
 }
 
@@ -145,7 +249,7 @@ function IntroCard() {
       toast.success(`Applied ${applied} setting${applied === 1 ? '' : 's'}`, {
         description:
           skipped > 0
-            ? `${skipped} ${skipped === 1 ? 'entry was' : 'entries were'} not recognised and stayed untouched.`
+            ? `${skipped} ${skipped === 1 ? 'entry was' : 'entries were'} not recognized and stayed untouched.`
             : undefined,
       })
     } catch (e) {
@@ -196,17 +300,21 @@ export function ColophonPrefsView(_props: PageProps) {
     <div className="grid gap-4">
       <IntroCard />
 
+      <AppearanceCard />
+
       <PrefCard title="Downloads">
         <FeatureRow
           feature="ratioProtect"
           title="Ratio protection"
           note={`Locks the plain download on a heavy ratio drop or when it would cross ratio ${HARD_FLOOR}. Switched off, the impact still shows but nothing locks.`}
+          credit="MAM Ratio Protect by yyyzzz999 and Disable Non-Free Download Button by Gabo"
         />
         <RatioFloorRow />
         <FeatureRow
           feature="skipWedgeConfirm"
           title="Skip the wedge confirmation"
           note="Spends the wedge straight from the button. The toast still names what is left of your stash. A spent wedge cannot be taken back."
+          credit="WedgeWaster by WIRLYWIRLY"
         />
       </PrefCard>
 
@@ -215,13 +323,25 @@ export function ColophonPrefsView(_props: PageProps) {
           feature="hideSnatched"
           title="Hide snatched torrents"
           note="Hides results you already snatched. The same toggle lives in the browse filters."
+          credit="MAM+ by GardenShade"
         />
         <FeatureRow
           feature="ignoreAction"
           title="Ignore button on rows"
           note="Adds an ignore action to browse rows. Ignored torrents stay out of every result list."
+          credit="MAM Ignore Torrents by Humdinger"
         />
         <IgnoredTorrentRows />
+      </PrefCard>
+
+      <PrefCard title="Series">
+        <FeatureRow
+          feature="seriesView"
+          title="Series view"
+          note="Groups a series search by part, with a progress card on top."
+          credit="SnazzySeries by WIRLYWIRLY"
+        />
+        <SeriesBulkRow />
       </PrefCard>
 
       <PrefCard title="Torrent pages">
@@ -229,11 +349,13 @@ export function ColophonPrefsView(_props: PageProps) {
           feature="otherEditions"
           title="Other editions"
           note="Shows other torrents of the same book on the detail page."
+          credit="MAM Other Torrents by Oriel"
         />
         <FeatureRow
           feature="externalLinks"
           title="External search links"
           note="Adds Goodreads, Audible and StoryGraph searches to torrent and request pages."
+          credit="MAM+ by GardenShade"
         />
         <FeatureRow
           feature="forumSnippet"
@@ -243,11 +365,17 @@ export function ColophonPrefsView(_props: PageProps) {
       </PrefCard>
 
       <PrefCard title="Shoutbox">
-        <FeatureRow feature="sbMentions" title="Mention highlight" note="Tints shouts that mention your name." />
+        <FeatureRow
+          feature="sbMentions"
+          title="Mention highlight"
+          note="Tints shouts that mention your name."
+          credit="Shoutbox Highlighter by Sazaland"
+        />
         <FeatureRow
           feature="sbColors"
-          title="Stable name colours"
-          note="Gives users without a colour of their own a steady one, so busy hours stay scannable."
+          title="Stable name colors"
+          note="Gives users without a color of their own a steady one, so busy hours stay scannable."
+          credit="Alternative SB name colors by seano"
         />
         <FeatureRow feature="sbMutes" title="Mute action" note="Muted users collapse to a single quiet line." />
         <FeatureRow feature="sbEmphasis" title="Emphasis action" note="Marks users you never want to miss." />
@@ -260,11 +388,26 @@ export function ColophonPrefsView(_props: PageProps) {
           feature="localTime"
           title="Local timezone"
           note="Shows times in your own timezone. The exact UTC stamp stays in the tooltip."
+          credit="MAM Time change script by Lemonade"
         />
         <FeatureRow
           feature="bonusDelta"
           title="Bonus delta"
           note="Shows how many bonus points arrived since your last page."
+          credit="MAM+ by GardenShade"
+        />
+      </PrefCard>
+
+      <PrefCard title="Notifications">
+        <FeatureRow
+          feature="notifToasts"
+          title="Toast announcements"
+          note="Pops a toast when a new message, watched topic, ticket or request arrives. Badges stay either way."
+        />
+        <FeatureRow
+          feature="notifTitle"
+          title="Tab title counter"
+          note="Prefixes the tab title with your unread message count, mail style."
         />
       </PrefCard>
 
@@ -273,6 +416,7 @@ export function ColophonPrefsView(_props: PageProps) {
           feature="profileNotes"
           title="Private notes"
           note="A notes box on profiles. Only you can see it."
+          credit="MAM+ by GardenShade"
         />
         <FeatureRow
           feature="giftHistory"

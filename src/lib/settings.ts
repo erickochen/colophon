@@ -2,6 +2,10 @@
 // setting, an absent key means the default. Writes notify subscribers so the
 // preferences tab and in-place controls stay in sync.
 import { useCallback, useSyncExternalStore } from 'react'
+import {
+  applyTheme, DARK_SCHEMES, LIGHT_SCHEMES, SCHEME_DARK_KEY, SCHEME_LIGHT_KEY, THEME_KEY,
+} from '@/lib/theme'
+import { getPortalContainer } from '@/lib/portals'
 
 export type FeatureKey =
   | 'ratioProtect'
@@ -19,6 +23,10 @@ export type FeatureKey =
   | 'sbColors'
   | 'profileNotes'
   | 'giftHistory'
+  | 'seriesView'
+  | 'seriesBulk'
+  | 'notifToasts'
+  | 'notifTitle'
 
 interface FeatureDef {
   key: string
@@ -41,6 +49,10 @@ export const FEATURES: Record<FeatureKey, FeatureDef> = {
   sbColors: { key: 'colophon:sb-colors', enabledByDefault: false },
   profileNotes: { key: 'colophon:profile-notes', enabledByDefault: true },
   giftHistory: { key: 'colophon:gift-history', enabledByDefault: true },
+  seriesView: { key: 'colophon:series-view', enabledByDefault: true },
+  seriesBulk: { key: 'colophon:series-bulk', enabledByDefault: true },
+  notifToasts: { key: 'colophon:notif-toasts', enabledByDefault: true },
+  notifTitle: { key: 'colophon:notif-title', enabledByDefault: true },
 }
 
 const RATIO_FLOOR_KEY = 'colophon:ratio-floor'
@@ -63,6 +75,12 @@ function subscribe(l: () => void): () => void {
 }
 
 const getRevision = () => revision
+
+// The revision loop for modules with settings-adjacent state of their own,
+// such as the theme keys.
+export const subscribeSettings = subscribe
+export const settingsRevision = getRevision
+export const notifySettings = notify
 
 function rawRead(key: string): string | null {
   try {
@@ -271,7 +289,13 @@ const VALUE_KEYS: Record<string, (raw: string) => boolean> = {
   [MUTED_KEY]: (raw) => parses(raw, validUsers),
   [EMPHASIZED_KEY]: (raw) => parses(raw, validUsers),
   [NOTES_KEY]: (raw) => parses(raw, validNotes),
+  [THEME_KEY]: (raw) => raw === 'light' || raw === 'dark' || raw === 'auto',
+  [SCHEME_LIGHT_KEY]: (raw) => (LIGHT_SCHEMES as readonly string[]).includes(raw),
+  [SCHEME_DARK_KEY]: (raw) => (DARK_SCHEMES as readonly string[]).includes(raw),
 }
+
+// Theme writes need a repaint on top of the store notify.
+const THEME_KEYS: ReadonlySet<string> = new Set([THEME_KEY, SCHEME_LIGHT_KEY, SCHEME_DARK_KEY])
 
 function parses(raw: string, validate: (v: unknown) => unknown | null): boolean {
   try {
@@ -308,6 +332,7 @@ export function importSettings(json: string): { applied: number; skipped: number
   const featureKeys = new Set(Object.values(FEATURES).map((d) => d.key))
   let applied = 0
   let skipped = 0
+  let themeTouched = false
   for (const [key, value] of Object.entries(o.values as Record<string, unknown>)) {
     if (typeof value !== 'string') {
       skipped += 1
@@ -324,8 +349,10 @@ export function importSettings(json: string): { applied: number; skipped: number
     if (check && check(value)) {
       rawWrite(key, value)
       applied += 1
+      if (THEME_KEYS.has(key)) themeTouched = true
     } else skipped += 1
   }
+  if (themeTouched) applyTheme(getPortalContainer())
   return { applied, skipped }
 }
 

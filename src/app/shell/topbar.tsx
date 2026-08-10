@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Eye, Headset, Mail, Moon, PackageCheck, Search, Settings2, Sun, SunMoon } from 'lucide-react'
 import type { ShellData } from '@/lib/extract/shell'
-import { applyTheme, getDarkScheme, getLightScheme, getTheme, isDark, setDarkScheme, setLightScheme, type DarkScheme, type LightScheme, type Theme } from '@/lib/theme'
+import type { DarkScheme, LightScheme, Theme } from '@/lib/theme'
+import {
+  chooseDarkScheme, chooseLightScheme, chooseTheme, DARK_SCHEME_ITEMS, LIGHT_SCHEME_ITEMS, SchemeDot, useAppearance,
+} from '@/components/appearance'
 import { NOTIF_TARGETS, type NotifCounts } from '@/lib/notify'
 import { useLiveBonus, useLiveWedges } from '@/lib/bonus'
 import { readFeature } from '@/lib/settings'
@@ -19,31 +22,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Kbd } from '@/components/ui/kbd'
-import { cn } from '@/lib/utils'
-
-const LIGHT_SCHEME_ITEMS: { value: LightScheme; label: string; scheme: string }[] = [
-  { value: 'default', label: 'Reading Room', scheme: 'scheme-rr' },
-  { value: 'latte', label: 'Catppuccin Latte', scheme: 'scheme-latte' },
-  { value: 'solarized', label: 'Solarized Light', scheme: 'scheme-solarized' },
-]
-
-const DARK_SCHEME_ITEMS: { value: DarkScheme; label: string; scheme: string }[] = [
-  { value: 'default', label: 'Reading Room', scheme: 'dark' },
-  { value: 'dracula', label: 'Dracula', scheme: 'dark scheme-dracula' },
-  { value: 'onedark', label: 'One Dark Pro', scheme: 'dark scheme-onedark' },
-]
-
-/** The swatch wears the scheme class itself, so it paints that scheme's own page
- * and brand colour. Both lists render at once, so the light rows keep their light
- * colours while a dark scheme is active. */
-function SchemeDot({ scheme }: { scheme: string }) {
-  return (
-    <span
-      className={cn('size-3.5 shrink-0 rounded-full border', scheme)}
-      style={{ backgroundColor: 'var(--background)', borderColor: 'var(--brand)' }}
-    />
-  )
-}
 
 // Session key holding the exact bonus stand last shown to this reader.
 const BONUS_SEEN_KEY = 'colophon:bonus-seen'
@@ -162,7 +140,7 @@ function NotifChips({ counts }: { counts: NotifCounts }) {
 
 /* MAM reports connectability per protocol; show both, like the site does.
  * Filled means reachable and hollow means not, so the state survives without
- * colour. The ring keeps the dot visible on fills that sit close to the page. */
+ * color. The ring keeps the dot visible on fills that sit close to the page. */
 function ClientChip({ client }: { client: ShellData['client'] }) {
   const dot = (state: boolean | null) =>
     state == null
@@ -197,44 +175,10 @@ function ClientChip({ client }: { client: ShellData['client'] }) {
 }
 
 export function Topbar({ page, counts, onOpenSearch }: { page: ShellData; counts: NotifCounts; onOpenSearch: () => void }) {
-  const [theme, setTheme] = useState<Theme>(getTheme)
-  const [dark, setDark] = useState(() => isDark())
-  const [lightScheme, setLightState] = useState<LightScheme>(getLightScheme)
-  const [darkScheme, setDarkState] = useState<DarkScheme>(getDarkScheme)
+  const { theme, lightScheme, darkScheme, dark } = useAppearance()
   const bonus = useLiveBonus(page.stats.bonus)
   const wedges = useLiveWedges(page.stats.wedges)
   const bonusDelta = useBonusDelta(bonus)
-
-  // On auto the icon has to follow the system, so track the media query.
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const sync = () => setDark(isDark())
-    mq.addEventListener('change', sync)
-    return () => mq.removeEventListener('change', sync)
-  }, [])
-
-  function shadowRootEl() {
-    return document.querySelector<HTMLElement>('#colophon-host')?.shadowRoot?.getElementById('mam-root') ?? null
-  }
-
-  function chooseTheme(next: Theme) {
-    const rootEl = shadowRootEl()
-    if (rootEl) applyTheme(rootEl, next)
-    setTheme(next)
-    setDark(isDark(next))
-  }
-
-  function chooseLightScheme(next: LightScheme) {
-    const rootEl = shadowRootEl()
-    if (rootEl) setLightScheme(rootEl, next)
-    setLightState(next)
-  }
-
-  function chooseDarkScheme(next: DarkScheme) {
-    const rootEl = shadowRootEl()
-    if (rootEl) setDarkScheme(rootEl, next)
-    setDarkState(next)
-  }
 
   return (
     <header className="topbar-condense sticky top-0 z-20 flex h-14 items-center gap-3 border-b bg-background/85 px-4 backdrop-blur lg:px-6">

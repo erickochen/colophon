@@ -27,8 +27,8 @@ try {
   // private mode
 }
 
-const LIGHT_SCHEMES: readonly LightScheme[] = ['default', 'latte', 'solarized']
-const DARK_SCHEMES: readonly DarkScheme[] = ['default', 'dracula', 'onedark']
+export const LIGHT_SCHEMES: readonly LightScheme[] = ['default', 'latte', 'solarized']
+export const DARK_SCHEMES: readonly DarkScheme[] = ['default', 'dracula', 'onedark']
 
 /** Page background per scheme, mirroring --background in index.css. */
 export const PAGE_BG = {
@@ -42,13 +42,13 @@ export const PAGE_BG = {
 
 const systemDark = () => window.matchMedia('(prefers-color-scheme: dark)')
 
-/** Stored preference. Anything unrecognised counts as auto. */
+/** Stored preference. Anything unrecognized counts as auto. */
 export function getTheme(): Theme {
   const stored = localStorage.getItem(THEME_KEY)
   return stored === 'light' || stored === 'dark' ? stored : 'auto'
 }
 
-/** Stored scheme per side. Anything unrecognised counts as default. */
+/** Stored scheme per side. Anything unrecognized counts as default. */
 export function getLightScheme(): LightScheme {
   const stored = localStorage.getItem(SCHEME_LIGHT_KEY) as LightScheme | null
   return stored && LIGHT_SCHEMES.includes(stored) ? stored : 'default'
@@ -76,25 +76,33 @@ export function pageBg(): string {
 
 const SCHEME_CLASSES = ['scheme-latte', 'scheme-solarized', 'scheme-dracula', 'scheme-onedark']
 
+function store(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    // private mode: the choice lives for this page only
+  }
+}
+
 export function applyTheme(rootEl: HTMLElement, theme?: Theme) {
-  if (theme) localStorage.setItem(THEME_KEY, theme)
+  if (theme) store(THEME_KEY, theme)
   const dark = isDark(theme ?? getTheme())
   rootEl.classList.toggle('dark', dark)
   const scheme = dark ? getDarkScheme() : getLightScheme()
   rootEl.classList.remove(...SCHEME_CLASSES)
   if (scheme !== 'default') rootEl.classList.add(`scheme-${scheme}`)
   // The canvas behind #mam-root: overscroll and anything reaching below the host
-  // shows it, so it carries the page colour instead of the default white.
+  // shows it, so it carries the page color instead of the default white.
   document.documentElement.style.setProperty('background-color', pageBg(), 'important')
 }
 
 export function setLightScheme(rootEl: HTMLElement, scheme: LightScheme) {
-  localStorage.setItem(SCHEME_LIGHT_KEY, scheme)
+  store(SCHEME_LIGHT_KEY, scheme)
   applyTheme(rootEl)
 }
 
 export function setDarkScheme(rootEl: HTMLElement, scheme: DarkScheme) {
-  localStorage.setItem(SCHEME_DARK_KEY, scheme)
+  store(SCHEME_DARK_KEY, scheme)
   applyTheme(rootEl)
 }
 
