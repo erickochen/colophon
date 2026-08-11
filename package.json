@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite --config vite.payload.config.ts",
-    "build": "tsc -b && node build.mjs",
-    "build:fast": "node build.mjs",
+    "gen": "node gen-schemes.mjs && node verify-schemes.mjs",
+    "build": "pnpm gen && tsc -b && node build.mjs",
+    "build:fast": "pnpm gen && node build.mjs",
     "deploy": "pnpm build && node deploy.mjs",
     "release": "node release.mjs",
     "preview": "vite preview"
@@ -39,6 +40,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
+    "culori": "^4.0.2",
     "tailwindcss": "^4.3.3",
     "typescript": "~7.0.2",
     "vite": "^8.1.5",

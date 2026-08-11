@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Eye, Headset, Mail, Moon, PackageCheck, Search, Settings2, Sun, SunMoon } from 'lucide-react'
+import { ChevronRight, Eye, Headset, Mail, Moon, PackageCheck, Palette, Search, Settings2, Sun, SunMoon } from 'lucide-react'
 import type { ShellData } from '@/lib/extract/shell'
-import type { DarkScheme, LightScheme, Theme } from '@/lib/theme'
-import {
-  chooseDarkScheme, chooseLightScheme, chooseTheme, DARK_SCHEME_ITEMS, LIGHT_SCHEME_ITEMS, SchemeDot, useAppearance,
-} from '@/components/appearance'
+import type { Theme } from '@/lib/theme'
+import { chooseTheme, DARK_SCHEME_ITEMS, LIGHT_SCHEME_ITEMS, useAppearance } from '@/components/appearance'
 import { NOTIF_TARGETS, type NotifCounts } from '@/lib/notify'
 import { useLiveBonus, useLiveWedges } from '@/lib/bonus'
 import { readFeature } from '@/lib/settings'
@@ -14,7 +12,7 @@ import { SidebarTrigger } from '@/components/ui/sidebar'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuLabel,
+  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
@@ -179,6 +177,9 @@ export function Topbar({ page, counts, onOpenSearch }: { page: ShellData; counts
   const bonus = useLiveBonus(page.stats.bonus)
   const wedges = useLiveWedges(page.stats.wedges)
   const bonusDelta = useBonusDelta(bonus)
+  const activeSchemeLabel = (dark ? DARK_SCHEME_ITEMS : LIGHT_SCHEME_ITEMS).find(
+    (s) => s.value === (dark ? darkScheme : lightScheme)
+  )?.label
 
   return (
     <header className="topbar-condense sticky top-0 z-20 flex h-14 items-center gap-3 border-b bg-background/85 px-4 backdrop-blur lg:px-6">
@@ -231,30 +232,25 @@ export function Topbar({ page, counts, onOpenSearch }: { page: ShellData; counts
               {dark ? <Moon className="size-4" /> : <Sun className="size-4" />}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuRadioGroup value={theme} onValueChange={(v) => chooseTheme(v as Theme)}>
               <DropdownMenuRadioItem value="light"><Sun className="size-3.5" /> Light</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="dark"><Moon className="size-3.5" /> Dark</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="auto"><SunMoon className="size-3.5" /> Auto</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>Light scheme</DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={lightScheme} onValueChange={(v) => chooseLightScheme(v as LightScheme)}>
-              {LIGHT_SCHEME_ITEMS.map((s) => (
-                <DropdownMenuRadioItem key={s.value} value={s.value}>
-                  <SchemeDot scheme={s.scheme} /> {s.label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Dark scheme</DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={darkScheme} onValueChange={(v) => chooseDarkScheme(v as DarkScheme)}>
-              {DARK_SCHEME_ITEMS.map((s) => (
-                <DropdownMenuRadioItem key={s.value} value={s.value}>
-                  <SchemeDot scheme={s.scheme} /> {s.label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
+            {/* Same anatomy as the mode rows: icon plus label, where the label
+             * is the active scheme. The chevron hints that the row navigates. */}
+            <DropdownMenuItem inset asChild>
+              <a
+                href="/preferences/index.php?view=colophon"
+                aria-label={`Color scheme: ${activeSchemeLabel}. Opens the scheme picker.`}
+              >
+                <Palette className="size-3.5" />
+                <span className="truncate">{activeSchemeLabel}</span>
+                <ChevronRight className="ml-auto size-3.5" />
+              </a>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

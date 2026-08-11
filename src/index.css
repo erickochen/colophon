@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* Generated scheme blocks; two-class selectors outrank .dark and :host, so
+ * their position among the imports carries no weight. */
+@import "./schemes.gen.css";
 
 @custom-variant dark (&:is(.dark *));
 

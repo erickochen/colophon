@@ -2,12 +2,15 @@
 // write the settings store directly and apply immediately, so there is no form
 // and no save bar.
 import { useRef, useState } from 'react'
-import { BookMarked, Download, Moon, Sun, SunMoon, Upload } from 'lucide-react'
+import { BookMarked, Check, ChevronsUpDown, Download, Moon, Sun, SunMoon, Upload } from 'lucide-react'
 import type { PageProps } from '@/app/router'
-import type { DarkScheme, LightScheme, Theme } from '@/lib/theme'
+import type { Theme } from '@/lib/theme'
 import {
-  chooseDarkScheme, chooseLightScheme, chooseTheme, DARK_SCHEME_ITEMS, LIGHT_SCHEME_ITEMS, SchemeDot, useAppearance,
+  chooseScheme, chooseTheme, DARK_SCHEME_ITEMS, dropSchemePreview,
+  LIGHT_SCHEME_ITEMS, previewSchemeChoice, SchemeDot, useAppearance,
 } from '@/components/appearance'
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   exportSettings, importSettings, useDefaultAmount, useFeature, useIgnoredTorrents, useRatioFloor,
   useUserList, useUserNotes, type AmountKind, type FeatureKey, type UserListKind,
@@ -121,10 +124,87 @@ function AppearanceRow({ label, children }: { label: string; children: React.Rea
   )
 }
 
-function AppearanceCard() {
-  const { theme, lightScheme, darkScheme } = useAppearance()
+/** Combobox for one side. Highlighting an entry, by pointer or arrow keys,
+ * previews it across the whole shell; choosing stores it and moves the theme
+ * to that side. Closing without choosing returns to the saved state. */
+function SchemePicker({ side }: { side: 'light' | 'dark' }) {
+  const { lightScheme, darkScheme } = useAppearance()
+  const items = side === 'light' ? LIGHT_SCHEME_ITEMS : DARK_SCHEME_ITEMS
+  const active = side === 'light' ? lightScheme : darkScheme
+  const current = items.find((s) => s.value === active)
+  const [open, setOpen] = useState(false)
+  const [highlight, setHighlight] = useState<string>(active)
+
   return (
-    <PrefCard title="Appearance" note="The sun and moon button in the topbar carries the same choices.">
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o)
+        if (o) setHighlight(active)
+        // Immediate: with the popover gone there is no scanning state left.
+        else dropSchemePreview()
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          aria-label={side === 'light' ? 'Light scheme' : 'Dark scheme'}
+          className="h-8 w-full justify-start gap-2 px-2 text-[12.5px] font-normal"
+        >
+          <SchemeDot scheme={current?.scheme ?? ''} />
+          <span className="truncate">{current?.label}</span>
+          <ChevronsUpDown className="ml-auto size-3.5 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-72 p-0"
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') dropSchemePreview()
+        }}
+      >
+        <Command
+          value={highlight}
+          onValueChange={(v) => {
+            setHighlight(v)
+            if (v) previewSchemeChoice(side, v)
+          }}
+        >
+          <CommandInput placeholder="Search schemes…" />
+          <CommandList className="max-h-64">
+            <CommandEmpty>No scheme found.</CommandEmpty>
+            {items.map((s) => (
+              <CommandItem
+                key={s.value}
+                value={s.value}
+                keywords={[s.label]}
+                className="h-8 gap-2 text-[12.5px]"
+                onSelect={(v) => {
+                  chooseScheme(side, v)
+                  setOpen(false)
+                }}
+              >
+                <SchemeDot scheme={s.scheme} />
+                <span className="truncate">{s.label}</span>
+                {active === s.value && <Check className="ml-auto size-3.5 shrink-0 text-brand" />}
+              </CommandItem>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function AppearanceCard() {
+  const { theme } = useAppearance()
+  return (
+    <PrefCard
+      title="Appearance"
+      note="Browsing a picker previews schemes across the whole page; picking one keeps it and moves the mode along."
+    >
       <AppearanceRow label="Mode">
         <ToggleGroup
           type="single"
@@ -140,40 +220,14 @@ function AppearanceCard() {
           <ToggleGroupItem value="auto" className={APPEARANCE_ITEM}><SunMoon className="size-3.5" /> Auto</ToggleGroupItem>
         </ToggleGroup>
       </AppearanceRow>
-      <AppearanceRow label="Light scheme">
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          size="sm"
-          value={lightScheme}
-          onValueChange={(v) => v && chooseLightScheme(v as LightScheme)}
-          className="flex-wrap"
-          aria-label="Light scheme"
-        >
-          {LIGHT_SCHEME_ITEMS.map((s) => (
-            <ToggleGroupItem key={s.value} value={s.value} className={APPEARANCE_ITEM}>
-              <SchemeDot scheme={s.scheme} /> {s.label}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      </AppearanceRow>
-      <AppearanceRow label="Dark scheme">
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          size="sm"
-          value={darkScheme}
-          onValueChange={(v) => v && chooseDarkScheme(v as DarkScheme)}
-          className="flex-wrap"
-          aria-label="Dark scheme"
-        >
-          {DARK_SCHEME_ITEMS.map((s) => (
-            <ToggleGroupItem key={s.value} value={s.value} className={APPEARANCE_ITEM}>
-              <SchemeDot scheme={s.scheme} /> {s.label}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      </AppearanceRow>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <AppearanceRow label="Light scheme">
+          <SchemePicker side="light" />
+        </AppearanceRow>
+        <AppearanceRow label="Dark scheme">
+          <SchemePicker side="dark" />
+        </AppearanceRow>
+      </div>
     </PrefCard>
   )
 }
