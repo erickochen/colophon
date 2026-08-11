@@ -24,6 +24,21 @@ function abs(href: string): string {
   return href.startsWith('http') || href.startsWith('/') ? href : '/' + href
 }
 
+const isProfileLink = (href: string) => /userdetails\.php|\/u\//.test(href)
+const SEEN_MARKER = 'Last Seen:'
+
+// The action links share the cell with the profile, so skip their text.
+function infoText(td: Element): string {
+  let out = ''
+  const walk = document.createTreeWalker(td, NodeFilter.SHOW_TEXT)
+  for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+    const a = n.parentElement?.closest('a[href]')
+    if (a && !isProfileLink(a.getAttribute('href') ?? '')) continue
+    out += n.nodeValue ?? ''
+  }
+  return out.replace(/\s+/g, ' ').trim()
+}
+
 function parseCell(td: Element): Person | null {
   const a = td.querySelector<HTMLAnchorElement>('a[href*="userdetails.php?id="], a[href^="/u/"]')
   if (!a) return null
@@ -34,13 +49,15 @@ function parseCell(td: Element): Person | null {
   const src = img?.getAttribute('src') ?? null
   const avatar = src && !/default_avatar/.test(src) ? src : null
   const donor = !!td.querySelector('img[alt="Donor"], img[title="Donor"]')
-  const cellText = (td.textContent ?? '').replace(/\s+/g, ' ')
-  const klass = cellText.match(/\(([^)]+)\)/)?.[1]?.trim() ?? null
-  const lastSeen = cellText.match(/Last Seen:\s*([^()]+?)(?:\s*$)/i)?.[1]?.trim() ?? null
   const actions = [...td.querySelectorAll<HTMLAnchorElement>('a[href]')]
-    .filter((x) => !/userdetails\.php|\/u\//.test(x.getAttribute('href') ?? ''))
+    .filter((x) => !isProfileLink(x.getAttribute('href') ?? ''))
     .map((x) => ({ label: x.textContent?.trim() ?? '', href: abs(x.getAttribute('href') ?? '#') }))
     .filter((x) => x.label)
+  const cellText = infoText(td)
+  const at = cellText.toLowerCase().lastIndexOf(SEEN_MARKER.toLowerCase())
+  const head = at < 0 ? cellText : cellText.slice(0, at)
+  const klass = head.match(/\(([^()]+)\)\s*$/)?.[1]?.trim() ?? null
+  const lastSeen = at < 0 ? null : cellText.slice(at + SEEN_MARKER.length).trim() || null
   return { id, name, avatar, donor, klass, lastSeen, actions }
 }
 
@@ -114,7 +131,7 @@ export function FriendsView(props: PageProps) {
           </h2>
           {list.people.length > 0 ? (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {list.people.map((p) => <PersonCard key={p.id} p={p} />)}
+              {list.people.map((p) => <PersonCard key={p.id || p.name} p={p} />)}
             </div>
           ) : (
             <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">
