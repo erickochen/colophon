@@ -197,7 +197,6 @@ export function FreeleechView(props: PageProps) {
               options={data.periods.map((p) => ({ value: p.value, label: p.label }))}
               align="end"
               ariaLabel="Freeleech period"
-              className="h-9"
             />
           )
         }

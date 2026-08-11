@@ -401,13 +401,13 @@ function TopMenuBlock({ cell, onChange }: { cell: HTMLElement; onChange: () => v
           {parsed.url && (
             <div className="grid gap-1.5">
               <span className="text-[12.5px] text-muted-foreground">Site URL</span>
-              <InputMirror el={parsed.url} className="h-9" />
+              <InputMirror el={parsed.url} className="h-8" />
             </div>
           )}
           {parsed.display && (
             <div className="grid gap-1.5">
               <span className="text-[12.5px] text-muted-foreground">Display text (replaces the URL)</span>
-              <InputMirror el={parsed.display} className="h-9 max-w-xs" />
+              <InputMirror el={parsed.display} className="h-8 max-w-xs" />
             </div>
           )}
           {parsed.newOrder && (

@@ -52,7 +52,7 @@ function HideButton({ label, onHide, className }: { label: string; onHide: () =>
           onClick={onHide}
           aria-label={`Hide ${label}`}
           className={cn(
-            'grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition-[opacity,color,background-color] hover:bg-accent/60 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none group-hover/sect:opacity-100',
+            'grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition-[opacity,color,background-color] hover:bg-accent/60 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none group-hover/sect:opacity-100 pointer-coarse:opacity-100',
             className
           )}
         >
@@ -368,7 +368,7 @@ export function HomeView({ page }: PageProps) {
                   maxLength={1500}
                   className="h-full min-w-0 flex-1 bg-transparent pl-3 text-[13.5px] outline-none placeholder:text-muted-foreground"
                 />
-                <Button onClick={sendShout} size="sm" className="h-7 shrink-0"><Send /> Shout</Button>
+                <Button onClick={sendShout} size="sm" className="h-7 shrink-0 text-[12px]"><Send /> Shout</Button>
               </div>
             </CardContent>
           </Card>

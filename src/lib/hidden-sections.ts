@@ -3,15 +3,21 @@
 // ticker, so there is no server-side flag to mirror - we keep the set locally.
 import { useCallback, useSyncExternalStore } from 'react'
 
-const KEY = 'colophon:hidden-sections'
+export const HIDDEN_SECTIONS_KEY = 'colophon:hidden-sections'
 
 const listeners = new Set<() => void>()
 let cache: string[] | null = null
 
+/** Drops the cache after an outside write, such as a settings import. */
+export function reloadHiddenSections(): void {
+  cache = null
+  listeners.forEach((l) => l())
+}
+
 function read(): string[] {
   if (cache) return cache
   try {
-    const raw = JSON.parse(localStorage.getItem(KEY) ?? '[]')
+    const raw = JSON.parse(localStorage.getItem(HIDDEN_SECTIONS_KEY) ?? '[]')
     cache = Array.isArray(raw) ? raw.filter((v): v is string => typeof v === 'string') : []
   } catch {
     cache = []
@@ -22,7 +28,7 @@ function read(): string[] {
 function write(next: string[]) {
   cache = next
   try {
-    localStorage.setItem(KEY, JSON.stringify(next))
+    localStorage.setItem(HIDDEN_SECTIONS_KEY, JSON.stringify(next))
   } catch {
     /* private mode: the choice just does not survive the session */
   }

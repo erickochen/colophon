@@ -6,6 +6,9 @@ import {
   applyTheme, DARK_SCHEMES, LIGHT_SCHEMES, SCHEME_DARK_KEY, SCHEME_LIGHT_KEY, THEME_KEY,
 } from '@/lib/theme'
 import { getPortalContainer } from '@/lib/portals'
+import { BROWSE_COLS_KEY, BROWSE_FILTERS_KEY, BROWSE_VIEW_KEY } from '@/lib/browse-sticky'
+import { COLLAPSED_PREFIX, reloadCollapsed } from '@/lib/collapsed'
+import { HIDDEN_SECTIONS_KEY, reloadHiddenSections } from '@/lib/hidden-sections'
 
 export type FeatureKey =
   | 'ratioProtect'
@@ -426,6 +429,16 @@ export function useUserNotes(): {
   return { notes, setNote, removeNote }
 }
 
+function validStringList(raw: unknown): string[] | null {
+  if (!Array.isArray(raw)) return null
+  return raw.filter((v): v is string => typeof v === 'string')
+}
+
+function validPlainObject(raw: unknown): Record<string, unknown> | null {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null
+  return raw as Record<string, unknown>
+}
+
 // Every key export and import cover, with the validator that guards an import.
 const VALUE_KEYS: Record<string, (raw: string) => boolean> = {
   [RATIO_FLOOR_KEY]: (raw) => Number.isFinite(Number(raw)) && Number(raw) > 0,
@@ -441,6 +454,10 @@ const VALUE_KEYS: Record<string, (raw: string) => boolean> = {
   [THEME_KEY]: (raw) => raw === 'light' || raw === 'dark' || raw === 'auto',
   [SCHEME_LIGHT_KEY]: (raw) => (LIGHT_SCHEMES as readonly string[]).includes(raw),
   [SCHEME_DARK_KEY]: (raw) => (DARK_SCHEMES as readonly string[]).includes(raw),
+  [BROWSE_VIEW_KEY]: (raw) => raw === 'list' || raw === 'grid',
+  [BROWSE_COLS_KEY]: (raw) => parses(raw, validStringList),
+  [BROWSE_FILTERS_KEY]: (raw) => parses(raw, validPlainObject),
+  [HIDDEN_SECTIONS_KEY]: (raw) => parses(raw, validStringList),
 }
 
 // Theme writes need a repaint on top of the store notify.
@@ -468,6 +485,16 @@ export function exportSettings(): string {
     const v = rawRead(key)
     if (v != null) values[key] = v
   }
+  // Folded sections live under one key per page, so they travel as a family.
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if (!key.startsWith(COLLAPSED_PREFIX)) continue
+      const v = rawRead(key)
+      if (v != null) values[key] = v
+    }
+  } catch {
+    // private mode
+  }
   return JSON.stringify({ app: EXPORT_APP, kind: EXPORT_KIND, version: EXPORT_VERSION, values }, null, 2)
 }
 
@@ -482,6 +509,8 @@ export function importSettings(json: string): { applied: number; skipped: number
   let applied = 0
   let skipped = 0
   let themeTouched = false
+  let collapsedTouched = false
+  let hiddenTouched = false
   for (const [key, value] of Object.entries(o.values as Record<string, unknown>)) {
     if (typeof value !== 'string') {
       skipped += 1
@@ -494,15 +523,51 @@ export function importSettings(json: string): { applied: number; skipped: number
       } else skipped += 1
       continue
     }
+    if (key.startsWith(COLLAPSED_PREFIX)) {
+      if (parses(value, validStringList)) {
+        rawWrite(key, value)
+        applied += 1
+        collapsedTouched = true
+      } else skipped += 1
+      continue
+    }
     const check = VALUE_KEYS[key]
     if (check && check(value)) {
       rawWrite(key, value)
       applied += 1
       if (THEME_KEYS.has(key)) themeTouched = true
+      if (key === HIDDEN_SECTIONS_KEY) hiddenTouched = true
     } else skipped += 1
   }
   if (themeTouched) applyTheme(getPortalContainer())
+  // Both modules cache reads, so an import has to push the new state through.
+  if (collapsedTouched) reloadCollapsed()
+  if (hiddenTouched) reloadHiddenSections()
   return { applied, skipped }
+}
+
+/** Puts every known key back to its default. The theme and the cached modules
+ * repaint right away. */
+export function clearAllSettings(): void {
+  for (const def of Object.values(FEATURES)) rawWrite(def.key, null)
+  for (const key of Object.keys(VALUE_KEYS)) rawWrite(key, null)
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith(COLLAPSED_PREFIX)) rawWrite(key, null)
+    }
+  } catch {
+    // private mode
+  }
+  applyTheme(getPortalContainer())
+  reloadCollapsed()
+  reloadHiddenSections()
+}
+
+/** Puts a snapshot from exportSettings back, defaults first, so keys the
+ * snapshot does not name return to their default too. */
+export function restoreSettings(json: string): void {
+  clearAllSettings()
+  importSettings(json)
 }
 
 const LEGACY_PREFIX = 'muisstil:'

@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
+import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 export interface FacetOption {
@@ -112,6 +113,36 @@ export function FilterSearch({
       {field}
       <Button type="submit" className="h-10 px-5">{submitLabel}</Button>
     </form>
+  )
+}
+
+/** Wrapping pill row for category tabs; pair with FilterPill inside a Tabs root. */
+export function FilterPillList({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <TabsList
+      className={cn(
+        'w-full flex-wrap justify-start gap-1.5 bg-transparent p-0 group-data-[orientation=horizontal]/tabs:h-auto',
+        className
+      )}
+    >
+      {children}
+    </TabsList>
+  )
+}
+
+/** Pill-shaped tab for category switchers, in the shared active state. */
+export function FilterPill({
+  value, title, count, children,
+}: { value: string; title?: string; count?: number; children: React.ReactNode }) {
+  return (
+    <TabsTrigger
+      value={value}
+      title={title}
+      className="h-auto flex-none gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] text-muted-foreground shadow-none transition-colors hover:bg-accent/50 data-active:border-brand/40 data-active:bg-brand-soft data-active:font-medium data-active:text-accent-foreground data-active:shadow-none"
+    >
+      {children}
+      {count != null && <span className="rounded-full bg-muted px-1.5 text-[10px] tabular-nums">{fmtInt(count)}</span>}
+    </TabsTrigger>
   )
 }
 
@@ -254,8 +285,14 @@ export function FacetOptions({
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
               {options.map((o) => (
-                <CommandItem key={o.value} value={o.label} onSelect={() => onToggle(o.value)}>
-                  <Checkbox checked={selected.includes(o.value)} className="pointer-events-none" />
+                <CommandItem
+                  key={o.value}
+                  value={o.label}
+                  onSelect={() => onToggle(o.value)}
+                  role="checkbox"
+                  aria-checked={selected.includes(o.value)}
+                >
+                  <Checkbox checked={selected.includes(o.value)} aria-hidden className="pointer-events-none" />
                   <span className="truncate">{o.label}</span>
                   {o.count != null && (
                     <span className="ml-auto pl-2 text-[11px] tabular-nums text-muted-foreground">{fmtInt(o.count)}</span>

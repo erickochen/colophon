@@ -153,6 +153,7 @@ function ClientChip({ client }: { client: ShellData['client'] }) {
       <TooltipTrigger asChild>
         <a
           href="/userClientDetails.php"
+          aria-label={`Client connectivity: IPv4 ${word(client.ipv4)}, IPv6 ${word(client.ipv6)}`}
           className="hidden items-center gap-2 rounded-md px-1.5 py-1 text-[12.5px] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground md:flex"
         >
           <span className="flex items-center gap-1.5">
@@ -186,7 +187,7 @@ export function Topbar({ page, counts, onOpenSearch }: { page: ShellData; counts
       <SidebarTrigger />
       <button
         onClick={onOpenSearch}
-        className="flex h-9 w-full max-w-sm items-center gap-2 rounded-lg border bg-card px-3 text-[13px] text-muted-foreground shadow-xs transition-colors hover:bg-accent/50"
+        className="flex h-10 w-full max-w-sm items-center gap-2 rounded-lg border bg-card px-3 text-[13px] text-muted-foreground shadow-xs transition-colors hover:bg-accent/50"
       >
         <Search className="size-3.5" />
         Search the catalog…

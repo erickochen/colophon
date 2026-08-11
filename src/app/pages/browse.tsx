@@ -10,7 +10,9 @@ import { groupBySeries, type SeriesGroup } from '@/lib/series'
 import { CONTENT_FLAGS, LANGUAGES, MAIN_CATS, SORT_OPTIONS } from '@/lib/mam-facets'
 import { coverShape } from '@/lib/cover-shape'
 import { wedgeHelps } from '@/lib/wedge'
-import { mamBrowseDefaults, readSticky, writeSticky, type StickyFilters } from '@/lib/browse-sticky'
+import {
+  BROWSE_COLS_KEY, BROWSE_VIEW_KEY, mamBrowseDefaults, readSticky, writeSticky, type StickyFilters,
+} from '@/lib/browse-sticky'
 import { useFeature, useIgnoredTorrents } from '@/lib/settings'
 import { fmtInt, plural, relTime, utcTitle } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -68,10 +70,8 @@ const UPLOADER_SORTS = SORT_OPTIONS.filter((o) => UPLOADER_SORT_VALUES.includes(
 const REFRESH_POLL_MS = 1000
 const REFRESH_POLL_TRIES = 5
 
-const VIEW_KEY = 'colophon:browse-view'
 type ViewMode = 'list' | 'grid'
 
-const COLS_KEY = 'colophon:browse-cols'
 type ColKey = 'narrators' | 'series' | 'filetype' | 'size' | 'peers' | 'added'
 
 // List-row fields the reader can hide; track = width in the stats grid.
@@ -92,7 +92,7 @@ const ALL_COLS = LIST_COLUMNS.map((c) => c.key)
 
 function readCols(): ColKey[] {
   try {
-    const raw = localStorage.getItem(COLS_KEY)
+    const raw = localStorage.getItem(BROWSE_COLS_KEY)
     if (!raw) return ALL_COLS
     const saved: unknown = JSON.parse(raw)
     return Array.isArray(saved) ? ALL_COLS.filter((k) => saved.includes(k)) : ALL_COLS
@@ -407,7 +407,7 @@ function RowBookmark({ t, onBookmark, onRemoved }: { t: SearchTorrent; onBookmar
           aria-label={on ? 'Remove bookmark' : 'Bookmark'}
           className={cn(
             ROW_ACTION,
-            on ? 'border-brand/40 text-brand' : 'border-input text-muted-foreground opacity-0 group-hover:opacity-100'
+            on ? 'border-brand/40 text-brand' : 'border-input text-muted-foreground opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100'
           )}
         >
           {on ? <BookmarkCheck className="size-[15px]" /> : <Bookmark className="size-[15px]" />}
@@ -519,7 +519,7 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onU
               <a
                 href={downloadUrl(t.id)}
                 aria-label="Download .torrent"
-                className={cn(ROW_ACTION, 'border-input text-muted-foreground opacity-0 group-hover:opacity-100')}
+                className={cn(ROW_ACTION, 'border-input text-muted-foreground opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100')}
               >
                 <Download className="size-[15px]" />
               </a>
@@ -530,7 +530,7 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onU
             <WedgeRowButton
               target={{ id: t.id, title: t.title, size: t.size }}
               onDone={() => onFreeleech(t.id)}
-              className={cn(ROW_ACTION, 'border-input text-muted-foreground opacity-0 group-hover:opacity-100')}
+              className={cn(ROW_ACTION, 'border-input text-muted-foreground opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100')}
             />
           )}
           {onIgnore && (
@@ -540,7 +540,7 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onU
                   type="button"
                   aria-label="Ignore this torrent"
                   onClick={() => onIgnore(t)}
-                  className={cn(ROW_ACTION, 'border-input text-muted-foreground opacity-0 group-hover:opacity-100')}
+                  className={cn(ROW_ACTION, 'border-input text-muted-foreground opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100')}
                 >
                   <EyeOff className="size-[15px]" />
                 </button>
@@ -571,6 +571,7 @@ function GalleryItem({ t, hiddenReason, onUnignore }: { t: SearchTorrent; hidden
           />
           {!!t.bookmarked && (
             <span
+              role="img"
               aria-label="Bookmarked"
               className="absolute right-1.5 top-1.5 z-3 grid size-[22px] place-items-center rounded-full bg-card/90 text-brand shadow-sm"
             >
@@ -712,11 +713,7 @@ function ResultActions({
                   </a>
                 </DropdownMenuItem>
                 {BOOKMARK_CLEANUPS.map((c) => (
-                  <DropdownMenuItem
-                    key={c.type}
-                    variant={c.type === 'all' ? 'destructive' : 'default'}
-                    onClick={() => setPending(c)}
-                  >
+                  <DropdownMenuItem key={c.type} variant="destructive" onClick={() => setPending(c)}>
                     <Trash2 />
                     {c.menu}
                   </DropdownMenuItem>
@@ -828,7 +825,7 @@ export function BrowseView(props: PageProps) {
   const [error, setError] = useState<string | null>(null)
   const [view, setView] = useState<ViewMode>(() => {
     try {
-      return localStorage.getItem(VIEW_KEY) === 'grid' ? 'grid' : 'list'
+      return localStorage.getItem(BROWSE_VIEW_KEY) === 'grid' ? 'grid' : 'list'
     } catch {
       return 'list'
     }
@@ -875,7 +872,7 @@ export function BrowseView(props: PageProps) {
   const setViewMode = (v: ViewMode) => {
     setView(v)
     try {
-      localStorage.setItem(VIEW_KEY, v)
+      localStorage.setItem(BROWSE_VIEW_KEY, v)
     } catch {
       // storage may be unavailable
     }
@@ -885,7 +882,7 @@ export function BrowseView(props: PageProps) {
     setCols((prev) => {
       const next = ALL_COLS.filter((key) => (key === k ? !prev.includes(key) : prev.includes(key)))
       try {
-        localStorage.setItem(COLS_KEY, JSON.stringify(next))
+        localStorage.setItem(BROWSE_COLS_KEY, JSON.stringify(next))
       } catch {
         // storage may be unavailable
       }
@@ -907,7 +904,12 @@ export function BrowseView(props: PageProps) {
       setSelected(new Set())
     }
     setError(null)
-    if (push) history.replaceState(null, '', urlFromState(q))
+    // A chosen search gets its own history entry so Back steps through
+    // searches; loading more only refreshes the offset in the current one.
+    if (push) {
+      if (append) history.replaceState(null, '', urlFromState(q))
+      else history.pushState(null, '', urlFromState(q))
+    }
     try {
       const res = q.uploader
         ? await searchUploads({ uploader: q.uploader, text: q.text || undefined, sortType: q.sort, startNumber: q.start, perpage: q.perpage })
@@ -932,6 +934,19 @@ export function BrowseView(props: PageProps) {
     void run(state, { push: false })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Back and Forward walk the pushed search entries; the URL is the state.
+  useEffect(() => {
+    const uid = props.page.user.uid != null ? String(props.page.user.uid) : null
+    const onPop = () => {
+      const s = initialState(uid)
+      setState(s)
+      setBaseStart(s.start)
+      void run(s, { push: false })
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [props.page.user.uid, run])
 
   const apply = (patch: Partial<BrowseState>) => {
     const next = { ...state, ...patch, start: 0 }
@@ -1350,7 +1365,11 @@ export function BrowseView(props: PageProps) {
 
       <FilterSummary
         chips={chips}
-        onClearAll={() => apply({ mainCat: [], cat: [], langs: [], flags: [], searchType: 'all', searchIn: 'torrents', authorID: null, narratorID: null, seriesID: null, uploader: null })}
+        onClearAll={() => {
+          // Everything with a chip goes, the hide-snatched toggle included.
+          setHideSnatched(false)
+          apply({ mainCat: [], cat: [], langs: [], flags: [], searchType: 'all', searchIn: 'torrents', authorID: null, narratorID: null, seriesID: null, uploader: null })
+        }}
         meta={loading ? 'Searching…' : state.seriesID && seriesViewOn ? `${fmtInt(found)} results · grouped by part` : `${fmtInt(found)} results · ${sortLabel}`}
       >
         <CopyResultsButton rows={items} />

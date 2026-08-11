@@ -93,7 +93,12 @@ function WedgeConfirm({ target, onDone, onClose }: { target: WedgeTarget; onDone
     if (none) return
     const landed = await spend()
     if (!landed) return
-    if (dontAsk) setSkip(true)
+    if (dontAsk) {
+      setSkip(true)
+      toast.info('Wedge confirmations are off', {
+        description: 'Turn them back on any time in Preferences, Colophon tab.',
+      })
+    }
     onClose()
   }
 

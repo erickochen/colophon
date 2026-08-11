@@ -1,7 +1,10 @@
 // The browse filters a reader keeps coming back to. Stored per browser and
 // seeded once from the defaults MAM renders into its own browse form.
 
-const KEY = 'colophon:browse-filters'
+export const BROWSE_FILTERS_KEY = 'colophon:browse-filters'
+// Owned by the browse page; named here so the settings export can carry them.
+export const BROWSE_VIEW_KEY = 'colophon:browse-view'
+export const BROWSE_COLS_KEY = 'colophon:browse-cols'
 
 export interface StickyFilters {
   mainCat: number[]
@@ -21,7 +24,7 @@ const ids = (v: unknown): number[] =>
 export function readSticky(): StickyFilters | null {
   let raw: unknown
   try {
-    const stored = localStorage.getItem(KEY)
+    const stored = localStorage.getItem(BROWSE_FILTERS_KEY)
     if (stored == null) return null
     raw = JSON.parse(stored)
   } catch {
@@ -42,7 +45,7 @@ export function readSticky(): StickyFilters | null {
 
 export function writeSticky(f: StickyFilters): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify(f))
+    localStorage.setItem(BROWSE_FILTERS_KEY, JSON.stringify(f))
   } catch {
     /* private mode: the filters just do not survive the session */
   }

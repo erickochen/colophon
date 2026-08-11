@@ -7,9 +7,9 @@ import { PageHeader, RichHtml } from '@/app/shell/bits'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { FilterSearch } from '@/components/filters'
+import { FilterPill, FilterPillList, FilterSearch } from '@/components/filters'
 import { Kbd } from '@/components/ui/kbd'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
 const RICH =
@@ -191,19 +191,13 @@ function KnowledgeBase({ title, sub, sections: raw, mode }: { title: string; sub
         </div>
       ) : (
         <Tabs value={tab} onValueChange={setTab} className="gap-5">
-          <TabsList className="w-full flex-wrap justify-start gap-1.5 bg-transparent p-0 group-data-[orientation=horizontal]/tabs:h-auto">
+          <FilterPillList>
             {sections.map((s) => (
-              <TabsTrigger
-                key={s.key}
-                value={s.key}
-                title={s.title}
-                className="h-auto flex-none rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] text-muted-foreground shadow-none transition-colors hover:bg-accent/50 data-active:border-brand/40 data-active:bg-brand-soft data-active:font-medium data-active:text-accent-foreground data-active:shadow-none"
-              >
+              <FilterPill key={s.key} value={s.key} title={s.title} count={s.items.length}>
                 {shortLabel(s.title)}
-                <span className="ml-1.5 rounded-full bg-muted px-1.5 text-[10px] tabular-nums">{s.items.length}</span>
-              </TabsTrigger>
+              </FilterPill>
             ))}
-          </TabsList>
+          </FilterPillList>
           {sections.map((s) => (
             <TabsContent key={s.key} value={s.key} className="mt-0 max-w-3xl">
               <div className="mb-3 flex items-baseline gap-2">

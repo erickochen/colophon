@@ -112,7 +112,8 @@ export function QuickShouts({ draft, onInsert }: { draft: string; onInsert: (tex
             )}
             {list.length === 0 && (
               <p className="px-2.5 py-6 text-center text-[12px] text-muted-foreground">
-                No saved shouts yet. Type a shout, then save it here.
+                No saved shouts yet. Type a shout, then save it here. Saved shouts stay in this
+                browser; the settings export backs them up.
               </p>
             )}
           </div>

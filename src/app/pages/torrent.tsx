@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Bookmark, BookmarkCheck, ChevronDown, Copy, Download, FilePenLine, FileText, Flag, Gift, History, Info, Lock, MessageSquarePlus, Settings2, Sprout, Users } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { extractTorrent, type MediaNode, type TorrentComment, type TorrentDetail } from '@/lib/extract/torrent'
@@ -61,11 +61,16 @@ function KV({ label, full = false, children }: { label: string; full?: boolean; 
   )
 }
 
-/** Click a control in the hidden legacy DOM; MAM's own handler takes it from there. */
-function proxyClick(sel: string, fail: string) {
+/** Click a control in the hidden legacy DOM; MAM's own handler takes it from
+ * there. The boolean says whether the control was found. */
+function proxyClick(sel: string, fail: string): boolean {
   const el = document.querySelector<HTMLElement>(sel)
-  if (el) el.click()
-  else toast.error(fail)
+  if (el) {
+    el.click()
+    return true
+  }
+  toast.error(fail)
+  return false
 }
 
 // Same status idiom as the topbar chips: a small dot carries the level, the
@@ -79,7 +84,10 @@ const RATIO_NOTE_TONE: Record<RatioLevel, { text: string; dot: string | null }> 
 
 /** On/off switch and personal floor for the ratio guard, kept in localStorage. */
 function GuardSettings({ guard }: { guard: RatioGuard }) {
-  const [text, setText] = useState(guard.floor != null ? String(guard.floor) : '')
+  // While the field holds focus the typed text wins; otherwise it mirrors the
+  // store, so a settings import or the prefs tab shows up here at once.
+  const [draft, setDraft] = useState<string | null>(null)
+  const text = draft ?? (guard.floor != null ? String(guard.floor) : '')
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -110,8 +118,10 @@ function GuardSettings({ guard }: { guard: RatioGuard }) {
           placeholder="off"
           className="h-8"
           disabled={!guard.enabled}
+          onFocus={() => setDraft(guard.floor != null ? String(guard.floor) : '')}
+          onBlur={() => setDraft(null)}
           onChange={(e) => {
-            setText(e.target.value)
+            setDraft(e.target.value)
             const v = Number(e.target.value)
             guard.setFloor(e.target.value !== '' && Number.isFinite(v) && v > 0 ? v : null)
           }}
@@ -640,14 +650,20 @@ export function TorrentView(props: PageProps) {
   // A wedge spent on this page turns the torrent free, which the server-rendered
   // ratio tile in the sidebar cannot know.
   const [spent, setSpent] = useState(false)
+  const thankBox = useRef<HTMLDivElement>(null)
+  const thankInput = useRef<HTMLInputElement>(null)
 
   if (!data || !data.title) return <LegacyView {...props} />
 
+  const thankValid =
+    points === '' || (Number.isInteger(Number(points)) && Number(points) >= 0 && Number(points) <= THANK_MAX)
+
   function thank() {
+    const amount = resolveAmount(points, 0, THANK_MAX) ?? 0
     const input = document.querySelector<HTMLInputElement>('#thanksArea input[name="points"]')
-    if (input) input.value = points || '0'
-    proxyClick('#giveThanks', 'Thanks are not available for this torrent.')
-    toast.success(points && Number(points) > 0 ? `Sent ${points} points to the uploader` : 'Thanked the uploader')
+    if (input) input.value = String(amount)
+    if (!proxyClick('#giveThanks', 'Thanks are not available for this torrent.')) return
+    toast.success(amount > 0 ? `Sent ${amount.toLocaleString('en-US')} points to the uploader` : 'Thanked the uploader')
   }
 
   const people = (list: { name: string; href: string }[]) =>
@@ -660,6 +676,12 @@ export function TorrentView(props: PageProps) {
 
   const languages = data.categories.filter((c) => c.language)
   const genres = data.categories.filter((c) => !c.language)
+
+  // The dock's wedge button carries the confirm flow, so the sidebar drops its
+  // bare duplicate of that same spend and keeps only the other purchase routes.
+  const dockHasWedge =
+    !(data.freeleech || data.personalFreeleech || data.vip) && !data.downloadBlocked && !spent && data.id != null
+  const sideRatioButtons = data.ratio?.buttons.filter((b) => !(dockHasWedge && b.name === 'personalFL')) ?? []
 
   const stats = [
     { label: 'size', value: data.size },
@@ -840,6 +862,16 @@ export function TorrentView(props: PageProps) {
                   <a className="font-medium hover:underline" style={{ color: mutedUserColor(data.uploader.color) }} href={data.uploader.href}>
                     {data.uploader.name}
                   </a>
+                  <button
+                    type="button"
+                    className="mt-0.5 block text-[12px] text-brand hover:underline"
+                    onClick={() => {
+                      thankBox.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                      thankInput.current?.focus({ preventScroll: true })
+                    }}
+                  >
+                    Say thanks
+                  </button>
                 </KV>
               )}
 
@@ -876,9 +908,9 @@ export function TorrentView(props: PageProps) {
                           Would become <span className="font-medium tabular-nums text-ok">{data.ratio.wouldBecome}</span>
                         </div>
                       )}
-                      {data.ratio.buttons.length > 0 && (
+                      {sideRatioButtons.length > 0 && (
                         <div className="flex flex-wrap gap-2">
-                          {data.ratio.buttons.map((b) => (
+                          {sideRatioButtons.map((b) => (
                             <Button
                               key={b.name ?? b.label}
                               size="sm"
@@ -981,12 +1013,29 @@ export function TorrentView(props: PageProps) {
         </CardHeader>
         <CardContent className="grid gap-4 px-6 py-5">
           {/* Thank the uploader, inline */}
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 px-4 py-3">
+          <div ref={thankBox} className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 px-4 py-3">
             <Gift className="size-4 text-brand" />
             <span className="text-[13px] font-medium">Thank the uploader</span>
-            <Input type="number" min={0} max={THANK_MAX} step={50} value={points} onChange={(e) => setPoints(e.target.value)} placeholder="0" className="ml-auto h-8 w-24" />
+            <Input
+              ref={thankInput}
+              type="number"
+              min={0}
+              max={THANK_MAX}
+              step={50}
+              value={points}
+              onChange={(e) => setPoints(e.target.value)}
+              placeholder="0"
+              aria-invalid={!thankValid}
+              aria-describedby={thankValid ? undefined : 'thank-points-hint'}
+              className="ml-auto h-8 w-24"
+            />
             <span className="text-[12.5px] text-muted-foreground">points</span>
-            <Button size="sm" className="h-8" onClick={thank}>Say thanks</Button>
+            <Button size="sm" className="h-8" onClick={thank} disabled={!thankValid}>Say thanks</Button>
+            {!thankValid && (
+              <span id="thank-points-hint" className="basis-full text-[11.5px] text-destructive">
+                A whole number up to {THANK_MAX.toLocaleString('en-US')}. Empty sends plain thanks.
+              </span>
+            )}
           </div>
           {data.comments.length > 0 ? (
             <div className="grid">

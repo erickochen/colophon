@@ -7,8 +7,8 @@ import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
 import { Card, CardContent } from '@/components/ui/card'
-import { FilterSearch } from '@/components/filters'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { FilterPill, FilterPillList, FilterSearch } from '@/components/filters'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
 
 interface Guide { title: string; href: string }
 interface GuideCat { key: string; name: string; guides: Guide[] }
@@ -98,21 +98,16 @@ export function GuidesView(props: PageProps) {
         </div>
       ) : (
         <Tabs value={tab} onValueChange={setTab} className="gap-5">
-          <TabsList className="w-full flex-wrap justify-start gap-1.5 bg-transparent p-0 group-data-[orientation=horizontal]/tabs:h-auto">
+          <FilterPillList>
             {cats.map((c) => {
               const Icon = catIcon(c.name)
               return (
-                <TabsTrigger
-                  key={c.key}
-                  value={c.key}
-                  className="h-auto flex-none gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] text-muted-foreground shadow-none transition-colors hover:bg-accent/50 data-active:border-brand/40 data-active:bg-brand-soft data-active:font-medium data-active:text-accent-foreground data-active:shadow-none"
-                >
+                <FilterPill key={c.key} value={c.key} count={c.guides.length}>
                   <Icon className="size-3.5" /> {c.name.trim()}
-                  <span className="ml-0.5 rounded-full bg-muted px-1.5 text-[10px] tabular-nums">{c.guides.length}</span>
-                </TabsTrigger>
+                </FilterPill>
               )
             })}
-          </TabsList>
+          </FilterPillList>
           {cats.map((c) => (
             <TabsContent key={c.key} value={c.key} className="mt-0 max-w-3xl">
               <GuideRows guides={c.guides} />

@@ -189,7 +189,7 @@ export function NewMembersView(props: PageProps) {
                   <span className="flex items-center gap-1 text-[11.5px] text-muted-foreground"><UserPlus className="size-3" /> new mouse</span>
                 )}
               </a>
-              <Button asChild size="icon" variant="ghost" className="size-8 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+              <Button asChild size="icon" variant="ghost" className="size-8 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 pointer-coarse:opacity-100">
                 <a href={`/sendmessage.php?receiver=${m.uid}`} title={`Welcome ${m.name}`}><Mail className="size-4" /></a>
               </Button>
             </CardContent>

@@ -180,7 +180,7 @@ function SearchableFacet({ title, note, items, onChange }: { title: string; note
   return (
     <FacetShell title={title} note={note} count={sel} total={items.length} onClear={() => { items.forEach((i) => (i.el.checked = false)); onChange() }}>
       {items.length > 12 && (
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter…" className="h-8 max-w-56 text-[13px]" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter…" className="h-8 max-w-56 text-[12.5px]" />
       )}
       <CheckGrid items={shown} onChange={onChange} />
     </FacetShell>
@@ -220,7 +220,7 @@ function WedgeInput({ el, suffix, label }: { el: HTMLInputElement; suffix?: stri
         step={1}
         value={v}
         onChange={(e) => { setV(e.target.value); el.value = e.target.value }}
-        className="h-8 w-24 text-[13px]"
+        className="h-8 w-24 text-[12.5px]"
       />
       {suffix}
     </label>

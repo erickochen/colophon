@@ -1,7 +1,7 @@
 // Shared bits for the bespoke Preferences views. Every control writes into the
 // ORIGINAL (hidden) form element; the Save bar submits the original #prefForm so
 // the POST stays byte-identical to MAM's.
-import { useState, type ReactNode } from 'react'
+import { cloneElement, isValidElement, useId, useState, type ReactElement, type ReactNode } from 'react'
 import { RotateCcw, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -54,17 +54,25 @@ export function PrefCard({
   )
 }
 
-/** Label + explanation on the left, control on the shared right alignment line. */
+/** Label + explanation on the left, control on the shared right alignment line.
+ * A single-element control is described by the note, so a screen reader hears
+ * the consequence line along with the switch. */
 export function SettingRow({
   title, note, children, dense,
 }: { title?: ReactNode; note?: ReactNode; children: ReactNode; dense?: boolean }) {
+  const noteId = useId()
+  let control = children
+  if (note && isValidElement(children)) {
+    const el = children as ReactElement<{ 'aria-describedby'?: string }>
+    control = cloneElement(el, { 'aria-describedby': el.props['aria-describedby'] ?? noteId })
+  }
   return (
     <div className={cn('grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-8', dense ? 'py-1.5' : 'py-1')}>
       <div className="min-w-0">
         {title && <div className="text-[13.5px] font-medium leading-snug">{title}</div>}
-        {note && <p className="pt-1 text-[12px] leading-normal text-muted-foreground">{note}</p>}
+        {note && <p id={noteId} className="pt-1 text-[12px] leading-normal text-muted-foreground">{note}</p>}
       </div>
-      <div className="flex shrink-0 justify-end">{children}</div>
+      <div className="flex shrink-0 justify-end">{control}</div>
     </div>
   )
 }

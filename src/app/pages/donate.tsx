@@ -129,7 +129,7 @@ export function DonateView(props: PageProps) {
         <CardContent className="grid gap-4">
           <div className="flex items-center gap-2">
             <span className="text-[13px] text-muted-foreground">Amount €</span>
-            <Input type="number" min={5} step={5} value={amount} onChange={(e) => syncAmount(e.target.value)} className="h-9 w-28" />
+            <Input type="number" min={5} step={5} value={amount} onChange={(e) => syncAmount(e.target.value)} className="h-8 w-28 text-[12.5px]" />
             <span className="text-[12px] text-muted-foreground">minimum 5</span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">

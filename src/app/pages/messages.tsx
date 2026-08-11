@@ -757,7 +757,7 @@ export function MessagesView(props: PageProps) {
                     <Button
                       size="sm"
                       style={{ position: 'fixed', left: highlight.left, top: highlight.top - QUOTE_BUTTON_LIFT, transform: 'translateX(-50%)' }}
-                      className="z-50 h-7 shadow-lg"
+                      className="z-50 h-7 text-[12px] shadow-lg"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => {
                         const m = selected.messages.find((x) => bodyKey(x) === highlight.navKey)

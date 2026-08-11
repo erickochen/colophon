@@ -120,7 +120,7 @@ function NotesCard({ uid }: { uid: string }) {
           <NotebookPen className="size-4 text-brand" /> Your notes
         </CardTitle>
         <CardAction className="self-center text-[11.5px] text-muted-foreground">
-          {savedFlash ? 'Saved' : 'Only you can see this'}
+          {savedFlash ? 'Saved' : 'Private, stored in this browser'}
         </CardAction>
       </CardHeader>
       <CardContent className="px-6 py-4">

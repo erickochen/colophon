@@ -2,7 +2,7 @@
 // write the settings store directly and apply immediately, so there is no form
 // and no save bar.
 import { useRef, useState } from 'react'
-import { BookMarked, Check, ChevronsUpDown, Download, Moon, Sun, SunMoon, Upload } from 'lucide-react'
+import { BookMarked, Check, ChevronsUpDown, Download, Moon, RotateCcw, Sun, SunMoon, Upload } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import type { Theme } from '@/lib/theme'
 import {
@@ -12,9 +12,14 @@ import {
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
-  exportSettings, importSettings, useDefaultAmount, useFeature, useIgnoredTorrents, useRatioFloor,
-  useUserList, useUserNotes, type AmountKind, type FeatureKey, type UserListKind,
+  clearAllSettings, exportSettings, importSettings, restoreSettings, useDefaultAmount, useFeature,
+  useIgnoredTorrents, useRatioFloor, useUserList, useUserNotes,
+  type AmountKind, type FeatureKey, type UserListKind,
 } from '@/lib/settings'
+import {
+  AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { HARD_FLOOR } from '@/lib/ratio-protect'
 import { MAX_GIFT, THANK_MAX } from '@/lib/mam-api'
 import { PrefCard, SettingRow } from '@/app/pages/prefs-bits'
@@ -49,18 +54,37 @@ function FeatureRow({ feature, title, note, credit }: { feature: FeatureKey; tit
 
 function AmountRow({ kind, title, note, credit, max }: { kind: AmountKind; title: string; note: string; credit?: string; max: number }) {
   const [value, setValue] = useDefaultAmount(kind)
-  const valid =
-    value === '' || /^max$/i.test(value.trim()) || (Number.isInteger(Number(value)) && Number(value) > 0 && Number(value) <= max)
+  // Invalid text stays a local draft: the store only ever holds usable values,
+  // so a typo cannot silently switch the prefill off.
+  const [draft, setDraft] = useState<string | null>(null)
+  const shown = draft ?? value
+  const validOf = (v: string) =>
+    v === '' || /^max$/i.test(v.trim()) || (Number.isInteger(Number(v)) && Number(v) > 0 && Number(v) <= max)
+  const valid = validOf(shown)
+  const hintId = `${kind}-amount-hint`
   return (
     <SettingRow title={title} note={noteWithCredit(note, credit)}>
-      <Input
-        value={value}
-        placeholder="off"
-        aria-label={title}
-        aria-invalid={!valid}
-        onChange={(e) => setValue(e.target.value)}
-        className="h-8 w-24 text-[12.5px]"
-      />
+      <div className="grid justify-items-end gap-1">
+        <Input
+          value={shown}
+          placeholder="off"
+          aria-label={title}
+          aria-invalid={!valid}
+          aria-describedby={valid ? undefined : hintId}
+          onFocus={() => setDraft(value)}
+          onBlur={() => setDraft(null)}
+          onChange={(e) => {
+            setDraft(e.target.value)
+            if (validOf(e.target.value)) setValue(e.target.value)
+          }}
+          className="h-8 w-24 text-[12.5px]"
+        />
+        {!valid && (
+          <span id={hintId} className="text-[11.5px] text-destructive">
+            A whole number up to {max.toLocaleString('en-US')} or max
+          </span>
+        )}
+      </div>
     </SettingRow>
   )
 }
@@ -104,7 +128,11 @@ function SeriesBulkRow() {
   return (
     <SettingRow
       title="Bulk actions"
-      note="Checkboxes on the parts plus a bar to bookmark, zip or wedge the selection in one go."
+      note={
+        viewOn
+          ? 'Checkboxes on the parts plus a bar to bookmark, zip or wedge the selection in one go.'
+          : 'Checkboxes on the parts plus a bar to bookmark, zip or wedge the selection in one go. Needs Series view above.'
+      }
     >
       <Switch checked={on} onCheckedChange={setOn} disabled={!viewOn} aria-label="Bulk actions" />
     </SettingRow>
@@ -203,7 +231,7 @@ function AppearanceCard() {
   return (
     <PrefCard
       title="Appearance"
-      note="Browsing a picker previews schemes across the whole page; picking one keeps it and moves the mode along."
+      note="Browsing a picker previews schemes across the whole page; picking one keeps it and switches the mode to that side."
     >
       <AppearanceRow label="Mode">
         <ToggleGroup
@@ -303,6 +331,7 @@ function NoteRows() {
 
 function IntroCard() {
   const fileRef = useRef<HTMLInputElement>(null)
+  const [resetOpen, setResetOpen] = useState(false)
   const version = (window as { __colophon?: string }).__colophon ?? null
 
   function exportFile() {
@@ -317,16 +346,33 @@ function IntroCard() {
   }
 
   async function importFile(file: File) {
+    let before: string | null = null
     try {
-      const { applied, skipped } = importSettings(await file.text())
+      const text = await file.text()
+      // The snapshot makes the import a step back instead of a leap.
+      before = exportSettings()
+      const { applied, skipped } = importSettings(text)
       toast.success(`Applied ${applied} setting${applied === 1 ? '' : 's'}`, {
         description:
           skipped > 0
             ? `${skipped} ${skipped === 1 ? 'entry was' : 'entries were'} not recognized and stayed untouched.`
             : undefined,
+        action: {
+          label: 'Undo',
+          onClick: () => {
+            if (before != null) restoreSettings(before)
+            toast.success('Your previous settings are back')
+          },
+        },
       })
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'That file could not be read.')
+      toast.error(
+        e instanceof SyntaxError
+          ? 'That file is not a Colophon settings file.'
+          : e instanceof Error
+            ? e.message
+            : 'That file could not be read.'
+      )
     }
   }
 
@@ -341,7 +387,8 @@ function IntroCard() {
             Colophon{version && <span className="ml-2 text-[12px] font-normal text-muted-foreground">v{version}</span>}
           </div>
           <p className="text-[12.5px] leading-normal text-muted-foreground">
-            These settings apply immediately and live in this browser only.
+            These settings apply immediately and live in this browser only, never on MAM's servers.
+            Export saves everything here, your lists and notes included; it is your only backup.
           </p>
         </div>
         <div className="flex gap-2">
@@ -350,6 +397,14 @@ function IntroCard() {
           </Button>
           <Button variant="outline" size="sm" className="h-8 text-[12.5px]" onClick={() => fileRef.current?.click()}>
             <Upload /> Import
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 text-[12.5px] text-muted-foreground hover:text-destructive"
+            onClick={() => setResetOpen(true)}
+          >
+            <RotateCcw /> Reset
           </Button>
           <input
             ref={fileRef}
@@ -364,6 +419,30 @@ function IntroCard() {
           />
         </div>
       </CardContent>
+      <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display">Reset all Colophon settings?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Every switch goes back to its default and your lists, quick shouts and notes are
+              cleared. An export made beforehand is the only way back.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="ghost" onClick={() => setResetOpen(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                clearAllSettings()
+                setResetOpen(false)
+                toast.success('Colophon settings reset to defaults')
+              }}
+            >
+              <RotateCcw /> Reset everything
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   )
 }
@@ -391,7 +470,7 @@ export function ColophonPrefsView(_props: PageProps) {
         />
       </PrefCard>
 
-      <PrefCard title="Browse">
+      <PrefCard title="Browse and requests">
         <FeatureRow
           feature="hideSnatched"
           title="Hide snatched torrents"
@@ -410,16 +489,13 @@ export function ColophonPrefsView(_props: PageProps) {
           note="A button above the results that copies the page as one line per book. Also on the requests page."
           credit="MAM+ by GardenShade"
         />
-        <IgnoredTorrentRows />
-      </PrefCard>
-
-      <PrefCard title="Requests">
         <FeatureRow
           feature="hideHiddenRequesters"
           title="Hide hidden requesters"
           note="Hides requests from members who keep their name hidden. The same toggle lives in the request filters."
           credit="MAM+ by GardenShade"
         />
+        <IgnoredTorrentRows />
       </PrefCard>
 
       <PrefCard title="Series">
@@ -494,7 +570,7 @@ export function ColophonPrefsView(_props: PageProps) {
           kind="gift"
           max={MAX_GIFT}
           title="Default gift amount"
-          note="Prefills the gift dialog on every gift button. A number or max; empty follows the GiftMAM widget."
+          note="Prefills the gift dialog on every gift button. A number or max; empty keeps the dialog's own suggestion."
           credit="MAM+ by GardenShade"
         />
         <FeatureRow
