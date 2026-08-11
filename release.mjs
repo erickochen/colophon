@@ -13,8 +13,11 @@ const HERE = fileURLToPath(new URL('.', import.meta.url))
 const CONFIG = new URL('./version.mjs', import.meta.url)
 const META = 'colophon.meta.js'
 const LOADER = 'colophon.user.js'
-const ATTEMPTS = 10
-const WAIT_MS = 3000
+// Storage replication can trail an upload by minutes (14 measured on a bad
+// day). A purge makes an edge re-pull whatever its replica has right then, so
+// every retry purges first plus the window outlasts a slow replica.
+const ATTEMPTS = 40
+const WAIT_MS = 30_000
 
 const say = (msg) => console.log(`[release] ${msg}`)
 const die = (msg) => { console.error(`[release] ${msg}`); process.exit(1) }
@@ -23,7 +26,23 @@ const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim()
 loadDeployEnv()
 const { SITE_URL, BASE_PATH } = process.env
 if (!SITE_URL || !BASE_PATH) die('SITE_URL and BASE_PATH must be set in .env.deploy')
-const metaUrl = [SITE_URL.replace(/\/$/, ''), BASE_PATH.replace(/^\/|\/$/g, ''), META].filter(Boolean).join('/')
+const publicUrl = (name) => [SITE_URL.replace(/\/$/, ''), BASE_PATH.replace(/^\/|\/$/g, ''), name].filter(Boolean).join('/')
+const metaUrl = publicUrl(META)
+const loaderUrl = publicUrl(LOADER)
+
+// Best effort: without a key the wait alone still covers cache expiry.
+async function purge(url) {
+  const key = process.env.BUNNY_API_KEY
+  if (!key) return
+  try {
+    await fetch(`https://api.bunny.net/purge?url=${encodeURIComponent(url)}&async=false`, {
+      method: 'POST',
+      headers: { AccessKey: key },
+    })
+  } catch {
+    // The next round purges again.
+  }
+}
 
 // Commits must carry the repo-local identity. The address in a commit object is
 // permanent, so the global config is not a fallback here.
@@ -81,17 +100,20 @@ run('node', ['deploy.mjs'], 'deploy failed, check the zone before retrying')
 
 // Two things have to be true before this counts as released: update checks see
 // the new version, plus the bytes the loader will fetch hash to what it expects.
-const payloadUrl = [SITE_URL.replace(/\/$/, ''), BASE_PATH.replace(/^\/|\/$/g, ''), payload].filter(Boolean).join('/')
+const payloadUrl = publicUrl(payload)
 say(`checking ${metaUrl}`)
 let live = null
 let servedHash = null
 for (let i = 1; i <= ATTEMPTS; i++) {
+  if (i > 1) {
+    await new Promise((r) => setTimeout(r, WAIT_MS))
+    for (const url of [metaUrl, loaderUrl, payloadUrl]) await purge(url)
+  }
   live = (await (await fetch(metaUrl, { cache: 'no-store' })).text()).match(/@version\s+(\S+)/)?.[1] ?? null
   const body = await (await fetch(payloadUrl, { cache: 'no-store' })).text()
   servedHash = createHash('sha256').update(body, 'utf8').digest('hex')
   if (live === next && servedHash === wanted) { say(`attempt ${i}: ${live} live, payload matches`); break }
   say(`attempt ${i}: version ${live ?? 'missing'}, payload ${servedHash === wanted ? 'ok' : 'mismatched'}, waiting`)
-  if (i < ATTEMPTS) await new Promise((r) => setTimeout(r, WAIT_MS))
 }
 
 if (live !== next) {
