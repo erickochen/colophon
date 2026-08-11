@@ -109,13 +109,43 @@ function Post({ p, onQuote, myUid }: { p: TopicPost; onQuote: (p: TopicPost) => 
   )
 }
 
-/** getQuote.php returns the post body as HTML; flatten it to readable text while
- * keeping paragraph/line breaks, so the quote reads cleanly in the composer. */
+/** Header line of a rendered quote block: "name in post #123 wrote:". */
+const QUOTE_ATTRIBUTION = /^(.+?)(?: in post #(\d+))? wrote:$/
+
+/** getQuote.php returns the post body as rendered HTML, with editor padding
+ * (non-breaking spaces) and earlier quotes as nested div.quote blocks. Rebuild
+ * those as BBCode and flatten to text, so the quote posts back intact. */
 function quoteBodyToText(html: string): string {
   const doc = new DOMParser().parseFromString(html, 'text/html')
+  // Whitespace-only text nodes holding a raw newline are block formatting, not
+  // content; dropping them keeps every block join a single line break.
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT)
+  const noise: Text[] = []
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (/^[ \t]*[\r\n][ \t\r\n]*$/.test(node.nodeValue ?? '')) noise.push(node as Text)
+  }
+  noise.forEach((node) => node.remove())
+  doc.body.querySelectorAll('div.quote').forEach((quote) => {
+    const span = quote.querySelector(':scope > span:first-child')
+    const attribution = span?.textContent?.trim().match(QUOTE_ATTRIBUTION)
+    if (span && attribution) span.remove()
+    const open = !attribution
+      ? '[quote]'
+      : attribution[2]
+        ? `[quote=${attribution[1]}#p${attribution[2]}]`
+        : `[quote=${attribution[1]}]`
+    quote.prepend(`${open}\n`)
+    quote.append('\n[/quote]')
+  })
   doc.body.querySelectorAll('br').forEach((br) => br.replaceWith('\n'))
   doc.body.querySelectorAll('p, div, li').forEach((el) => el.append('\n'))
-  return (doc.body.textContent ?? '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim()
+  return (doc.body.textContent ?? '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/(\[quote(?:=[^\]\n]{1,80})?\])\n{2,}/gi, '$1\n')
+    .replace(/\n{2,}(\[\/quote\])/gi, '\n$1')
+    .trim()
 }
 
 /** MAM's own toggle: "Subscribe to thread" vs "Unsubscribe to thread". */

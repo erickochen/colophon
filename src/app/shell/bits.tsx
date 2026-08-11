@@ -88,16 +88,54 @@ export function Pager({
   )
 }
 
-/* MAM quotes are <div class="quote"><span>… wrote:</span>…</div>. Fill, spacing
- * and the attribution line mark where a quote starts and ends; the serif quote
- * mark lives in index.css. Shared with the composer so writing matches posting. */
+/* MAM quotes are <div class="quote"><span>… wrote:</span>…</div>. Card-in-card:
+ * a hairline border around every quote and fills that alternate per depth, so
+ * nesting reads at a glance. The serif quote mark lives in index.css. Shared
+ * with the composer so writing matches posting. */
 export const QUOTE_CLASSES =
-  '[&_.quote]:my-3 [&_.quote]:rounded-md [&_.quote]:bg-muted [&_.quote]:py-2.5 [&_.quote]:pr-3.5 [&_.quote]:pl-4 [&_.quote]:text-[13px] [&_.quote>span]:mb-1.5 [&_.quote>span]:block [&_.quote>span]:text-[11.5px] [&_.quote>span]:font-semibold [&_.quote>span]:text-muted-foreground [&_.quote_p:last-child]:mb-0'
+  '[&_.quote]:my-3 [&_.quote]:rounded-md [&_.quote]:border [&_.quote]:bg-muted [&_.quote]:py-2.5 [&_.quote]:pr-3.5 [&_.quote]:pl-4 [&_.quote]:text-[13px] [&_.quote_.quote]:bg-card [&_.quote_.quote_.quote]:bg-muted [&_.quote>span:first-child]:mb-1.5 [&_.quote>span:first-child]:block [&_.quote>span:first-child]:text-[11.5px] [&_.quote>span:first-child]:font-semibold [&_.quote>span:first-child]:text-foreground [&_.quote_p:last-child]:mb-0'
 
 /* MAM's editor writes every line as its own <p> and renders <p> without
  * margins, so blank lines only come from explicitly empty paragraphs. Post
  * bodies match that; RichHtml's default paragraph gap would double-space them. */
 export const POST_SPACING = 'leading-normal [&_p]:my-0'
+
+/** Quoted bodies carry editor padding at the box edges: blank <br> runs and
+ * whitespace-only lines. Trim the edges and cap inner gaps at one blank line
+ * so quote boxes stay tight. Word-separating spaces are left alone. */
+function tidyQuotes(html: string): string {
+  const body = new DOMParser().parseFromString(html, 'text/html').body
+  const isBr = (n: ChildNode) => n instanceof HTMLElement && n.tagName === 'BR'
+  const isPad = (n: ChildNode) => n.nodeType === Node.TEXT_NODE && !/\S/.test(n.nodeValue ?? '')
+  const isGap = (n: ChildNode) => isBr(n) || isPad(n)
+  for (const quote of body.querySelectorAll('div.quote')) {
+    const kids = [...quote.childNodes]
+    let i = 0
+    while (i < kids.length && isGap(kids[i])) kids[i++].remove()
+    const head = kids[i]
+    if (head instanceof HTMLElement && head.tagName === 'SPAN') i++
+    while (i < kids.length && isGap(kids[i])) kids[i++].remove()
+    let j = kids.length - 1
+    while (j >= i && isGap(kids[j])) kids[j--].remove()
+    let brs: ChildNode[] = []
+    let pad: ChildNode[] = []
+    const flush = () => {
+      if (brs.length >= 2) {
+        brs.slice(2).forEach((n) => n.remove())
+        pad.forEach((n) => n.remove())
+      }
+      brs = []
+      pad = []
+    }
+    for (const child of [...quote.childNodes]) {
+      if (isBr(child)) brs.push(child)
+      else if (isPad(child)) pad.push(child)
+      else flush()
+    }
+    flush()
+  }
+  return body.innerHTML
+}
 
 const IMAGE_HREF = /\.(png|jpe?g|gif|webp|avif)$/i
 
@@ -141,7 +179,7 @@ function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
 /** MAM rich-content (sanitized upstream) in readable Reading Room typography. */
 export function RichHtml({ html, className }: { html: string; className?: string }) {
   const [zoom, setZoom] = useState<string | null>(null)
-  const body = useMemo(() => rewriteHiddenBlocks(html), [html])
+  const body = useMemo(() => rewriteHiddenBlocks(tidyQuotes(html)), [html])
 
   function onClick(e: MouseEvent<HTMLDivElement>) {
     // The trigger is a real button, so it brings its own Enter and Space.
