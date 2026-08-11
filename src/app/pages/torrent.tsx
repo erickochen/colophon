@@ -147,13 +147,15 @@ function RatioNote({ guard }: { guard: RatioGuard }) {
 /** Download row with the ratio guard: freeleech, VIP and seeding torrents pass
  * untouched; a blocking ratio hit swaps the plain download for the FL routes. */
 function DownloadDock({ data, spent, onSpent }: { data: TorrentDetail; spent: boolean; onSpent: () => void }) {
-  const covered = data.freeleech || data.personalFreeleech || data.vip || !!data.dlHistory || !!data.downloadBlocked
-  const guard = useRatioGuard(covered || spent ? null : data.size)
+  const freeCost = data.freeleech || data.personalFreeleech || data.vip
+  // History quiets the guard but not the wedge: MAM keeps its own FL link on
+  // torrents you seed. A fresh download of an old snatch costs ratio again.
+  const guard = useRatioGuard(freeCost || !!data.dlHistory || !!data.downloadBlocked || spent ? null : data.size)
   const href = data.downloadHref ?? (data.id ? `/tor/download.php?tid=${data.id}` : null)
   const level = guard?.impact.level ?? 'none'
   const buyFl = data.ratio?.buttons.find((b) => b.name === 'personalFL')
 
-  const wedgeAction = covered || spent ? null : data.id != null ? (
+  const wedgeAction = freeCost || !!data.downloadBlocked || spent ? null : data.id != null ? (
     <WedgeDetailButton
       target={{ id: data.id, title: data.title, size: data.size, href }}
       emphasis={level === 'block'}

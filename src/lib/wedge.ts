@@ -10,14 +10,13 @@ export interface WedgeSubject {
   personal_freeleech: 0 | 1
   vip: 0 | 1
   fl_vip: 0 | 1
-  my_snatched: 0 | 1
 }
 
 /** Whether a wedge buys you anything here. Free, VIP and personal-freeleech
- * torrents cost no ratio already; a wedge cannot be applied to one you have
- * downloaded before. */
+ * torrents cost no ratio already; a snatch in the past does not make a new
+ * download free, so history plays no part. */
 export function wedgeHelps(t: WedgeSubject): boolean {
-  return t.free === 0 && t.personal_freeleech === 0 && t.vip === 0 && t.fl_vip === 0 && t.my_snatched === 0
+  return t.free === 0 && t.personal_freeleech === 0 && t.vip === 0 && t.fl_vip === 0
 }
 
 /** Pull a file without leaving the page. MAM answers download.php with an

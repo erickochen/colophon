@@ -377,7 +377,12 @@ export function ColophonPrefsView(_props: PageProps) {
           note="Gives users without a color of their own a steady one, so busy hours stay scannable."
           credit="Alternative SB name colors by seano"
         />
-        <FeatureRow feature="sbMutes" title="Mute action" note="Muted users collapse to a single quiet line." />
+        <FeatureRow
+          feature="sbMutes"
+          title="Mute action"
+          note="Muted users collapse to a single quiet line."
+          credit="MAM+ by GardenShade"
+        />
         <FeatureRow feature="sbEmphasis" title="Emphasis action" note="Marks users you never want to miss." />
         <UserListRows kind="sb-muted" title="Muted users" empty="Nobody muted." />
         <UserListRows kind="sb-emphasized" title="Emphasized users" empty="Nobody emphasized." />

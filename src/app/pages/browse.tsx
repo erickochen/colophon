@@ -3,7 +3,7 @@ import { AlignJustify, Bookmark, BookmarkCheck, BookmarkX, ChevronDown, Columns3
 import type { PageProps } from '@/app/router'
 import {
   bookmarkCleanup, bookmarkMass, BookmarkMassError, bookmarkOne, downloadZipOf, searchAllTorrents, searchTorrents,
-  parsePeople, downloadUrl, coverUrl, torrentUrl, BOOKMARKS_ZIP_URL, ZIP_BATCH_MAX,
+  searchUploads, uploaderSearchUrl, parsePeople, downloadUrl, coverUrl, torrentUrl, BOOKMARKS_ZIP_URL, ZIP_BATCH_MAX,
   type BookmarkCleanup, type SearchQuery, type SearchTorrent,
 } from '@/lib/mam-api'
 import { groupBySeries, type SeriesGroup } from '@/lib/series'
@@ -55,6 +55,11 @@ const SEARCH_INS = [
   ['torrents', 'Everywhere'], ['bookmarks', 'My bookmarks'], ['new', 'Flagged new'],
   ['mine', 'My uploads'], ['allReseed', 'All reseed requests'], ['myReseed', 'I could reseed'],
 ] as const
+
+// The sort tokens the newer search endpoint answered to when measured live;
+// its default order is newest first.
+const UPLOADER_SORT_VALUES = ['dateDesc', 'dateAsc', 'titleAsc', 'titleDesc', 'sizeAsc', 'sizeDesc', 'seedersDesc', 'snatchedDesc', 'random']
+const UPLOADER_SORTS = SORT_OPTIONS.filter((o) => UPLOADER_SORT_VALUES.includes(o.value))
 
 // MAM's search answers can trail a bookmark write by a while, so the total is
 // worth a few retries. Past that the toast carries the outcome and a lingering
@@ -131,6 +136,9 @@ interface BrowseState {
   authorID: number | null
   narratorID: number | null
   seriesID: number | null
+  // A profile's uploads link pins the list to one uploader (u<uid> or 'else');
+  // only MAM's newer endpoint understands that filter.
+  uploader: string | null
   sort: string
   start: number
   perpage: number
@@ -190,6 +198,7 @@ function stateFromSearchJson(raw: string, myUid: string | null): Partial<BrowseS
   else if (tor.rr === 'reseed') out.searchIn = 'allReseed'
   else if (tor.rr === 'myReseeds') out.searchIn = 'myReseed'
   else if (tor.uploader === 'me' || (myUid != null && tor.uploader === `u${myUid}`)) out.searchIn = 'mine'
+  else if (typeof tor.uploader === 'string' && (/^u\d+$/.test(tor.uploader) || tor.uploader === 'else')) out.uploader = tor.uploader
   const start = Number(parsed.start)
   if (Number.isFinite(start) && start > 0) out.start = start
   const perPage = Number(parsed.perPage)
@@ -215,6 +224,7 @@ function stateFromUrl(myUid: string | null = null): BrowseState {
     authorID: Number(p.get('author') ?? p.get('tor[authorID]')) || null,
     narratorID: Number(p.get('narrator') ?? p.get('tor[narratorID]')) || null,
     seriesID: Number(p.get('series') ?? p.get('tor[seriesID]')) || null,
+    uploader: null,
     sort: p.get('tor[sortType]') || 'default',
     start: Number(p.get('tor[startNumber]')) || 0,
     perpage: Number(p.get('perpage')) || DEFAULT_PERPAGE,
@@ -237,7 +247,7 @@ const stickyOf = (s: BrowseState): StickyFilters => ({
  * opening your bookmarks or your uploads should show that list whole. */
 function initialState(myUid: string | null): BrowseState {
   const s = stateFromUrl(myUid)
-  if (s.searchIn !== 'torrents') return s
+  if (s.searchIn !== 'torrents' || s.uploader) return s
   const saved: Partial<StickyFilters> = readSticky() ?? mamBrowseDefaults() ?? {}
   const p = new URLSearchParams(location.search)
   // A filter the link itself names is a choice, whether it rides in as a
@@ -268,6 +278,17 @@ function initialState(myUid: string | null): BrowseState {
 }
 
 function urlFromState(s: BrowseState): string {
+  // An uploader pin lives in the newer page's blob; everything else keeps the
+  // classic browse URL.
+  if (s.uploader) {
+    return uploaderSearchUrl({
+      uploader: s.uploader,
+      text: s.text || undefined,
+      sortType: s.sort,
+      startNumber: s.start || undefined,
+      perpage: s.perpage !== DEFAULT_PERPAGE ? s.perpage : undefined,
+    })
+  }
   const p = new URLSearchParams()
   if (s.text) p.set('tor[text]', s.text)
   for (const f of s.srchIn) p.set(`tor[srchIn][${f}]`, 'true')
@@ -887,7 +908,11 @@ export function BrowseView(props: PageProps) {
     setError(null)
     if (push) history.replaceState(null, '', urlFromState(q))
     try {
-      const res = q.seriesID ? await searchAllTorrents(toQuery(q)) : await searchTorrents(toQuery(q))
+      const res = q.uploader
+        ? await searchUploads({ uploader: q.uploader, text: q.text || undefined, sortType: q.sort, startNumber: q.start, perpage: q.perpage })
+        : q.seriesID
+          ? await searchAllTorrents(toQuery(q))
+          : await searchTorrents(toQuery(q))
       if (seq.current !== mine) return
       setFound(res.found)
       setItems((prev) => (append ? [...prev, ...res.data] : res.data))
@@ -910,7 +935,7 @@ export function BrowseView(props: PageProps) {
   const apply = (patch: Partial<BrowseState>) => {
     const next = { ...state, ...patch, start: 0 }
     setState(next)
-    if (next.searchIn === 'torrents') writeSticky(stickyOf(next))
+    if (next.searchIn === 'torrents' && !next.uploader) writeSticky(stickyOf(next))
     void run(next)
   }
 
@@ -1027,7 +1052,11 @@ export function BrowseView(props: PageProps) {
   const to = Math.min(found, baseStart + items.length)
   const remaining = Math.max(0, found - to)
   const activeFilters = state.cat.length + state.langs.length + state.flags.length + (hideSnatched ? 1 : 0)
-  const sortLabel = SORT_OPTIONS.find((o) => o.value === state.sort)?.label ?? state.sort
+  const uploaderMode = state.uploader != null
+  // The endpoint names the owner on every row, which labels the chip.
+  const uploaderName = uploaderMode && state.uploader !== 'else' ? items.find((t) => t.owner_name)?.owner_name ?? null : null
+  const effectiveSort = uploaderMode && state.sort === 'default' ? 'dateDesc' : state.sort
+  const sortLabel = SORT_OPTIONS.find((o) => o.value === effectiveSort)?.label ?? effectiveSort
 
   const facetSummary = useMemo(() => {
     const parts: string[] = []
@@ -1120,6 +1149,13 @@ export function BrowseView(props: PageProps) {
   // Every active filter gets a chip. Nothing should narrow the list from a place
   // the reader cannot see. Clear all only appears once a chip does.
   const chips: { key: string; label: string; onRemove: () => void }[] = [
+    ...(state.uploader
+      ? [{
+          key: 'uploader',
+          label: state.uploader === 'else' ? 'Not my uploads' : `Uploads by ${uploaderName ?? `member ${state.uploader.slice(1)}`}`,
+          onRemove: () => apply({ uploader: null }),
+        }]
+      : []),
     ...entityChip('author', state.authorID, () => apply({ authorID: null })),
     ...entityChip('narrator', state.narratorID, () => apply({ narratorID: null })),
     ...entityChip('series', state.seriesID, () => apply({ seriesID: null })),
@@ -1170,15 +1206,17 @@ export function BrowseView(props: PageProps) {
             {loading ? 'Searching…' : `${fmtInt(found)} torrents${facetSummary ? ` · ${facetSummary}` : ''}`}
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 text-[12.5px]"
-          onClick={() => void randomBook()}
-          disabled={rolling}
-        >
-          {rolling ? <Loader2 className="animate-spin" /> : <Dices />} Random book
-        </Button>
+        {!uploaderMode && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-[12.5px]"
+            onClick={() => void randomBook()}
+            disabled={rolling}
+          >
+            {rolling ? <Loader2 className="animate-spin" /> : <Dices />} Random book
+          </Button>
+        )}
       </div>
 
       <FilterBar>
@@ -1186,9 +1224,10 @@ export function BrowseView(props: PageProps) {
           value={state.text}
           onChange={(v) => setState((s) => ({ ...s, text: v }))}
           onSubmit={() => apply({})}
-          placeholder="Search titles, authors, narrators, series…"
+          placeholder={uploaderMode ? 'Search titles and authors in these uploads…' : 'Search titles, authors, narrators, series…'}
         />
 
+        {!uploaderMode && (
         <FilterRow className="gap-1.5">
           <FilterHint>in</FilterHint>
           <FilterSegments
@@ -1198,7 +1237,20 @@ export function BrowseView(props: PageProps) {
             onChange={(v) => apply({ srchIn: v as SrchField[] })}
           />
         </FilterRow>
+        )}
 
+        {uploaderMode ? (
+          <FilterRow>
+            <FilterSelect
+              value={effectiveSort}
+              onChange={(v) => apply({ sort: v })}
+              options={UPLOADER_SORTS}
+              align="end"
+              ariaLabel="Sort order"
+              className="ml-auto"
+            />
+          </FilterRow>
+        ) : (
         <FilterRow>
           <FilterSegments
             type="multiple"
@@ -1292,11 +1344,12 @@ export function BrowseView(props: PageProps) {
             className="ml-auto"
           />
         </FilterRow>
+        )}
       </FilterBar>
 
       <FilterSummary
         chips={chips}
-        onClearAll={() => apply({ mainCat: [], cat: [], langs: [], flags: [], searchType: 'all', searchIn: 'torrents', authorID: null, narratorID: null, seriesID: null })}
+        onClearAll={() => apply({ mainCat: [], cat: [], langs: [], flags: [], searchType: 'all', searchIn: 'torrents', authorID: null, narratorID: null, seriesID: null, uploader: null })}
         meta={loading ? 'Searching…' : state.seriesID && seriesViewOn ? `${fmtInt(found)} results · grouped by part` : `${fmtInt(found)} results · ${sortLabel}`}
       >
         <ViewToggle view={view} onChange={setViewMode} />
@@ -1350,11 +1403,13 @@ export function BrowseView(props: PageProps) {
         )}
         {!loading && !error && items.length === 0 && (
           <div className="py-12 text-center text-sm text-muted-foreground">
-            {state.searchIn === 'bookmarks'
-              ? 'No bookmarks yet. Bookmark a torrent and it shows up here.'
-              : state.searchIn === 'mine'
-                ? "You haven't uploaded any torrents yet."
-                : 'Nothing on these shelves. Loosen a filter or try different words.'}
+            {uploaderMode
+              ? 'No uploads to show here.'
+              : state.searchIn === 'bookmarks'
+                ? 'No bookmarks yet. Bookmark a torrent and it shows up here.'
+                : state.searchIn === 'mine'
+                  ? "You haven't uploaded any torrents yet."
+                  : 'Nothing on these shelves. Loosen a filter or try different words.'}
           </div>
         )}
         {!loading && !error && items.length > 0 && shownItems.length === 0 && (

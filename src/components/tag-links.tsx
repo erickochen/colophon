@@ -8,7 +8,7 @@ const LINK_CLS =
   'rounded-sm transition-colors hover:text-brand hover:underline focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none'
 
 export function TagLinks({ raw, limit, full = false, className }: {
-  raw: string | null | undefined
+  raw: string | number | null | undefined
   /** Show at most this many, then a plain remainder count. */
   limit?: number
   /** Also print the parts too long to pass as a tag, so nothing is lost. */

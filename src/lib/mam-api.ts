@@ -62,7 +62,8 @@ export interface SearchTorrent {
   bookmarked: number | null
   owner: number
   owner_name: string | null
-  tags: string | null
+  /** Free text, except a digits-only field arrives as a JSON number. */
+  tags: string | number | null
   description?: string
   dl?: string
   isbn?: string | null
@@ -349,6 +350,110 @@ export async function searchRequests(q: RequestQuery): Promise<RequestResult> {
     r.requesttime != null ? r : { ...r, requesttime: r.id ?? 0 }
   )
   return { ...parsed, data } as RequestResult
+}
+
+// Only the newer search endpoint filters by an arbitrary uploader; the classic
+// API ignores tor[uploader] entirely (verified live). That one filter runs
+// through it, with the answer reshaped into the classic row form.
+export interface UploaderQuery {
+  /** MAM's own link value: u<uid> from a profile or 'else' for not-mine. */
+  uploader: string
+  text?: string
+  sortType?: string
+  startNumber?: number
+  perpage?: number
+}
+
+const BYTES_PER_UNIT = 1024
+const IEC_UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB'] as const
+// Two decimals with trailing zeros dropped, matching the classic API's size
+// strings ("1.5 MiB" for 1572824 bytes).
+const SIZE_ROUNDING = 100
+
+function fmtBytes(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return '0 B'
+  let v = n
+  let unit = 0
+  while (v >= BYTES_PER_UNIT && unit < IEC_UNITS.length - 1) {
+    v /= BYTES_PER_UNIT
+    unit += 1
+  }
+  const rounded = unit === 0 ? Math.round(v) : Math.round(v * SIZE_ROUNDING) / SIZE_ROUNDING
+  return `${rounded} ${IEC_UNITS[unit]}`
+}
+
+/** Where the newer endpoint's rows differ from the classic ones: bytes for
+ * size, unix seconds for added, the category name under `cat` plus both owner
+ * fields folded into one JSON string. */
+interface NewSearchRow extends Omit<SearchTorrent, 'size' | 'added' | 'catname' | 'owner' | 'owner_name'> {
+  size: number
+  added: number
+  cat?: string
+  ownership?: string
+}
+
+function fromNewRow(d: NewSearchRow): SearchTorrent {
+  let owner = 0
+  let ownerName: string | null = null
+  try {
+    const pair = JSON.parse(String(d.ownership ?? '')) as [number, string]
+    owner = Number(pair[0]) || 0
+    ownerName = pair[1] != null ? String(pair[1]) : null
+  } catch {
+    // A row without ownership keeps the placeholder owner.
+  }
+  return {
+    ...d,
+    catname: String(d.cat ?? ''),
+    size: fmtBytes(Number(d.size) || 0),
+    added: requestedAt(Number(d.added) || 0),
+    owner,
+    owner_name: ownerName,
+  }
+}
+
+/** One member's uploads via the newer endpoint, answered as classic rows. */
+export async function searchUploads(q: UploaderQuery): Promise<SearchResult> {
+  const body = new URLSearchParams()
+  body.set('tor[uploader]', q.uploader)
+  if (q.text) {
+    body.set('com[text]', q.text)
+    for (const f of REQUEST_SEARCH_FIELDS) body.append('com[searchIn][]', f)
+  }
+  if (q.sortType && q.sortType !== 'default') body.set('com[sortType]', q.sortType)
+  if (q.startNumber) body.set('start', String(q.startNumber))
+  body.set('perPage', String(q.perpage ?? 25))
+  body.set('searchType', 'Torrents')
+  const res = await fetch('/tor/json/search.php', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  })
+  if (!res.ok) throw new Error(`uploader search failed: ${res.status}`)
+  const json = await res.json()
+  if (!Array.isArray(json.data)) return { perpage: 0, start: 0, data: [], found: 0 }
+  return {
+    perpage: Number(json.perpage) || (q.perpage ?? 25),
+    start: Number(json.start) || 0,
+    found: Number(json.found) || 0,
+    data: (json.data as NewSearchRow[]).map(fromNewRow),
+  }
+}
+
+/** Page URL in MAM's own blob shape, so the link works with the script off. */
+export function uploaderSearchUrl(q: UploaderQuery): string {
+  const com: Record<string, unknown> = {}
+  if (q.text) {
+    com.text = q.text
+    com.searchIn = REQUEST_SEARCH_FIELDS
+  }
+  if (q.sortType && q.sortType !== 'default') com.sortType = q.sortType
+  const s: Record<string, unknown> = { tor: { uploader: q.uploader }, searchType: 'Torrents' }
+  if (Object.keys(com).length) s.com = com
+  if (q.startNumber) s.start = String(q.startNumber)
+  if (q.perpage) s.perPage = q.perpage
+  return `/tor/search.php?s=${encodeURIComponent(JSON.stringify(s))}`
 }
 
 export interface UserLive {

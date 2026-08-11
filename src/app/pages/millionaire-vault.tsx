@@ -16,7 +16,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Slider } from '@/components/ui/slider'
 import { toast } from '@/components/ui/toast'
 
-// The site hands out 8 extra wedges to everyone who gave this much to a pot.
+// The payout when the vault fills, from MAM's own pot page: every active
+// member gets the base wedges, giving 2,000+ to a pot adds the bonus on top.
+const BASE_WEDGES = 2
+const BONUS_WEDGES = 8
 const WEDGE_BONUS_AT = 2000
 // Fallback for the daily cap when the page text does not spell it out.
 const DAILY_MAX = 2000
@@ -128,7 +131,13 @@ function VaultDonations({ donations, failed }: { donations: Donation[] | null; f
             <Skeleton className="h-4 w-56" />
           </div>
         ) : donations.length === 0 ? (
-          <p className="px-6 pb-6 text-[13px] text-muted-foreground">Nothing given to this pot yet.</p>
+          <div className="grid gap-1 px-6 pb-6">
+            <p className="text-[13px] text-muted-foreground">Nothing given to this pot yet.</p>
+            <p className="text-[12px] text-muted-foreground">
+              {BASE_WEDGES} wedges waiting for you when the vault fills.
+              {` Donate ${fmtInt(WEDGE_BONUS_AT)} or more to make it ${BASE_WEDGES + BONUS_WEDGES}.`}
+            </p>
+          </div>
         ) : (
           <>
             <div className="grid gap-1.5 px-6 pb-4">
@@ -141,8 +150,8 @@ function VaultDonations({ donations, failed }: { donations: Donation[] | null; f
               <Progress value={Math.min(100, (total / WEDGE_BONUS_AT) * 100)} className="h-2 [&>div]:bg-brand-fill" />
               <p className="text-[12px] text-muted-foreground">
                 {toBonus > 0
-                  ? `${fmtInt(toBonus)} more to this pot for 8 extra wedges`
-                  : '8 extra wedges waiting for you when the vault fills'}
+                  ? `${BASE_WEDGES} wedges waiting for you when the vault fills. Donate ${fmtInt(toBonus)} more to make it ${BASE_WEDGES + BONUS_WEDGES}.`
+                  : `${BASE_WEDGES + BONUS_WEDGES} wedges waiting for you when the vault fills.`}
               </p>
             </div>
             <div className="max-h-[320px] overflow-y-auto">
@@ -215,7 +224,7 @@ export function MillionaireVaultView(props: PageProps) {
               <a href="/millionaires/donate.php"><HandCoins /> Donate to the pot</a>
             </Button>
             <p className="text-center text-[11.5px] leading-snug text-muted-foreground">
-              Up to 2,000 points a day. Members with a ratio of 1.05 or higher can give.
+              Up to 2,000 points a day. Members with a ratio of 1.05 or higher can donate.
             </p>
           </div>
         </CardContent>

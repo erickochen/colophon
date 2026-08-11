@@ -15,12 +15,13 @@ export interface TagSegment {
 }
 
 /** Every part of the field in the order it appears. Searchable parts drop
- * repeats; the rest carry release notes and stay as they were written. */
-export function parseSegments(raw: string | null | undefined): TagSegment[] {
-  if (!raw) return []
+ * repeats; the rest carry release notes and stay as they were written. A field
+ * holding only digits (a year, say) arrives as a JSON number, hence String(). */
+export function parseSegments(raw: string | number | null | undefined): TagSegment[] {
+  if (raw == null || raw === '') return []
   const seen = new Set<string>()
   const segments: TagSegment[] = []
-  for (const part of raw.split(BOUNDARY)) {
+  for (const part of String(raw).split(BOUNDARY)) {
     const text = part.trim().replace(/\s+/g, ' ')
     if (!text) continue
     const searchable = text.length >= TAG_MIN_LEN && text.length <= TAG_MAX_LEN
@@ -35,7 +36,7 @@ export function parseSegments(raw: string | null | undefined): TagSegment[] {
 }
 
 /** Tags worth linking, in the order they appear, without repeats. */
-export function parseTags(raw: string | null | undefined): string[] {
+export function parseTags(raw: string | number | null | undefined): string[] {
   return parseSegments(raw).filter((s) => s.searchable).map((s) => s.text)
 }
 

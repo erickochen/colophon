@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, Check } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { parseForm, type MirrorRow } from '@/lib/form-mirror'
 import { cleanHtml } from '@/lib/sanitize'
@@ -59,6 +59,21 @@ function saveErrors(form: HTMLFormElement | null): string[] {
     if (text) out.push(text)
   }
   return [...new Set(out)]
+}
+
+// Anything longer than this is a page of its own, not a confirmation line.
+const SAVE_NOTICE_MAX_LENGTH = 200
+
+/** Some saves answer with just a confirmation line instead of the form (the
+ * IRC password reset does this). Pick up that line so the tab can show it. */
+function saveNotice(form: HTMLFormElement | null): string | null {
+  if (form) return null
+  const main = document.querySelector('#mainBody')
+  if (!main) return null
+  const copy = main.cloneNode(true) as HTMLElement
+  copy.querySelectorAll('h1, script, style').forEach((el) => el.remove())
+  const text = copy.textContent?.replace(/\s+/g, ' ').trim() ?? ''
+  return text && text.length <= SAVE_NOTICE_MAX_LENGTH ? text : null
 }
 
 /** The copy MAM puts in a heading row that carries no control of its own. */
@@ -162,6 +177,7 @@ export function PreferencesView(props: PageProps) {
   const { isDirty, leave } = useUnsavedGuard(form)
   const [pending, setPending] = useState<string | null>(null)
   const rejected = useMemo(() => saveErrors(form), [form])
+  const notice = useMemo(() => (rejected.length > 0 ? null : saveNotice(form)), [form, rejected])
 
   const nav = (
     <nav className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 xl:sticky xl:top-20 xl:mx-0 xl:flex-col xl:gap-0.5 xl:self-start xl:overflow-visible xl:px-0 xl:pb-0">
@@ -222,6 +238,19 @@ export function PreferencesView(props: PageProps) {
             >
               Back to {TABS.find((t) => t.view === active)?.label ?? 'settings'}
             </a>
+          ) : notice ? (
+            <div className="grid justify-items-start gap-4">
+              <div className="flex items-start gap-2.5 rounded-lg bg-ok/15 px-4 py-3 text-[13px]">
+                <Check className="mt-0.5 size-4 shrink-0 text-ok" />
+                <span className="leading-normal">{notice}</span>
+              </div>
+              <a
+                href={`/preferences/index.php?view=${active}`}
+                className="inline-flex h-8 items-center rounded-md bg-brand-soft px-3 text-[12.5px] font-medium text-accent-foreground transition-colors hover:opacity-90"
+              >
+                Back to {TABS.find((t) => t.view === active)?.label ?? 'settings'}
+              </a>
+            </div>
           ) : /* Bespoke views own the tabs whose forms the generic FormMirror
               mangles (matrix tables, nested widgets, live meters). The rest
               stay plain FormMirror. */
