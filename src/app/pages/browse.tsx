@@ -15,6 +15,7 @@ import { useFeature, useIgnoredTorrents } from '@/lib/settings'
 import { fmtInt, plural, relTime, utcTitle } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Book } from '@/components/book'
+import { CopyResultsButton } from '@/components/copy-results'
 import { CollapsibleSection } from '@/components/section'
 import { SeriesHeader } from '@/components/series-header'
 import { TagLinks } from '@/components/tag-links'
@@ -1352,6 +1353,7 @@ export function BrowseView(props: PageProps) {
         onClearAll={() => apply({ mainCat: [], cat: [], langs: [], flags: [], searchType: 'all', searchIn: 'torrents', authorID: null, narratorID: null, seriesID: null, uploader: null })}
         meta={loading ? 'Searching…' : state.seriesID && seriesViewOn ? `${fmtInt(found)} results · grouped by part` : `${fmtInt(found)} results · ${sortLabel}`}
       >
+        <CopyResultsButton rows={items} />
         <ViewToggle view={view} onChange={setViewMode} />
         {view === 'list' && <ColumnsMenu cols={cols} onToggle={toggleCol} />}
         {!loading && shownItems.length > 0 && (

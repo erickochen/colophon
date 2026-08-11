@@ -5,6 +5,7 @@ import { giftPoints, sendWedgeTo, MAX_GIFT, MIN_GIFT, type BonusBuyResult } from
 import { readDefaultGiftAmount, syncPanelBalance, useGiftingEnabled, useGiftMam, type GiftSurface } from '@/lib/giftmam'
 import { applyPointsUpdate, useLiveBonus, useLiveWedges } from '@/lib/bonus'
 import { closeGiftDialog, getGiftDialog, openGiftDialog, subscribeGiftDialog, type GiftRequest } from '@/lib/gift-dialog'
+import { readDefaultAmount, resolveAmount } from '@/lib/settings'
 import { initials } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -178,7 +179,11 @@ function PointsDialog({ name, balance, state, onSend }: {
   state: SendState
   onSend: (points: number) => void
 }) {
-  const [amount, setAmount] = useState(() => String(readDefaultGiftAmount()))
+  // Own setting first, then the GiftMAM widget default, then the plain fallback.
+  const [amount, setAmount] = useState(() => {
+    const preset = resolveAmount(readDefaultAmount('gift'), MIN_GIFT, MAX_GIFT)
+    return String(preset ?? readDefaultGiftAmount())
+  })
   const points = Number(amount)
   const valid = Number.isInteger(points) && points >= MIN_GIFT && points <= MAX_GIFT
   const short = valid && balance != null && points > balance

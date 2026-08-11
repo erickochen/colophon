@@ -9,10 +9,11 @@ import {
   chooseDarkScheme, chooseLightScheme, chooseTheme, DARK_SCHEME_ITEMS, LIGHT_SCHEME_ITEMS, SchemeDot, useAppearance,
 } from '@/components/appearance'
 import {
-  exportSettings, importSettings, useFeature, useIgnoredTorrents, useRatioFloor, useUserList,
-  useUserNotes, type FeatureKey, type UserListKind,
+  exportSettings, importSettings, useDefaultAmount, useFeature, useIgnoredTorrents, useRatioFloor,
+  useUserList, useUserNotes, type AmountKind, type FeatureKey, type UserListKind,
 } from '@/lib/settings'
 import { HARD_FLOOR } from '@/lib/ratio-protect'
+import { MAX_GIFT, THANK_MAX } from '@/lib/mam-api'
 import { PrefCard, SettingRow } from '@/app/pages/prefs-bits'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -39,6 +40,24 @@ function FeatureRow({ feature, title, note, credit }: { feature: FeatureKey; tit
   return (
     <SettingRow title={title} note={noteWithCredit(note, credit)}>
       <Switch checked={on} onCheckedChange={setOn} aria-label={title} />
+    </SettingRow>
+  )
+}
+
+function AmountRow({ kind, title, note, credit, max }: { kind: AmountKind; title: string; note: string; credit?: string; max: number }) {
+  const [value, setValue] = useDefaultAmount(kind)
+  const valid =
+    value === '' || /^max$/i.test(value.trim()) || (Number.isInteger(Number(value)) && Number(value) > 0 && Number(value) <= max)
+  return (
+    <SettingRow title={title} note={noteWithCredit(note, credit)}>
+      <Input
+        value={value}
+        placeholder="off"
+        aria-label={title}
+        aria-invalid={!valid}
+        onChange={(e) => setValue(e.target.value)}
+        className="h-8 w-24 text-[12.5px]"
+      />
     </SettingRow>
   )
 }
@@ -331,7 +350,22 @@ export function ColophonPrefsView(_props: PageProps) {
           note="Adds an ignore action to browse rows. Ignored torrents stay out of every result list."
           credit="MAM Ignore Torrents by Humdinger"
         />
+        <FeatureRow
+          feature="plainCopy"
+          title="Copy results as text"
+          note="A button above the results that copies the page as one line per book. Also on the requests page."
+          credit="MAM+ by GardenShade"
+        />
         <IgnoredTorrentRows />
+      </PrefCard>
+
+      <PrefCard title="Requests">
+        <FeatureRow
+          feature="hideHiddenRequesters"
+          title="Hide hidden requesters"
+          note="Hides requests from members who keep their name hidden. The same toggle lives in the request filters."
+          credit="MAM+ by GardenShade"
+        />
       </PrefCard>
 
       <PrefCard title="Series">
@@ -384,8 +418,37 @@ export function ColophonPrefsView(_props: PageProps) {
           credit="MAM+ by GardenShade"
         />
         <FeatureRow feature="sbEmphasis" title="Emphasis action" note="Marks users you never want to miss." />
+        <FeatureRow
+          feature="quickShout"
+          title="Quick shouts"
+          note="Saved messages behind a button in the composer. Pick one to insert it."
+          credit="MAM+ by GardenShade"
+        />
         <UserListRows kind="sb-muted" title="Muted users" empty="Nobody muted." />
         <UserListRows kind="sb-emphasized" title="Emphasized users" empty="Nobody emphasized." />
+      </PrefCard>
+
+      <PrefCard title="Gifting">
+        <AmountRow
+          kind="thank"
+          max={THANK_MAX}
+          title="Default thank amount"
+          note="Prefills the thank box on torrent pages. A number or max; empty starts at zero."
+          credit="MAM+ by GardenShade"
+        />
+        <AmountRow
+          kind="gift"
+          max={MAX_GIFT}
+          title="Default gift amount"
+          note="Prefills the gift dialog on every gift button. A number or max; empty follows the GiftMAM widget."
+          credit="MAM+ by GardenShade"
+        />
+        <FeatureRow
+          feature="giftNewest"
+          title="Gift all newest members"
+          note="Adds a bulk gift run to the new members page, one gift every few seconds. Every run asks before it spends."
+          credit="MAM+ by GardenShade and ooglyboogly"
+        />
       </PrefCard>
 
       <PrefCard title="Time and counters">

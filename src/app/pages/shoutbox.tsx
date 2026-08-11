@@ -18,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/toast'
 import { GiftActions } from '@/components/giftmam-actions'
+import { QuickShouts } from '@/components/quick-shouts'
 
 interface ShoutItem { id: string; numId: string; time: string | null; html: string | null; text: string; editable: boolean }
 interface ShoutGroup { key: string; user: Shout['user']; own: boolean; items: ShoutItem[] }
@@ -66,7 +67,7 @@ function mentionsMe(item: ShoutItem, myUid: number | null, myName: string | null
 }
 
 /** Rendered shout body: keep MAM's smilies as small inline images and its
- * coloured @mentions; fall back to plain text when no HTML was captured. */
+ * tinted @mentions; fall back to plain text when no HTML was captured. */
 function ShoutBody({ item }: { item: ShoutItem }) {
   if (item.html) {
     return (
@@ -191,6 +192,19 @@ export function ShoutboxView(props: PageProps) {
   function appendDraft(s: string) {
     setDraft((d) => (d.trim() ? d.replace(/\s*$/, ' ') : '') + s)
     input.current?.focus()
+  }
+
+  /** Put text at the caret, replacing any selection; an empty box just takes it. */
+  function insertAtCaret(text: string) {
+    const el = input.current
+    const start = el?.selectionStart ?? draft.length
+    const end = el?.selectionEnd ?? draft.length
+    setDraft(draft.slice(0, start) + text + draft.slice(end))
+    requestAnimationFrame(() => {
+      el?.focus()
+      const pos = start + text.length
+      el?.setSelectionRange(pos, pos)
+    })
   }
 
   function send() {
@@ -496,6 +510,7 @@ export function ShoutboxView(props: PageProps) {
             )}
             <div className="flex h-11 items-center gap-1 rounded-lg border border-input bg-background pl-1 pr-1.5 transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring">
               <EmojiPicker onPick={(code) => appendDraft(code)} />
+              <QuickShouts draft={draft} onInsert={insertAtCaret} />
               <input
                 ref={input}
                 value={draft}

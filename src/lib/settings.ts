@@ -27,6 +27,10 @@ export type FeatureKey =
   | 'seriesBulk'
   | 'notifToasts'
   | 'notifTitle'
+  | 'quickShout'
+  | 'plainCopy'
+  | 'hideHiddenRequesters'
+  | 'giftNewest'
 
 interface FeatureDef {
   key: string
@@ -53,6 +57,10 @@ export const FEATURES: Record<FeatureKey, FeatureDef> = {
   seriesBulk: { key: 'colophon:series-bulk', enabledByDefault: true },
   notifToasts: { key: 'colophon:notif-toasts', enabledByDefault: true },
   notifTitle: { key: 'colophon:notif-title', enabledByDefault: true },
+  quickShout: { key: 'colophon:quick-shout', enabledByDefault: true },
+  plainCopy: { key: 'colophon:plain-copy', enabledByDefault: true },
+  hideHiddenRequesters: { key: 'colophon:hide-hidden-requesters', enabledByDefault: false },
+  giftNewest: { key: 'colophon:gift-newest', enabledByDefault: false },
 }
 
 const RATIO_FLOOR_KEY = 'colophon:ratio-floor'
@@ -60,6 +68,10 @@ const IGNORED_KEY = 'colophon:ignored-torrents'
 const MUTED_KEY = 'colophon:sb-muted'
 const EMPHASIZED_KEY = 'colophon:sb-emphasized'
 const NOTES_KEY = 'colophon:user-notes'
+const QUICK_SHOUTS_KEY = 'colophon:quick-shouts'
+const DEFAULT_THANK_KEY = 'colophon:default-thank'
+const DEFAULT_GIFT_KEY = 'colophon:default-gift'
+const GIFTED_MEMBERS_KEY = 'colophon:gifted-members'
 
 const listeners = new Set<() => void>()
 let revision = 0
@@ -240,6 +252,138 @@ export function useUserList(kind: UserListKind): {
   return { users, has, add, remove }
 }
 
+export interface QuickShout {
+  name: string
+  text: string
+}
+
+// Keeps the popover scannable and the store small.
+export const QUICK_SHOUT_CAP = 50
+
+function validQuickShouts(raw: unknown): QuickShout[] | null {
+  if (!Array.isArray(raw)) return null
+  const out: QuickShout[] = []
+  for (const v of raw) {
+    if (typeof v !== 'object' || v === null) continue
+    const o = v as Record<string, unknown>
+    if (typeof o.name !== 'string' || !o.name.trim() || typeof o.text !== 'string') continue
+    out.push({ name: o.name, text: o.text })
+  }
+  return out
+}
+
+export function readQuickShouts(): QuickShout[] {
+  return readJson(QUICK_SHOUTS_KEY, validQuickShouts, [])
+}
+
+function writeQuickShouts(list: QuickShout[]): void {
+  rawWrite(QUICK_SHOUTS_KEY, list.length ? JSON.stringify(list) : null)
+}
+
+export function useQuickShouts(): {
+  list: QuickShout[]
+  save(name: string, text: string): boolean
+  remove(name: string): void
+  rename(from: string, to: string): boolean
+} {
+  useSyncExternalStore(subscribe, getRevision)
+  const list = readQuickShouts()
+  const save = useCallback((name: string, text: string) => {
+    const now = readQuickShouts()
+    const hit = now.findIndex((s) => s.name === name)
+    if (hit >= 0) {
+      const next = [...now]
+      next[hit] = { name, text }
+      writeQuickShouts(next)
+      return true
+    }
+    if (now.length >= QUICK_SHOUT_CAP) return false
+    writeQuickShouts([...now, { name, text }])
+    return true
+  }, [])
+  const remove = useCallback((name: string) => {
+    writeQuickShouts(readQuickShouts().filter((s) => s.name !== name))
+  }, [])
+  const rename = useCallback((from: string, to: string) => {
+    const now = readQuickShouts()
+    if (now.some((s) => s.name === to)) return false
+    writeQuickShouts(now.map((s) => (s.name === from ? { ...s, name: to } : s)))
+    return true
+  }, [])
+  return { list, save, remove, rename }
+}
+
+export type AmountKind = 'thank' | 'gift'
+
+const AMOUNT_KEYS: Record<AmountKind, string> = {
+  thank: DEFAULT_THANK_KEY,
+  gift: DEFAULT_GIFT_KEY,
+}
+
+/** Raw stored value: a whole number, "max" or empty for off. */
+export function readDefaultAmount(kind: AmountKind): string {
+  return rawRead(AMOUNT_KEYS[kind]) ?? ''
+}
+
+export function writeDefaultAmount(kind: AmountKind, raw: string): void {
+  const v = raw.trim()
+  rawWrite(AMOUNT_KEYS[kind], v ? v : null)
+}
+
+export function useDefaultAmount(kind: AmountKind): [string, (v: string) => void] {
+  useSyncExternalStore(subscribe, getRevision)
+  const set = useCallback((v: string) => writeDefaultAmount(kind, v), [kind])
+  return [readDefaultAmount(kind), set]
+}
+
+/** Setting turned into a usable number: "max" takes the ceiling, numbers clamp
+ * into the given bounds, anything else is off. */
+export function resolveAmount(raw: string | null, min: number, max: number): number | null {
+  const v = (raw ?? '').trim()
+  if (!v) return null
+  if (/^max$/i.test(v)) return max
+  const n = Number(v)
+  if (!Number.isInteger(n) || n <= 0) return null
+  return Math.min(max, Math.max(min, n))
+}
+
+// New member lists roll off well within this window.
+const GIFTED_TTL_DAYS = 60
+const MS_PER_DAY = 24 * 60 * 60 * 1000
+
+function validGiftedMembers(raw: unknown): Record<string, string> | null {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null
+  const out: Record<string, string> = {}
+  for (const [uid, v] of Object.entries(raw)) {
+    if (typeof v !== 'string') continue
+    out[uid] = v
+  }
+  return out
+}
+
+/** Gifted uids, with entries past the TTL dropped on read. */
+export function readGiftedMembers(): Record<string, string> {
+  const all = readJson(GIFTED_MEMBERS_KEY, validGiftedMembers, {})
+  const cutoff = Date.now() - GIFTED_TTL_DAYS * MS_PER_DAY
+  return Object.fromEntries(
+    Object.entries(all).filter(([, at]) => {
+      const t = Date.parse(at)
+      return Number.isNaN(t) || t >= cutoff
+    })
+  )
+}
+
+export function useGiftedMembers(): { has(uid: string): boolean; add(uid: string): void } {
+  useSyncExternalStore(subscribe, getRevision)
+  const marks = readGiftedMembers()
+  const has = useCallback((uid: string) => uid in marks, [marks])
+  const add = useCallback((uid: string) => {
+    const next = { ...readGiftedMembers(), [uid]: new Date().toISOString() }
+    rawWrite(GIFTED_MEMBERS_KEY, JSON.stringify(next))
+  }, [])
+  return { has, add }
+}
+
 export interface UserNote {
   text: string
   updated: string
@@ -289,6 +433,11 @@ const VALUE_KEYS: Record<string, (raw: string) => boolean> = {
   [MUTED_KEY]: (raw) => parses(raw, validUsers),
   [EMPHASIZED_KEY]: (raw) => parses(raw, validUsers),
   [NOTES_KEY]: (raw) => parses(raw, validNotes),
+  [QUICK_SHOUTS_KEY]: (raw) => parses(raw, validQuickShouts),
+  // The two amount keys hold a plain string rather than JSON.
+  [DEFAULT_THANK_KEY]: (raw) => /^max$/i.test(raw.trim()) || (Number.isInteger(Number(raw)) && Number(raw) > 0),
+  [DEFAULT_GIFT_KEY]: (raw) => /^max$/i.test(raw.trim()) || (Number.isInteger(Number(raw)) && Number(raw) > 0),
+  [GIFTED_MEMBERS_KEY]: (raw) => parses(raw, validGiftedMembers),
   [THEME_KEY]: (raw) => raw === 'light' || raw === 'dark' || raw === 'auto',
   [SCHEME_LIGHT_KEY]: (raw) => (LIGHT_SCHEMES as readonly string[]).includes(raw),
   [SCHEME_DARK_KEY]: (raw) => (DARK_SCHEMES as readonly string[]).includes(raw),

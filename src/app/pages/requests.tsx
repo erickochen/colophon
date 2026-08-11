@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, Gift } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Filter, Gift } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import type { RequestQuery, RequestRow } from '@/lib/mam-api'
 import {
@@ -15,13 +15,19 @@ import {
   searchRequests,
 } from '@/lib/mam-api'
 import { dateOnly, decodeEntities, fmtInt, localDate, plural, utcTitle } from '@/lib/format'
+import { useFeature } from '@/lib/settings'
 import { PageHeader } from '@/app/shell/bits'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { FilterBar, FilterRow, FilterSearch, FilterSegments, FilterSelect } from '@/components/filters'
+import { CopyResultsButton } from '@/components/copy-results'
+import {
+  FacetSection, FilterBar, FilterFacet, FilterRow, FilterSearch, FilterSegments, FilterSelect, FilterSummary,
+} from '@/components/filters'
 
 const SKELETON_ROWS = 8
 
@@ -41,7 +47,11 @@ export function RequestsView(_props: PageProps) {
   const [found, setFound] = useState(0)
   const [rows, setRows] = useState<RequestRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [hideHidden, setHideHidden] = useFeature('hideHiddenRequesters')
   const seq = useRef(0)
+
+  const shown = rows == null ? null : hideHidden ? rows.filter((r) => r.pubuid) : rows
+  const hiddenCount = rows != null && shown != null ? rows.length - shown.length : 0
 
   const load = useCallback(async (q: RequestQuery) => {
     const mine = ++seq.current
@@ -100,6 +110,14 @@ export function RequestsView(_props: PageProps) {
             options={[...REQUESTERS]}
             ariaLabel="Requested by"
           />
+          <FilterFacet label="Filters" count={hideHidden ? 1 : 0} icon={<Filter className="size-3.5" />}>
+            <FacetSection title="Personal" note="only in this browser">
+              <Label className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
+                <Checkbox checked={hideHidden} onCheckedChange={(v) => setHideHidden(!!v)} />
+                Hide hidden requesters
+              </Label>
+            </FacetSection>
+          </FilterFacet>
           <FilterSelect
             value={state.sortType}
             onChange={(v) => apply({ sortType: v })}
@@ -110,6 +128,13 @@ export function RequestsView(_props: PageProps) {
           />
         </FilterRow>
       </FilterBar>
+
+      <FilterSummary
+        chips={hideHidden ? [{ key: 'hideHidden', label: 'Hide hidden requesters', onRemove: () => setHideHidden(false) }] : []}
+        meta={rows ? plural(found, 'request') : 'Loading…'}
+      >
+        <CopyResultsButton rows={rows ?? []} decode />
+      </FilterSummary>
 
       <Card className="overflow-hidden py-0">
         <Table className="[&_th:first-child]:pl-6 [&_td:first-child]:pl-6 [&_th:last-child]:pr-6 [&_td:last-child]:pr-6">
@@ -137,7 +162,15 @@ export function RequestsView(_props: PageProps) {
             {rows?.length === 0 && (
               <TableRow><TableCell colSpan={4} className="py-12 text-center text-sm text-muted-foreground">No requests match.</TableCell></TableRow>
             )}
-            {rows?.map((r) => {
+            {rows != null && rows.length > 0 && shown?.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={4} className="py-12 text-center text-sm text-muted-foreground">
+                  Every request on this page is from a hidden requester.{' '}
+                  <button type="button" className="underline" onClick={() => setHideHidden(false)}>Show them</button>
+                </TableCell>
+              </TableRow>
+            )}
+            {shown?.map((r) => {
               const authors = names(r.author_info)
               const narrators = names(r.narrator_info)
               const series = names(r.series_info)
@@ -189,6 +222,7 @@ export function RequestsView(_props: PageProps) {
       <div className="flex items-center justify-end gap-2">
         <span className="mr-auto text-[12.5px] text-muted-foreground">
           {rows ? `Showing ${fmtInt(found === 0 ? 0 : state.start + 1)}–${fmtInt(Math.min(found, state.start + rows.length))} of ${fmtInt(found)}` : ''}
+          {hiddenCount > 0 && ` · ${fmtInt(hiddenCount)} hidden on this page`}
         </span>
         <Button
           variant="outline"

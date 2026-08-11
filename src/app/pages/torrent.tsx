@@ -8,10 +8,10 @@ import { cleanHtml } from '@/lib/sanitize'
 import { swapStatusIcons } from '@/lib/status-dots'
 import { mutedUserColor } from '@/lib/colors'
 import { fmtInt, fmtRatio, initials, relTime, utcTitle } from '@/lib/format'
-import { searchTorrents, parsePeople, coverUrl, torrentUrl, type SearchTorrent } from '@/lib/mam-api'
+import { searchTorrents, parsePeople, coverUrl, torrentUrl, THANK_MAX, type SearchTorrent } from '@/lib/mam-api'
 import { coverShape, mediaTypeFromHref, type CoverShape } from '@/lib/cover-shape'
 import { seriesEntry } from '@/lib/series'
-import { useFeature } from '@/lib/settings'
+import { readDefaultAmount, resolveAmount, useFeature } from '@/lib/settings'
 import { HARD_FLOOR, TRIVIAL_DROP, useRatioGuard, type RatioGuard, type RatioLevel } from '@/lib/ratio-protect'
 import { cn } from '@/lib/utils'
 import { Book, Book3D, BookAmbilight } from '@/components/book'
@@ -633,7 +633,10 @@ function EditionsStrip({ data }: { data: TorrentDetail }) {
 
 export function TorrentView(props: PageProps) {
   const data = useMemo(() => extractTorrent(document), [])
-  const [points, setPoints] = useState('')
+  const [points, setPoints] = useState(() => {
+    const preset = resolveAmount(readDefaultAmount('thank'), 0, THANK_MAX)
+    return preset != null ? String(preset) : ''
+  })
   // A wedge spent on this page turns the torrent free, which the server-rendered
   // ratio tile in the sidebar cannot know.
   const [spent, setSpent] = useState(false)
@@ -981,7 +984,7 @@ export function TorrentView(props: PageProps) {
           <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 px-4 py-3">
             <Gift className="size-4 text-brand" />
             <span className="text-[13px] font-medium">Thank the uploader</span>
-            <Input type="number" min={0} max={5000} step={50} value={points} onChange={(e) => setPoints(e.target.value)} placeholder="0" className="ml-auto h-8 w-24" />
+            <Input type="number" min={0} max={THANK_MAX} step={50} value={points} onChange={(e) => setPoints(e.target.value)} placeholder="0" className="ml-auto h-8 w-24" />
             <span className="text-[12.5px] text-muted-foreground">points</span>
             <Button size="sm" className="h-8" onClick={thank}>Say thanks</Button>
           </div>

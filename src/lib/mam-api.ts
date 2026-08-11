@@ -227,6 +227,9 @@ export interface RequestRow {
   narrator_info: string | null
   series_info: string | null
   releasedate: string | null
+  /** 0 with an empty pubusername when the requester hides their name. */
+  pubuid: number
+  pubusername: string
 }
 
 export interface RequestResult {
@@ -487,6 +490,8 @@ export async function bookmarkOne(id: number, action: 'add' | 'delete'): Promise
 // Server bounds for a single bonus-point gift; MAM refuses anything outside.
 export const MIN_GIFT = 5
 export const MAX_GIFT = 1000
+// The bound MAM's own thank box enforces on torrent pages.
+export const THANK_MAX = 5000
 // Prefill when the GiftMAM widget offers no usable default.
 export const DEFAULT_GIFT = 100
 // Same ceiling site.js puts on its own store calls.
