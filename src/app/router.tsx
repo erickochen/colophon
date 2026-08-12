@@ -167,32 +167,42 @@ export function resolveRoute(loc: Location): Route {
   return { id: 'legacy', View: LegacyView }
 }
 
-// Sidebar entries sharing a pathname, told apart by a query param: Browse,
-// Bookmarks and uploads all live on /tor/browse.php. A missing param means the
-// listed default. Only genuine selectors belong here, never incidental ones
-// like sort or the highlight drops the moment the list is re-sorted.
-const ACTIVE_DISCRIMINATORS: Record<string, string> = {
-  'tor[searchIn]': 'torrents',
+// Both search pathnames serve the same view, so a link to one highlights on
+// the other as well.
+const SEARCH_PATHS = new Set(['/tor/browse.php', '/tor/search.php'])
+
+/** Which list a search URL opens: the plain library, bookmarks, own uploads or
+ * reseed requests. Reads the old query param and the newer s blob alike. */
+function searchSelector(loc: { search: string }): string {
+  const p = new URLSearchParams(loc.search)
+  const oldIn = p.get('tor[searchIn]')
+  if (oldIn === 'bookmarks' || oldIn === 'mine') return oldIn
+  if (oldIn === 'allReseed') return 'reseed'
+  const raw = p.get('s')
+  if (!raw) return 'torrents'
+  try {
+    const s = JSON.parse(raw) as { tor?: { bookmarked?: string; uploader?: string; rr?: string } }
+    if (s.tor?.bookmarked === 'only') return 'bookmarks'
+    if (s.tor?.uploader === 'me') return 'mine'
+    if (s.tor?.rr === 'reseed') return 'reseed'
+  } catch {
+    // An unreadable blob is just the plain list.
+  }
+  return 'torrents'
 }
 
 /** Current-page check for sidebar highlighting. */
 export function isActive(href: string, loc: Location = location): boolean {
   const target = new URL(href, loc.origin)
   if (target.pathname === '/') return loc.pathname === '/' || loc.pathname === '/index.php'
-  const samePath = loc.pathname === target.pathname || loc.pathname.startsWith(target.pathname + '/')
+  const bothSearch = SEARCH_PATHS.has(target.pathname) && SEARCH_PATHS.has(loc.pathname)
+  const samePath = bothSearch || loc.pathname === target.pathname || loc.pathname.startsWith(target.pathname + '/')
   if (!samePath) return false
-  // The search page serves torrents and requests off one pathname, so the list
-  // a link opens lives in its s blob rather than in a query param.
-  if (target.pathname === '/tor/search.php' && isRequestSearch(target) !== isRequestSearch(loc)) return false
-  const cur = new URLSearchParams(loc.search)
-  for (const [key, fallback] of Object.entries(ACTIVE_DISCRIMINATORS)) {
-    const linkVal = target.searchParams.get(key)
-    const curVal = cur.get(key)
-    // Only enforce when this link (or the current URL) actually names the
-    // discriminator; otherwise unrelated pages are unaffected.
-    if (linkVal !== null || curVal !== null) {
-      if ((linkVal ?? fallback) !== (curVal ?? fallback)) return false
-    }
+  if (bothSearch) {
+    // The search page serves torrents and requests off one pathname, so the
+    // list a link opens lives in its s blob rather than in a query param.
+    if (isRequestSearch(target) !== isRequestSearch(loc)) return false
+    return searchSelector(target) === searchSelector(loc)
   }
   return true
 }

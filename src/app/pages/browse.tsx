@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { AlignJustify, Bookmark, BookmarkCheck, BookmarkX, ChevronDown, Columns3, Dices, Download, EyeOff, FileArchive, Filter, LayoutGrid, Loader2, Search, Trash2, Undo2 } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import {
-  bookmarkCleanup, bookmarkMass, BookmarkMassError, bookmarkOne, downloadZipOf, searchAllTorrents, searchTorrents,
-  searchUploads, uploaderSearchUrl, parsePeople, downloadUrl, coverUrl, torrentUrl, BOOKMARKS_ZIP_URL, ZIP_BATCH_MAX,
-  type BookmarkCleanup, type SearchQuery, type SearchTorrent,
+  bookmarkCleanup, bookmarkMass, BookmarkMassError, bookmarkOne, downloadZipOf, searchAllTorrents2, searchTorrents2,
+  search2Url, parsePeople, downloadUrl, coverUrl, torrentUrl, BOOKMARKS_ZIP_URL, ZIP_BATCH_MAX,
+  type BookmarkCleanup, type Search2Query, type SearchTorrent,
 } from '@/lib/mam-api'
+import { useCategories2 } from '@/lib/categories2'
 import { groupBySeries, type SeriesGroup } from '@/lib/series'
 import { CONTENT_FLAGS, LANGUAGES, MAIN_CATS, SORT_OPTIONS } from '@/lib/mam-facets'
 import { coverShape } from '@/lib/cover-shape'
@@ -27,6 +28,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -51,18 +53,17 @@ const SRCH_FIELDS = [
 
 const SEARCH_TYPES = [
   ['all', 'All torrents'], ['active', 'Active only'], ['inactive', 'Inactive only'],
-  ['fl', 'Freeleech'], ['VIP', 'VIP'], ['fl-VIP', 'Freeleech or VIP'], ['nVIP', 'Not VIP'],
+  ['fl', 'Freeleech'], ['VIP', 'VIP'], ['nVIP', 'Not VIP'],
 ] as const
 
 const SEARCH_INS = [
-  ['torrents', 'Everywhere'], ['bookmarks', 'My bookmarks'], ['new', 'Flagged new'],
+  ['torrents', 'Everywhere'], ['bookmarks', 'My bookmarks'],
   ['mine', 'My uploads'], ['allReseed', 'All reseed requests'], ['myReseed', 'I could reseed'],
 ] as const
 
-// The sort tokens the newer search endpoint answered to when measured live;
-// its default order is newest first.
-const UPLOADER_SORT_VALUES = ['dateDesc', 'dateAsc', 'titleAsc', 'titleDesc', 'sizeAsc', 'sizeDesc', 'seedersDesc', 'snatchedDesc', 'random']
-const UPLOADER_SORTS = SORT_OPTIONS.filter((o) => UPLOADER_SORT_VALUES.includes(o.value))
+// The search endpoint has no bookmark-date order; the rest of the shared sort
+// list answers as labeled.
+const BROWSE_SORTS = SORT_OPTIONS.filter((o) => o.value !== 'bmkaDesc')
 
 // MAM's search answers can trail a bookmark write by a while, so the total is
 // worth a few retries. Past that the toast carries the outcome and a lingering
@@ -123,26 +124,40 @@ type HiddenReason = 'ignored' | 'snatched'
 
 type SrchField = (typeof SRCH_FIELDS)[number][0]
 
+type BrowseSearchType = (typeof SEARCH_TYPES)[number][0]
+type BrowseSearchIn = (typeof SEARCH_INS)[number][0]
+
 interface BrowseState {
   text: string
   srchIn: SrchField[]
-  searchType: NonNullable<SearchQuery['searchType']>
-  searchIn: NonNullable<SearchQuery['searchIn']>
+  searchType: BrowseSearchType
+  searchIn: BrowseSearchIn
+  // Tab ids stay the classic main categories; the POST maps them to the new
+  // media-type schema.
   mainCat: number[]
-  cat: number[]
+  // Genre ids from the new taxonomy, picked in the filters facet.
+  categories: number[]
   langs: number[]
+  langsMode: 'has' | 'not'
   flagsMode: 0 | 1
   flags: number[]
+  minSize: number | null
+  maxSize: number | null
+  sizeUnit: number
+  dateRange: '' | 'day' | 'week' | 'month' | 'custom'
+  startDate: string
+  endDate: string
   // MAM's author/narrator/series links carry these ids (?author=<id>).
   authorID: number | null
   narratorID: number | null
   seriesID: number | null
-  // A profile's uploads link pins the list to one uploader (u<uid> or 'else');
-  // only MAM's newer endpoint understands that filter.
+  // A profile's uploads link pins the list to one uploader (u<uid> or 'else').
   uploader: string | null
   sort: string
   start: number
   perpage: number
+  /** Blob fields with no control here, carried through untouched. */
+  extra: { com: Record<string, unknown>; tor: Record<string, unknown> }
 }
 
 // The new search page files everything under a media type; the classic browse
@@ -158,10 +173,38 @@ const MEDIATYPE_TO_MAINCAT: Record<number, number> = {
   4: 16, // Radio
 }
 
+const MAINCAT_TO_MEDIATYPE: Record<number, number[]> = {
+  13: [1, 8],
+  14: [2, 5, 6, 7],
+  15: [3],
+  16: [4],
+}
+
+// MAM's size units on the search endpoint.
+const SIZE_UNITS = [
+  { value: 1, label: 'KiB' },
+  { value: 2, label: 'MiB' },
+  { value: 3, label: 'GiB' },
+]
+const DEFAULT_SIZE_UNIT = 2
+
+const DATE_RANGES = [
+  { value: '', label: 'Any time' },
+  { value: 'day', label: 'Past day' },
+  { value: 'week', label: 'Past week' },
+  { value: 'month', label: 'Past month' },
+  { value: 'custom', label: 'Custom range' },
+] as const
+
+const EMPTY_EXTRA: BrowseState['extra'] = { com: {}, tor: {} }
+
+const hasExtra = (extra: BrowseState['extra']): boolean =>
+  Object.keys(extra.com).length > 0 || Object.keys(extra.tor).length > 0
+
 /** MAM's newer /tor/search.php passes one JSON blob: s={"com":{…},"tor":{…}}.
- * Map the fields our browse controls cover onto our own state, so a shared or
- * menu link lands on the matching result set. Fields with no counterpart here
- * (genre categories, size bounds, date ranges) are left out. */
+ * Map every field a browse control covers onto our own state; whatever this
+ * reader does not consume rides along in `extra`, so no inbound link loses a
+ * filter. */
 function stateFromSearchJson(raw: string, myUid: string | null): Partial<BrowseState> | null {
   let parsed: { com?: unknown; tor?: unknown; start?: unknown; perPage?: unknown }
   try {
@@ -172,71 +215,206 @@ function stateFromSearchJson(raw: string, myUid: string | null): Partial<BrowseS
   if (!parsed || typeof parsed !== 'object') return null
   const com: Record<string, unknown> = typeof parsed.com === 'object' && parsed.com !== null ? (parsed.com as Record<string, unknown>) : {}
   const tor: Record<string, unknown> = typeof parsed.tor === 'object' && parsed.tor !== null ? (parsed.tor as Record<string, unknown>) : {}
+  // Consumed keys leave the passthrough; an unread value keeps filtering.
+  const extraCom = { ...com }
+  const extraTor = { ...tor }
+  const takeCom = (k: string) => {
+    delete extraCom[k]
+  }
+  const takeTor = (k: string) => {
+    delete extraTor[k]
+  }
   const out: Partial<BrowseState> = {}
   const text = typeof com.text === 'string' ? com.text : typeof tor.text === 'string' ? tor.text : null
-  if (text !== null) out.text = text
+  if (text !== null) {
+    out.text = text
+    takeCom('text')
+    takeTor('text')
+  }
   if (Array.isArray(com.searchIn)) {
     const fields = SRCH_FIELDS.map(([k]) => k).filter((k) => (com.searchIn as unknown[]).includes(k))
     if (fields.length) out.srchIn = fields
+    takeCom('searchIn')
   }
-  if (typeof com.sortType === 'string' && SORT_OPTIONS.some((o) => o.value === com.sortType)) out.sort = com.sortType
-  // Languages carry over only in include mode; we have no exclude control.
-  if (Array.isArray(com.browse_lang) && com.ble !== 'not') {
+  if (typeof com.sortType === 'string' && BROWSE_SORTS.some((o) => o.value === com.sortType)) {
+    out.sort = com.sortType
+    takeCom('sortType')
+  }
+  if (Array.isArray(com.browse_lang)) {
     const langs = com.browse_lang.map(Number).filter((l) => LANGUAGES.some((x) => x.id === l))
-    if (langs.length) out.langs = langs
+    if (langs.length) {
+      out.langs = langs
+      out.langsMode = com.ble === 'not' ? 'not' : 'has'
+      takeCom('browse_lang')
+      takeCom('ble')
+    }
   }
   if (Array.isArray(com.mediaType)) {
     const mains = [...new Set(com.mediaType.map((m) => MEDIATYPE_TO_MAINCAT[Number(m)]).filter(Boolean))]
     if (mains.length) out.mainCat = mains
+    takeCom('mediaType')
+  }
+  if (Array.isArray(com.categories)) {
+    const genres = com.categories.map(Number).filter((c) => Number.isFinite(c) && c > 0)
+    if (genres.length) out.categories = genres
+    takeCom('categories')
+  }
+  const flagList = (v: unknown) =>
+    Array.isArray(v) ? v.map(Number).filter((f) => CONTENT_FLAGS.some((x) => x.bit === f)) : []
+  const flagsShow = flagList(com.browseFlags)
+  const flagsHide = flagList(com.browseFlagsExclude)
+  if (flagsShow.length) {
+    out.flags = flagsShow
+    out.flagsMode = 1
+    takeCom('browseFlags')
+  } else if (flagsHide.length) {
+    out.flags = flagsHide
+    out.flagsMode = 0
+    takeCom('browseFlagsExclude')
+  }
+  const entityId = (v: unknown): number | null => {
+    if (typeof v !== 'object' || v === null) return null
+    const ids = (v as { id?: unknown }).id
+    const first = Array.isArray(ids) ? Number(ids[0]) : Number(ids)
+    return Number.isFinite(first) && first > 0 ? first : null
+  }
+  const author = entityId(com.author)
+  if (author) {
+    out.authorID = author
+    takeCom('author')
+  }
+  const narrator = entityId(com.narrator)
+  if (narrator) {
+    out.narratorID = narrator
+    takeCom('narrator')
+  }
+  const series = entityId(com.series)
+  if (series) {
+    out.seriesID = series
+    takeCom('series')
+  }
+  if (com.date_range === 'day' || com.date_range === 'week' || com.date_range === 'month' || com.date_range === 'custom') {
+    out.dateRange = com.date_range
+    takeCom('date_range')
+  }
+  const dateStr = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '')
+  const startDate = dateStr(com.startDate)
+  const endDate = dateStr(com.endDate)
+  if (startDate || endDate) {
+    out.dateRange = 'custom'
+    out.startDate = startDate
+    out.endDate = endDate
+    takeCom('startDate')
+    takeCom('endDate')
+  }
+  const bound = (v: unknown): number | null => {
+    const n = Number(v)
+    return Number.isFinite(n) && n > 0 ? n : null
+  }
+  const minSize = bound(tor.minSize)
+  const maxSize = bound(tor.maxSize)
+  if (minSize !== null || maxSize !== null) {
+    out.minSize = minSize
+    out.maxSize = maxSize
+    const unit = Number(tor.unit)
+    if (SIZE_UNITS.some((u) => u.value === unit)) out.sizeUnit = unit
+    takeTor('minSize')
+    takeTor('maxSize')
+    takeTor('unit')
   }
   // The freeleech, VIP and seed-state dropdowns all land in one slot here.
-  if (tor.fl === 'gfl' || tor.fl === 'pfl' || tor.fl === 'fl') out.searchType = 'fl'
-  else if (tor.vip === 'vip' || tor.vip === 'temp' || tor.vip === 'perm') out.searchType = 'VIP'
-  else if (tor.vip === 'not') out.searchType = 'nVIP'
-  else if (tor.state === 'seeded') out.searchType = 'active'
-  else if (tor.state === 'unseeded') out.searchType = 'inactive'
-  if (tor.bookmarked === 'only') out.searchIn = 'bookmarks'
-  else if (tor.rr === 'reseed') out.searchIn = 'allReseed'
-  else if (tor.rr === 'myReseeds') out.searchIn = 'myReseed'
-  else if (tor.uploader === 'me' || (myUid != null && tor.uploader === `u${myUid}`)) out.searchIn = 'mine'
-  else if (typeof tor.uploader === 'string' && (/^u\d+$/.test(tor.uploader) || tor.uploader === 'else')) out.uploader = tor.uploader
+  if (tor.fl === 'gfl' || tor.fl === 'pfl' || tor.fl === 'fl') {
+    out.searchType = 'fl'
+    takeTor('fl')
+  } else if (tor.vip === 'vip' || tor.vip === 'temp' || tor.vip === 'perm') {
+    out.searchType = 'VIP'
+    takeTor('vip')
+  } else if (tor.vip === 'not') {
+    out.searchType = 'nVIP'
+    takeTor('vip')
+  } else if (tor.state === 'seeded') {
+    out.searchType = 'active'
+    takeTor('state')
+  } else if (tor.state === 'unseeded') {
+    out.searchType = 'inactive'
+    takeTor('state')
+  }
+  if (tor.bookmarked === 'only') {
+    out.searchIn = 'bookmarks'
+    takeTor('bookmarked')
+  } else if (tor.rr === 'reseed') {
+    out.searchIn = 'allReseed'
+    takeTor('rr')
+  } else if (tor.rr === 'myReseeds') {
+    out.searchIn = 'myReseed'
+    takeTor('rr')
+  } else if (tor.uploader === 'me' || (myUid != null && tor.uploader === `u${myUid}`)) {
+    out.searchIn = 'mine'
+    takeTor('uploader')
+  } else if (typeof tor.uploader === 'string' && (/^u\d+$/.test(tor.uploader) || tor.uploader === 'else')) {
+    out.uploader = tor.uploader
+    takeTor('uploader')
+  }
   const start = Number(parsed.start)
   if (Number.isFinite(start) && start > 0) out.start = start
   const perPage = Number(parsed.perPage)
   if (PERPAGE_OPTIONS.includes(perPage)) out.perpage = perPage
+  if (Object.keys(extraCom).length || Object.keys(extraTor).length) out.extra = { com: extraCom, tor: extraTor }
   return Object.keys(out).length ? out : null
 }
 
 function stateFromUrl(myUid: string | null = null): BrowseState {
   const p = new URLSearchParams(location.search)
   const srchIn = SRCH_FIELDS.map(([k]) => k).filter((k) => p.get(`tor[srchIn][${k}]`) === 'true')
+  // Classic subcategory ids and the new genre ids are different taxonomies, so
+  // an old tor[cat][] link keeps its media-type tab and drops the rest.
+  const catTabs = p
+    .getAll('tor[cat][]')
+    .map(Number)
+    .map((c) => MAIN_CATS.find((m) => m.cats.some((x) => x.id === c))?.id)
+    .filter((x): x is number => x != null)
+  const rawType = p.get('tor[searchType]')
+  const rawIn = p.get('tor[searchIn]')
   return {
     text: p.get('tor[text]') ?? '',
     srchIn: srchIn.length ? srchIn : ['title', 'author'],
-    searchType: (p.get('tor[searchType]') as BrowseState['searchType']) || 'all',
-    searchIn: (p.get('tor[searchIn]') as BrowseState['searchIn']) || 'torrents',
-    mainCat: p.getAll('tor[main_cat][]').map(Number).filter(Boolean),
-    cat: p.getAll('tor[cat][]').map(Number).filter(Boolean),
+    // fl-VIP was an or over two slots the endpoint keeps separate; freeleech
+    // is the nearest single slot. Flagged new filtered nothing and drops out.
+    searchType:
+      rawType === 'fl-VIP' ? 'fl' : SEARCH_TYPES.some(([v]) => v === rawType) ? (rawType as BrowseSearchType) : 'all',
+    searchIn: SEARCH_INS.some(([v]) => v === rawIn) ? (rawIn as BrowseSearchIn) : 'torrents',
+    mainCat: [...new Set([...p.getAll('tor[main_cat][]').map(Number).filter(Boolean), ...catTabs])],
+    categories: [],
     langs: p.getAll('tor[browse_lang][]').map(Number).filter(Boolean),
+    langsMode: 'has',
     flagsMode: p.get('tor[browseFlagsHideVsShow]') === '1' ? 1 : 0,
     flags: p.getAll('tor[browseFlags][]').map(Number).filter(Boolean),
+    minSize: null,
+    maxSize: null,
+    sizeUnit: DEFAULT_SIZE_UNIT,
+    dateRange: '',
+    startDate: '',
+    endDate: '',
     // MAM links use the short form; its own scripts rewrite the URL to the
     // tor[...ID] form after a search, so accept both.
     authorID: Number(p.get('author') ?? p.get('tor[authorID]')) || null,
     narratorID: Number(p.get('narrator') ?? p.get('tor[narratorID]')) || null,
     seriesID: Number(p.get('series') ?? p.get('tor[seriesID]')) || null,
     uploader: null,
-    sort: p.get('tor[sortType]') || 'default',
+    // Only sorts the endpoint answers reliably; anything else means default.
+    sort: BROWSE_SORTS.some((o) => o.value === p.get('tor[sortType]')) ? p.get('tor[sortType]')! : 'default',
     start: Number(p.get('tor[startNumber]')) || 0,
     perpage: Number(p.get('perpage')) || DEFAULT_PERPAGE,
+    extra: EMPTY_EXTRA,
     ...(p.get('s') ? stateFromSearchJson(p.get('s')!, myUid) ?? {} : {}),
   }
 }
 
 const stickyOf = (s: BrowseState): StickyFilters => ({
   mainCat: s.mainCat,
-  cat: s.cat,
+  categories: s.categories,
   langs: s.langs,
+  langsMode: s.langsMode,
   flagsMode: s.flagsMode,
   flags: s.flags,
   sort: s.sort,
@@ -248,7 +426,9 @@ const stickyOf = (s: BrowseState): StickyFilters => ({
  * opening your bookmarks or your uploads should show that list whole. */
 function initialState(myUid: string | null): BrowseState {
   const s = stateFromUrl(myUid)
-  if (s.searchIn !== 'torrents' || s.uploader) return s
+  // An entity link pins one author, narrator or series; saved filters would
+  // narrow that list to confusion.
+  if (s.searchIn !== 'torrents' || s.uploader || s.authorID || s.narratorID || s.seriesID) return s
   const saved: Partial<StickyFilters> = readSticky() ?? mamBrowseDefaults() ?? {}
   const p = new URLSearchParams(location.search)
   // A filter the link itself names is a choice, whether it rides in as a
@@ -262,14 +442,20 @@ function initialState(myUid: string | null): BrowseState {
   const next = { ...s }
   if (!picked('tor[main_cat][]') && !picked('tor[cat][]') && !blob?.mainCat) {
     next.mainCat = saved.mainCat ?? next.mainCat
-    next.cat = saved.cat ?? next.cat
   }
-  if (!picked('tor[browse_lang][]') && !blob?.langs) next.langs = saved.langs ?? next.langs
-  if (!picked('tor[browseFlags][]')) {
+  if (!blob?.categories) next.categories = saved.categories ?? next.categories
+  if (!picked('tor[browse_lang][]') && !blob?.langs) {
+    next.langs = saved.langs ?? next.langs
+    next.langsMode = saved.langsMode ?? next.langsMode
+  }
+  if (!picked('tor[browseFlags][]') && !blob?.flags) {
     next.flagsMode = saved.flagsMode ?? next.flagsMode
     next.flags = (saved.flags ?? next.flags).filter((f) => CONTENT_FLAGS.some((x) => x.bit === f))
   }
-  if ((!urlSort || urlSort === 'default') && !blob?.sort && saved.sort && SORT_OPTIONS.some((o) => o.value === saved.sort)) {
+  // A sort the link carries counts as a choice, also when it only lives in the
+  // passthrough (a column-header value our select does not list).
+  const linkSort = blob?.sort != null || (blob?.extra != null && 'sortType' in blob.extra.com)
+  if ((!urlSort || urlSort === 'default') && !linkSort && saved.sort && BROWSE_SORTS.some((o) => o.value === saved.sort)) {
     next.sort = saved.sort
   }
   if (!p.has('perpage') && !blob?.perpage && saved.perpage && PERPAGE_OPTIONS.includes(saved.perpage)) {
@@ -278,57 +464,41 @@ function initialState(myUid: string | null): BrowseState {
   return next
 }
 
+/** The state as the newer page's blob URL, the one form we write. */
 function urlFromState(s: BrowseState): string {
-  // An uploader pin lives in the newer page's blob; everything else keeps the
-  // classic browse URL.
-  if (s.uploader) {
-    return uploaderSearchUrl({
-      uploader: s.uploader,
-      text: s.text || undefined,
-      sortType: s.sort,
-      startNumber: s.start || undefined,
-      perpage: s.perpage !== DEFAULT_PERPAGE ? s.perpage : undefined,
-    })
-  }
-  const p = new URLSearchParams()
-  if (s.text) p.set('tor[text]', s.text)
-  for (const f of s.srchIn) p.set(`tor[srchIn][${f}]`, 'true')
-  p.set('tor[searchType]', s.searchType)
-  p.set('tor[searchIn]', s.searchIn)
-  for (const c of s.mainCat) p.append('tor[main_cat][]', String(c))
-  for (const c of s.cat) p.append('tor[cat][]', String(c))
-  for (const l of s.langs) p.append('tor[browse_lang][]', String(l))
-  if (s.flags.length) {
-    p.set('tor[browseFlagsHideVsShow]', String(s.flagsMode))
-    for (const f of s.flags) p.append('tor[browseFlags][]', String(f))
-  }
-  // Keep MAM's own short form so the URL works with the script off too.
-  if (s.authorID) p.set('author', String(s.authorID))
-  if (s.narratorID) p.set('narrator', String(s.narratorID))
-  if (s.seriesID) p.set('series', String(s.seriesID))
-  p.set('tor[sortType]', s.sort)
-  p.set('tor[startNumber]', String(s.start))
-  if (s.perpage !== DEFAULT_PERPAGE) p.set('perpage', String(s.perpage))
-  return `/tor/browse.php?${p.toString()}`
+  return search2Url(toQuery2(s))
 }
 
-function toQuery(s: BrowseState): SearchQuery {
+function toQuery2(s: BrowseState): Search2Query {
+  const mediaType = [...new Set(s.mainCat.flatMap((m) => MAINCAT_TO_MEDIATYPE[m] ?? []))]
   return {
     text: s.text || undefined,
     srchIn: s.srchIn,
-    searchType: s.searchType,
-    searchIn: s.searchIn,
-    mainCat: s.mainCat.length ? s.mainCat : undefined,
-    cat: s.cat.length ? s.cat : undefined,
+    sortType: s.sort,
+    mediaType: mediaType.length ? mediaType : undefined,
+    categories: s.categories.length ? s.categories : undefined,
     browseLang: s.langs.length ? s.langs : undefined,
-    browseFlagsHideVsShow: s.flagsMode,
-    browseFlags: s.flags.length ? s.flags : undefined,
+    ble: s.langsMode === 'not' ? 'not' : undefined,
+    minSize: s.minSize ?? undefined,
+    maxSize: s.maxSize ?? undefined,
+    unit: s.sizeUnit,
+    dateRange: s.dateRange || undefined,
+    startDate: s.startDate || undefined,
+    endDate: s.endDate || undefined,
+    flagsMode: s.flagsMode,
+    flags: s.flags.length ? s.flags : undefined,
     authorID: s.authorID ?? undefined,
     narratorID: s.narratorID ?? undefined,
     seriesID: s.seriesID ?? undefined,
-    sortType: s.sort,
-    startNumber: s.start,
-    perpage: s.perpage,
+    uploader: s.uploader ?? (s.searchIn === 'mine' ? 'me' : undefined),
+    state: s.searchType === 'active' ? 'seeded' : s.searchType === 'inactive' ? 'unseeded' : undefined,
+    fl: s.searchType === 'fl' ? 'fl' : undefined,
+    vip: s.searchType === 'VIP' ? 'vip' : s.searchType === 'nVIP' ? 'not' : undefined,
+    bookmarked: s.searchIn === 'bookmarks' ? 'only' : undefined,
+    rr: s.searchIn === 'allReseed' ? 'reseed' : s.searchIn === 'myReseed' ? 'myReseeds' : undefined,
+    start: s.start || undefined,
+    perPage: s.perpage,
+    extra: hasExtra(s.extra) ? s.extra : undefined,
   }
 }
 
@@ -911,11 +1081,9 @@ export function BrowseView(props: PageProps) {
       else history.pushState(null, '', urlFromState(q))
     }
     try {
-      const res = q.uploader
-        ? await searchUploads({ uploader: q.uploader, text: q.text || undefined, sortType: q.sort, startNumber: q.start, perpage: q.perpage })
-        : q.seriesID
-          ? await searchAllTorrents(toQuery(q))
-          : await searchTorrents(toQuery(q))
+      const res = q.seriesID
+        ? await searchAllTorrents2(toQuery2(q))
+        : await searchTorrents2(toQuery2(q))
       if (seq.current !== mine) return
       setFound(res.found)
       setItems((prev) => (append ? [...prev, ...res.data] : res.data))
@@ -955,6 +1123,15 @@ export function BrowseView(props: PageProps) {
     void run(next)
   }
 
+  /** Size bounds commit on blur or Enter, so typing does not fire searches. */
+  const commitSize = (which: 'min' | 'max', raw: string) => {
+    const n = Number(raw)
+    const value = raw.trim() !== '' && Number.isFinite(n) && n > 0 ? n : null
+    const current = which === 'min' ? state.minSize : state.maxSize
+    if (value === current) return
+    apply(which === 'min' ? { minSize: value } : { maxSize: value })
+  }
+
   const setBookmarked = useCallback((ids: number[], bookmarked: boolean) => {
     const hit = new Set(ids)
     setItems((prev) => prev.map((t) => (hit.has(t.id) ? { ...t, bookmarked: bookmarked ? t.bookmarked ?? 1 : null } : t)))
@@ -987,7 +1164,7 @@ export function BrowseView(props: PageProps) {
     setLoading(true)
     for (let attempt = 1; attempt <= REFRESH_POLL_TRIES; attempt += 1) {
       try {
-        const res = await searchTorrents(toQuery(next))
+        const res = await searchTorrents2(toQuery2(next))
         if (seq.current !== mine) return
         if (res.found <= target || attempt === REFRESH_POLL_TRIES) {
           setState(next)
@@ -1018,13 +1195,13 @@ export function BrowseView(props: PageProps) {
   async function randomBook() {
     setRolling(true)
     try {
-      const probe = await searchTorrents({ ...toQuery(state), perpage: 1, startNumber: 0 })
+      const probe = await searchTorrents2({ ...toQuery2(state), perPage: 1, start: 0 })
       if (!probe.found) {
         toast.warning('Nothing to pick from with these filters.')
         return
       }
       const offset = Math.floor(Math.random() * probe.found)
-      const res = await searchTorrents({ ...toQuery(state), perpage: 1, startNumber: offset })
+      const res = await searchTorrents2({ ...toQuery2(state), perPage: 1, start: offset })
       const hit = res.data[0]
       if (hit) location.assign(torrentUrl(hit.id))
       else toast.error('That roll came up empty. Try again.')
@@ -1067,20 +1244,41 @@ export function BrowseView(props: PageProps) {
   const from = items.length === 0 ? 0 : baseStart + 1
   const to = Math.min(found, baseStart + items.length)
   const remaining = Math.max(0, found - to)
-  const activeFilters = state.cat.length + state.langs.length + state.flags.length + (hideSnatched ? 1 : 0)
+  const sizeActive = state.minSize !== null || state.maxSize !== null
+  const activeFilters =
+    state.categories.length + state.langs.length + state.flags.length +
+    (sizeActive ? 1 : 0) + (state.dateRange ? 1 : 0) + (hideSnatched ? 1 : 0)
   const uploaderMode = state.uploader != null
   // The endpoint names the owner on every row, which labels the chip.
   const uploaderName = uploaderMode && state.uploader !== 'else' ? items.find((t) => t.owner_name)?.owner_name ?? null : null
   const effectiveSort = uploaderMode && state.sort === 'default' ? 'dateDesc' : state.sort
-  const sortLabel = SORT_OPTIONS.find((o) => o.value === effectiveSort)?.label ?? effectiveSort
+  const sortLabel = BROWSE_SORTS.find((o) => o.value === effectiveSort)?.label ?? effectiveSort
+  const genres = useCategories2()
+  const genreName = (id: number) => genres?.find((c) => c.id === id)?.name ?? `#${id}`
+  // The genre list narrows along with the media-type tabs.
+  const activeMediaTypes = new Set(state.mainCat.flatMap((m) => MAINCAT_TO_MEDIATYPE[m] ?? []))
+  const genreOptions = (genres ?? []).filter(
+    (c) => activeMediaTypes.size === 0 || c.mediaTypes.some((m) => activeMediaTypes.has(m))
+  )
+  const sizeUnitLabel = SIZE_UNITS.find((u) => u.value === state.sizeUnit)?.label ?? ''
+  const sizeChipLabel =
+    state.minSize !== null && state.maxSize !== null
+      ? `${fmtInt(state.minSize)}-${fmtInt(state.maxSize)} ${sizeUnitLabel}`
+      : state.minSize !== null
+        ? `≥ ${fmtInt(state.minSize)} ${sizeUnitLabel}`
+        : `≤ ${fmtInt(state.maxSize ?? 0)} ${sizeUnitLabel}`
+  const dateChipLabel =
+    state.dateRange === 'custom'
+      ? [state.startDate || '…', state.endDate || '…'].join(' to ')
+      : DATE_RANGES.find((d) => d.value === state.dateRange)?.label ?? state.dateRange
 
   const facetSummary = useMemo(() => {
     const parts: string[] = []
     if (state.mainCat.length) parts.push(state.mainCat.map((m) => MAIN_CATS.find((x) => x.id === m)?.name ?? m).join(', '))
-    if (state.cat.length) parts.push(`${state.cat.length} categories`)
+    if (state.categories.length) parts.push(`${state.categories.length} genres`)
     if (state.langs.length) parts.push(`${state.langs.length} languages`)
     return parts.join(' · ')
-  }, [state.mainCat, state.cat, state.langs])
+  }, [state.mainCat, state.categories, state.langs])
 
   // Entity filters only carry an id in the URL; the matching name is inside the
   // results themselves (author_info maps id to name).
@@ -1178,9 +1376,19 @@ export function BrowseView(props: PageProps) {
     ...state.mainCat.map((m) => ({
       key: `m${m}`,
       label: MAIN_CATS.find((x) => x.id === m)?.name ?? String(m),
-      onRemove: () => apply({ mainCat: toggleValue(state.mainCat, m), cat: [] }),
+      onRemove: () => apply({ mainCat: toggleValue(state.mainCat, m) }),
     })),
-    ...state.cat.map((c) => ({ key: `c${c}`, label: catName(c), onRemove: () => apply({ cat: toggleValue(state.cat, c) }) })),
+    ...state.categories.map((c) => ({
+      key: `g${c}`,
+      label: genreName(c),
+      onRemove: () => apply({ categories: toggleValue(state.categories, c) }),
+    })),
+    ...(sizeActive
+      ? [{ key: 'size', label: sizeChipLabel, onRemove: () => apply({ minSize: null, maxSize: null }) }]
+      : []),
+    ...(state.dateRange
+      ? [{ key: 'date', label: dateChipLabel, onRemove: () => apply({ dateRange: '' as const, startDate: '', endDate: '' }) }]
+      : []),
     ...state.flags.map((f) => {
       const name = CONTENT_FLAGS.find((x) => x.bit === f)?.name ?? String(f)
       return {
@@ -1189,11 +1397,17 @@ export function BrowseView(props: PageProps) {
         onRemove: () => apply({ flags: toggleValue(state.flags, f) }),
       }
     }),
-    ...state.langs.map((l) => ({
-      key: `l${l}`,
-      label: LANGUAGES.find((x) => x.id === l)?.name ?? String(l),
-      onRemove: () => apply({ langs: toggleValue(state.langs, l) }),
-    })),
+    ...state.langs.map((l) => {
+      const name = LANGUAGES.find((x) => x.id === l)?.name ?? String(l)
+      return {
+        key: `l${l}`,
+        label: state.langsMode === 'not' ? `not ${name}` : name,
+        onRemove: () => apply({ langs: toggleValue(state.langs, l) }),
+      }
+    }),
+    ...(hasExtra(state.extra)
+      ? [{ key: 'extra', label: 'More filters', onRemove: () => apply({ extra: EMPTY_EXTRA }) }]
+      : []),
     ...(state.searchType !== 'all'
       ? [{
           key: 'searchType',
@@ -1260,7 +1474,7 @@ export function BrowseView(props: PageProps) {
             <FilterSelect
               value={effectiveSort}
               onChange={(v) => apply({ sort: v })}
-              options={UPLOADER_SORTS}
+              options={BROWSE_SORTS}
               align="end"
               ariaLabel="Sort order"
               className="ml-auto"
@@ -1272,27 +1486,74 @@ export function BrowseView(props: PageProps) {
             type="multiple"
             options={MAIN_CATS.map((m) => ({ value: String(m.id), label: m.name }))}
             value={state.mainCat.map(String)}
-            onChange={(v) => apply({ mainCat: v.map(Number), cat: [] })}
+            onChange={(v) => apply({ mainCat: v.map(Number) })}
           />
 
           <FilterFacet label="Filters" count={activeFilters} width="w-[420px]" icon={<Filter className="size-3.5" />}>
             <div className="max-h-[440px] overflow-y-auto">
-              <FacetSection title="Categories">
-                <div className="grid max-h-52 grid-cols-2 gap-x-3 overflow-y-auto">
-                  {(state.mainCat.length ? MAIN_CATS.filter((m) => state.mainCat.includes(m.id)) : MAIN_CATS).map((m) => (
-                    <div key={m.id} className="pb-1.5">
-                      <div className="py-1 text-[11.5px] font-medium text-muted-foreground">{m.name}</div>
-                      {m.cats.map((c) => (
-                        <Label key={c.id} className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
-                          <Checkbox
-                            checked={state.cat.includes(c.id)}
-                            onCheckedChange={() => apply({ cat: toggleValue(state.cat, c.id) })}
-                          />
-                          {c.name}
-                        </Label>
-                      ))}
-                    </div>
-                  ))}
+              <FacetSection title="Genres">
+                {genres === null && (
+                  <div className="grid gap-1.5 py-1">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-4 w-2/3" />
+                    <Skeleton className="h-4 w-4/5" />
+                  </div>
+                )}
+                {genres !== null && genreOptions.length === 0 && (
+                  <p className="py-1 text-[12.5px] text-muted-foreground">Genres could not load.</p>
+                )}
+                {genreOptions.length > 0 && (
+                  <div className="grid max-h-52 grid-cols-2 gap-x-3 overflow-y-auto">
+                    {genreOptions.map((c) => (
+                      <Label key={c.id} className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
+                        <Checkbox
+                          checked={state.categories.includes(c.id)}
+                          onCheckedChange={() => apply({ categories: toggleValue(state.categories, c.id) })}
+                        />
+                        {c.name}
+                      </Label>
+                    ))}
+                  </div>
+                )}
+                <p className="pt-1 text-[11.5px] text-muted-foreground">
+                  Some older torrents are not classified yet and stay out of genre-filtered results.
+                </p>
+              </FacetSection>
+              <FacetSection title="Size">
+                <div className="flex items-center gap-2">
+                  <Input
+                    key={`min${state.minSize ?? ''}`}
+                    type="number"
+                    min={0}
+                    defaultValue={state.minSize ?? ''}
+                    placeholder="Min"
+                    aria-label="Minimum size"
+                    className="h-8 w-24 text-[12.5px]"
+                    onBlur={(e) => commitSize('min', e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.currentTarget.blur()
+                    }}
+                  />
+                  <span className="text-[12px] text-muted-foreground">to</span>
+                  <Input
+                    key={`max${state.maxSize ?? ''}`}
+                    type="number"
+                    min={0}
+                    defaultValue={state.maxSize ?? ''}
+                    placeholder="Max"
+                    aria-label="Maximum size"
+                    className="h-8 w-24 text-[12.5px]"
+                    onBlur={(e) => commitSize('max', e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.currentTarget.blur()
+                    }}
+                  />
+                  <FilterSelect
+                    value={String(state.sizeUnit)}
+                    onChange={(v) => apply({ sizeUnit: Number(v) })}
+                    options={SIZE_UNITS.map((u) => ({ value: String(u.value), label: u.label }))}
+                    ariaLabel="Size unit"
+                  />
                 </div>
               </FacetSection>
               <FacetSection title="Personal" note="only in this browser">
@@ -1328,6 +1589,17 @@ export function BrowseView(props: PageProps) {
           </FilterFacet>
 
           <FilterFacet label="Languages" count={state.langs.length} width="w-64">
+            {(state.langs.length > 0 || state.langsMode === 'not') && (
+              <div className="flex items-center justify-between gap-2 border-b px-2.5 py-1.5">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Mode</span>
+                <FilterSegments
+                  type="single"
+                  options={[{ value: 'has', label: 'Include' }, { value: 'not', label: 'Exclude' }]}
+                  value={state.langsMode}
+                  onChange={(v) => apply({ langsMode: v as BrowseState['langsMode'] })}
+                />
+              </div>
+            )}
             <FacetOptions
               options={LANGUAGES.map((l) => ({ value: String(l.id), label: l.name }))}
               selected={state.langs.map(String)}
@@ -1352,9 +1624,34 @@ export function BrowseView(props: PageProps) {
             ariaLabel="Where to search"
           />
           <FilterSelect
+            value={state.dateRange || 'any'}
+            onChange={(v) => (v === 'any' ? apply({ dateRange: '', startDate: '', endDate: '' }) : apply({ dateRange: v as BrowseState['dateRange'] }))}
+            options={DATE_RANGES.map((d) => ({ value: d.value || 'any', label: d.label }))}
+            prefix="Added"
+            ariaLabel="Added within"
+          />
+          {state.dateRange === 'custom' && (
+            <>
+              <Input
+                type="date"
+                value={state.startDate}
+                aria-label="Added from"
+                className="h-8 w-[136px] text-[12.5px]"
+                onChange={(e) => apply({ startDate: e.target.value })}
+              />
+              <Input
+                type="date"
+                value={state.endDate}
+                aria-label="Added until"
+                className="h-8 w-[136px] text-[12.5px]"
+                onChange={(e) => apply({ endDate: e.target.value })}
+              />
+            </>
+          )}
+          <FilterSelect
             value={state.sort}
             onChange={(v) => apply({ sort: v })}
-            options={SORT_OPTIONS}
+            options={BROWSE_SORTS}
             align="end"
             ariaLabel="Sort order"
             className="ml-auto"
@@ -1368,7 +1665,12 @@ export function BrowseView(props: PageProps) {
         onClearAll={() => {
           // Everything with a chip goes, the hide-snatched toggle included.
           setHideSnatched(false)
-          apply({ mainCat: [], cat: [], langs: [], flags: [], searchType: 'all', searchIn: 'torrents', authorID: null, narratorID: null, seriesID: null, uploader: null })
+          apply({
+            mainCat: [], categories: [], langs: [], langsMode: 'has', flags: [],
+            minSize: null, maxSize: null, dateRange: '', startDate: '', endDate: '',
+            searchType: 'all', searchIn: 'torrents',
+            authorID: null, narratorID: null, seriesID: null, uploader: null, extra: EMPTY_EXTRA,
+          })
         }}
         meta={loading ? 'Searching…' : state.seriesID && seriesViewOn ? `${fmtInt(found)} results · grouped by part` : `${fmtInt(found)} results · ${sortLabel}`}
       >

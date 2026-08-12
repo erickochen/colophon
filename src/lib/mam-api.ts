@@ -355,18 +355,6 @@ export async function searchRequests(q: RequestQuery): Promise<RequestResult> {
   return { ...parsed, data } as RequestResult
 }
 
-// Only the newer search endpoint filters by an arbitrary uploader; the classic
-// API ignores tor[uploader] entirely (verified live). That one filter runs
-// through it, with the answer reshaped into the classic row form.
-export interface UploaderQuery {
-  /** MAM's own link value: u<uid> from a profile or 'else' for not-mine. */
-  uploader: string
-  text?: string
-  sortType?: string
-  startNumber?: number
-  perpage?: number
-}
-
 const BYTES_PER_UNIT = 1024
 const IEC_UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB'] as const
 // Two decimals with trailing zeros dropped, matching the classic API's size
@@ -415,17 +403,107 @@ function fromNewRow(d: NewSearchRow): SearchTorrent {
   }
 }
 
-/** One member's uploads via the newer endpoint, answered as classic rows. */
-export async function searchUploads(q: UploaderQuery): Promise<SearchResult> {
-  const body = new URLSearchParams()
-  body.set('tor[uploader]', q.uploader)
+// The full torrent query for the newer endpoint. One object covers text, the
+// new taxonomy, size and date bounds plus every torrent-state slot.
+export interface Search2Query {
+  text?: string
+  /** com.searchIn values: title, author, narrator, series, description, tags, fileTypes, filenames. */
+  srchIn?: string[]
+  sortType?: string
+  /** New media-type schema: 1 audiobook through 8 periodical audiobook. */
+  mediaType?: number[]
+  /** Genre ids from categories.php, a taxonomy separate from media types. */
+  categories?: number[]
+  browseLang?: number[]
+  /** Whether browseLang lists wanted or unwanted languages. */
+  ble?: 'has' | 'not'
+  minSize?: number
+  maxSize?: number
+  /** Size unit: 1 KiB, 2 MiB, 3 GiB. */
+  unit?: number
+  dateRange?: 'day' | 'week' | 'month' | 'custom'
+  /** YYYY-MM-DD, read only with dateRange custom. */
+  startDate?: string
+  endDate?: string
+  authorID?: number
+  narratorID?: number
+  seriesID?: number
+  /** MAM's own link values: 'me', 'else' or u<uid> from a profile. */
+  uploader?: string
+  state?: 'seeded' | 'unseeded'
+  fl?: 'gfl' | 'pfl' | 'fl' | 'not'
+  vip?: 'vip' | 'not' | 'temp' | 'perm'
+  bookmarked?: 'only' | 'not'
+  rr?: 'reseed' | 'myReseeds'
+  /** 0 hides the listed flags, 1 shows only torrents carrying them. */
+  flagsMode?: 0 | 1
+  flags?: number[]
+  start?: number
+  perPage?: number
+  /** Blob fields with no control here, carried through untouched so a link
+   * from MAM's own advanced search keeps filtering. */
+  extra?: { com?: Record<string, unknown>; tor?: Record<string, unknown> }
+}
+
+const TORRENTS_PER_PAGE = 25
+
+/** The query as the s= blob object, in the exact shape MAM's page writes. */
+export function search2Json(q: Search2Query): Record<string, unknown> {
+  const com: Record<string, unknown> = { ...q.extra?.com }
+  const tor: Record<string, unknown> = { ...q.extra?.tor }
   if (q.text) {
-    body.set('com[text]', q.text)
-    for (const f of REQUEST_SEARCH_FIELDS) body.append('com[searchIn][]', f)
+    com.text = q.text
+    com.searchIn = q.srchIn?.length ? q.srchIn : REQUEST_SEARCH_FIELDS
   }
-  if (q.sortType && q.sortType !== 'default') body.set('com[sortType]', q.sortType)
-  if (q.startNumber) body.set('start', String(q.startNumber))
-  body.set('perPage', String(q.perpage ?? 25))
+  if (q.sortType && q.sortType !== 'default') com.sortType = q.sortType
+  if (q.mediaType?.length) com.mediaType = q.mediaType
+  if (q.categories?.length) com.categories = q.categories
+  if (q.browseLang?.length) {
+    com.browse_lang = q.browseLang
+    if (q.ble === 'not') com.ble = 'not'
+  }
+  if (q.dateRange) com.date_range = q.dateRange
+  if (q.dateRange === 'custom') {
+    if (q.startDate) com.startDate = q.startDate
+    if (q.endDate) com.endDate = q.endDate
+  }
+  if (q.flags?.length) com[q.flagsMode === 1 ? 'browseFlags' : 'browseFlagsExclude'] = q.flags
+  if (q.authorID) com.author = { id: [q.authorID] }
+  if (q.narratorID) com.narrator = { id: [q.narratorID] }
+  if (q.seriesID) com.series = { id: [q.seriesID] }
+  if (q.minSize) tor.minSize = q.minSize
+  if (q.maxSize) tor.maxSize = q.maxSize
+  if ((q.minSize || q.maxSize) && q.unit) tor.unit = q.unit
+  if (q.state) tor.state = q.state
+  if (q.fl) tor.fl = q.fl
+  if (q.vip) tor.vip = q.vip
+  if (q.bookmarked) tor.bookmarked = q.bookmarked
+  if (q.rr) tor.rr = q.rr
+  if (q.uploader) tor.uploader = q.uploader
+  const s: Record<string, unknown> = { searchType: 'Torrents' }
+  if (Object.keys(com).length) s.com = com
+  if (Object.keys(tor).length) s.tor = tor
+  if (q.start) s.start = String(q.start)
+  if (q.perPage) s.perPage = q.perPage
+  return s
+}
+
+/** Page URL in MAM's own blob shape, so the link works with the script off. */
+export function search2Url(q: Search2Query): string {
+  return `/tor/search.php?s=${encodeURIComponent(JSON.stringify(search2Json(q)))}`
+}
+
+/** Torrent search via the newer endpoint, answered as classic rows. */
+export async function searchTorrents2(q: Search2Query): Promise<SearchResult> {
+  const s = search2Json(q)
+  const body = new URLSearchParams()
+  appendParam(body, 'com', s.com)
+  appendParam(body, 'tor', s.tor)
+  // The blob leaves defaults out, the POST states them. A sort riding in via
+  // the passthrough (a column-header value like cateogryAsc) stays as sent.
+  if (!body.has('com[sortType]')) body.set('com[sortType]', q.sortType ?? 'default')
+  if (q.start) body.set('start', String(q.start))
+  body.set('perPage', String(q.perPage ?? TORRENTS_PER_PAGE))
   body.set('searchType', 'Torrents')
   const res = await fetch('/tor/json/search.php', {
     method: 'POST',
@@ -433,30 +511,37 @@ export async function searchUploads(q: UploaderQuery): Promise<SearchResult> {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),
   })
-  if (!res.ok) throw new Error(`uploader search failed: ${res.status}`)
-  const json = await res.json()
+  // The endpoint refuses a query with readable text, sometimes behind a 403
+  // (rapid searches), so the body beats the status code as a message.
+  const text = await res.text()
+  let json: { data?: unknown; found?: number; perpage?: number; start?: number }
+  try {
+    json = JSON.parse(text)
+  } catch {
+    throw new Error(text.trim() || `search failed: ${res.status}`)
+  }
+  if (!res.ok) throw new Error(`search failed: ${res.status}`)
   if (!Array.isArray(json.data)) return { perpage: 0, start: 0, data: [], found: 0 }
   return {
-    perpage: Number(json.perpage) || (q.perpage ?? 25),
+    perpage: Number(json.perpage) || (q.perPage ?? TORRENTS_PER_PAGE),
     start: Number(json.start) || 0,
     found: Number(json.found) || 0,
     data: (json.data as NewSearchRow[]).map(fromNewRow),
   }
 }
 
-/** Page URL in MAM's own blob shape, so the link works with the script off. */
-export function uploaderSearchUrl(q: UploaderQuery): string {
-  const com: Record<string, unknown> = {}
-  if (q.text) {
-    com.text = q.text
-    com.searchIn = REQUEST_SEARCH_FIELDS
+/** Every row of a query, paged. Stops at the cap and reports the server's own
+ * total, so a caller can say how much was left out. */
+export async function searchAllTorrents2(q: Search2Query, cap = SERIES_FETCH_MAX): Promise<SearchResult> {
+  const first = await searchTorrents2({ ...q, start: 0, perPage: SERIES_PAGE })
+  const rows = [...first.data]
+  const target = Math.min(first.found, cap)
+  while (rows.length < target && first.data.length > 0) {
+    const next = await searchTorrents2({ ...q, start: rows.length, perPage: SERIES_PAGE })
+    if (next.data.length === 0) break
+    rows.push(...next.data)
   }
-  if (q.sortType && q.sortType !== 'default') com.sortType = q.sortType
-  const s: Record<string, unknown> = { tor: { uploader: q.uploader }, searchType: 'Torrents' }
-  if (Object.keys(com).length) s.com = com
-  if (q.startNumber) s.start = String(q.startNumber)
-  if (q.perpage) s.perPage = q.perpage
-  return `/tor/search.php?s=${encodeURIComponent(JSON.stringify(s))}`
+  return { ...first, data: rows.slice(0, cap), start: 0 }
 }
 
 export interface UserLive {

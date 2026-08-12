@@ -188,7 +188,7 @@ export function FilterSegments({
       variant="outline"
       value={value as string[]}
       onValueChange={onChange as (v: string[]) => void}
-      className={className}
+      className={cn('flex-wrap', className)}
     >
       {items}
     </ToggleGroup>
@@ -198,7 +198,7 @@ export function FilterSegments({
       variant="outline"
       value={value as string}
       onValueChange={(v) => v && (onChange as (x: string) => void)(v)}
-      className={className}
+      className={cn('flex-wrap', className)}
     >
       {items}
     </ToggleGroup>

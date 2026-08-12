@@ -100,7 +100,7 @@ function groups(page: ShellData, counts: NotifCounts): { dashboard: NavItem; gro
       {
         label: 'Discover',
         items: [
-          { title: 'Browse', href: '/tor/browse.php', icon: Search },
+          { title: 'Browse', href: '/tor/search.php', icon: Search },
           { title: 'Freeleech picks', href: '/freeleech.php', icon: Sparkles },
           { title: 'Top 10', href: '/stats/top10Tor.php', icon: TrendingUp },
           { title: 'Requests', href: requestsUrl(), icon: Gift, fold: 1 },
@@ -111,15 +111,14 @@ function groups(page: ShellData, counts: NotifCounts): { dashboard: NavItem; gro
           { title: 'Reseed requests', href: '/tor/search.php?s=%7B%22tor%22%3A%7B%22rr%22%3A%22reseed%22%7D%2C%22searchType%22%3A%22Torrents%22%7D' },
           { title: 'Recently deleted', href: '/tor/recentlyDeleted.php' },
           { title: 'RSS feeds', href: '/getrss.php' },
-          { title: 'New search', href: '/tor/search.php', badge: 'beta' },
         ],
       },
       {
         label: 'My library',
         items: [
           { title: 'Snatched', href: '/snatch_summary.php', icon: Download, badge: page.stats.unsats || null },
-          { title: 'Bookmarks', href: '/tor/browse.php?tor[searchIn]=bookmarks&tor[sortType]=bmkaDesc&action=search', icon: Bookmark, fold: 4 },
-          { title: 'My uploads', href: '/tor/browse.php?tor[searchIn]=mine&tor[sortType]=dateDesc&action=search', icon: Upload, fold: 2 },
+          { title: 'Bookmarks', href: '/tor/search.php?s=%7B%22tor%22%3A%7B%22bookmarked%22%3A%22only%22%7D%2C%22searchType%22%3A%22Torrents%22%7D', icon: Bookmark, fold: 4 },
+          { title: 'My uploads', href: '/tor/search.php?s=%7B%22tor%22%3A%7B%22uploader%22%3A%22me%22%7D%2C%22searchType%22%3A%22Torrents%22%7D', icon: Upload, fold: 2 },
         ],
         more: [
           { title: 'Upload torrent', href: '/tor/requestUpload.php' },

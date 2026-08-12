@@ -9,6 +9,7 @@ import { setPortalContainer } from '@/lib/portals'
 import { capturePage } from '@/lib/extract/shell'
 import { cacheWysiwygPref } from '@/components/bb-composer'
 import { preventWysiwyg } from '@/lib/wysiwyg'
+import { preventLegacyAutoSearch } from '@/lib/quiet-search'
 import { applyTheme, watchSystemTheme } from '@/lib/theme'
 import { applyMobileViewport, removeMobileViewport } from '@/lib/viewport'
 import { migrateLegacyKeys } from '@/lib/settings'
@@ -22,6 +23,9 @@ const LEGACY_ATTR = 'data-mam-legacy'
 // Before MAM's scripts load: stop TinyMCE from claiming body textareas. It fires
 // right around our mount and a hijacked textarea is invisible to FormMirror.
 preventWysiwyg()
+
+// Same moment: keep torSearch.js from running its own search under the veil.
+preventLegacyAutoSearch()
 
 // Old storage prefixes rename to colophon: before anything reads them.
 migrateLegacyKeys()

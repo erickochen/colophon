@@ -8,8 +8,9 @@ export const BROWSE_COLS_KEY = 'colophon:browse-cols'
 
 export interface StickyFilters {
   mainCat: number[]
-  cat: number[]
+  categories: number[]
   langs: number[]
+  langsMode?: 'has' | 'not'
   flagsMode: 0 | 1
   flags: number[]
   sort?: string
@@ -34,8 +35,9 @@ export function readSticky(): StickyFilters | null {
   const o = raw as Record<string, unknown>
   return {
     mainCat: ids(o.mainCat),
-    cat: ids(o.cat),
+    categories: ids(o.categories),
     langs: ids(o.langs),
+    langsMode: o.langsMode === 'not' ? 'not' : 'has',
     flagsMode: o.flagsMode === 1 ? 1 : 0,
     flags: ids(o.flags),
     sort: typeof o.sort === 'string' ? o.sort : undefined,
@@ -51,15 +53,11 @@ export function writeSticky(f: StickyFilters): void {
   }
 }
 
-/** MAM's saved browse defaults, read straight from the hidden legacy form: the
- * categories from Preferences > Torrent Search plus the saved sort. The search
- * API ignores both, so this form is the only place they surface. */
-export function mamBrowseDefaults(): Pick<StickyFilters, 'cat' | 'sort'> | null {
+/** MAM's saved sort default, read straight from the hidden legacy form. The
+ * saved category checkboxes belong to the classic taxonomy and stay unused. */
+export function mamBrowseDefaults(): Pick<StickyFilters, 'sort'> | null {
   const form = document.querySelector('#torSearch')
   if (!form) return null
-  const cat = [...form.querySelectorAll<HTMLInputElement>('input[name="tor[cat][]"]:checked')]
-    .map((el) => Number(el.value))
-    .filter((n) => n > 0)
   const sort = form.querySelector<HTMLInputElement>('#sortType')?.value
-  return { cat, sort: sort || undefined }
+  return { sort: sort || undefined }
 }
