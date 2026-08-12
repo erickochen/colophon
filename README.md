@@ -41,10 +41,11 @@ has not fetched the new loader yet is still asking for the older name, so prunin
 would take Colophon away from them until their next update check.
 
 When a download fails, the loader may start one older copy: the release right before this
-one. Its digest lives in `PREVIOUS_PAYLOAD_SHA256` in `version.mjs`, gets baked into the
-loader at build time and is rewritten by `pnpm release` once a release verifies. Nothing
-else in local storage is eligible, because an entry stored there cannot vouch for its own
-bytes. A build whose predecessor shipped the same payload has no fallback at all.
+one. `FALLBACK_PAYLOAD_SHA256` records the digest baked into this release while
+`PUBLISHED_PAYLOAD_SHA256` records what this release shipped for the next one to use.
+Keeping those fields separate makes a tagged release reproducible. Nothing else in local
+storage is eligible, because an entry stored there cannot vouch for its own bytes. A build
+whose predecessor shipped the same payload has no fallback at all.
 
 `pnpm build:fast` skips the TypeScript check when you only need to see a change in the
 browser. To point a build at a local server instead of the hosted copy, override the
@@ -72,10 +73,16 @@ pnpm release            # minor bump
 pnpm release patch      # patch or major instead
 ```
 
-This bumps the version in `version.mjs`, builds, deploys, then polls the published
-`.meta.js` until it actually serves the new version and finally commits and tags. It
-stops at the first thing that goes wrong: a failed build rolls the version back and a CDN
-that keeps serving the old number is reported as a failure rather than a success. Pushing
+This bumps the version in `version.mjs`, builds and deploys. It first compares the exact
+meta, loader and payload bytes from the nearby CDN edge, including every compression
+variant of both mutable files. It then asks Globalping for exact byte ranges of the meta
+and loader near every region configured on the Bunny Storage Zone. Only a globally
+consistent release is committed and tagged. `BUNNY_API_KEY` is therefore required for a
+release; `GLOBALPING_TOKEN` is optional but raises Globalping's hourly allowance.
+
+A failed build rolls the version back. Once an upload has happened the new version stays
+in `version.mjs`, because some origins may already serve it; use `pnpm release resume` to
+retry that same release after fixing a purge, replication or connectivity problem. Pushing
 is left to you with `git push --follow-tags`.
 
 Deploying without a version bump uploads fine but reaches nobody, since update checkers

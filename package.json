@@ -8,6 +8,7 @@
     "gen": "node gen-schemes.mjs && node verify-schemes.mjs",
     "build": "pnpm gen && tsc -b && node build.mjs",
     "build:fast": "pnpm gen && node build.mjs",
+    "test": "node --test test/*.test.mjs",
     "deploy": "pnpm build && node deploy.mjs",
     "release": "node release.mjs",
     "preview": "vite preview"

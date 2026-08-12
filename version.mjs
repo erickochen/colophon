@@ -13,7 +13,10 @@ export const PAYLOAD_GLOB = /^colophon-[0-9a-f]{16}\.payload\.js$/
 // files are live by then, so release.mjs keeps the new version and retries.
 export const PURGE_FAILED_EXIT = 2
 
-// Digest of the payload the previous release published. The loader carries it so
-// a failed fetch can start that one copy plus nothing else. Empty means no
-// fallback at all. release.mjs rewrites this line once a release verifies.
-export const PREVIOUS_PAYLOAD_SHA256 = '05b7334b965f1460449d64b60074063a72e4722b63225fc1cda05a7d21684ca0'
+// Digest baked into this release as its one allowed fallback. It stays unchanged
+// after publishing, which makes a tagged release build byte-for-byte reproducible.
+export const FALLBACK_PAYLOAD_SHA256 = '5b9a142eb63132f3c9705ad031c0498ebafa47c8afca0aa408340b068c35f48d'
+
+// Digest this release published. The next release copies it to the fallback
+// field before building, then records its own digest here after verification.
+export const PUBLISHED_PAYLOAD_SHA256 = '05b7334b965f1460449d64b60074063a72e4722b63225fc1cda05a7d21684ca0'

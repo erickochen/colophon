@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import monkey from 'vite-plugin-monkey'
 import path from 'node:path'
 import { loadDeployEnv } from './env.mjs'
-import { VERSION, LOADER_FILE, META_FILE, PREVIOUS_PAYLOAD_SHA256 } from './version.mjs'
+import { VERSION, LOADER_FILE, META_FILE, FALLBACK_PAYLOAD_SHA256 } from './version.mjs'
 
 // Update plus download URLs come from .env.deploy (SITE_URL + BASE_PATH). The
 // payload URL and its hash are computed by build.mjs, which is the only place
@@ -62,7 +62,7 @@ export default defineConfig({
     __COLOPHON_VERSION__: JSON.stringify(VERSION),
     __COLOPHON_PAYLOAD_URL__: JSON.stringify(payloadUrl),
     __COLOPHON_PAYLOAD_SHA256__: JSON.stringify(payloadSha),
-    __COLOPHON_PREVIOUS_SHA256__: JSON.stringify(PREVIOUS_PAYLOAD_SHA256)
+    __COLOPHON_PREVIOUS_SHA256__: JSON.stringify(FALLBACK_PAYLOAD_SHA256)
   },
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') }
