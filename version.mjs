@@ -1,5 +1,5 @@
 // Single source for the userscript version. release.mjs rewrites this line.
-export const VERSION = '3.11.1'
+export const VERSION = '3.12.0'
 
 export const LOADER_FILE = 'colophon.user.js'
 export const META_FILE = 'colophon.meta.js'
