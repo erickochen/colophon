@@ -4,6 +4,7 @@ import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs'
 import { join, relative, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadDeployEnv } from './env.mjs'
+import { PURGE_FAILED_EXIT } from './version.mjs'
 
 loadDeployEnv()
 
@@ -70,14 +71,28 @@ for (const abs of walk(DIST).sort(uploadOrder)) {
   console.log(`[deploy] uploaded ${rel} (${body.length} B)`)
 }
 
+// Every way a purge can fail leaves the same situation behind, so they share one
+// exit: uploaded, not purged. An unreachable API is as much that case as a 401.
+const purgeFailed = (url, detail) => {
+  console.error(`[deploy] purge failed ${url}: ${detail}`)
+  console.error('[deploy] the files are uploaded, so edges keep serving the previous version until a purge lands')
+  process.exit(PURGE_FAILED_EXIT)
+}
+
 // Purge the two files that must never serve stale, so the userscript manager sees updates.
 if (BUNNY_API_KEY) {
   for (const name of ['colophon.user.js', 'colophon.meta.js']) {
     const url = publicUrl(name)
-    const res = await fetch(`https://api.bunny.net/purge?url=${encodeURIComponent(url)}&async=false`, {
-      method: 'POST',
-      headers: { AccessKey: BUNNY_API_KEY },
-    })
+    let res
+    try {
+      res = await fetch(`https://api.bunny.net/purge?url=${encodeURIComponent(url)}&async=false`, {
+        method: 'POST',
+        headers: { AccessKey: BUNNY_API_KEY },
+      })
+    } catch (err) {
+      purgeFailed(url, err)
+    }
+    if (!res.ok) purgeFailed(url, `${res.status} ${await res.text()}`)
     console.log(`[deploy] purge ${url}: ${res.status}`)
   }
 } else {

@@ -40,6 +40,12 @@ Payload objects from earlier releases have to stay on the storage zone. Anyone w
 has not fetched the new loader yet is still asking for the older name, so pruning the zone
 would take Colophon away from them until their next update check.
 
+When a download fails, the loader may start one older copy: the release right before this
+one. Its digest lives in `PREVIOUS_PAYLOAD_SHA256` in `version.mjs`, gets baked into the
+loader at build time and is rewritten by `pnpm release` once a release verifies. Nothing
+else in local storage is eligible, because an entry stored there cannot vouch for its own
+bytes. A build whose predecessor shipped the same payload has no fallback at all.
+
 `pnpm build:fast` skips the TypeScript check when you only need to see a change in the
 browser. To point a build at a local server instead of the hosted copy, override the
 hosting variables for that one run:

@@ -76,8 +76,11 @@ const blockedByPolicy = (err: unknown) =>
 
 /** Runs in page context, where MAM's globals plus our own hooks live. MAM serves
  * 'unsafe-eval' on every page measured while 'unsafe-inline' is missing on some,
- * so the page's own eval goes first. Returns whether the page ran it. */
-function run(code: string): boolean {
+ * so the page's own eval goes first. Returns the version this call announced.
+ * A marker left by another install does not count, so it has to change. */
+function run(code: string): string | null {
+  const announced = () => (pageWindow as { __colophon?: string }).__colophon
+  const before = announced()
   try {
     ;(pageWindow as Window & { eval: (src: string) => unknown }).eval(code)
   } catch (err) {
@@ -89,7 +92,8 @@ function run(code: string): boolean {
     document.documentElement.appendChild(el)
     el.remove()
   }
-  return (pageWindow as { __colophon?: string }).__colophon === __COLOPHON_VERSION__
+  const after = announced()
+  return after && after !== before ? after : null
 }
 
 async function sha256Hex(text: string): Promise<string> {
@@ -117,12 +121,32 @@ function fetchPayload(): Promise<string> {
   })
 }
 
-/** Last resort when the payload this build expects cannot be had. An entry from
- * an older release is not pinned to a hash this build knows, so it only runs
- * here plus never on the normal path. */
-function fallBack(reason: string, cached: CacheEntry | null): void {
-  if (cached && cached.hash !== __COLOPHON_PAYLOAD_SHA256__ && run(cached.code)) {
-    console.warn(`[Colophon] ${reason}, ran an older cached copy`)
+/** One release back is as far as a failure may reach, because that digest is
+ * baked in here. Checking an entry against the hash stored beside it would prove
+ * nothing: both halves come from a key anything on this origin can write.
+ * Returns the version that started. */
+async function runPrevious(cached: CacheEntry | null): Promise<string | null> {
+  // A build whose predecessor shipped the same payload has nothing to fall back
+  // to. Running it again here would apply the copy that just failed twice.
+  if (__COLOPHON_PREVIOUS_SHA256__ === __COLOPHON_PAYLOAD_SHA256__) return null
+  if (!__COLOPHON_PREVIOUS_SHA256__ || cached?.hash !== __COLOPHON_PREVIOUS_SHA256__) return null
+  try {
+    if ((await sha256Hex(cached.code)) !== __COLOPHON_PREVIOUS_SHA256__) return null
+    return run(cached.code)
+  } catch {
+    // Part of it may have applied already, so hand the page back rather than
+    // try anything else on top.
+    return null
+  }
+}
+
+/** Last resort when the payload this build expects cannot be had. */
+async function fallBack(reason: string, cached: CacheEntry | null): Promise<void> {
+  const ran = await runPrevious(cached)
+  if (ran) {
+    // The copy that just started takes the veil down once it paints, if the
+    // reveal failsafe has not beaten it to it on a slow line.
+    console.warn(`[Colophon] ${reason}, running cached ${ran} instead of ${__COLOPHON_VERSION__}`)
     return
   }
   console.warn(`[Colophon] ${reason}, leaving the original page`)
@@ -133,12 +157,16 @@ async function boot(): Promise<void> {
   preventWysiwyg(pageWindow)
 
   const cached = readCache()
+  // Once an eval has started, part of the app may already be applied, so a
+  // second copy on top of it is worse than handing the page back.
+  let evaluated = false
   try {
     if (cached && cached.hash === __COLOPHON_PAYLOAD_SHA256__) {
       // The stored bytes get hashed too: any script on this origin can write that
       // key, so taking it on trust would turn one injection into a lasting one.
       if ((await sha256Hex(cached.code)) === __COLOPHON_PAYLOAD_SHA256__) {
-        if (run(cached.code)) return
+        evaluated = true
+        if (run(cached.code) === __COLOPHON_VERSION__) return
         // Nothing evaluated it. Running it again risks a half applied app, so
         // drop it plus let the next navigation fetch a fresh copy.
         dropCache()
@@ -151,10 +179,11 @@ async function boot(): Promise<void> {
 
     const code = await fetchPayload()
     if ((await sha256Hex(code)) !== __COLOPHON_PAYLOAD_SHA256__) throw new Error('hash mismatch')
-    if (!run(code)) throw new Error('the page did not run the app')
+    evaluated = true
+    if (run(code) !== __COLOPHON_VERSION__) throw new Error('the page did not run the app')
     writeCache(code)
   } catch (err) {
-    fallBack(err instanceof Error ? err.message : 'load failed', cached)
+    await fallBack(err instanceof Error ? err.message : 'load failed', evaluated ? null : cached)
   }
 }
 
