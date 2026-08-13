@@ -75,8 +75,15 @@ for (const abs of walk(DIST).sort(uploadOrder)) {
 // Bunny puts an overwrite in every region inside two minutes normally, under 30
 // seconds often. Purging ahead of that makes every edge pull at once. An edge
 // whose replica still trails then caches the previous release for a full TTL.
-const REPLICATION_WAIT_MS = 150_000
+// The window is wide because a region can take far longer than the normal case:
+// release.mjs purges again for whatever still trails after its regional check,
+// so overshooting this costs a wait while undershooting costs three stale hours.
+const REPLICATION_WAIT_MS = 600_000
 const REPLICATION_POLL_MS = 5_000
+// Silence for ten minutes reads as a hung release. Breaking off at that point
+// would leave the zone on the new bytes with no purge landed, so the wait keeps
+// saying what it is waiting on.
+const REPLICATION_REPORT_MS = 30_000
 
 const listing = async () => {
   // The trailing slash is what makes this a directory listing. Without it the
@@ -99,9 +106,10 @@ const zoneRegions = async () => {
   return zone.ReplicationRegions ?? []
 }
 
-/** Waits until the listing names every replication region for the files that get
- * overwritten. Bunny does not document that field as a status signal, so the
- * deadline ends the wait either way plus the purge follows regardless. */
+/** Waits until the listing names every replication region for the files this
+ * release overwrites. Bunny support states a region appears there only once its
+ * replication is complete, so this is the signal to purge on. The deadline is
+ * there for the case where a region takes far longer than it should. */
 async function waitForReplication(wanted) {
   let regions
   try {
@@ -111,8 +119,12 @@ async function waitForReplication(wanted) {
     return
   }
   if (!regions.length) return
-  const deadline = Date.now() + REPLICATION_WAIT_MS
+  const started = Date.now()
+  const deadline = started + REPLICATION_WAIT_MS
+  const since = () => ((Date.now() - started) / 1000).toFixed(1)
   let gaps = []
+  let spoke = started
+  console.log(`[deploy] waiting for ${regions.length} replication regions to list this release`)
   while (Date.now() < deadline) {
     try {
       gaps = replicationGaps({ listing: await listing(), wanted, regions })
@@ -121,8 +133,14 @@ async function waitForReplication(wanted) {
       return
     }
     if (!gaps.length) {
-      console.log(`[deploy] all ${regions.length} replication regions list this release`)
+      // The elapsed time is worth printing: it is the only record of how long
+      // this zone actually takes, which no API reports.
+      console.log(`[deploy] all ${regions.length} replication regions list this release after ${since()}s`)
       return
+    }
+    if (Date.now() - spoke >= REPLICATION_REPORT_MS) {
+      spoke = Date.now()
+      console.log(`[deploy] ${since()}s in, still waiting on ${gaps.map((gap) => `${gap.name} ${gap.reason}`).join('; ')}`)
     }
     await new Promise((resolve) => setTimeout(resolve, REPLICATION_POLL_MS))
   }

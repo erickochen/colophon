@@ -276,8 +276,10 @@ export function cacheVerdict({ cachedAt, uploadedAt, purgedAt }) {
 }
 
 /** What a storage listing still misses for one release. Bunny does not document
- * ReplicatedZones as a status field, so this reads as an indication rather than
- * as proof: the caller pairs it with a deadline. */
+ * ReplicatedZones, though support states a region lands in it only once its
+ * replication is complete, so an empty result means every region holds the bytes.
+ * The caller still pairs it with a deadline, for a region that takes far too long
+ * rather than out of doubt about the field. */
 export function replicationGaps({ listing, wanted, regions }) {
   const gaps = []
   for (const [name, digest] of Object.entries(wanted)) {
