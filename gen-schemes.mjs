@@ -18,8 +18,12 @@ const toOklch = converter('oklch')
 // against both the page and the card surface.
 export const TEXT_MIN_CONTRAST = 4.5
 
-// Extra headroom on top of the minimum, so the three-decimal rounding in the
-// emitted CSS cannot drop a value back under the bar.
+// WCAG 2.1 non-text contrast: the bar a focus ring has to clear against the
+// surfaces it is drawn on.
+const FOCUS_MIN_CONTRAST = 3.0
+
+// Extra headroom on top of the minimum, so the rounding in the emitted CSS
+// cannot drop a value back under the bar.
 const TEXT_CONTRAST_MARGIN = 0.1
 
 // Lightness step for the text-safety walk. Hue and chroma never change.
@@ -40,12 +44,32 @@ const MIX = {
   sidebarBorderLight: 0.1,
   inputDark: 0.2,
   inputLight: 0.14,
-  ringDark: 0.49,
-  ringLight: 0.47,
   accent: 0.18,          // card toward brand
   brandSoftDark: 0.22,   // background toward brand
   brandSoftLight: 0.12,
+  hoverToHighlight: 0.55, // card toward the canonical selected surface
   mutedFgFallback: 0.28, // foreground toward background when the palette has no muted color
+}
+
+// Two surfaces closer than this read as one; used to keep an active item
+// visible against the panel it sits on. verify-schemes.mjs gates on the same
+// number with the same metric.
+const MIN_SURFACE_GAP = 0.025
+
+// How far the accent may travel from its canonical lightness before it stops
+// reading as that color and the plain text tone takes over.
+const MAX_BRAND_TEXT_SHIFT = 0.06
+
+// A hover tint below this distance from the card does not register as hover.
+const MIN_HOVER_GAP = 0.015
+
+/** Straight-line distance in oklch, used to tell two surfaces apart. */
+function oklchDistance(a, b) {
+  const ha = (a.h * Math.PI) / 180
+  const hb = (b.h * Math.PI) / 180
+  const dx = a.c * Math.cos(ha) - b.c * Math.cos(hb)
+  const dy = a.c * Math.sin(ha) - b.c * Math.sin(hb)
+  return Math.sqrt((a.l - b.l) ** 2 + dx ** 2 + dy ** 2)
 }
 
 // Sidebar sits one step off the page, matching the existing schemes.
@@ -76,42 +100,59 @@ function fromHex(hex) {
   return { l, c, h: h ?? 0 }
 }
 
+// Four decimals on lightness and chroma keep a canonical hex byte-exact
+// through the round trip; three lose the last digit on saturated colors.
+const L_DIGITS = 4
+const C_DIGITS = 4
+const H_DIGITS = 2
+
 export function oklchCss(hexOrColor) {
   const { l, c, h } = typeof hexOrColor === 'string' ? fromHex(hexOrColor) : hexOrColor
-  return `oklch(${round(l, 3)} ${round(c, 3)} ${round(h ?? 0, 1)})`
+  return `oklch(${round(l, L_DIGITS)} ${round(c, C_DIGITS)} ${round(h ?? 0, H_DIGITS)})`
 }
 
 function asCulori({ l, c, h }) {
   return { mode: 'oklch', l, c, h }
 }
 
-/** Shortest-path hue interpolation keeps mixes stable across the 0/360 seam. */
+// Below this chroma a color carries no real hue; its stored hue is an
+// artifact of the hex conversion and must not steer a mix.
+const ACHROMATIC_C = 0.005
+
+/** Shortest-path hue interpolation keeps mixes stable across the 0/360 seam.
+ * A near-gray endpoint adopts the other side's hue instead of pulling it. */
 function mixOklch(a, b, t) {
-  let dh = b.h - a.h
+  const aGray = a.c < ACHROMATIC_C
+  const bGray = b.c < ACHROMATIC_C
+  const ah = aGray && !bGray ? b.h : a.h
+  const bh = bGray && !aGray ? a.h : b.h
+  let dh = bh - ah
   if (dh > 180) dh -= 360
   if (dh < -180) dh += 360
-  let h = a.h + dh * t
+  let h = ah + dh * t
   if (h < 0) h += 360
   if (h >= 360) h -= 360
   return { l: a.l + (b.l - a.l) * t, c: a.c + (b.c - a.c) * t, h }
 }
 
 /**
- * Walk lightness away from the surfaces until small text reads. Hue and
- * chroma stay canonical; failing to converge keeps the closest value.
+ * Walk lightness away from the surfaces until the color clears `target`. Hue
+ * and chroma stay canonical; failing to converge keeps the closest value.
  */
-function textSafe(color, surfaces, side) {
+function contrastSafe(color, surfaces, side, target) {
   const dir = side === 'dark' ? 1 : -1
   const out = { ...color }
   for (let i = 0; i < TEXT_L_MAX_STEPS; i++) {
     const worst = Math.min(...surfaces.map((s) => wcagContrast(asCulori(out), asCulori(s))))
-    if (worst >= TEXT_MIN_CONTRAST + TEXT_CONTRAST_MARGIN) break
+    if (worst >= target + TEXT_CONTRAST_MARGIN) break
     const next = out.l + dir * TEXT_L_STEP
     if (next <= 0 || next >= 1) break
     out.l = next
   }
   return out
 }
+
+const textSafe = (color, surfaces, side) => contrastSafe(color, surfaces, side, TEXT_MIN_CONTRAST)
 
 function pickReadable(candidates, on) {
   return candidates.reduce((best, c) =>
@@ -143,12 +184,42 @@ function buildTokens(scheme, colors) {
     ? ref(roles.sidebar)
     : { ...bg, l: Math.min(1, Math.max(0, bg.l - SIDEBAR_L_SHIFT[side])) }
 
+  // Surfaces the palette names itself. Where a theme carries its own selected
+  // and hovered surface, those beat any mix: they are what its users know.
+  const highlight = roles.highlight
+    ? ref(roles.highlight)
+    : mixOklch(bg, brand, dark ? MIX.brandSoftDark : MIX.brandSoftLight)
+  // Hover sits between the card and the selected surface, so a canonical
+  // highlight keeps the whole ladder inside the palette's own tones. A named
+  // hover that lands on the card itself is unusable, so it steps aside.
+  const midway = roles.highlight
+    ? mixOklch(card, highlight, MIX.hoverToHighlight)
+    : mixOklch(card, brand, MIX.accent)
+  const namedHover = roles.hover ? ref(roles.hover) : null
+  const hover = namedHover && oklchDistance(namedHover, card) >= MIN_HOVER_GAP ? namedHover : midway
+  // The rail's hover tone, kept between the rail and the selected row so the
+  // two states never read as one.
+  const sidebarHover = oklchDistance(highlight, sidebar) < MIN_SURFACE_GAP
+    ? mixOklch(sidebar, fg0, dark ? MIX.borderDark : MIX.borderLight)
+    : mixOklch(sidebar, highlight, MIX.hoverToHighlight)
+
   const surfaces = [bg, card]
   const fg = textSafe(fg0, surfaces, side)
   const mutedFgBase = roles.mutedForeground ? ref(roles.mutedForeground) : mixOklch(fg, bg, MIX.mutedFgFallback)
-  const accent = mixOklch(card, brand, MIX.accent)
+  const accent = hover
   const brandText = textSafe(brand, surfaces, side)
   const destructiveText = textSafe(destructive, surfaces, side)
+  // The active-state pair the UI actually renders: accent-foreground always
+  // sits on brand-soft, so it has to read there too. A neutral selected
+  // surface rarely carries the accent at readable contrast. The themes put
+  // plain text on it themselves, so the brand only stays where it reads close
+  // to its canonical lightness.
+  const accentSurfaces = [accent, card, highlight]
+  const brandOnSurfaces = textSafe(brand, accentSurfaces, side)
+  const focusRing = contrastSafe(brand, [bg, card, sidebar], side, FOCUS_MIN_CONTRAST)
+  const accentFg = Math.abs(brandOnSurfaces.l - brand.l) > MAX_BRAND_TEXT_SHIFT
+    ? textSafe(fg, accentSurfaces, side)
+    : brandOnSurfaces
 
   return {
     background: bg,
@@ -164,15 +235,15 @@ function buildTokens(scheme, colors) {
     muted: mixOklch(bg, fg, dark ? MIX.mutedDark : MIX.mutedLight),
     'muted-foreground': textSafe(mutedFgBase, surfaces, side),
     accent,
-    'accent-foreground': textSafe(brand, [accent, card], side),
+    'accent-foreground': accentFg,
     destructive: destructiveText,
     'destructive-foreground': pickReadable([bg, fg], destructiveText),
-    border: mixOklch(bg, fg, dark ? MIX.borderDark : MIX.borderLight),
+    border: roles.border ? ref(roles.border) : mixOklch(bg, fg, dark ? MIX.borderDark : MIX.borderLight),
     input: mixOklch(bg, fg, dark ? MIX.inputDark : MIX.inputLight),
-    ring: mixOklch(bg, fg, dark ? MIX.ringDark : MIX.ringLight),
+    ring: focusRing,
     brand: brandText,
     'brand-fill': brand,
-    'brand-soft': mixOklch(bg, brand, dark ? MIX.brandSoftDark : MIX.brandSoftLight),
+    'brand-soft': highlight,
     'ok-fill': ok,
     ok: textSafe(ok, surfaces, side),
     warn: textSafe(warn, surfaces, side),
@@ -190,10 +261,10 @@ function buildTokens(scheme, colors) {
     'sidebar-foreground': textSafe(fg, [sidebar], side),
     'sidebar-primary': fg,
     'sidebar-primary-foreground': bg,
-    'sidebar-accent': mixOklch(sidebar, brand, MIX.accent),
-    'sidebar-accent-foreground': textSafe(brand, [mixOklch(sidebar, brand, MIX.accent), sidebar], side),
+    'sidebar-accent': sidebarHover,
+    'sidebar-accent-foreground': textSafe(brand, [sidebarHover, sidebar, highlight], side),
     'sidebar-border': mixOklch(bg, fg, dark ? MIX.sidebarBorderDark : MIX.sidebarBorderLight),
-    'sidebar-ring': mixOklch(bg, fg, dark ? MIX.ringDark : MIX.ringLight),
+    'sidebar-ring': focusRing,
   }
 }
 

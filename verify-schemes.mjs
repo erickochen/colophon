@@ -13,10 +13,18 @@ const TEXT_MIN_CONTRAST = 4.5
 // WCAG AA for large text; the button label on a destructive fill, where the
 // best of page and foreground color is all there is to pick from.
 const FILL_TEXT_MIN_CONTRAST = 3.0
-// Text tokens keep the canonical hue; allow only the 0.1-degree CSS rounding.
+// Text tokens keep the canonical hue; allow only the CSS rounding.
 const HUE_TOLERANCE = 0.5
-// Chroma is emitted at three decimals and must survive the round trip.
-const CHROMA_TOLERANCE = 0.0015
+// Chroma is emitted at four decimals and must survive the round trip.
+const CHROMA_TOLERANCE = 0.0002
+// A hover tone this close to the card cannot read as hover, so the generator
+// is allowed to step away from the palette's named value there.
+const HOVER_MIN_GAP = 0.015
+// An active control has to stand out from the card plus the sidebar under it.
+// gen-schemes.mjs uses the same number with the same metric.
+const ACTIVE_MIN_GAP = 0.025
+// Hover and active are two states, so they may not land on one tone.
+const HOVER_VS_ACTIVE_GAP = 0.012
 
 const toOklch = converter('oklch')
 const round = (x, digits) => Number(x.toFixed(digits))
@@ -28,7 +36,7 @@ function oklchFromHex(hex) {
 
 function expectedCss(hex) {
   const { l, c, h } = oklchFromHex(hex)
-  return `oklch(${round(l, 3)} ${round(c, 3)} ${round(h, 1)})`
+  return `oklch(${round(l, 4)} ${round(c, 4)} ${round(h, 2)})`
 }
 
 function parseOklch(value) {
@@ -94,6 +102,8 @@ for (const family of families) {
     }
     if (roles.card) anchors.card = roles.card
     if (roles.sidebar) anchors.sidebar = roles.sidebar
+    if (roles.highlight) anchors['brand-soft'] = roles.highlight
+    if (roles.border) anchors.border = roles.border
     let anchorCount = 0
     for (const [token, ref] of Object.entries(anchors)) {
       const want = expectedCss(color(ref))
@@ -141,6 +151,8 @@ for (const family of families) {
       ['muted-foreground', 'background'],
       ['muted-foreground', 'card'],
       ['accent-foreground', 'accent'],
+      // The active state in the UI: text-accent-foreground on bg-brand-soft.
+      ['accent-foreground', 'brand-soft'],
       ['primary-foreground', 'primary'],
       ['sidebar-foreground', 'sidebar'],
       ['sidebar-accent-foreground', 'sidebar-accent'],
@@ -155,6 +167,40 @@ for (const family of families) {
       const ratio = wcagContrast(a, b)
       if (ratio < TEXT_MIN_CONTRAST) fail(id, `--${fgTok} on --${bgTok} contrast ${ratio.toFixed(2)} under ${TEXT_MIN_CONTRAST}`)
     }
+    if (!card) fail(id, '--card is not a plain oklch value')
+
+    // The hover surface: the palette's own tone, unless that tone sits on the
+    // card, in which case it has to land between the card and the active state.
+    if (roles.hover && card) {
+      const want = expectedCss(color(roles.hover))
+      if (tokens.accent !== want) {
+        const named = oklchFromHex(color(roles.hover))
+        const gap = Math.hypot(named.l - card.l, named.c - card.c)
+        const got = parseOklch(tokens.accent)
+        const soft = parseOklch(tokens['brand-soft'])
+        if (gap >= HOVER_MIN_GAP)
+          fail(id, `--accent is ${tokens.accent}, canonical ${roles.hover} converts to ${want}`)
+        else if (!got || !soft || (got.l - card.l) * (soft.l - card.l) <= 0 || Math.abs(got.l - card.l) > Math.abs(soft.l - card.l))
+          fail(id, `--accent ${tokens.accent} does not sit between --card and --brand-soft`)
+      }
+    }
+
+    // An active control has to be tellable from the panel it sits on plus from
+    // the hover state drawn on that same panel.
+    const soft = parseOklch(tokens['brand-soft'])
+    const sidebar = parseOklch(tokens.sidebar)
+    for (const [name, surface] of [['card', card], ['sidebar', sidebar]]) {
+      if (!soft || !surface) continue
+      const d = Math.hypot(soft.l - surface.l, soft.c - surface.c)
+      if (d < ACTIVE_MIN_GAP) fail(id, `--brand-soft is ${d.toFixed(3)} from --${name}, under ${ACTIVE_MIN_GAP}`)
+    }
+    for (const hoverTok of ['accent', 'sidebar-accent']) {
+      const hv = parseOklch(tokens[hoverTok])
+      if (!soft || !hv) continue
+      const d = Math.hypot(soft.l - hv.l, soft.c - hv.c)
+      if (d < HOVER_VS_ACTIVE_GAP) fail(id, `--${hoverTok} is ${d.toFixed(3)} from --brand-soft, under ${HOVER_VS_ACTIVE_GAP}`)
+    }
+
     const dfg = parseOklch(tokens['destructive-foreground'])
     const dbg = parseOklch(tokens.destructive)
     if (dfg && dbg && wcagContrast(dfg, dbg) < FILL_TEXT_MIN_CONTRAST)

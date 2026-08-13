@@ -2,6 +2,8 @@
 // A browser refuses to focus a hidden invalid control, so without this map a
 // failed validity check has nothing visible to point at.
 
+import { scrollIntoView } from '@/lib/motion'
+
 interface Anchor {
   node: () => HTMLElement | null
   mark: (message: string) => void
@@ -32,7 +34,7 @@ export function markInvalid(bad: HTMLElement[]): number {
     if (!anchor) continue
     anchor.mark(validationHint(el))
     if (!scrolled) {
-      anchor.node()?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      scrollIntoView(anchor.node(), { block: 'center' })
       scrolled = true
     }
     marked++

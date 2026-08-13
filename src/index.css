@@ -38,7 +38,7 @@
   --ring: oklch(0.62 0.02 56);
   --brand: oklch(0.473 0.078 46);
   --brand-fill: oklch(0.473 0.078 46);
-  --brand-soft: oklch(0.955 0.018 78);
+  --brand-soft: oklch(0.925 0.032 78);
   --ok-fill: oklch(0.5 0.09 150);
   --ok: oklch(0.5 0.09 150);
   --warn: oklch(0.55 0.13 60);
@@ -47,7 +47,7 @@
   --user-2: oklch(0.5 0.07 240);
   --user-3: oklch(0.48 0.09 320);
   --user-4: oklch(0.5 0.09 150);
-  /* Lightness and chroma for the per-user hashed name colours. */
+  /* Lightness and chroma for the per-user hashed name colors. */
   --user-hash-l: 0.49;
   --user-hash-c: 0.09;
   --shadow-card: 0 1px 2px oklch(0.2 0.01 60 / 0.05);
@@ -97,7 +97,7 @@
   --sidebar-foreground: oklch(0.205 0.006 56);
   --sidebar-primary: oklch(0.216 0.006 56);
   --sidebar-primary-foreground: oklch(0.985 0.001 106);
-  --sidebar-accent: oklch(0.93 0.025 78);
+  --sidebar-accent: oklch(0.945 0.026 78);
   --sidebar-accent-foreground: oklch(0.38 0.075 46);
   --sidebar-border: oklch(0.87 0.006 75);
   --sidebar-ring: oklch(0.62 0.02 56);
@@ -125,7 +125,7 @@
   --ring: oklch(0.553 0.013 58);
   --brand: oklch(0.75 0.09 70);
   --brand-fill: oklch(0.75 0.09 70);
-  --brand-soft: oklch(0.27 0.028 62);
+  --brand-soft: oklch(0.315 0.038 62);
   --ok-fill: oklch(0.72 0.1 150);
   --ok: oklch(0.72 0.1 150);
   --warn: oklch(0.76 0.12 65);
@@ -148,7 +148,7 @@
   --sidebar-foreground: oklch(0.945 0.001 106);
   --sidebar-primary: oklch(0.923 0.003 48);
   --sidebar-primary-foreground: oklch(0.216 0.006 56);
-  --sidebar-accent: oklch(0.28 0.03 60);
+  --sidebar-accent: oklch(0.245 0.026 60);
   --sidebar-accent-foreground: oklch(0.78 0.08 70);
   --sidebar-border: oklch(0.295 0.007 56);
   --sidebar-ring: oklch(0.553 0.013 58);
@@ -157,7 +157,7 @@
 /* Catppuccin Latte, official palette (catppuccin.com). Base carries the cards,
  * mantle the page, crust the sidebar. Accents that end up as text run darker
  * than the palette value so small type keeps its contrast; the chart fills and
- * mauve keep the canonical colour. */
+ * mauve keep the canonical color. */
 .scheme-latte:not(.dark) {
   --background: oklch(0.933 0.009 265);
   --foreground: oklch(0.435 0.043 279);
@@ -172,7 +172,7 @@
   --muted: oklch(0.909 0.011 266);
   --muted-foreground: oklch(0.492 0.038 279);
   --accent: oklch(0.9 0.025 295);
-  --accent-foreground: oklch(0.5 0.22 297);
+  --accent-foreground: oklch(0.47 0.22 297);
   --destructive: oklch(0.550 0.216 20);
   --destructive-foreground: oklch(0.958 0.006 265);
   --border: oklch(0.875 0.013 268);
@@ -180,7 +180,7 @@
   --ring: oklch(0.545 0.045 279);
   --brand: oklch(0.555 0.250 297);
   --brand-fill: oklch(0.555 0.25 297.02);
-  --brand-soft: oklch(0.91 0.035 297);
+  --brand-soft: oklch(0.857 0.014 268);
   --ok-fill: oklch(0.625 0.177 140.44);
   --ok: oklch(0.502 0.161 140);
   --warn: oklch(0.533 0.160 42);
@@ -190,7 +190,7 @@
   --user-3: oklch(0.539 0.174 338);
   --user-4: oklch(0.506 0.086 201);
   --chart-1: oklch(0.555 0.250 297);
-  --chart-2: oklch(0.626 0.132 235);
+  --chart-2: oklch(0.648 0.107 213);
   --chart-3: oklch(0.620 0.177 140);
   --chart-4: oklch(0.657 0.198 42);
   --chart-5: oklch(0.659 0.174 338);
@@ -202,7 +202,7 @@
   --sidebar-primary: oklch(0.435 0.043 279);
   --sidebar-primary-foreground: oklch(0.958 0.006 265);
   --sidebar-accent: oklch(0.885 0.03 295);
-  --sidebar-accent-foreground: oklch(0.5 0.22 297);
+  --sidebar-accent-foreground: oklch(0.47 0.22 297);
   --sidebar-border: oklch(0.865 0.014 268);
   --sidebar-ring: oklch(0.545 0.045 279);
 }
@@ -224,7 +224,7 @@
   --secondary-foreground: oklch(0.420 0.034 220);
   --muted: oklch(0.924 0.026 93);
   --muted-foreground: oklch(0.496 0.028 219);
-  --accent: oklch(0.906 0.023 97);
+  --accent: oklch(0.952 0.026 91);
   --accent-foreground: oklch(0.470 0.118 245);
   --destructive: oklch(0.545 0.206 27);
   --destructive-foreground: oklch(0.974 0.026 90);
@@ -233,7 +233,7 @@
   --ring: oklch(0.550 0.045 220);
   --brand: oklch(0.524 0.131 245);
   --brand-fill: oklch(0.6149 0.1394 244.93);
-  --brand-soft: oklch(0.918 0.017 105);
+  --brand-soft: oklch(0.931 0.026 92);
   --ok-fill: oklch(0.6444 0.1508 118.6);
   --ok: oklch(0.525 0.123 119);
   --warn: oklch(0.546 0.171 40);
@@ -250,7 +250,7 @@
   --shadow-card: 0 1px 2px oklch(0.31 0.05 220 / 0.06);
   --shadow-book: 0 1px 1.5px oklch(0.31 0.05 220 / 0.16), 0 3px 4px oklch(0.31 0.05 220 / 0.11), 0 6px 8px oklch(0.31 0.05 220 / 0.09), 0 12px 16px oklch(0.31 0.05 220 / 0.07), 0 33px 45px oklch(0.31 0.05 220 / 0.05);
   --shadow-book-lift: 0 2px 3px oklch(0.31 0.05 220 / 0.17), 0 5px 7px oklch(0.31 0.05 220 / 0.12), 0 10px 14px oklch(0.31 0.05 220 / 0.1), 0 20px 26px oklch(0.31 0.05 220 / 0.08), 0 44px 60px oklch(0.31 0.05 220 / 0.06);
-  --sidebar: oklch(0.931 0.026 92);
+  --sidebar: oklch(0.974 0.026 90);
   --sidebar-foreground: oklch(0.420 0.034 220);
   --sidebar-primary: oklch(0.309 0.052 220);
   --sidebar-primary-foreground: oklch(0.974 0.026 90);
@@ -273,20 +273,20 @@
   --popover-foreground: oklch(0.977 0.008 107);
   --primary: oklch(0.977 0.008 107);
   --primary-foreground: oklch(0.288 0.022 278);
-  --secondary: oklch(0.380 0.028 278);
+  --secondary: oklch(0.389 0.020 278);
   --secondary-foreground: oklch(0.977 0.008 107);
-  --muted: oklch(0.315 0.019 280);
-  --muted-foreground: oklch(0.781 0.080 270);
-  --accent: oklch(0.403 0.032 278);
+  --muted: oklch(0.255 0.019 281);
+  --muted-foreground: oklch(0.712 0.080 270);
+  --accent: oklch(0.389 0.020 278);
   --accent-foreground: oklch(0.800 0.122 302);
-  --destructive: oklch(0.726 0.169 24);
+  --destructive: oklch(0.734 0.206 24);
   --destructive-foreground: oklch(0.288 0.022 278);
-  --border: oklch(0.393 0.030 278);
-  --input: oklch(0.443 0.033 278);
-  --ring: oklch(0.665 0.090 270);
+  --border: oklch(0.220 0.014 279);
+  --input: oklch(0.255 0.019 281);
+  --ring: oklch(0.625 0.180 294);
   --brand: oklch(0.742 0.149 302);
   --brand-fill: oklch(0.742 0.149 301.88);
-  --brand-soft: oklch(0.383 0.045 300);
+  --brand-soft: oklch(0.403 0.032 278);
   --ok-fill: oklch(0.871 0.2195 148.02);
   --ok: oklch(0.871 0.219 148);
   --warn: oklch(0.834 0.124 67);
@@ -307,13 +307,13 @@
   --sidebar-foreground: oklch(0.977 0.008 107);
   --sidebar-primary: oklch(0.977 0.008 107);
   --sidebar-primary-foreground: oklch(0.288 0.022 278);
-  --sidebar-accent: oklch(0.403 0.032 278);
+  --sidebar-accent: oklch(0.340 0.027 276);
   --sidebar-accent-foreground: oklch(0.800 0.122 302);
-  --sidebar-border: oklch(0.378 0.028 278);
-  --sidebar-ring: oklch(0.665 0.090 270);
+  --sidebar-border: oklch(0.220 0.014 279);
+  --sidebar-ring: oklch(0.625 0.180 294);
 }
 
-/* One Dark Pro, Atom One Dark palette (Binaryify/OneDark-Pro). Sidebar colour
+/* One Dark Pro, Atom One Dark palette (Binaryify/OneDark-Pro). Sidebar color
  * and blue are the theme's own; the selection tone carries the cards. Every
  * accent is the palette value. mono-1 is the text and mono-2 the muted step,
  * which is as far apart as this palette goes without losing contrast. */
@@ -324,22 +324,22 @@
   --card-foreground: oklch(0.762 0.020 263);
   --popover: oklch(0.312 0.018 262);
   --popover-foreground: oklch(0.762 0.020 263);
-  --primary: oklch(0.900 0.012 263);
+  --primary: oklch(0.869 0.008 258);
   --primary-foreground: oklch(0.293 0.016 264);
-  --secondary: oklch(0.345 0.018 264);
+  --secondary: oklch(0.263 0.013 258);
   --secondary-foreground: oklch(0.762 0.020 263);
-  --muted: oklch(0.285 0.014 266);
-  --muted-foreground: oklch(0.713 0.023 263);
-  --accent: oklch(0.343 0.030 250);
-  --accent-foreground: oklch(0.730 0.121 245);
-  --destructive: oklch(0.713 0.145 17);
+  --muted: oklch(0.239 0.008 264);
+  --muted-foreground: oklch(0.680 0.023 264);
+  --accent: oklch(0.339 0.019 261);
+  --accent-foreground: oklch(0.770 0.121 245);
+  --destructive: oklch(0.699 0.145 17);
   --destructive-foreground: oklch(0.293 0.016 264);
-  --border: oklch(0.398 0.018 264);
-  --input: oklch(0.448 0.020 264);
+  --border: oklch(0.218 0.010 268);
+  --input: oklch(0.239 0.008 264);
   --ring: oklch(0.629 0.023 264);
   --brand: oklch(0.730 0.121 245);
   --brand-fill: oklch(0.73 0.121 245.3);
-  --brand-soft: oklch(0.338 0.042 248);
+  --brand-soft: oklch(0.386 0.024 266);
   --ok-fill: oklch(0.768 0.11 133.0);
   --ok: oklch(0.768 0.110 133);
   --warn: oklch(0.727 0.095 64);
@@ -352,17 +352,17 @@
   --chart-2: oklch(0.694 0.164 318);
   --chart-3: oklch(0.768 0.110 133);
   --chart-4: oklch(0.727 0.095 64);
-  --chart-5: oklch(0.800 0.092 206);
+  --chart-5: oklch(0.723 0.092 206);
   --shadow-card: 0 0 #0000;
   --shadow-book: 0 1px 2px oklch(0 0 0 / 0.5), 0 10px 22px -8px oklch(0 0 0 / 0.55);
   --shadow-book-lift: 0 2px 4px oklch(0 0 0 / 0.5), 0 18px 34px -10px oklch(0 0 0 / 0.6);
   --sidebar: oklch(0.263 0.013 258);
   --sidebar-foreground: oklch(0.762 0.020 263);
-  --sidebar-primary: oklch(0.900 0.012 263);
+  --sidebar-primary: oklch(0.869 0.008 258);
   --sidebar-primary-foreground: oklch(0.293 0.016 264);
-  --sidebar-accent: oklch(0.343 0.030 250);
-  --sidebar-accent-foreground: oklch(0.730 0.121 245);
-  --sidebar-border: oklch(0.378 0.017 264);
+  --sidebar-accent: oklch(0.339 0.019 261);
+  --sidebar-accent-foreground: oklch(0.770 0.121 245);
+  --sidebar-border: oklch(0.387 0.025 267);
   --sidebar-ring: oklch(0.629 0.023 264);
 }
 
@@ -471,7 +471,7 @@
 }
 
 /* Selection follows the palette instead of the platform blue. A translucent
- * fill keeps coloured text in posts readable underneath it. */
+ * fill keeps colored text in posts readable underneath it. */
 #mam-root ::selection {
   background-color: color-mix(in oklab, var(--brand) 28%, transparent);
   color: var(--foreground);
@@ -498,22 +498,37 @@
 }
 
 /* Reachability dots, put in place of MAM's thumb icons by lib/status-dots.ts.
- * Same reading as the client dots in the top bar: green is in, red is out. */
+ * Same reading as the client dots in the top bar: filled is reachable, hollow
+ * is unknown and a barred ring is unreachable, so each state has its own shape
+ * on top of its color. */
 #mam-root [data-conn] {
   display: inline-block;
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 9999px;
   vertical-align: middle;
-  background-color: color-mix(in oklab, var(--muted-foreground) 60%, transparent);
+  background-color: transparent;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--muted-foreground) 60%, transparent);
 }
 
 #mam-root [data-conn='ok'] {
   background-color: var(--ok);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--foreground) 20%, transparent);
 }
 
+/* Unreachable gets a bar across the ring, so it stays apart from the plain
+ * hollow "unknown" dot without leaning on color. */
 #mam-root [data-conn='no'] {
-  background-color: var(--destructive);
+  position: relative;
+  background-color: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--destructive);
+}
+
+#mam-root [data-conn='no']::after {
+  content: '';
+  position: absolute;
+  inset: 45% 15%;
+  border-top: 1.5px solid var(--destructive);
 }
 
 /* Hidden blocks in MAM markup, rebuilt by lib/hidden-text.ts. Shut, the frame is
@@ -602,6 +617,22 @@
   #mam-root .user-html .spoiler-caret,
   #mam-root .user-html .spoiler-panel {
     transition: none;
+  }
+}
+
+/* Readers who ask for less motion get none of the ambient kind. Spinners keep
+ * turning, slowly, because a still spinner reads as a hung request. */
+@media (prefers-reduced-motion: reduce) {
+  #mam-root *,
+  #mam-root *::before,
+  #mam-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  #mam-root .animate-spin {
+    animation: spin 1.6s linear infinite !important;
   }
 }
 

@@ -12,7 +12,7 @@ const TONE_ICON: Record<SiteAlert['tone'], typeof Info> = {
 
 const TONE_STYLE: Record<SiteAlert['tone'], { box: string; icon: string }> = {
   urgent: { box: 'bg-destructive/12', icon: 'text-destructive' },
-  info: { box: 'bg-brand-soft', icon: 'text-brand' },
+  info: { box: 'bg-brand/12', icon: 'text-brand' },
   ok: { box: 'bg-ok/15', icon: 'text-ok' },
 }
 

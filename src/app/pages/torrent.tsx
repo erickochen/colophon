@@ -29,6 +29,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { toast } from '@/components/ui/toast'
+import { scrollIntoView } from '@/lib/motion'
 
 /** One statline figure: serif number over a small-caps label. */
 function Stat({ label, value, title }: { label: string; value: string; title?: string }) {
@@ -873,7 +874,7 @@ export function TorrentView(props: PageProps) {
                     type="button"
                     className="mt-0.5 block text-[12px] text-brand hover:underline"
                     onClick={() => {
-                      thankBox.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                      scrollIntoView(thankBox.current, { block: 'center' })
                       thankInput.current?.focus({ preventScroll: true })
                     }}
                   >

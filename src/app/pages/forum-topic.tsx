@@ -15,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { toast } from '@/components/ui/toast'
 import { GiftActions } from '@/components/giftmam-actions'
 import { uidFromHref } from '@/lib/giftmam'
+import { scrollIntoView } from '@/lib/motion'
 
 /** Post images can finish loading after the first paint and push the target
  * down, so the anchor jump runs once more after this pause. */
@@ -216,7 +217,7 @@ export function ForumTopicView(props: PageProps) {
       const block = `[quote=${q.username}#p${q.pid}]\n${text}\n[/quote]\n\n`
       setReply((prev) => (prev.trim() ? `${prev.replace(/\n+$/, '')}\n\n${block}` : block))
       toast.success(`Quoted ${q.username}`)
-      props.host.shadowRoot?.getElementById('quick-reply')?.scrollIntoView({ behavior: 'smooth' })
+      scrollIntoView(props.host.shadowRoot?.getElementById('quick-reply'))
     } catch {
       toast.error('Quote is not available.')
     }

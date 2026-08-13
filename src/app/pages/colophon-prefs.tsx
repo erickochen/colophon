@@ -379,7 +379,7 @@ function IntroCard() {
   return (
     <Card className="border-brand/20 bg-brand-soft/20 py-0">
       <CardContent className="flex flex-wrap items-center gap-4 py-4">
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-accent-foreground">
           <BookMarked className="size-5" />
         </span>
         <div className="min-w-0 flex-1 basis-48">

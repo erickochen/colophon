@@ -11,6 +11,7 @@ import { FilterPill, FilterPillList, FilterSearch } from '@/components/filters'
 import { Kbd } from '@/components/ui/kbd'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
+import { scrollIntoView } from '@/lib/motion'
 
 const RICH =
   'text-[13.5px] leading-relaxed text-foreground/85 [overflow-wrap:anywhere] [&_a]:text-brand [&_a]:underline [&_h1]:my-2 [&_h1]:font-display [&_h1]:text-base [&_h1]:font-semibold [&_h2]:my-2 [&_h2]:font-semibold [&_li]:ml-4 [&_ol]:list-decimal [&_ol]:my-2 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_table]:my-2 [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-1 [&_ul]:list-disc [&_ul]:my-2 ' +
@@ -146,7 +147,7 @@ function KnowledgeBase({ title, sub, sections: raw, mode }: { title: string; sub
     setTab(secKey)
     // Two frames so the newly-activated tab content mounts before we scroll.
     requestAnimationFrame(() =>
-      requestAnimationFrame(() => rootRef.current?.querySelector(`#${CSS.escape(itemKey)}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+      requestAnimationFrame(() => scrollIntoView(rootRef.current?.querySelector(`#${CSS.escape(itemKey)}`), { block: 'start' }))
     )
   }
 

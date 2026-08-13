@@ -20,6 +20,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { ShineBorder } from '@/components/ui/shine-border'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { toast } from '@/components/ui/toast'
+import { scrollTo } from '@/lib/motion'
 
 const VAULT_GOAL = 20_000_000
 
@@ -264,7 +265,7 @@ export function HomeView({ page }: PageProps) {
   function jumpToLatestShout() {
     shoutsPinned.current = true
     setShoutsAtLatest(true)
-    shoutViewport.current?.scrollTo({ top: shoutViewport.current.scrollHeight, behavior: 'smooth' })
+    scrollTo(shoutViewport.current, { top: shoutViewport.current?.scrollHeight })
   }
 
   function sendShout() {

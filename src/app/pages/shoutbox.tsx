@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/toast'
 import { GiftActions } from '@/components/giftmam-actions'
 import { QuickShouts } from '@/components/quick-shouts'
+import { scrollTo } from '@/lib/motion'
 
 interface ShoutItem { id: string; numId: string; time: string | null; html: string | null; text: string; editable: boolean }
 interface ShoutGroup { key: string; user: Shout['user']; own: boolean; items: ShoutItem[] }
@@ -186,7 +187,7 @@ export function ShoutboxView(props: PageProps) {
   function scrollToLatest() {
     pinned.current = true
     setPinnedToBottom(true)
-    scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' })
+    scrollTo(scroller.current, { top: scroller.current?.scrollHeight })
   }
 
   function appendDraft(s: string) {

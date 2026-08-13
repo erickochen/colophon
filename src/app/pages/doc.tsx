@@ -6,6 +6,7 @@ import { PageHeader, RichHtml } from '@/app/shell/bits'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { scrollIntoView } from '@/lib/motion'
 
 interface TocItem { id: string; text: string; level: number }
 
@@ -69,7 +70,7 @@ function DocReader({ title, html }: { title: string; html: string }) {
                   href={`#${t.id}`}
                   onClick={(e) => {
                     e.preventDefault()
-                    bodyRef.current?.querySelector(`#${CSS.escape(t.id)}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    scrollIntoView(bodyRef.current?.querySelector(`#${CSS.escape(t.id)}`), { block: 'start' })
                   }}
                   className={cn(
                     'rounded-md px-2 py-1 text-[12px] leading-snug transition-colors hover:text-foreground',
