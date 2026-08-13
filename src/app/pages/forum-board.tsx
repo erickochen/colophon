@@ -9,7 +9,15 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
+/** Long threads keep the row to one line: the first two pages plus the last,
+ * so the newest posts stay one click away. */
+function pageChips(pages: { label: string; href: string }[]) {
+  if (pages.length <= 4) return pages.map((p) => ({ ...p, gap: false }))
+  return [{ ...pages[0], gap: false }, { ...pages[1], gap: false }, { ...pages[pages.length - 1], gap: true }]
+}
+
 function TopicRow({ t }: { t: NonNullable<ReturnType<typeof extractBoard>>['topics'][number] }) {
+  const chips = pageChips(t.pages)
   return (
     <TableRow className={t.sticky ? 'bg-brand-soft/40' : undefined}>
       <TableCell className="whitespace-normal">
@@ -25,10 +33,13 @@ function TopicRow({ t }: { t: NonNullable<ReturnType<typeof extractBoard>>['topi
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted-foreground">
                 {t.author && <span>by <UserLink name={t.author} color={t.authorColor} /></span>}
                 {t.author && t.pages.length > 0 && <span aria-hidden>·</span>}
-                {t.pages.map((p) => (
-                  <a key={p.href} href={p.href} className="rounded border px-1.5 py-0.5 text-[10.5px] font-medium hover:bg-accent/50">
-                    {p.label}
-                  </a>
+                {chips.map((p) => (
+                  <span key={p.href} className="flex items-center gap-1">
+                    {p.gap && <span aria-hidden>…</span>}
+                    <a href={p.href} className="rounded border px-1.5 py-0.5 text-[10.5px] font-medium hover:bg-accent/50">
+                      {p.label}
+                    </a>
+                  </span>
                 ))}
               </div>
             )}

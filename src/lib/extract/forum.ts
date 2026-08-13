@@ -84,6 +84,21 @@ export interface BoardTopic {
   last: { at: string | null; by: string | null; byColor: string | null; href: string | null }
 }
 
+/** MAM builds a topic's page links from its reply count, so a topic whose posts
+ * land exactly on a page boundary lists one page too few. Every multi-page row
+ * narrows the reader's posts-per-page setting, since P pages over R replies
+ * means R/P <= perPage <= (R-1)/(P-1). Returns null when nothing pins it down. */
+function postsPerPage(rows: { replies: number; pages: number }[]): number | null {
+  let lo = 1
+  let hi = Infinity
+  for (const r of rows) {
+    if (r.pages < 2 || r.replies < 1) continue
+    lo = Math.max(lo, Math.ceil(r.replies / r.pages))
+    hi = Math.min(hi, Math.floor((r.replies - 1) / (r.pages - 1)))
+  }
+  return hi !== Infinity && lo <= hi ? lo : null
+}
+
 export interface BoardData {
   crumbs: { name: string; href: string | null }[]
   actions: { label: string; href: string }[]
@@ -156,6 +171,22 @@ export function extractBoard(doc: Document): BoardData | null {
         href: lastGo?.getAttribute('href') ?? null,
       },
     })
+  }
+
+  // Rebuild the per-topic page links once the table as a whole reveals the page
+  // size; MAM's own links stand when it stays unknown. A long thread lists only
+  // its first four pages plus its last four, so the count is the highest label
+  // rather than how many links there are.
+  const lastPage = (t: BoardTopic) => t.pages.reduce((max, p) => Math.max(max, Number(p.label) || 0), 0)
+  const perPage = postsPerPage(topics.map((t) => ({ replies: n(t.replies) ?? 0, pages: lastPage(t) })))
+  if (perPage) {
+    for (const t of topics) {
+      const id = t.href.match(/\/f\/t\/(\d+)/)?.[1]
+      const replies = n(t.replies)
+      if (!id || replies == null) continue
+      const count = Math.ceil((replies + 1) / perPage)
+      t.pages = count > 1 ? Array.from({ length: count }, (_, i) => ({ label: String(i + 1), href: `/f/t/${id}&page=${i + 1}` })) : []
+    }
   }
 
   return { crumbs, actions, pages, topics }
