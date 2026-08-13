@@ -32,6 +32,10 @@ const WAIT_MS = 30_000
 // the first pass costs three chunks per region.
 const GLOBAL_ATTEMPTS = 2
 const GLOBAL_WAIT_MS = 15_000
+// A region that trails gets one purge plus one re-read. Purging does nothing for
+// replication itself, so this only helps where the replica has since caught up
+// while its edge sits on a copy it took too early.
+const TRAILING_WAIT_MS = 20_000
 
 const say = (msg) => console.log(`[release] ${msg}`)
 const die = (msg) => { console.error(`[release] ${msg}`); process.exit(1) }
@@ -163,6 +167,9 @@ const mutableArtifacts = [
 ]
 const payloadArtifact = { name: payload, url: publicUrl(payload), body: localPayload }
 say(`build ok, loader ${(statSync(new URL(`./dist/${LOADER}`, import.meta.url)).size / 1024).toFixed(1)} kB, ${payload} ${(localPayload.length / 1048576).toFixed(2)} MB`)
+// Stamped before the upload starts, so every edge copy taken after this one was
+// pulled from a replica that had the chance to hold these bytes.
+const uploadedAt = new Date()
 // Not through run(): a failed purge leaves the upload in place, so reverting the
 // version here would claim the old number while the origin serves the new one.
 try {
@@ -181,10 +188,15 @@ try {
 say(`checking ${metaUrl}`)
 let localFaults = []
 let payloadLive = false
+// Set by every purge this script fires. deploy.mjs purges too, without telling us
+// when, so this stays null until we purge ourselves. cacheVerdict then says
+// nothing rather than guessing.
+let purgedAt = null
 for (let i = 1; i <= ATTEMPTS; i++) {
   if (i > 1) {
     await new Promise((r) => setTimeout(r, WAIT_MS))
     for (const url of [metaUrl, loaderUrl, ...(payloadLive ? [] : [payloadArtifact.url])]) await purge(url)
+    purgedAt = new Date()
   }
   localFaults = await verifyCdnArtifacts({ artifacts: mutableArtifacts })
   if (!payloadLive) {
@@ -225,12 +237,47 @@ for (let i = 1; i <= GLOBAL_ATTEMPTS; i++) {
   await new Promise((resolve) => setTimeout(resolve, GLOBAL_WAIT_MS))
 }
 
+// An edge that took its copy before the purge landed is worth one more try: the
+// files are live by then, so a fresh purge plus a re-read settles whether that
+// region was waiting on its replica or on the purge.
+const trailingRegions = [...new Set(faults.filter((fault) => fault.kind === 'stale').map((fault) => fault.region))]
+let recovered = []
+if (trailingRegions.length) {
+  say(`purging again for ${trailingRegions.join(', ')}, then re-reading those`)
+  for (const url of [metaUrl, loaderUrl]) await purge(url)
+  purgedAt = new Date()
+  await new Promise((resolve) => setTimeout(resolve, TRAILING_WAIT_MS))
+  const retryLocations = bunny.locations.filter((location) => trailingRegions.includes(location.region))
+  const retry = await verifyGlobalArtifacts({
+    artifacts: mutableArtifacts,
+    locations: retryLocations,
+    token: process.env.GLOBALPING_TOKEN,
+  })
+  observations.push(...retry.observations)
+  // Only the regions that were read again get a new verdict. Every other region
+  // keeps the one it already had, including one that answered badly, so a release
+  // cannot lose a fault by retrying a different region.
+  const retried = new Set(retryLocations.map((location) => location.region))
+  const kept = faults.filter((fault) => !retried.has(fault.region))
+  faults.length = 0
+  faults.push(...kept, ...retry.faults.filter((fault) => fault.kind !== 'silent'))
+  silent = [...silent.filter((fault) => !retried.has(fault.region)), ...retry.faults.filter((fault) => fault.kind === 'silent')]
+  // Recovered means the re-read came back clean, rather than merely not stale: a
+  // region that went silent on the retry has proven nothing.
+  const answered = new Set(retry.observations.map((entry) => entry.region))
+  const troubled = new Set(retry.faults.map((fault) => fault.region))
+  recovered = trailingRegions.filter((region) => answered.has(region) && !troubled.has(region))
+}
+
 for (const line of summarizeGlobalReport({
   regionCodes: bunny.regionCodes,
   probed: bunny.locations.length,
   observations,
   faults: [...faults, ...silent],
+  uploadedAt,
+  purgedAt,
 })) say(line)
+if (recovered.length) say(`${recovered.join(', ')} came good after the second purge, so those edges were holding an early copy`)
 
 // Record what this release published without changing the fallback baked into
 // it. The next release copies this digest to its own fallback before building.

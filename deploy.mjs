@@ -4,7 +4,8 @@ import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs'
 import { join, relative, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadDeployEnv } from './env.mjs'
-import { PURGE_FAILED_EXIT } from './version.mjs'
+import { PAYLOAD_GLOB, PURGE_FAILED_EXIT } from './version.mjs'
+import { replicationGaps, sha256 } from './release-verify.mjs'
 
 loadDeployEnv()
 
@@ -69,6 +70,82 @@ for (const abs of walk(DIST).sort(uploadOrder)) {
     process.exit(1)
   }
   console.log(`[deploy] uploaded ${rel} (${body.length} B)`)
+}
+
+// Bunny puts an overwrite in every region inside two minutes normally, under 30
+// seconds often. Purging ahead of that makes every edge pull at once. An edge
+// whose replica still trails then caches the previous release for a full TTL.
+const REPLICATION_WAIT_MS = 150_000
+const REPLICATION_POLL_MS = 5_000
+
+const listing = async () => {
+  // The trailing slash is what makes this a directory listing. Without it the
+  // storage API reads the path as a file plus answers 404.
+  const res = await fetch(`${[base, basePath].filter(Boolean).join('/')}/`, {
+    headers: { AccessKey: BUNNY_STORAGE_PASSWORD, Accept: 'application/json' },
+  })
+  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
+  return res.json()
+}
+
+/** Regions this zone replicates to, which is what a file has to be listed for. */
+const zoneRegions = async () => {
+  const res = await fetch('https://api.bunny.net/storagezone', {
+    headers: { AccessKey: BUNNY_API_KEY, Accept: 'application/json' },
+  })
+  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
+  const zone = (await res.json()).find((entry) => entry.Name === BUNNY_STORAGE_ZONE)
+  if (!zone) throw new Error(`no storage zone named ${BUNNY_STORAGE_ZONE}`)
+  return zone.ReplicationRegions ?? []
+}
+
+/** Waits until the listing names every replication region for the files that get
+ * overwritten. Bunny does not document that field as a status signal, so the
+ * deadline ends the wait either way plus the purge follows regardless. */
+async function waitForReplication(wanted) {
+  let regions
+  try {
+    regions = await zoneRegions()
+  } catch (err) {
+    console.warn(`[deploy] could not read the zone regions (${err}), purging without waiting`)
+    return
+  }
+  if (!regions.length) return
+  const deadline = Date.now() + REPLICATION_WAIT_MS
+  let gaps = []
+  while (Date.now() < deadline) {
+    try {
+      gaps = replicationGaps({ listing: await listing(), wanted, regions })
+    } catch (err) {
+      console.warn(`[deploy] could not read the file listing (${err}), purging without waiting`)
+      return
+    }
+    if (!gaps.length) {
+      console.log(`[deploy] all ${regions.length} replication regions list this release`)
+      return
+    }
+    await new Promise((resolve) => setTimeout(resolve, REPLICATION_POLL_MS))
+  }
+  console.warn(`[deploy] still waiting after ${REPLICATION_WAIT_MS / 1000}s: ${gaps.map((gap) => `${gap.name} ${gap.reason}`).join('; ')}`)
+  console.warn('[deploy] purging anyway, so a region that trails keeps serving the previous release until it catches up')
+}
+
+if (BUNNY_API_KEY) {
+  const wanted = {}
+  // The payload rides along: a region holding the new loader without the payload
+  // it points at serves an install whose payload fetch answers 404, which is
+  // worse than serving the previous release.
+  const names = readdirSync(DIST).filter((name) => PAYLOAD_GLOB.test(name))
+  names.push('colophon.user.js', 'colophon.meta.js')
+  for (const name of names) {
+    const abs = join(DIST, name)
+    if (existsSync(abs)) wanted[name] = sha256(readFileSync(abs))
+  }
+  if (Object.keys(wanted).length < names.length) {
+    console.warn(`[deploy] dist/ is missing ${names.filter((n) => !(n in wanted)).join(', ')}, so replication is not waited on`)
+  } else {
+    await waitForReplication(wanted)
+  }
 }
 
 // Every way a purge can fail leaves the same situation behind, so they share one

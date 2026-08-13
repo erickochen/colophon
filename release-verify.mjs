@@ -250,6 +250,53 @@ function findProbeResult(results, location, used) {
  * one in its own region, so that is not knowable up front. */
 export const replicaRegion = (storageServer) => String(storageServer ?? '').split('-')[0] || null
 
+/** Bunny stamps cdn-cachedat as MM/DD/YYYY HH:MM:SS in UTC. */
+export function parseCachedAt(value) {
+  const found = String(value ?? '').match(/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})$/)
+  if (!found) return null
+  const [, month, day, year, hour, minute, second] = found.map(Number)
+  const at = new Date(Date.UTC(year, month - 1, day, hour, minute, second))
+  // Date.UTC rolls a 13th month over into the next year without complaining, so
+  // an unexpected order would parse into a plausible date. Read it back instead.
+  const roundTrips = at.getUTCFullYear() === year && at.getUTCMonth() === month - 1 && at.getUTCDate() === day
+    && at.getUTCHours() === hour && at.getUTCMinutes() === minute && at.getUTCSeconds() === second
+  return roundTrips ? at : null
+}
+
+/** Splits the two reasons an edge hands out an older release. A copy taken after
+ * the purge means it did pull plus its replica had nothing newer to give. A copy
+ * older than the upload cannot have seen these bytes at all, so the purge never
+ * reached it. In between the two there is nothing honest to say. */
+export function cacheVerdict({ cachedAt, uploadedAt, purgedAt }) {
+  const cached = parseCachedAt(cachedAt)
+  if (!cached) return 'unknown'
+  if (purgedAt instanceof Date && cached >= purgedAt) return 'pulled-stale'
+  if (uploadedAt instanceof Date && cached < uploadedAt) return 'not-purged'
+  return 'unknown'
+}
+
+/** What a storage listing still misses for one release. Bunny does not document
+ * ReplicatedZones as a status field, so this reads as an indication rather than
+ * as proof: the caller pairs it with a deadline. */
+export function replicationGaps({ listing, wanted, regions }) {
+  const gaps = []
+  for (const [name, digest] of Object.entries(wanted)) {
+    const file = (listing ?? []).find((entry) => entry.ObjectName === name)
+    if (!file) {
+      gaps.push({ name, reason: 'not in the listing yet' })
+      continue
+    }
+    if (String(file.Checksum ?? '').toLowerCase() !== digest.toLowerCase()) {
+      gaps.push({ name, reason: 'the main region holds other bytes' })
+      continue
+    }
+    const held = new Set(String(file.ReplicatedZones ?? '').split(',').map((part) => part.trim()).filter(Boolean))
+    const missing = regions.filter((region) => !held.has(region))
+    if (missing.length) gaps.push({ name, reason: `not listed for ${missing.join(', ')}`, missing })
+  }
+  return gaps
+}
+
 export function assessGlobalpingChunk({ artifact, expected, start, end, locations, measurement }) {
   const faults = []
   const observations = []
@@ -271,11 +318,19 @@ export function assessGlobalpingChunk({ artifact, expected, start, end, location
       storage: header(result, 'cdn-storageserver'),
       lastModified: header(result, 'last-modified'),
       cache: header(result, 'cdn-cache'),
+      // When this edge took its copy. Paired with the upload time it separates a
+      // stale replica from a purge that never landed here.
+      cachedAt: header(result, 'cdn-cachedat'),
       // Only the first chunk of a file carries the metadata block.
       served: body?.toString('utf8').match(/@version\s+(\S+)/)?.[1] ?? null,
       measurement: measurement.id,
     }
-    observations.push({ region: location.region, replica: replicaRegion(evidence.storage), lastModified: evidence.lastModified })
+    observations.push({
+      region: location.region,
+      replica: replicaRegion(evidence.storage),
+      lastModified: evidence.lastModified,
+      cachedAt: evidence.cachedAt,
+    })
     // Wrong bytes or a different file length is an older release. Anything else
     // is the request itself going wrong, which is not the same news at all.
     let detail = null
@@ -302,8 +357,15 @@ function worstPerRegion(faults, kind) {
 
 const routeOf = (fault) => [fault.probe, fault.edge, fault.storage].filter(Boolean).join(' via ')
 
+/** Reads the two stale reasons off a fault, in the words the release prints. */
+const staleBecause = (fault, uploadedAt, purgedAt) => ({
+  'pulled-stale': 'its replica had nothing newer',
+  'not-purged': 'the purge did not reach it',
+  unknown: null,
+})[cacheVerdict({ cachedAt: fault.cachedAt, uploadedAt, purgedAt })]
+
 /** Turns a finished global check into the lines a release prints. */
-export function summarizeGlobalReport({ regionCodes, probed, observations, faults }) {
+export function summarizeGlobalReport({ regionCodes, probed, observations, faults, uploadedAt, purgedAt }) {
   const lines = []
   // Which replica answers is Bunny's own choice, so this says which ones were
   // reached rather than implying the probe list covers the replica list.
@@ -314,7 +376,12 @@ export function summarizeGlobalReport({ regionCodes, probed, observations, fault
 
   const trailing = worstPerRegion(faults, 'stale')
   for (const [region, fault] of trailing) {
-    lines.push(`${region} trails${fault.served ? `, serving ${fault.served}` : ''}${fault.lastModified ? `, dated ${fault.lastModified}` : ''}${routeOf(fault) ? ` (${routeOf(fault)})` : ''}`)
+    const because = staleBecause(fault, uploadedAt, purgedAt)
+    lines.push(
+      `${region} trails${fault.served ? `, serving ${fault.served}` : ''}${fault.lastModified ? `, dated ${fault.lastModified}` : ''}` +
+      `${because ? `, because ${because}` : ''}${fault.cachedAt ? `, edge copy taken ${fault.cachedAt}` : ''}` +
+      `${routeOf(fault) ? ` (${routeOf(fault)})` : ''}`
+    )
   }
   const unhappy = worstPerRegion(faults, 'unhappy')
   for (const [region, fault] of unhappy) {

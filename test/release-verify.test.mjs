@@ -8,8 +8,11 @@ import {
   prepareReleaseSource,
   readFallbackPayload,
   readPublishedPayload,
+  cacheVerdict,
+  parseCachedAt,
   recordPublishedPayload,
   replicaRegion,
+  replicationGaps,
   sha256,
   summarizeGlobalReport,
   verifyCdnArtifacts,
@@ -148,6 +151,7 @@ test('worldwide chunk assessment reports the stale storage route', () => {
           server: 'BunnyCDN-SYD1',
           'cdn-storageserver': 'SYD-690',
           'cdn-cache': 'MISS',
+          'cdn-cachedat': '08/13/2026 07:45:33',
           'last-modified': 'old timestamp',
         },
       },
@@ -173,11 +177,12 @@ test('worldwide chunk assessment reports the stale storage route', () => {
     storage: 'SYD-690',
     lastModified: 'old timestamp',
     cache: 'MISS',
+    cachedAt: '08/13/2026 07:45:33',
     served: null,
     measurement: 'measurement-id',
   })
   // The replica that answered, which is not always the one in the probe's region.
-  assert.deepEqual(observations, [{ region: 'SYD', replica: 'SYD', lastModified: 'old timestamp' }])
+  assert.deepEqual(observations, [{ region: 'SYD', replica: 'SYD', lastModified: 'old timestamp', cachedAt: '08/13/2026 07:45:33' }])
 })
 
 test('a probe in the wrong country is not accepted for a region', () => {
@@ -345,7 +350,7 @@ test('worldwide chunk assessment accepts exact bytes and range metadata', () => 
 
   assert.deepEqual(faults, [])
   // A probe near one region reaching another region's replica is normal.
-  assert.deepEqual(observations, [{ region: 'DE', replica: 'UK', lastModified: null }])
+  assert.deepEqual(observations, [{ region: 'DE', replica: 'UK', lastModified: null, cachedAt: null }])
 })
 
 test('Bunny region discovery follows the configured Storage Zone', async () => {
@@ -379,4 +384,81 @@ test('Bunny region discovery follows the configured Storage Zone', async () => {
   assert.deepEqual(found.locations.map((location) => location.region), ['DE', 'SYD', 'JP'])
   assert.deepEqual(found.locations.map((location) => location.city), ['Frankfurt', 'Sydney', 'Tokyo'])
   assert.deepEqual(found.locations.map((location) => location.country), ['DE', 'AU', 'JP'])
+})
+
+test('the cache stamp Bunny sends is read as UTC', () => {
+  assert.equal(parseCachedAt('08/13/2026 07:45:33').toISOString(), '2026-08-13T07:45:33.000Z')
+  assert.equal(parseCachedAt('13/08/2026 07:45:33'), null)
+  assert.equal(parseCachedAt('not a stamp'), null)
+  assert.equal(parseCachedAt(null), null)
+})
+
+test('a stale edge is separated into a slow replica plus a missed purge', () => {
+  const uploadedAt = new Date('2026-08-13T07:45:32Z')
+  const purgedAt = new Date('2026-08-13T07:48:00Z')
+  // Taken after the purge: this edge did pull, so its replica had nothing newer.
+  assert.equal(cacheVerdict({ cachedAt: '08/13/2026 07:48:01', uploadedAt, purgedAt }), 'pulled-stale')
+  // A copy from the day before cannot have seen these bytes at all.
+  assert.equal(cacheVerdict({ cachedAt: '08/12/2026 17:14:32', uploadedAt, purgedAt }), 'not-purged')
+  // Between the upload plus the purge there is nothing to conclude. The wait for
+  // replication makes that window minutes wide.
+  assert.equal(cacheVerdict({ cachedAt: '08/13/2026 07:46:00', uploadedAt, purgedAt }), 'unknown')
+  // Without a purge time of our own, a recent copy stays unexplained.
+  assert.equal(cacheVerdict({ cachedAt: '08/13/2026 07:46:00', uploadedAt, purgedAt: null }), 'unknown')
+  assert.equal(cacheVerdict({ cachedAt: null, uploadedAt, purgedAt }), 'unknown')
+})
+
+test('the report says why a region trails when the edge stamp allows it', () => {
+  const lines = summarizeGlobalReport({
+    regionCodes: ['DE', 'SE'],
+    probed: 2,
+    observations: [{ region: 'DE', replica: 'DE' }, { region: 'SE', replica: 'SE' }],
+    faults: [{
+      region: 'SE',
+      kind: 'stale',
+      served: '3.13.0',
+      lastModified: 'Wed, 12 Aug 2026 11:49:31 GMT',
+      cachedAt: '08/13/2026 07:45:33',
+      storage: 'SE-582',
+      detail: 'chunk mismatch',
+      measurement: 'm1',
+    }],
+    uploadedAt: new Date('2026-08-13T07:45:00Z'),
+    purgedAt: new Date('2026-08-13T07:45:32Z'),
+  })
+
+  const trailing = lines.find((line) => line.startsWith('SE trails'))
+  assert.match(trailing, /because its replica had nothing newer/)
+  assert.match(trailing, /edge copy taken 08\/13\/2026 07:45:33/)
+})
+
+test('replication gaps name the regions a release is not listed for yet', () => {
+  const digest = sha256('loader bytes')
+  const regions = ['UK', 'SE', 'SYD']
+  const listing = [{ ObjectName: 'colophon.user.js', Checksum: digest.toUpperCase(), ReplicatedZones: 'UK,SE' }]
+
+  const gaps = replicationGaps({ listing, wanted: { 'colophon.user.js': digest }, regions })
+  assert.equal(gaps.length, 1)
+  assert.deepEqual(gaps[0].missing, ['SYD'])
+
+  const done = replicationGaps({
+    listing: [{ ...listing[0], ReplicatedZones: 'UK,SE,SYD' }],
+    wanted: { 'colophon.user.js': digest },
+    regions,
+  })
+  assert.deepEqual(done, [])
+})
+
+test('replication gaps hold back on bytes the main region does not have yet', () => {
+  const regions = ['UK']
+  const wanted = { 'colophon.meta.js': sha256('new meta') }
+  const other = replicationGaps({
+    listing: [{ ObjectName: 'colophon.meta.js', Checksum: sha256('old meta'), ReplicatedZones: 'UK' }],
+    wanted,
+    regions,
+  })
+  assert.match(other[0].reason, /other bytes/)
+
+  const absent = replicationGaps({ listing: [], wanted, regions })
+  assert.match(absent[0].reason, /not in the listing/)
 })
