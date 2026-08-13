@@ -1,6 +1,7 @@
-// One-command release: bump, build, deploy, verify worldwide, record.
+// One-command release: bump, build, deploy, verify, record.
 // Usage: pnpm release [patch|minor|major|resume]   (default: minor)
-// Exact published bytes are checked before a commit or tag can be created.
+// The nearby edge has to serve this build exactly before a commit or tag is made.
+// Every other region is measured too, then reported.
 import { readFileSync, writeFileSync, statSync, readdirSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -8,9 +9,10 @@ import { loadDeployEnv } from './env.mjs'
 import { PAYLOAD_GLOB, PURGE_FAILED_EXIT } from './version.mjs'
 import {
   getBunnyVerificationLocations,
-  prepareReleaseSource,
+  planRelease,
   recordPublishedPayload,
   sha256,
+  summarizeGlobalReport,
   verifyCdnArtifacts,
   verifyGlobalArtifacts,
 } from './release-verify.mjs'
@@ -20,29 +22,33 @@ const HERE = fileURLToPath(new URL('.', import.meta.url))
 const CONFIG = new URL('./version.mjs', import.meta.url)
 const META = 'colophon.meta.js'
 const LOADER = 'colophon.user.js'
-// Storage replication can trail an upload by minutes (14 measured on a bad
-// day). A purge makes an edge re-pull whatever its replica has right then, so
-// every retry purges first plus the window outlasts a slow replica.
+// The nearby edge re-pulls from its replica on every purge, so this window is
+// wide enough for that replica to receive the upload.
 const ATTEMPTS = 40
 const WAIT_MS = 30_000
-// An unauthenticated Globalping account allows 250 tests per hour. The first
-// pass costs three chunks per Bunny region; retries only revisit failed regions.
-const GLOBAL_ATTEMPTS = 5
-const GLOBAL_WAIT_MS = 60_000
+// Regions that answered are not asked twice: a replica that trails is hours
+// behind, so another minute changes nothing. A probe that never ran is worth one
+// more try. An unauthenticated Globalping account allows 250 tests per hour and
+// the first pass costs three chunks per region.
+const GLOBAL_ATTEMPTS = 2
+const GLOBAL_WAIT_MS = 15_000
 
 const say = (msg) => console.log(`[release] ${msg}`)
 const die = (msg) => { console.error(`[release] ${msg}`); process.exit(1) }
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim()
 
 loadDeployEnv()
-const { SITE_URL, BASE_PATH } = process.env
+const { SITE_URL, BASE_PATH, BUNNY_API_KEY } = process.env
 if (!SITE_URL || !BASE_PATH) die('SITE_URL and BASE_PATH must be set in .env.deploy')
+// The key both purges and lists the regions to check. Without one a release
+// would upload and then have no way to tell whether anybody can see it.
+if (!BUNNY_API_KEY) die('BUNNY_API_KEY must be set in .env.deploy to purge and check a release')
 const publicUrl = (name) => [SITE_URL.replace(/\/$/, ''), BASE_PATH.replace(/^\/|\/$/g, ''), name].filter(Boolean).join('/')
 const metaUrl = publicUrl(META)
 const loaderUrl = publicUrl(LOADER)
 
-// Best effort: without a key the wait alone still covers cache expiry. Said once,
-// because a key that is refused stays refused for every remaining attempt.
+// Said once, because a key that is refused stays refused for every remaining
+// attempt. The wait between attempts still covers cache expiry on its own.
 let purgeWarned = false
 const purgeTrouble = (detail) => {
   if (purgeWarned) return
@@ -51,12 +57,10 @@ const purgeTrouble = (detail) => {
 }
 
 async function purge(url) {
-  const key = process.env.BUNNY_API_KEY
-  if (!key) return
   try {
     const res = await fetch(`https://api.bunny.net/purge?url=${encodeURIComponent(url)}&async=false`, {
       method: 'POST',
-      headers: { AccessKey: key },
+      headers: { AccessKey: BUNNY_API_KEY },
     })
     if (!res.ok) purgeTrouble(`answered ${res.status}`)
   } catch (err) {
@@ -75,45 +79,52 @@ try {
 
 const mode = process.argv[2] ?? 'minor'
 if (!['patch', 'minor', 'major', 'resume'].includes(mode)) die(`unknown mode "${mode}", use patch, minor, major or resume`)
-const resume = mode === 'resume'
 const source = readFileSync(CONFIG, 'utf8')
-const found = source.match(/VERSION = '(\d+)\.(\d+)\.(\d+)'/)
-if (!found) die('no version found in version.mjs')
 
-const [major, minor, patch] = found.slice(1).map(Number)
-let current = `${major}.${minor}.${patch}`
-let next = mode === 'major' ? `${major + 1}.0.0` : mode === 'minor' ? `${major}.${minor + 1}.0` : `${major}.${minor}.${patch + 1}`
-let prepared
-if (resume) {
-  let headSource
-  try {
-    headSource = git('show', 'HEAD:version.mjs')
-  } catch {
-    die('could not read version.mjs from HEAD')
-  }
-  const headVersion = headSource.match(/VERSION = '(\d+\.\d+\.\d+)'/)?.[1]
-  if (!headVersion || headVersion === current) die('there is no unfinished release to resume')
-  next = current
-  current = headVersion
-  try {
-    prepared = prepareReleaseSource(source, next)
-  } catch (err) {
-    die(`could not validate the unfinished release state: ${err}`)
-  }
-  if (prepared !== source) die('version.mjs is not in a resumable release state')
-  say(`resuming ${next}`)
-} else {
-  say(`${current} -> ${next}`)
-  try {
-    prepared = prepareReleaseSource(source, next)
-  } catch (err) {
-    die(`could not prepare the release state: ${err}`)
-  }
+let headSource
+try {
+  headSource = git('show', 'HEAD:version.mjs')
+} catch {
+  die('could not read version.mjs from HEAD')
 }
+
+let plan
+try {
+  plan = planRelease({ source, headSource, mode })
+} catch (err) {
+  die(String(err.message ?? err))
+}
+const { current, next, prepared, resumed } = plan
+say(resumed ? `resuming ${next}` : `${current} -> ${next}`)
+// A run that died between the commit plus the tag leaves the released version
+// untagged, which neither a bump nor a resume would notice on its own.
+if (!git('tag', '--list', `v${plan.head}`)) {
+  say(`v${plan.head} is committed without a tag. Add it with: git tag -m "Release ${plan.head}" v${plan.head}`)
+}
+
+// Everything knowable before a byte moves is settled here, so a failing test, a
+// refused key or an unreachable API costs nothing but the run.
+try {
+  execFileSync('pnpm', ['test'], { stdio: 'inherit', cwd: HERE, env: { ...process.env } })
+} catch {
+  die('tests failed, nothing was released')
+}
+
+let bunny
+try {
+  bunny = await getBunnyVerificationLocations({ apiKey: BUNNY_API_KEY, siteUrl: SITE_URL })
+} catch (err) {
+  die(`could not discover Bunny's regions: ${err}`)
+}
+say(`storage zone ${bunny.storageZoneId} spans ${bunny.regionCodes.length} regions, ${bunny.locations.length} of them with a probe city`)
+if (bunny.unmapped.length) say(`no probe city known for ${bunny.unmapped.join(', ')}, so those go unchecked`)
+// An empty location list would come back clean while having measured nothing.
+if (!bunny.locations.length) die('none of the zone regions has a probe city, so a release could not be checked anywhere')
+
 writeFileSync(CONFIG, prepared)
 
 const revert = () => {
-  if (resume) {
+  if (resumed) {
     say(`unfinished version stays at ${next}`)
     return
   }
@@ -165,63 +176,61 @@ try {
 }
 
 // Both mutable files vary by Accept-Encoding, so compare every decoded variant
-// byte-for-byte. The content-addressed payload only needs one exact comparison.
+// byte-for-byte. The payload is named after a digest of itself, so one exact
+// comparison settles it for good and later attempts leave it alone.
 say(`checking ${metaUrl}`)
 let localFaults = []
+let payloadLive = false
 for (let i = 1; i <= ATTEMPTS; i++) {
   if (i > 1) {
     await new Promise((r) => setTimeout(r, WAIT_MS))
-    for (const url of [metaUrl, loaderUrl, payloadArtifact.url]) await purge(url)
+    for (const url of [metaUrl, loaderUrl, ...(payloadLive ? [] : [payloadArtifact.url])]) await purge(url)
   }
-  localFaults = [
-    ...await verifyCdnArtifacts({ artifacts: mutableArtifacts }),
-    ...await verifyCdnArtifacts({ artifacts: [payloadArtifact], encodings: ['identity'] }),
-  ]
+  localFaults = await verifyCdnArtifacts({ artifacts: mutableArtifacts })
+  if (!payloadLive) {
+    const payloadFaults = await verifyCdnArtifacts({ artifacts: [payloadArtifact], encodings: ['identity'] })
+    payloadLive = payloadFaults.length === 0
+    localFaults.push(...payloadFaults)
+  }
   if (!localFaults.length) { say(`attempt ${i}: exact meta, loader and payload bytes are live`); break }
-  say(`attempt ${i}: ${localFaults.join('; ')}, waiting`)
+  say(`attempt ${i}: ${localFaults.join('; ')}${i < ATTEMPTS ? ', waiting' : ''}`)
 }
 
 if (localFaults.length) die(`the nearby CDN edge is not this build after ${ATTEMPTS} attempts: ${localFaults.join('; ')}. Version stays at ${next}.`)
 
-// A healthy nearby edge cannot vouch for Bunny's other Storage replicas. Ask one
-// probe near every configured replica for exact byte ranges of both mutable files.
-let bunny
-try {
-  bunny = await getBunnyVerificationLocations({
-    apiKey: process.env.BUNNY_API_KEY,
-    siteUrl: SITE_URL,
-  })
-} catch (err) {
-  die(`could not discover Bunny's verification regions: ${err}. Version stays at ${next}.`)
-}
-say(`checking ${bunny.locations.length} Bunny regions through Globalping`)
+// A healthy nearby edge says nothing about Bunny's other replicas, so one probe
+// near every region reads exact byte ranges of both mutable files. A trailing
+// region is late rather than broken: the older loader it serves still finds the
+// payload it was built with, so this reports instead of holding up the release.
+say(`checking ${bunny.locations.length} regions through Globalping`)
 let pendingLocations = bunny.locations
-let globalFaults = []
-let measurementLinks = []
+let silent = []
+const faults = []
+const observations = []
 for (let i = 1; i <= GLOBAL_ATTEMPTS; i++) {
   const report = await verifyGlobalArtifacts({
     artifacts: mutableArtifacts,
     locations: pendingLocations,
     token: process.env.GLOBALPING_TOKEN,
   })
-  globalFaults = report.faults
-  measurementLinks.push(...report.measurements.map((id) => `https://globalping.io?measurement=${id}`))
-  if (!globalFaults.length) { say(`global attempt ${i}: exact meta and loader bytes are live in every region`); break }
-  const failedRegions = new Set(globalFaults.map((fault) => fault.region))
-  say(`global attempt ${i}: ${[...failedRegions].join(', ')} stale or unreachable`)
-  pendingLocations = bunny.locations.filter((location) => failedRegions.has(location.region))
-  if (i < GLOBAL_ATTEMPTS) {
-    await new Promise((resolve) => setTimeout(resolve, GLOBAL_WAIT_MS))
-    for (const url of [metaUrl, loaderUrl]) await purge(url)
-  }
+  observations.push(...report.observations)
+  faults.push(...report.faults.filter((fault) => fault.kind !== 'silent'))
+  silent = report.faults.filter((fault) => fault.kind === 'silent')
+  if (!silent.length || i === GLOBAL_ATTEMPTS) break
+  // Only a region nothing came back from is worth asking again. A replica that
+  // trails needs hours, which no wait here is going to cover.
+  const retry = new Set(silent.map((fault) => fault.region))
+  say(`global attempt ${i}: no answer from ${[...retry].join(', ')}, asking those again`)
+  pendingLocations = bunny.locations.filter((location) => retry.has(location.region))
+  await new Promise((resolve) => setTimeout(resolve, GLOBAL_WAIT_MS))
 }
-if (globalFaults.length) {
-  for (const fault of globalFaults) {
-    const route = [fault.probe, fault.edge, fault.storage].filter(Boolean).join(' via ')
-    say(`${fault.region} ${fault.artifact}: ${fault.detail}${route ? ` (${route})` : ''}${fault.lastModified ? `, last modified ${fault.lastModified}` : ''}`)
-  }
-  die(`Bunny is not globally consistent after ${GLOBAL_ATTEMPTS} attempts. Measurements: ${measurementLinks.join(' ')}. Version stays at ${next}.`)
-}
+
+for (const line of summarizeGlobalReport({
+  regionCodes: bunny.regionCodes,
+  probed: bunny.locations.length,
+  observations,
+  faults: [...faults, ...silent],
+})) say(line)
 
 // Record what this release published without changing the fallback baked into
 // it. The next release copies this digest to its own fallback before building.
