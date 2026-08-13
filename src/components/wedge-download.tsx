@@ -108,7 +108,7 @@ function WedgeConfirm({ target, onDone, onClose }: { target: WedgeTarget; onDone
         <AlertDialogHeader>
           <AlertDialogTitle className="font-display">Spend a freeleech wedge?</AlertDialogTitle>
           <AlertDialogDescription>
-            The download starts right away and never counts against your ratio.
+            The download starts right away and never counts against your ratio. Spending a wedge is final.
             {showRatio && guard?.impact.current != null && (
               <> Without a wedge it takes your ratio to <b className="font-semibold tabular-nums">{fmtRatio(guard.impact.next)}</b>.</>
             )}

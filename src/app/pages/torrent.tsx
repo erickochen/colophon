@@ -16,7 +16,7 @@ import { HARD_FLOOR, TRIVIAL_DROP, useRatioGuard, type RatioGuard, type RatioLev
 import { cn } from '@/lib/utils'
 import { Book, Book3D, BookAmbilight } from '@/components/book'
 import { TagLinks } from '@/components/tag-links'
-import { TorLinks } from '@/components/tor-links'
+import { CopySnippetButton, TorLinks } from '@/components/tor-links'
 import { WedgeDetailButton } from '@/components/wedge-download'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -52,11 +52,15 @@ function DlHistoryBadge({ label }: { label: string }) {
 }
 
 /** A24-grid entry for the details sidebar: small-caps label above the value. */
+/** One line of the spec list: label in its own column so every value starts at
+ * the same place. A block value (buttons, chips) drops below the label. */
 function KV({ label, full = false, children }: { label: string; full?: boolean; children: React.ReactNode }) {
   return (
-    <div className={cn('min-w-0', full && 'col-span-2')}>
-      <dt className="mb-1 text-[10px] font-semibold uppercase tracking-[0.11em] text-muted-foreground">{label}</dt>
-      <dd className="text-[13.5px] leading-relaxed">{children}</dd>
+    <div className={cn('py-2.5', !full && 'grid grid-cols-[88px_minmax(0,1fr)] gap-3')}>
+      <dt className={cn('text-[10px] font-semibold uppercase tracking-[0.11em] text-muted-foreground', full ? 'mb-1.5' : 'pt-[3px]')}>
+        {label}
+      </dt>
+      <dd className="min-w-0 text-[13px] leading-relaxed">{children}</dd>
     </div>
   )
 }
@@ -134,13 +138,14 @@ function GuardSettings({ guard }: { guard: RatioGuard }) {
   )
 }
 
-/** What one click costs, shown under the download button once the totals arrive. */
-function RatioNote({ guard }: { guard: RatioGuard }) {
+/** What one click costs, shown above the buttons so the reason comes before
+ * the choice. Appears once the totals arrive. */
+function RatioNote({ guard, className }: { guard: RatioGuard; className?: string }) {
   const { current, next, drop, level } = guard.impact
   if (drop != null && drop <= TRIVIAL_DROP) return null
   const tone = RATIO_NOTE_TONE[level]
   return (
-    <p className={cn('mt-2 text-[12px] leading-snug', tone.text)}>
+    <p className={cn('mt-2 text-[12px] leading-snug', tone.text, className)}>
       {tone.dot && <span aria-hidden className={cn('mr-1.5 inline-block size-1.5 rounded-full align-[1px]', tone.dot)} />}
       {current == null ? (
         <>First download: your ratio would start at <b className="tabular-nums">{fmtRatio(next)}</b>.</>
@@ -168,12 +173,11 @@ function DownloadDock({ data, spent, onSpent }: { data: TorrentDetail; spent: bo
   const wedgeAction = freeCost || !!data.downloadBlocked || spent ? null : data.id != null ? (
     <WedgeDetailButton
       target={{ id: data.id, title: data.title, size: data.size, href }}
-      emphasis={level === 'block'}
       onDone={onSpent}
     />
   ) : buyFl ? (
     <Button
-      variant={level === 'block' ? 'default' : 'outline'}
+      variant="outline"
       title="Spends one FL wedge"
       onClick={() => proxyClick(`input[data-freetor="${buyFl.torId}"][name="personalFL"]`, 'Buying freeleech is not available right now.')}
     >
@@ -183,7 +187,8 @@ function DownloadDock({ data, spent, onSpent }: { data: TorrentDetail; spent: bo
 
   return (
     <>
-      <div className="mt-6 flex flex-wrap items-center gap-2.5">
+      {guard && !data.downloadBlocked && <RatioNote guard={guard} className="mt-5 mb-0" />}
+      <div className="mt-3 flex flex-wrap items-center gap-2.5">
         {data.downloadBlocked ? (
           <Button disabled><Download /> Download blocked</Button>
         ) : href ? (
@@ -202,8 +207,11 @@ function DownloadDock({ data, spent, onSpent }: { data: TorrentDetail; spent: bo
           )
         ) : null}
         <BookmarkButton />
+        <CopySnippetButton data={data} />
         {data.clone && (
-          <Button asChild variant="outline"><a href={data.clone}><Copy /> Clone</a></Button>
+          <Button asChild variant="outline" title="Opens the upload form filled in with this torrent's details">
+            <a href={data.clone}><Copy /> Copy to upload form</a>
+          </Button>
         )}
       </div>
       {data.downloadBlocked && (
@@ -212,7 +220,6 @@ function DownloadDock({ data, spent, onSpent }: { data: TorrentDetail; spent: bo
       {spent && (
         <p className="mt-2 text-[12px] leading-snug text-ok">This torrent is a personal freeleech now, so downloading it costs you nothing.</p>
       )}
-      {guard && !data.downloadBlocked && <RatioNote guard={guard} />}
     </>
   )
 }
@@ -856,7 +863,7 @@ export function TorrentView(props: PageProps) {
         <Card className="lg:sticky lg:top-20">
           <CardHeader><CardTitle>Details</CardTitle></CardHeader>
           <CardContent>
-            <dl className="grid grid-cols-2 gap-x-5 gap-y-4">
+            <dl className="divide-y divide-border/50">
               {data.uploader && (
                 <KV label="Uploaded by">
                   <a className="font-medium hover:underline" style={{ color: mutedUserColor(data.uploader.color) }} href={data.uploader.href}>
@@ -888,12 +895,13 @@ export function TorrentView(props: PageProps) {
 
               {data.tags && (
                 <KV label="Tags" full>
-                  <TagLinks raw={data.tags} full />
+                  <TagLinks raw={data.tags} full chips />
                 </KV>
               )}
 
+              {/* Without the projection this row is only about freeleech. */}
               {(data.freeleech || data.ratio || data.ratioHtml) && (
-                <KV label="Ratio after" full>
+                <KV label={data.ratio ? 'Freeleech' : 'Ratio after'} full>
                   {(data.freeleech || data.personalFreeleech || spent) && (
                     <div className="mb-1.5 flex flex-wrap gap-1.5">
                       {data.freeleech && <Badge className="bg-ok/15 text-ok" variant="secondary">Freeleech</Badge>}
@@ -903,11 +911,6 @@ export function TorrentView(props: PageProps) {
                   {/* A spent wedge makes the projection and the buy buttons untrue. */}
                   {spent ? null : data.ratio ? (
                     <div className="grid gap-2 text-[13px]">
-                      {data.ratio.wouldBecome && (
-                        <div className="text-muted-foreground">
-                          Would become <span className="font-medium tabular-nums text-ok">{data.ratio.wouldBecome}</span>
-                        </div>
-                      )}
                       {sideRatioButtons.length > 0 && (
                         <div className="flex flex-wrap gap-2">
                           {sideRatioButtons.map((b) => (
@@ -972,14 +975,14 @@ export function TorrentView(props: PageProps) {
               )}
 
               {data.extraRows.map((r, i) => (
-                <KV key={i} label={r.label} full>
+                <KV key={i} label={r.label}>
                   <span className="legacy-html" dangerouslySetInnerHTML={{ __html: r.html }} />
                 </KV>
               ))}
             </dl>
 
             {(data.hasSubmitInfo || data.reportIssueHref) && (
-              <div className="mt-5 grid gap-1.5 rounded-lg bg-muted/40 p-3 text-[12.5px]">
+              <div className="mt-4 grid gap-2 border-t pt-3.5 text-[12.5px]">
                 {data.hasSubmitInfo && (
                   <button
                     onClick={() => proxyClick('#submitInfo [data-tormissdataj]', 'Submitting info is not available for this torrent.')}

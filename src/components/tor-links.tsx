@@ -1,9 +1,10 @@
 // External search links plus the currently-reading snippet on torrent detail.
 // The snippet output matches MAM+ so existing forum threads look consistent.
 import { useRef, useState } from 'react'
-import { Check, Copy } from 'lucide-react'
+import { Check, Quote } from 'lucide-react'
 import type { TorrentDetail } from '@/lib/extract/torrent'
 import { useFeature } from '@/lib/settings'
+import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 
@@ -61,13 +62,22 @@ export function ExternalSearchLinks({ title, author }: { title: string; author: 
 
 export function TorLinks({ data }: { data: TorrentDetail }) {
   const [linksOn] = useFeature('externalLinks')
+  if (!linksOn || !data.title) return null
+  return (
+    <div className="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12.5px] text-muted-foreground">
+      <ExternalSearchLinks title={data.title} author={data.authors[0]?.name ?? null} />
+    </div>
+  )
+}
+
+/** Copying the snippet acts on this torrent, so it rides with the download and
+ * bookmark buttons rather than with the links that lead off site. */
+export function CopySnippetButton({ data }: { data: TorrentDetail }) {
   const [snippetOn] = useFeature('forumSnippet')
   const [copied, setCopied] = useState(false)
   const flashTimer = useRef<number | null>(null)
-
-  if (!data.title) return null
   const snippet = snippetOn ? buildReadingSnippet(data) : null
-  if (!linksOn && !snippet) return null
+  if (!snippet) return null
 
   async function copySnippet() {
     if (!snippet) return
@@ -83,21 +93,9 @@ export function TorLinks({ data }: { data: TorrentDetail }) {
   }
 
   return (
-    <div className="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12.5px] text-muted-foreground">
-      {linksOn && <ExternalSearchLinks title={data.title} author={data.authors[0]?.name ?? null} />}
-      {snippet && (
-        <>
-          {linksOn && <span aria-hidden="true" className="text-muted-foreground/50">·</span>}
-          <button
-            type="button"
-            onClick={copySnippet}
-            className={cn('inline-flex items-center gap-1', LINK_CLS, copied && 'text-ok hover:text-ok')}
-          >
-            {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
-            {copied ? 'Copied' : 'Copy forum snippet'}
-          </button>
-        </>
-      )}
-    </div>
+    <Button variant="outline" onClick={copySnippet} className={cn(copied && 'text-ok')}>
+      {copied ? <Check /> : <Quote />}
+      {copied ? 'Copied' : 'Quote for forum'}
+    </Button>
   )
 }

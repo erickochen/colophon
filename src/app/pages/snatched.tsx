@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Archive, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Download, Sprout, Users } from 'lucide-react'
+import { Archive, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, ChevronDown, Download, Sprout, Users } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
 import { FilterSelect } from '@/components/filters'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/toast'
 
@@ -19,6 +19,50 @@ interface Bucket {
 }
 
 interface ZipGroup { label: string; links: { label: string; href: string }[] }
+
+/** MAM names its buckets by stacking states: "Not Seeding - H&R - Not Yet
+ * Satisfied". Read those states back out so the page can group by what the
+ * reader has to do about them and say it in a sentence. */
+type BucketGroup = 'quota' | 'attention' | 'running' | 'settled' | 'other'
+
+function readBucket(label: string): { group: BucketGroup; text: string } {
+  const s = label.toLowerCase().replace(/&amp;/g, '&').replace(/\s+/g, ' ')
+  if (s.includes('leeching')) return { group: 'running', text: 'Downloading now' }
+  const seeding = !s.includes('not seeding') && !s.includes('inactive')
+  const where = seeding ? 'Seeding' : 'Stopped'
+  if (s.includes('upload')) return { group: 'settled', text: `Your uploads, ${seeding ? 'seeding' : 'stopped'}` }
+  if (s.includes('h&r')) return { group: 'attention', text: `${where}, hit and run risk` }
+  // "Unsatisfied" on its own is the whole pile that still owes seed time; the
+  // one carrying a limit is the account cap rather than a pile.
+  if (s.includes('unsatisfied')) {
+    if (s.includes('limit')) return { group: 'quota', text: 'Unsatisfied' }
+    return { group: 'attention', text: seeding ? 'Not satisfied yet' : 'Stopped, not satisfied' }
+  }
+  if (s.includes('not yet satisfied')) {
+    return seeding
+      ? { group: 'running', text: 'Seeding, rules not met yet' }
+      : { group: 'attention', text: 'Stopped before the rules were met' }
+  }
+  if (s.includes('satisfied')) return { group: 'settled', text: `${where}, rules met` }
+  return { group: 'other', text: label }
+}
+
+/** How long a pile may stay empty before the panel offers a way out. */
+const LIST_TIMEOUT_MS = 30000
+
+/** Where the unsatisfied meter turns from neutral to a warning tone. */
+const QUOTA_WARN_AT = 0.8
+
+// MAM's own rule, quoted from the FAQ: a torrent is satisfied once it has
+// seeded 72 hours within 30 days.
+const SEED_RULE = '72 hours of seeding within 30 days'
+
+const GROUP_TITLES: { key: BucketGroup; title: string; note: string }[] = [
+  { key: 'attention', title: 'Needs attention', note: 'Put these back in your client to let the clock run again.' },
+  { key: 'running', title: 'Running', note: 'Nothing to do, these clear on their own.' },
+  { key: 'settled', title: 'Settled', note: 'Rules met, keep or remove them as you like.' },
+  { key: 'other', title: 'Other', note: '' },
+]
 
 function extract(doc: Document): { buckets: Bucket[]; zips: ZipGroup[] } | null {
   const main = doc.querySelector('#mainBody')
@@ -230,12 +274,12 @@ function SnatchRow({ s }: { s: SnatchItem }) {
           {s.freeleech && <Badge className="h-4 bg-ok/15 px-1.5 text-[10px] font-medium text-ok">Freeleech</Badge>}
           {s.vip && <Badge className="h-4 bg-brand-soft px-1.5 text-[10px] font-medium text-accent-foreground">VIP</Badge>}
         </div>
-        <div className="pt-0.5 text-[12px] text-muted-foreground">
+        <div className="line-clamp-2 pt-0.5 text-[12px] text-muted-foreground">
           {s.authors.length > 0 && <>by {s.authors.map((a, i) => <span key={i}>{i > 0 && ', '}{a.href ? <a href={a.href} className="hover:text-foreground hover:underline">{a.name}</a> : a.name}</span>)}</>}
           <NameLinks prefix="Narrated by" items={s.narrators} />
           {s.series && <> · <a href={s.series.href ?? '#'} className="hover:text-foreground hover:underline">{s.series.name}</a>{s.series.part && ` (#${s.series.part})`}</>}
         </div>
-        {s.meta && <div className="pt-0.5 text-[11.5px] text-muted-foreground">{s.meta}</div>}
+        {s.meta && <div className="line-clamp-2 pt-0.5 text-[11.5px] text-muted-foreground">{s.meta}</div>}
       </div>
 
       {/* Desktop grid cells */}
@@ -266,21 +310,48 @@ function SnatchRow({ s }: { s: SnatchItem }) {
   )
 }
 
-function BucketCard({ b }: { b: Bucket }) {
+function BucketRow({ b }: { b: Bucket }) {
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<SnatchItem[] | null>(null)
   const [sort, setSort] = useState<SortState | null>(null)
+  const [late, setLate] = useState(false)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     if (!open || !b.targetId) return
     const target = document.getElementById(b.targetId)
     if (!target) return
-    const sync = () => setItems(parseItems(target))
+    setLate(false)
+    // A list that never arrives would otherwise sit on "Loading" forever.
+    const timer = window.setTimeout(() => setLate(true), LIST_TIMEOUT_MS)
+    const sync = () => {
+      const rows = parseItems(target)
+      if (rows) {
+        window.clearTimeout(timer)
+        setItems(rows)
+        setLate(false)
+      }
+    }
     const obs = new MutationObserver(sync)
     obs.observe(target, { childList: true, subtree: true })
     sync()
-    return () => obs.disconnect()
-  }, [open, b.targetId])
+    return () => {
+      obs.disconnect()
+      window.clearTimeout(timer)
+    }
+  }, [open, b.targetId, attempt])
+
+  function retry() {
+    const el = b.toggleId ? document.getElementById(b.toggleId) : null
+    if (!el) {
+      toast.error('List is not available.')
+      return
+    }
+    // Two clicks: MAM's own toggle closes the panel before it fetches again.
+    el.click()
+    el.click()
+    setAttempt((n) => n + 1)
+  }
 
   /** Steer the hidden list's own sort header: set the direction it will apply,
    * click it and let the mutation observer pick up the reordered rows. */
@@ -312,25 +383,37 @@ function BucketCard({ b }: { b: Bucket }) {
     setOpen(!open)
   }
 
+  const openable = !!b.toggleId && b.count > 0
   return (
-    <Card className={cn('gap-0 py-0', open && 'sm:col-span-2 xl:col-span-3')}>
+    <div>
       <button
-        onClick={b.toggleId && b.count > 0 ? toggle : undefined}
-        className="flex w-full items-center justify-between gap-3 px-6 py-4 text-left"
-        disabled={!b.toggleId || b.count === 0}
+        onClick={openable ? toggle : undefined}
+        aria-expanded={openable ? open : undefined}
+        className={cn(
+          'flex w-full items-center gap-4 px-6 py-2.5 text-left transition-colors',
+          openable ? 'hover:bg-brand-soft/25' : 'cursor-default'
+        )}
+        disabled={!openable}
       >
-        <div>
-          <div className="font-display text-2xl font-semibold tabular-nums">{b.count.toLocaleString('en-US')}</div>
-          <div className="text-[12.5px] text-muted-foreground">{b.label}</div>
-        </div>
-        {b.toggleId && b.count > 0 && (
-          <ChevronDown className={'size-4 text-muted-foreground transition-transform ' + (open ? 'rotate-180' : '')} />
+        <span className={cn('w-10 shrink-0 text-right font-display text-[16px] font-semibold tabular-nums', !b.count && 'text-muted-foreground/45')}>
+          {b.count.toLocaleString('en-US')}
+        </span>
+        <span className={cn('text-[13px]', !b.count && 'text-muted-foreground/60')}>{readBucket(b.label).text}</span>
+        {openable && (
+          <ChevronDown className={cn('ml-auto size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
         )}
       </button>
       {open && (
-        <CardContent className="grid gap-0 bg-muted/10 px-0 py-0">
+        <div className="border-y bg-muted/10">
           {items === null ? (
-            <p className="px-6 py-5 text-sm text-muted-foreground">Loading list…</p>
+            late ? (
+              <p className="px-6 py-5 text-sm text-muted-foreground">
+                This list did not arrive.{' '}
+                <button type="button" onClick={retry} className="text-brand underline">Try again</button>
+              </p>
+            ) : (
+              <p className="px-6 py-5 text-sm text-muted-foreground">Loading list…</p>
+            )
           ) : items.length === 0 ? (
             <p className="px-6 py-5 text-sm text-muted-foreground">Nothing here.</p>
           ) : (
@@ -351,8 +434,102 @@ function BucketCard({ b }: { b: Bucket }) {
               {items.map((s, i) => <SnatchRow key={i} s={s} />)}
             </div>
           )}
-        </CardContent>
+        </div>
       )}
+    </div>
+  )
+}
+
+/** The one bucket with a ceiling, so it reads as a meter instead of a tile. It
+ * also has to say what the number means: the count alone reads as an alarm even
+ * when every one of them is seeding along nicely. */
+function QuotaCard({ used, limit, attention }: { used: number; limit: number | null; attention: number }) {
+  const pct = limit ? Math.min(100, (used / limit) * 100) : 0
+  const tight = limit != null && used / limit >= QUOTA_WARN_AT
+  return (
+    <Card className="py-4">
+      <CardContent className="grid gap-2">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-[13px] font-medium">Still owing seed time</span>
+          <span className="font-display text-[15px] tabular-nums">
+            {used.toLocaleString('en-US')}
+            {limit != null && <span className="text-muted-foreground"> of {limit.toLocaleString('en-US')}</span>}
+          </span>
+        </div>
+        <Progress
+          value={used}
+          max={limit ?? undefined}
+          aria-label="Torrents still owing seed time"
+          aria-valuetext={limit != null ? `${used} of ${limit}` : String(used)}
+          className={cn('h-1.5', tight && '[&>div]:bg-warn')}
+        />
+        <p className="text-[12px] text-muted-foreground">
+          {used === 0
+            ? `Every torrent you hold has met its ${SEED_RULE}.`
+            : attention > 0
+              ? `${attention.toLocaleString('en-US')} of them stopped seeding, so those need you.`
+              : `All of them are seeding, so they clear on their own after ${SEED_RULE}.`}
+          {limit != null && used > 0 && ` At ${limit.toLocaleString('en-US')} the tracker pauses your downloads for up to a day.`}
+        </p>
+      </CardContent>
+    </Card>
+  )
+}
+
+/** MAM repeats the same four zip variants under every bucket. As a cross table
+ * the variant is named once per column and the row says which pile it takes. */
+function ZipMatrix({ groups }: { groups: ZipGroup[] }) {
+  const cols = [...new Set(groups.flatMap((g) => g.links.map((l) => l.label)))]
+  const rowName = (label: string) => readBucket(label.replace(/^download\s+/i, '').replace(/:\s*$/, '')).text
+  return (
+    <Card className="gap-0 overflow-hidden py-0">
+      <CardHeader className="border-b !py-3">
+        <CardTitle>Bulk download .torrents</CardTitle>
+      </CardHeader>
+      <CardContent className="overflow-x-auto px-6 py-3">
+        <table className="w-full text-[12.5px]">
+          <caption className="pb-2 text-left text-[12px] text-muted-foreground">
+            Each cell hands your browser a .zip of .torrent files for that pile.
+          </caption>
+          <thead>
+            <tr>
+              <td />
+              {cols.map((c) => (
+                <th key={c} scope="col" className="w-[92px] px-1 pb-2 text-center text-[11px] font-medium text-muted-foreground">
+                  {c.replace(/\s*only$/i, '').replace(/\band\b/i, '+')}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/50">
+            {groups.map((z) => (
+              <tr key={z.label}>
+                <th scope="row" className="py-1.5 pr-8 text-left font-normal whitespace-nowrap">{rowName(z.label)}</th>
+                {cols.map((c) => {
+                  const link = z.links.find((l) => l.label === c)
+                  return (
+                    <td key={c} className="px-1 py-1.5 text-center">
+                      {link ? (
+                        <a
+                          href={link.href}
+                          title={`${c} from ${rowName(z.label).toLowerCase()}`}
+                          aria-label={`Download .torrent files, ${c.toLowerCase()}, from ${rowName(z.label).toLowerCase()}`}
+                          onClick={() => toast.success('Building your zip', { description: 'MAM packs the file, your browser takes it from there.' })}
+                          className="inline-grid size-9 place-items-center rounded-md border text-muted-foreground transition-colors hover:border-transparent hover:bg-primary hover:text-primary-foreground sm:size-7"
+                        >
+                          <Archive className="size-3.5" />
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground/40">–</span>
+                      )}
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </CardContent>
     </Card>
   )
 }
@@ -361,31 +538,42 @@ export function SnatchedView(props: PageProps) {
   const data = useMemo(() => extract(document), [])
   if (!data) return <LegacyView {...props} />
 
+  const quota = data.buckets.find((b) => readBucket(b.label).group === 'quota') ?? null
+  const limit = Number(quota?.label.match(/(\d[\d,]*)\s*limit/i)?.[1]?.replace(/,/g, '')) || null
+  const attentionCount = data.buckets
+    .filter((b) => readBucket(b.label).group === 'attention')
+    .reduce((n, b) => n + b.count, 0)
+  // An empty pile says nothing, so only the piles holding something get a row.
+  // Attention keeps its heading either way, since an empty one is worth reading.
+  const sections = GROUP_TITLES.map((g) => ({
+    ...g,
+    items: data.buckets.filter((b) => readBucket(b.label).group === g.key && b.count > 0),
+  })).filter((s) => s.items.length > 0 || s.key === 'attention')
+
   return (
     <div className="grid gap-4">
       <PageHeader title="My snatched" sub="Where your downloads stand against the seeding rules" />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {data.buckets.map((b) => <BucketCard key={b.id} b={b} />)}
-      </div>
-      {data.zips.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Bulk download .torrents</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-2.5">
-            {data.zips.map((z) => (
-              <div key={z.label} className="flex flex-wrap items-center gap-2">
-                <span className="min-w-52 text-[13px]">{z.label}</span>
-                {z.links.map((l) => (
-                  <Button key={l.href} asChild variant="outline" size="sm" className="h-7 text-[12px]">
-                    <a href={l.href}><Archive /> {l.label || 'zip'}</a>
-                  </Button>
-                ))}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+      {quota && <QuotaCard used={quota.count} limit={limit} attention={attentionCount} />}
+      <Card className="gap-0 overflow-hidden py-0">
+        {sections.map((s) => (
+          <section key={s.key}>
+            <h2 className="flex flex-wrap items-baseline gap-x-2.5 border-b bg-muted/25 px-6 py-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{s.title}</span>
+              {s.note && s.items.length > 0 && <span className="text-[11.5px] text-muted-foreground">{s.note}</span>}
+            </h2>
+            <div className="divide-y divide-border/50">
+              {s.items.length === 0 ? (
+                <p className="flex items-center gap-2.5 px-6 py-2.5 text-[13px] text-muted-foreground">
+                  <CheckCircle2 className="size-4 text-ok" /> Nothing needs attention.
+                </p>
+              ) : (
+                s.items.map((b) => <BucketRow key={b.id} b={b} />)
+              )}
+            </div>
+          </section>
+        ))}
+      </Card>
+      {data.zips.length > 0 && <ZipMatrix groups={data.zips} />}
     </div>
   )
 }
