@@ -510,7 +510,7 @@ function catName(id: number): string {
 /** Row cover in a fixed-height slot, with a large peek beside it while
  * hovered. The slot pins the height plus centers whatever shape fits in it. */
 function RowCover({ t }: { t: SearchTorrent }) {
-  const poster = t.poster_type ? coverUrl(t.id) : null
+  const poster = t.poster_type ? coverUrl(t.id, t.poster_type) : null
   const shape = coverShape({ mediatype: t.mediatype, mainCat: t.main_cat })
   const cover = (
     <a
@@ -732,7 +732,7 @@ function GalleryItem({ t, hiddenReason, onUnignore }: { t: SearchTorrent; hidden
       <a href={torrentUrl(t.id)} className="group block">
         <span className="relative block text-[11px] transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1.5 motion-reduce:transition-none">
           <Book
-            poster={t.poster_type ? coverUrl(t.id) : null}
+            poster={t.poster_type ? coverUrl(t.id, t.poster_type) : null}
             title={t.title}
             author={authorsText || undefined}
             shape={coverShape({ mediatype: t.mediatype, mainCat: t.main_cat })}

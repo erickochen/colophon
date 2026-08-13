@@ -208,7 +208,7 @@ export function Top10View(_props: PageProps) {
                     {i + 1}
                   </span>
                   <Book
-                    poster={t.poster_type ? coverUrl(t.id) : null}
+                    poster={t.poster_type ? coverUrl(t.id, t.poster_type) : null}
                     title={t.title}
                     author={authors[0]?.name}
                     shape={coverShape({ mediatype: t.mediatype, mainCat: t.main_cat })}

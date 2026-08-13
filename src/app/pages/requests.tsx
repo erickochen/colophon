@@ -31,11 +31,6 @@ import {
 
 const SKELETON_ROWS = 8
 
-/** Names come back HTML-escaped, same as the titles. */
-function names(info: string | null): { name: string; part?: string }[] {
-  return parsePeople(info).map((p) => ({ ...p, name: decodeEntities(p.name) }))
-}
-
 /** A request without a release date carries MAM's zero stamp. */
 function released(value: string | null): string | null {
   return value && !value.startsWith('0000-') ? dateOnly(value) : null
@@ -171,9 +166,9 @@ export function RequestsView(_props: PageProps) {
               </TableRow>
             )}
             {shown?.map((r) => {
-              const authors = names(r.author_info)
-              const narrators = names(r.narrator_info)
-              const series = names(r.series_info)
+              const authors = parsePeople(r.author_info)
+              const narrators = parsePeople(r.narrator_info)
+              const series = parsePeople(r.series_info)
               const stamp = requestedAt(r.requesttime)
               const releaseDate = released(r.releasedate)
               return (

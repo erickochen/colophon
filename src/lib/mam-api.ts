@@ -1,5 +1,6 @@
 // MAM's officially automatable JSON endpoints (see /api/list.php).
 // Same-origin fetch with session cookie; CSP allows 'self' only.
+import { decodeEntities } from '@/lib/format'
 
 export interface SearchQuery {
   text?: string
@@ -81,7 +82,9 @@ export interface SearchResult {
 
 /**
  * Parse MAM's people/series JSON maps. Values are either "Name" (authors,
- * narrators) or ["Name", "part", weight] (series).
+ * narrators) or ["Name", "part", weight] (series). Both search endpoints hand
+ * back the series name HTML-escaped, so name and part are decoded here. Author
+ * and narrator names arrive clean, where decoding is a no-op.
  */
 export function parsePeople(info: string | null | undefined): { id: string; name: string; part?: string }[] {
   if (!info) return []
@@ -89,8 +92,8 @@ export function parsePeople(info: string | null | undefined): { id: string; name
     const obj = JSON.parse(info) as Record<string, string | (string | number)[]>
     return Object.entries(obj).map(([id, v]) =>
       Array.isArray(v)
-        ? { id, name: String(v[0] ?? ''), part: v[1] != null && v[1] !== '' ? String(v[1]) : undefined }
-        : { id, name: String(v) }
+        ? { id, name: decodeEntities(String(v[0] ?? '')), part: v[1] != null && v[1] !== '' ? decodeEntities(String(v[1])) : undefined }
+        : { id, name: decodeEntities(String(v)) }
     )
   } catch {
     return []
@@ -745,7 +748,35 @@ export function downloadUrl(id: number, useWedge = false) {
   return `/tor/download.php?tid=${id}${useWedge ? '&fl' : ''}`
 }
 
-// Poster CDN accepts the path without the cache-buster segment (verified live).
-export function coverUrl(id: number) {
-  return `https://cdn.myanonamouse.net/t/p/large/${id}.jpeg`
+/** Poster mime types MAM serves, mapped to the extension the large path wants. */
+const POSTER_EXT: Record<string, string> = {
+  'image/jpeg': 'jpeg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+}
+
+/** MAM's own thumbnail path. It converts any poster to webp, so it needs no
+ * type. The long side caps at 300px. */
+export function coverThumbUrl(id: number) {
+  return `https://cdn.myanonamouse.net/t/p/small/${id}.webp`
+}
+
+// The poster CDN accepts the path without the cache-buster segment, but the
+// large one serves the poster in its own format: the extension has to match
+// poster_type. Without a known type the thumbnail path is the safe one.
+export function coverUrl(id: number, posterType?: string | null) {
+  const ext = posterType ? POSTER_EXT[posterType.trim().toLowerCase()] : undefined
+  return ext ? `https://cdn.myanonamouse.net/t/p/large/${id}.${ext}` : coverThumbUrl(id)
+}
+
+/** Candidates for a slot wider than the thumbnail, where the row carries no
+ * poster_type. Book walks these in order, jpeg first because most posters are,
+ * with the thumbnail last so a cover still lands. */
+export function coverCandidates(id: number): string[] {
+  return [
+    `https://cdn.myanonamouse.net/t/p/large/${id}.jpeg`,
+    `https://cdn.myanonamouse.net/t/p/large/${id}.webp`,
+    `https://cdn.myanonamouse.net/t/p/large/${id}.png`,
+    coverThumbUrl(id),
+  ]
 }

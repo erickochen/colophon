@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { ArrowUpRight, BookOpen, Sparkles } from 'lucide-react'
 import type { PageProps } from '@/app/router'
-import { coverUrl } from '@/lib/mam-api'
+import { coverCandidates } from '@/lib/mam-api'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
 import { Book } from '@/components/book'
@@ -82,7 +82,7 @@ function PickCard({ p }: { p: Pick }) {
     <a href={p.href} className="group grid content-end gap-2">
       <span className="relative block transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1 motion-reduce:transition-none">
         <Book
-          poster={p.tid ? coverUrl(p.tid) : null}
+          poster={p.tid ? coverCandidates(p.tid) : null}
           title={p.title}
           author={p.author}
           plain

@@ -210,7 +210,7 @@ export function HomeView({ page }: PageProps) {
             vip: t.vip === 1,
             // The search API carries no explicit flag; keep what the page said.
             explicit: cur.find((c) => c.id === t.id)?.explicit ?? false,
-            poster: t.poster_type ? coverUrl(t.id) : null,
+            poster: t.poster_type ? coverUrl(t.id, t.poster_type) : null,
             shape: coverShape({ mediatype: t.mediatype, mainCat: t.main_cat }),
           }))
         )

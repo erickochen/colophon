@@ -14,7 +14,8 @@ export function bookSpineHue(title: string): number {
 type BookSize = "mini" | "row" | "shelf" | "hero"
 
 type BookProps = {
-  poster: string | null
+  /** One URL. A list is tried in order where the poster format is unknown. */
+  poster: string | string[] | null
   title: string
   author?: string
   /** Reserves the frame before the image lands; the loaded image corrects it. */
@@ -31,9 +32,16 @@ type BookProps = {
 /* The physical book: spine light strip, fore-edge, asymmetric radius and the
  * layered shadow. Block-level on purpose: transforms no-op on inline boxes. */
 export function Book({ poster, title, author, shape = "portrait", fit = "width", plain = false, size = "row", className, style }: BookProps) {
-  const [failed, setFailed] = React.useState(false)
+  const candidates = Array.isArray(poster) ? poster : poster ? [poster] : []
+  const trail = candidates.join("|")
+  // The walk position belongs to this poster, so it is compared during render
+  // rather than reset in an effect: a new poster would otherwise be indexed
+  // with the previous position for one render, skipping its first candidate.
+  const [walk, setWalk] = React.useState({ trail, at: 0 })
+  const at = walk.trail === trail ? walk.at : 0
   const [measured, setMeasured] = React.useState<{ w: number; h: number } | null>(null)
-  const showFallback = !poster || failed
+  const src = candidates[at] ?? null
+  const showFallback = src == null
   // The measured image corrects the reserved guess, for the frame and for the
   // treatment both. The physical book only makes sense on a portrait cover;
   // square and landscape art gets the flat sleeve.
@@ -86,10 +94,10 @@ export function Book({ poster, title, author, shape = "portrait", fit = "width",
         </span>
       ) : (
         <img
-          src={poster}
+          src={src}
           alt=""
           loading="lazy"
-          onError={() => setFailed(true)}
+          onError={() => setWalk({ trail, at: at + 1 })}
           onLoad={(e) => {
             const im = e.currentTarget
             if (im.naturalWidth > 0 && im.naturalHeight > 0) {

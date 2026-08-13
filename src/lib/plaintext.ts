@@ -10,17 +10,17 @@ export interface PlaintextRow {
   series_info: string | null
 }
 
-function names(info: string | null, decode: boolean): string[] {
-  return parsePeople(info).map((p) => (decode ? decodeEntities(p.name) : p.name))
+function names(info: string | null): string[] {
+  return parsePeople(info).map((p) => p.name)
 }
 
+/** Names arrive decoded from parsePeople; `decode` covers the title, which the
+ * request search escapes and the torrent search does not. */
 export function plaintextLine(row: PlaintextRow, opts: { decode?: boolean } = {}): string {
   const decode = opts.decode ?? false
-  const series = parsePeople(row.series_info).map(
-    (s) => (decode ? decodeEntities(s.name) : s.name) + (s.part ? ` #${s.part}` : '')
-  )
-  const authors = names(row.author_info, decode)
-  const narrators = names(row.narrator_info, decode)
+  const series = parsePeople(row.series_info).map((s) => s.name + (s.part ? ` #${s.part}` : ''))
+  const authors = names(row.author_info)
+  const narrators = names(row.narrator_info)
   let line = decode ? decodeEntities(row.title) : row.title
   if (series.length) line += ` (${series.join(', ')})`
   if (authors.length) line += ` BY ${authors.join(' AND ')}`

@@ -4,6 +4,7 @@ import { resolveRoute } from '@/app/router'
 import { AppSidebar } from '@/app/shell/app-sidebar'
 import { Topbar } from '@/app/shell/topbar'
 import { CommandMenu } from '@/app/shell/command-menu'
+import { SiteAlerts } from '@/app/shell/site-alerts'
 import { LegacyDialogHost } from '@/app/shell/legacy-dialog-host'
 import { GiftDialogHost } from '@/components/giftmam-actions'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
@@ -56,6 +57,7 @@ export function App({ page, host }: { page: ShellData; host: HTMLElement }) {
         <AppSidebar page={page} counts={counts} />
         <SidebarInset className="min-w-0">
           <Topbar page={page} counts={counts} onOpenSearch={() => setCmdOpen(true)} />
+          <SiteAlerts alerts={page.alerts} />
           <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
             <div className="mx-auto w-full max-w-6xl">
               <ViewBoundary>

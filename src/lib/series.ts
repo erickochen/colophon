@@ -2,6 +2,7 @@
 // {id: [name, part, weight]} where weight is the first number of the part plus
 // -1 for a row with no part at all.
 import type { SearchTorrent } from '@/lib/mam-api'
+import { decodeEntities } from '@/lib/format'
 
 /** MAM's flag for a row that names no part. */
 const NO_PART = -1
@@ -30,7 +31,7 @@ export function seriesEntry(t: SearchTorrent, seriesId: number): SeriesEntry | n
     const all = JSON.parse(t.series_info) as Record<string, [string, string, number]>
     const hit = all[String(seriesId)]
     if (!hit) return null
-    return { name: String(hit[0] ?? ''), part: String(hit[1] ?? ''), weight: Number(hit[2]) }
+    return { name: decodeEntities(String(hit[0] ?? '')), part: decodeEntities(String(hit[1] ?? '')), weight: Number(hit[2]) }
   } catch {
     return null
   }

@@ -482,7 +482,7 @@ function SeriesStrip({ data }: { data: TorrentDetail }) {
             id: t.id,
             href: torrentUrl(t.id),
             title: t.title,
-            poster: t.poster_type ? coverUrl(t.id) : null,
+            poster: t.poster_type ? coverUrl(t.id, t.poster_type) : null,
             part: entry.part || null,
             // MAM flags an unnumbered row as -1; in the strip those trail the
             // numbered parts, matching the browse grouping.
@@ -602,7 +602,7 @@ function EditionsStrip({ data }: { data: TorrentDetail }) {
                   className="group grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3.5 px-6 py-2.5 transition-colors hover:bg-foreground/[0.028]"
                 >
                   <span className="text-[7px]">
-                    <Book poster={t.poster_type ? coverUrl(t.id) : null} title={t.title} shape={coverShape({ mediatype: t.mediatype, mainCat: t.main_cat })} size="row" plain />
+                    <Book poster={t.poster_type ? coverUrl(t.id, t.poster_type) : null} title={t.title} shape={coverShape({ mediatype: t.mediatype, mainCat: t.main_cat })} size="row" plain />
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-[13.5px] font-medium leading-snug transition-colors group-hover:text-brand">
