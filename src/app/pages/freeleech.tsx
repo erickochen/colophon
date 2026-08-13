@@ -241,15 +241,7 @@ export function FreeleechView(props: PageProps) {
         </FilterRow>
       </FilterBar>
 
-      <FilterSummary
-        chips={chips}
-        onClearAll={clearAll}
-        meta={
-          filtering
-            ? `${matches.length.toLocaleString()} of ${total.toLocaleString()} picks`
-            : `${total.toLocaleString()} picks in ${sections.length} ${sections.length === 1 ? 'group' : 'groups'}`
-        }
-      />
+      <FilterSummary chips={chips} onClearAll={clearAll} />
 
       {sections.length === 0 && (
         <p className="py-12 text-center text-sm text-muted-foreground">
@@ -263,6 +255,14 @@ export function FreeleechView(props: PageProps) {
 
       {sections.length > 0 && (
       <Card className="gap-0 divide-y overflow-hidden py-0">
+      {/* The count sits on the list it counts, the same head the other lists use. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-muted/25 px-6 py-2">
+        <span className="text-[12.5px] tabular-nums text-muted-foreground">
+          {filtering
+            ? `${matches.length.toLocaleString()} of ${total.toLocaleString()} picks`
+            : `${total.toLocaleString()} picks in ${sections.length} ${sections.length === 1 ? 'group' : 'groups'}`}
+        </span>
+      </div>
       {sections.map((s) => (
         <CollapsibleSection
           key={s.key}

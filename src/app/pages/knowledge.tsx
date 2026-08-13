@@ -190,16 +190,25 @@ function KnowledgeBase({ title, sub, sections: raw, mode }: { title: string; sub
           )}
         </div>
       ) : (
-        <Tabs value={tab} onValueChange={setTab} className="gap-5">
-          <FilterPillList>
+        /* Wide enough for a column of topics, the list runs down the side and
+           every name fits. Narrow, it stays a wrapping row of pills. */
+        <Tabs value={tab} onValueChange={setTab} className="gap-5 lg:grid lg:grid-cols-[minmax(0,232px)_minmax(0,1fr)] lg:items-start lg:gap-7">
+          <FilterPillList className="lg:sticky lg:top-20 lg:flex-col lg:items-stretch lg:gap-1">
             {sections.map((s) => (
-              <FilterPill key={s.key} value={s.key} title={s.title} count={s.items.length}>
-                {shortLabel(s.title)}
+              <FilterPill
+                key={s.key}
+                value={s.key}
+                title={s.title}
+                count={s.items.length}
+                className="lg:w-full lg:min-w-0 lg:rounded-lg lg:px-3 lg:py-2 lg:text-left lg:whitespace-normal"
+              >
+                <span className="lg:hidden">{shortLabel(s.title)}</span>
+                <span className="hidden min-w-0 lg:inline">{s.title}</span>
               </FilterPill>
             ))}
           </FilterPillList>
           {sections.map((s) => (
-            <TabsContent key={s.key} value={s.key} className="mt-0 max-w-3xl">
+            <TabsContent key={s.key} value={s.key} className="mt-0 min-w-0">
               <div className="mb-3 flex items-baseline gap-2">
                 <h2 className="font-display text-[18px] font-semibold tracking-tight">{s.title}</h2>
                 <span className="text-[12px] tabular-nums text-muted-foreground">{s.items.length}</span>

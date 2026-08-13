@@ -29,12 +29,12 @@ export interface FacetOption {
 }
 
 /** Shared control height, so every trigger on a bar lines up. */
-const TRIGGER = 'h-8 gap-1.5 text-[12.5px] font-medium'
+export const TRIGGER = 'h-8 gap-1.5 text-[12.5px] font-medium'
 
 export function FilterBar({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <Card className={cn('gap-0 py-0', className)}>
-      <CardContent className="grid gap-3 px-4 py-3.5">{children}</CardContent>
+      <CardContent className="grid gap-3 px-6 py-3.5">{children}</CardContent>
     </Card>
   )
 }
@@ -58,10 +58,13 @@ export function FilterSearch({
   className,
   inputRef,
   hint,
+  onFocus,
 }: {
   value: string
   onChange: (v: string) => void
   onSubmit?: () => void
+  /** Fires when the field takes focus, for rows that only matter while typing. */
+  onFocus?: () => void
   placeholder: string
   submitLabel?: string
   autoFocus?: boolean
@@ -76,6 +79,7 @@ export function FilterSearch({
       <Input
         ref={inputRef}
         value={value}
+        onFocus={onFocus}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Escape' && value) {
@@ -93,7 +97,7 @@ export function FilterSearch({
           type="button"
           aria-label="Clear search"
           onClick={() => onChange('')}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-sm p-1.5 text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
         >
           <X className="size-3.5" />
         </button>
@@ -132,13 +136,16 @@ export function FilterPillList({ children, className }: { children: React.ReactN
 
 /** Pill-shaped tab for category switchers, in the shared active state. */
 export function FilterPill({
-  value, title, count, children,
-}: { value: string; title?: string; count?: number; children: React.ReactNode }) {
+  value, title, count, className, children,
+}: { value: string; title?: string; count?: number; className?: string; children: React.ReactNode }) {
   return (
     <TabsTrigger
       value={value}
       title={title}
-      className="h-auto flex-none gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] text-muted-foreground shadow-none transition-colors hover:bg-accent/50 data-active:border-brand/40 data-active:bg-brand-soft data-active:font-medium data-active:text-accent-foreground data-active:shadow-none"
+      className={cn(
+        'h-auto flex-none justify-between gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] text-muted-foreground shadow-none transition-colors hover:bg-accent/50 data-active:border-brand/40 data-active:bg-brand-soft data-active:font-medium data-active:text-accent-foreground data-active:shadow-none',
+        className
+      )}
     >
       {children}
       {count != null && <span className="rounded-full bg-muted px-1.5 text-[10px] tabular-nums">{fmtInt(count)}</span>}
@@ -152,9 +159,12 @@ export function FilterSegments({
   value,
   onChange,
   type = 'single',
+  ariaLabel,
   className,
 }: {
   options: FacetOption[]
+  /** Names the group, e.g. "Search in" or "Media type". */
+  ariaLabel?: string
   className?: string
 } & (
   | { type?: 'single'; value: string; onChange: (v: string) => void }
@@ -186,6 +196,7 @@ export function FilterSegments({
     <ToggleGroup
       type="multiple"
       variant="outline"
+      aria-label={ariaLabel}
       value={value as string[]}
       onValueChange={onChange as (v: string[]) => void}
       className={cn('flex-wrap', className)}
@@ -196,6 +207,7 @@ export function FilterSegments({
     <ToggleGroup
       type="single"
       variant="outline"
+      aria-label={ariaLabel}
       value={value as string}
       onValueChange={(v) => v && (onChange as (x: string) => void)(v)}
       className={cn('flex-wrap', className)}
@@ -399,7 +411,7 @@ export function FilterSummary({
   const list = chips ?? []
   if (list.length === 0 && !meta && !children) return null
   return (
-    <div className={cn('flex flex-wrap items-center gap-2 px-1', className)}>
+    <div className={cn('flex flex-wrap items-center gap-2 px-6', className)}>
       {list.map((c) => (
         <span
           key={c.key}
@@ -410,7 +422,7 @@ export function FilterSummary({
             type="button"
             aria-label={`Remove ${c.label}`}
             onClick={c.onRemove}
-            className="rounded-sm text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
+            className="-m-1 rounded-sm p-1 text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
           >
             <X className="size-3" />
           </button>

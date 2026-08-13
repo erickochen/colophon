@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { AlignJustify, Bookmark, BookmarkCheck, BookmarkX, ChevronDown, Columns3, Dices, Download, EyeOff, FileArchive, Filter, LayoutGrid, Loader2, Search, Trash2, Undo2 } from 'lucide-react'
+import { AlignJustify, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, BookmarkCheck, BookmarkX, ChevronDown, Dice5, Download, EyeOff, FileArchive, Filter, LayoutGrid, Loader2, Search, Trash2, Undo2 } from 'lucide-react'
 import type { PageProps } from '@/app/router'
+import { PageHeader } from '@/app/shell/bits'
 import {
   bookmarkCleanup, bookmarkMass, BookmarkMassError, bookmarkOne, downloadZipOf, searchAllTorrents2, searchTorrents2,
   search2Url, parsePeople, downloadUrl, coverUrl, torrentUrl, BOOKMARKS_ZIP_URL, ZIP_BATCH_MAX,
@@ -34,7 +35,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   FacetOptions, FacetSection, FilterBar, FilterFacet, FilterHint, FilterRow, FilterSearch,
-  FilterSegments, FilterSelect, FilterSummary, toggleValue,
+  FilterSegments, FilterSelect, FilterSummary, TRIGGER, toggleValue,
 } from '@/components/filters'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -80,14 +81,16 @@ interface ListColumn {
   key: ColKey
   label: string
   track?: string
+  /** Short form for the column header above the rows. */
+  head?: string
 }
 const LIST_COLUMNS: readonly ListColumn[] = [
   { key: 'narrators', label: 'Narrator' },
   { key: 'series', label: 'Series' },
-  { key: 'filetype', label: 'Filetype', track: '52px' },
-  { key: 'size', label: 'Size', track: '84px' },
-  { key: 'peers', label: 'Seeders / leechers', track: '88px' },
-  { key: 'added', label: 'Added', track: '76px' },
+  { key: 'filetype', label: 'Filetype', track: '52px', head: 'Type' },
+  { key: 'size', label: 'Size', track: '84px', head: 'Size' },
+  { key: 'peers', label: 'Seeders / leechers', track: '88px', head: 'Seed / leech' },
+  { key: 'added', label: 'Added', track: '76px', head: 'Added' },
 ]
 const ALL_COLS = LIST_COLUMNS.map((c) => c.key)
 
@@ -117,6 +120,18 @@ const ROW_TAG_LIMIT = 4
 // cover off a third of a phone screen.
 const ROW_COVER_H = 132
 const ROW_COVER_H_SM = 96
+
+// Row actions live in a lane wide enough for every action this list can show.
+// The wedge button only renders where a wedge helps, so a lane that sized
+// itself per row would drag the stats columns left and right line by line.
+const ROW_ACTION_SIZE = 34
+const ROW_ACTION_GAP = 6
+const actionLane = (slots: number) => `${slots * ROW_ACTION_SIZE + (slots - 1) * ROW_ACTION_GAP}px`
+
+// Gallery shelf: --shelf is the height every cover is drawn at, so a row of
+// covers shares one baseline and the titles under them line up.
+const GALLERY_GRID =
+  'grid grid-cols-3 gap-x-[22px] gap-y-7 p-6 [--shelf:150px] sm:grid-cols-4 sm:[--shelf:180px] lg:grid-cols-6 lg:[--shelf:210px]'
 
 /** Why a row is not shown: on the personal ignore list or snatched while the
  * hide-snatched filter is on. */
@@ -516,7 +531,8 @@ function RowCover({ t }: { t: SearchTorrent }) {
     <a
       href={torrentUrl(t.id)}
       tabIndex={-1}
-      className="flex h-[var(--cover-h)] items-center justify-center text-[9px] sm:h-[var(--cover-h-lg)]"
+      aria-hidden
+      className="flex h-[var(--cover-h)] items-center justify-center self-center text-[9px] md:h-[var(--cover-h-lg)]"
       style={{ '--cover-h': `${ROW_COVER_H_SM}px`, '--cover-h-lg': `${ROW_COVER_H}px` } as CSSProperties}
     >
       <Book poster={poster} title={t.title} shape={shape} fit="height" plain className="transition-shadow group-hover:shadow-book-lift" />
@@ -543,9 +559,13 @@ type BookmarkSetter = (ids: number[], bookmarked: boolean) => void
 type RowDropper = (ids: number[]) => void
 
 const ROW_ACTION =
-  'grid size-[34px] place-items-center rounded-full border outline-none transition-[opacity,color,background-color,border-color] duration-200 ' +
+  'grid size-[34px] place-items-center rounded-full border border-input text-muted-foreground outline-none transition-[opacity,color,background-color,border-color] duration-200 ' +
   'hover:border-transparent hover:bg-primary hover:text-primary-foreground disabled:pointer-events-none ' +
   'focus-visible:border-ring focus-visible:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring'
+
+/* Resting actions stay faintly visible: a row that hides what it can do is a
+ * row nobody finds. Hover, focus and touch bring them to full strength. */
+const ROW_ACTION_REST = 'opacity-40 group-hover:opacity-100 pointer-coarse:opacity-100'
 
 /** Row bookmark toggle. Stays visible once bookmarked, so the state reads
  * without hovering the row first. */
@@ -577,7 +597,7 @@ function RowBookmark({ t, onBookmark, onRemoved }: { t: SearchTorrent; onBookmar
           aria-label={on ? 'Remove bookmark' : 'Bookmark'}
           className={cn(
             ROW_ACTION,
-            on ? 'border-brand/40 text-brand' : 'border-input text-muted-foreground opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100'
+            on ? 'border-brand/40 text-brand' : ROW_ACTION_REST
           )}
         >
           {on ? <BookmarkCheck className="size-[15px]" /> : <Bookmark className="size-[15px]" />}
@@ -588,22 +608,102 @@ function RowBookmark({ t, onBookmark, onRemoved }: { t: SearchTorrent; onBookmar
   )
 }
 
+/** Column tracks for one list, shared by the header and every row so nothing
+ * shifts. Only from md up: narrow rows stack instead. */
+function rowTracks(stats: number, lane: string, selectable?: boolean): string {
+  return [selectable ? '28px' : '', '132px', 'minmax(0,1fr)', stats ? 'auto' : '', lane].filter(Boolean).join(' ')
+}
+
+/** Sort values behind a column header. Sorting lives where the numbers are, so
+ * the bar needs no dropdown for the everyday cases. */
+const COLUMN_SORTS: Record<string, { asc: string; desc: string }> = {
+  title: { asc: 'titleAsc', desc: 'titleDesc' },
+  size: { asc: 'sizeAsc', desc: 'sizeDesc' },
+  peers: { asc: 'seedersAsc', desc: 'seedersDesc' },
+  added: { asc: 'dateAsc', desc: 'dateDesc' },
+}
+
+function SortHead({ label, keyName, sort, onSort, align }: {
+  label: string
+  keyName: string
+  sort: string
+  onSort: (v: string) => void
+  align?: 'right'
+}) {
+  const pair = COLUMN_SORTS[keyName]
+  if (!pair) return <span className={align === 'right' ? 'text-right' : undefined}>{label}</span>
+  const active = sort === pair.asc ? 'asc' : sort === pair.desc ? 'desc' : null
+  const next = active === 'desc' ? pair.asc : pair.desc
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(next)}
+      aria-label={`Sort by ${label.toLowerCase()}`}
+      className={cn(
+        'group/sort inline-flex items-center gap-1 whitespace-nowrap uppercase tracking-[0.08em] transition-colors hover:text-foreground',
+        align === 'right' && 'justify-end',
+        active && 'text-foreground'
+      )}
+    >
+      {label}
+      <SortMark active={active} />
+    </button>
+  )
+}
+
+function SortMark({ active }: { active: 'asc' | 'desc' | null }) {
+  if (active === 'desc') return <ArrowDown className="size-3" />
+  if (active === 'asc') return <ArrowUp className="size-3" />
+  return <ArrowUpDown className="size-3 opacity-0 transition-opacity group-hover/sort:opacity-60" />
+}
+
+/** Names the number columns, so a reader does not have to guess what 2,015 / 3
+ * means. Carries the sort the way the snatched list does. */
+function ListHeader({ cols, lane, selectable, sort, onSort }: {
+  cols: ColKey[]
+  lane: string
+  selectable?: boolean
+  sort: string
+  onSort: (v: string) => void
+}) {
+  const stats = LIST_COLUMNS.filter((c) => c.track && cols.includes(c.key))
+  if (stats.length === 0) return null
+  return (
+    <div
+      style={{ gridTemplateColumns: rowTracks(stats.length, lane, selectable) }}
+      className="hidden gap-x-[18px] border-b bg-card px-6 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground md:grid"
+    >
+      {selectable && <span />}
+      <span />
+      <SortHead label="Title" keyName="title" sort={sort} onSort={onSort} />
+      <div className="grid gap-x-[18px] text-right" style={{ gridTemplateColumns: stats.map((c) => c.track).join(' ') }}>
+        {stats.map((c) => (
+          <SortHead key={c.key} label={c.head ?? c.label} keyName={c.key} sort={sort} onSort={onSort} align="right" />
+        ))}
+      </div>
+      <span />
+    </div>
+  )
+}
+
 function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onUnignore, hiddenReason, selectable, checked, onCheck }: { t: SearchTorrent; cols: ColKey[]; onBookmark: BookmarkSetter; onRemoved?: RowDropper; onFreeleech?: (id: number) => void; onIgnore?: (t: SearchTorrent) => void; onUnignore?: (id: number) => void; hiddenReason?: HiddenReason | null; selectable?: boolean; checked?: boolean; onCheck?: (id: number, on: boolean) => void }) {
   const authors = parsePeople(t.author_info)
   const narrators = cols.includes('narrators') ? parsePeople(t.narrator_info) : []
   const series = cols.includes('series') ? parsePeople(t.series_info) : []
   const stats = LIST_COLUMNS.filter((c) => c.track && cols.includes(c.key))
+  // Every action this list can show gets a slot, whether or not this row uses it.
+  const actionSlots = 2 + (onFreeleech ? 1 : 0) + (onIgnore ? 1 : 0)
+  const lane = actionLane(actionSlots)
+  // Narrow, a row is a cover beside a title with the numbers folded underneath;
+  // the full set of columns only fits from md up.
+  const wide = rowTracks(stats.length, 'var(--lane)', selectable)
   return (
     <div
+      style={{ '--lane': lane, '--row-cols': wide } as CSSProperties}
       className={cn(
-        'group grid items-center gap-[18px] px-[22px] py-3.5 transition-colors hover:bg-foreground/[0.028]',
-        selectable
-          ? stats.length
-            ? 'grid-cols-[28px_96px_1fr_auto_auto] sm:grid-cols-[28px_132px_1fr_auto_auto]'
-            : 'grid-cols-[28px_96px_1fr_auto] sm:grid-cols-[28px_132px_1fr_auto]'
-          : stats.length
-            ? 'grid-cols-[96px_1fr_auto_auto] sm:grid-cols-[132px_1fr_auto_auto]'
-            : 'grid-cols-[96px_1fr_auto] sm:grid-cols-[132px_1fr_auto]',
+        'group grid items-start gap-x-[18px] gap-y-2.5 px-6 py-3.5 transition-colors hover:bg-brand-soft/25',
+        selectable ? 'grid-cols-[28px_96px_minmax(0,1fr)]' : 'grid-cols-[96px_minmax(0,1fr)]',
+        'md:[grid-template-columns:var(--row-cols)]',
         hiddenReason && 'opacity-60'
       )}
     >
@@ -648,7 +748,9 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onU
       </div>
       {stats.length > 0 && (
         <div
-          className="grid items-baseline gap-x-[18px] text-right tabular-nums"
+          /* pt lands the numbers on the title's cap line, so a row reads as one
+             horizontal line instead of a block floating below the title. */
+          className="col-span-full flex flex-wrap items-baseline gap-x-4 gap-y-1 tabular-nums md:col-span-1 md:grid md:gap-x-[18px] md:pt-[3px] md:text-right"
           style={{ gridTemplateColumns: stats.map((c) => c.track).join(' ') }}
         >
           {cols.includes('filetype') && (
@@ -676,33 +778,48 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onU
         </div>
       )}
       {hiddenReason === 'ignored' && onUnignore ? (
-        <div className="flex items-center gap-1.5">
-          <Button variant="outline" size="sm" className="h-8 text-[12.5px]" onClick={() => onUnignore(t.id)}>
-            <Undo2 className="size-3.5" /> Unignore
-          </Button>
+        <div className="col-span-full flex items-center justify-end gap-1.5 md:col-span-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label="Show this torrent again"
+                onClick={() => onUnignore(t.id)}
+                className={cn(ROW_ACTION, 'border-input text-muted-foreground')}
+              >
+                <Undo2 className="size-[15px]" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Show this torrent again</TooltipContent>
+          </Tooltip>
         </div>
       ) : (
-        <div className="flex items-center gap-1.5">
+        /* One cell per action the list can show, so an icon keeps its place
+           down the column even where a row has nothing to put in it. */
+        <div className="col-span-full grid justify-end gap-1.5 md:col-span-1" style={{ gridTemplateColumns: `repeat(${actionSlots}, ${ROW_ACTION_SIZE}px)` }}>
           <RowBookmark t={t} onBookmark={onBookmark} onRemoved={onRemoved} />
           <Tooltip>
             <TooltipTrigger asChild>
               <a
                 href={downloadUrl(t.id)}
                 aria-label="Download .torrent"
-                className={cn(ROW_ACTION, 'border-input text-muted-foreground opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100')}
+                className={cn(ROW_ACTION, ROW_ACTION_REST)}
               >
                 <Download className="size-[15px]" />
               </a>
             </TooltipTrigger>
             <TooltipContent>Download .torrent</TooltipContent>
           </Tooltip>
-          {onFreeleech && wedgeHelps(t) && (
-            <WedgeRowButton
-              target={{ id: t.id, title: t.title, size: t.size }}
-              onDone={() => onFreeleech(t.id)}
-              className={cn(ROW_ACTION, 'border-input text-muted-foreground opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100')}
-            />
-          )}
+          {onFreeleech &&
+            (wedgeHelps(t) ? (
+              <WedgeRowButton
+                target={{ id: t.id, title: t.title, size: t.size }}
+                onDone={() => onFreeleech(t.id)}
+                className={cn(ROW_ACTION, ROW_ACTION_REST)}
+              />
+            ) : (
+              <span aria-hidden />
+            ))}
           {onIgnore && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -710,7 +827,7 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onU
                   type="button"
                   aria-label="Ignore this torrent"
                   onClick={() => onIgnore(t)}
-                  className={cn(ROW_ACTION, 'border-input text-muted-foreground opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100')}
+                  className={cn(ROW_ACTION, ROW_ACTION_REST)}
                 >
                   <EyeOff className="size-[15px]" />
                 </button>
@@ -730,14 +847,19 @@ function GalleryItem({ t, hiddenReason, onUnignore }: { t: SearchTorrent; hidden
   return (
     <span className={cn('relative block', hiddenReason && 'opacity-60')}>
       <a href={torrentUrl(t.id)} className="group block">
-        <span className="relative block text-[11px] transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1.5 motion-reduce:transition-none">
+        {/* One shelf line: the slot pins the height, so covers of every shape
+            end on the same baseline and every title starts level. */}
+        <span className="relative flex h-[var(--shelf)] items-end justify-center text-[11px] transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1.5 motion-reduce:transition-none">
           <Book
             poster={t.poster_type ? coverUrl(t.id, t.poster_type) : null}
             title={t.title}
             author={authorsText || undefined}
             shape={coverShape({ mediatype: t.mediatype, mainCat: t.main_cat })}
+            fit="height"
             size="shelf"
-            className="group-hover:shadow-book-lift"
+            /* A wide cover keeps the shelf line by giving up height, not by
+               spilling into the next column. */
+            className="max-w-full group-hover:shadow-book-lift"
           />
           {!!t.bookmarked && (
             <span
@@ -749,7 +871,7 @@ function GalleryItem({ t, hiddenReason, onUnignore }: { t: SearchTorrent; hidden
             </span>
           )}
         </span>
-        <span className="font-display mt-2.5 line-clamp-2 block text-[13px] font-medium leading-[1.35]">{t.title}</span>
+        <span className="font-display mt-2.5 line-clamp-2 block min-h-[2.7em] text-[13px] font-medium leading-[1.35]">{t.title}</span>
         {authorsText && <span className="mt-0.5 line-clamp-1 block text-[11.5px] text-muted-foreground">{authorsText}</span>}
       </a>
       {hiddenReason === 'ignored' && onUnignore && (
@@ -779,13 +901,18 @@ const BOOKMARK_CLEANUPS = [
  * loaded. The top group covers the rows on screen; on the bookmarks list a
  * second group reaches the whole list, which is why they are kept apart. */
 function ResultActions({
-  items, bookmarksView, onBookmark, onRemoved, onCleaned,
+  items, bookmarksView, onBookmark, onRemoved, onCleaned, copySlot, cols, onToggleCol,
 }: {
   items: SearchTorrent[]
   bookmarksView: boolean
   onBookmark: BookmarkSetter
   onRemoved?: RowDropper
   onCleaned: (type: BookmarkCleanup, removed: number) => void
+  /** Copy-as-text, folded in so the bar keeps one menu instead of two buttons. */
+  copySlot?: React.ReactNode
+  /** Column visibility, when the list view is showing. */
+  cols?: ColKey[]
+  onToggleCol?: (k: ColKey) => void
 }) {
   const [busy, setBusy] = useState(false)
   const [confirmShown, setConfirmShown] = useState(false)
@@ -835,13 +962,8 @@ function ResultActions({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            size="xs"
-            disabled={busy}
-            className="h-[26px] gap-1.5 rounded-[7px] px-2.5 text-[12px]"
-          >
-            {busy && <Loader2 className="size-3 animate-spin" />}
+          <Button variant="outline" size="sm" disabled={busy} className={TRIGGER}>
+            {busy && <Loader2 className="size-3.5 animate-spin" />}
             Actions
             <ChevronDown className="size-3 text-muted-foreground" />
           </Button>
@@ -849,28 +971,42 @@ function ResultActions({
         <DropdownMenuContent align="end" className="w-[264px]">
           {bookmarksView && <DropdownMenuLabel className={MENU_GROUP_LABEL}>Shown here</DropdownMenuLabel>}
           <DropdownMenuGroup>
+            {/* The count belongs in the sentence: a number parked on the right
+                reads as a keyboard shortcut. */}
             <DropdownMenuItem disabled={toAdd.length === 0} onClick={() => void run('add', toAdd)}>
               <Bookmark />
-              Bookmark all shown
-              <DropdownMenuShortcut>{fmtInt(toAdd.length)}</DropdownMenuShortcut>
+              {toAdd.length === 0 ? 'Everything here is bookmarked' : `Bookmark these ${fmtInt(toAdd.length)}`}
             </DropdownMenuItem>
-            <DropdownMenuItem disabled={toRemove.length === 0} onClick={() => setConfirmShown(true)}>
-              <BookmarkX />
-              Remove bookmarks
-              <DropdownMenuShortcut>{fmtInt(toRemove.length)}</DropdownMenuShortcut>
-            </DropdownMenuItem>
+            {toRemove.length > 0 && (
+              <DropdownMenuItem onClick={() => setConfirmShown(true)}>
+                <BookmarkX />
+                Remove {plural(toRemove.length, 'bookmark')}
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={zip}>
               <FileArchive />
-              {capped ? (
-                `Download first ${fmtInt(ZIP_BATCH_MAX)} as .zip`
-              ) : (
-                <>
-                  Download all shown as .zip
-                  <DropdownMenuShortcut>{fmtInt(zipIds.length)}</DropdownMenuShortcut>
-                </>
-              )}
+              {capped ? `Download the first ${fmtInt(ZIP_BATCH_MAX)} as .zip` : `Download ${fmtInt(zipIds.length)} as .zip`}
             </DropdownMenuItem>
+            {copySlot}
           </DropdownMenuGroup>
+          {cols && onToggleCol && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className={MENU_GROUP_LABEL}>Columns</DropdownMenuLabel>
+              <DropdownMenuGroup>
+                {LIST_COLUMNS.map((c) => (
+                  <DropdownMenuCheckboxItem
+                    key={c.key}
+                    checked={cols.includes(c.key)}
+                    onCheckedChange={() => onToggleCol(c.key)}
+                    closeOnClick={false}
+                  >
+                    {c.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuGroup>
+            </>
+          )}
           {bookmarksView && (
             <>
               <DropdownMenuSeparator />
@@ -899,7 +1035,7 @@ function ResultActions({
           <AlertDialogHeader>
             <AlertDialogTitle>Remove {plural(toRemove.length, 'bookmark')}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Every bookmarked torrent shown here drops out of your bookmarks. There is no undo.
+              Every bookmarked torrent shown here drops out of your bookmarks. You can bookmark them again later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -918,7 +1054,7 @@ function ResultActions({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{pending?.title}</AlertDialogTitle>
-            <AlertDialogDescription>{pending?.question} There is no undo.</AlertDialogDescription>
+            <AlertDialogDescription>{pending?.question} You can bookmark them again later.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep them</AlertDialogCancel>
@@ -930,35 +1066,8 @@ function ResultActions({
   )
 }
 
-/** Which list-row fields are shown; the choice sticks per browser. */
-function ColumnsMenu({ cols, onToggle }: { cols: ColKey[]; onToggle: (k: ColKey) => void }) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="xs" className="h-[26px] gap-1.5 rounded-[7px] px-2.5 text-[12px]">
-          <Columns3 className="size-3 text-muted-foreground" />
-          Columns
-          <ChevronDown className="size-3 text-muted-foreground" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
-        {LIST_COLUMNS.map((c) => (
-          <DropdownMenuCheckboxItem
-            key={c.key}
-            checked={cols.includes(c.key)}
-            onCheckedChange={() => onToggle(c.key)}
-            closeOnClick={false}
-          >
-            {c.label}
-          </DropdownMenuCheckboxItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
 function ViewToggle({ view, onChange }: { view: ViewMode; onChange: (v: ViewMode) => void }) {
-  const base = 'grid h-[26px] w-7 place-items-center border transition-colors outline-none focus-visible:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring'
+  const base = 'grid h-8 w-9 place-items-center border transition-colors outline-none focus-visible:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring'
   const off = 'border-input bg-card text-muted-foreground hover:text-foreground'
   const on = 'border-transparent bg-brand-soft text-accent-foreground'
   return (
@@ -966,20 +1075,22 @@ function ViewToggle({ view, onChange }: { view: ViewMode; onChange: (v: ViewMode
       <button
         type="button"
         aria-label="List view"
+        title="List view"
         aria-pressed={view === 'list'}
         onClick={() => onChange('list')}
-        className={cn(base, 'rounded-l-[7px]', view === 'list' ? on : off)}
+        className={cn(base, 'rounded-l-lg', view === 'list' ? on : off)}
       >
-        <AlignJustify className="size-[13px]" />
+        <AlignJustify className="size-[15px]" />
       </button>
       <button
         type="button"
         aria-label="Gallery view"
+        title="Gallery view"
         aria-pressed={view === 'grid'}
         onClick={() => onChange('grid')}
-        className={cn(base, '-ml-px rounded-r-[7px]', view === 'grid' ? on : off)}
+        className={cn(base, '-ml-px rounded-r-lg', view === 'grid' ? on : off)}
       >
-        <LayoutGrid className="size-[13px]" />
+        <LayoutGrid className="size-[15px]" />
       </button>
     </span>
   )
@@ -1190,6 +1301,8 @@ export function BrowseView(props: PageProps) {
   }
 
   const [rolling, setRolling] = useState(false)
+  // The search-in fields appear once someone is actually searching.
+  const [searchFocus, setSearchFocus] = useState(false)
 
   /** Opens a random torrent inside the active filters. */
   async function randomBook() {
@@ -1245,14 +1358,15 @@ export function BrowseView(props: PageProps) {
   const to = Math.min(found, baseStart + items.length)
   const remaining = Math.max(0, found - to)
   const sizeActive = state.minSize !== null || state.maxSize !== null
+  // The badge counts everything the one facet now holds.
   const activeFilters =
     state.categories.length + state.langs.length + state.flags.length +
-    (sizeActive ? 1 : 0) + (state.dateRange ? 1 : 0) + (hideSnatched ? 1 : 0)
+    (sizeActive ? 1 : 0) + (state.dateRange ? 1 : 0) + (hideSnatched ? 1 : 0) +
+    (state.searchType !== 'all' ? 1 : 0) + (state.searchIn !== 'torrents' ? 1 : 0)
   const uploaderMode = state.uploader != null
   // The endpoint names the owner on every row, which labels the chip.
   const uploaderName = uploaderMode && state.uploader !== 'else' ? items.find((t) => t.owner_name)?.owner_name ?? null : null
   const effectiveSort = uploaderMode && state.sort === 'default' ? 'dateDesc' : state.sort
-  const sortLabel = BROWSE_SORTS.find((o) => o.value === effectiveSort)?.label ?? effectiveSort
   const genres = useCategories2()
   const genreName = (id: number) => genres?.find((c) => c.id === id)?.name ?? `#${id}`
   // The genre list narrows along with the media-type tabs.
@@ -1271,14 +1385,6 @@ export function BrowseView(props: PageProps) {
     state.dateRange === 'custom'
       ? [state.startDate || '…', state.endDate || '…'].join(' to ')
       : DATE_RANGES.find((d) => d.value === state.dateRange)?.label ?? state.dateRange
-
-  const facetSummary = useMemo(() => {
-    const parts: string[] = []
-    if (state.mainCat.length) parts.push(state.mainCat.map((m) => MAIN_CATS.find((x) => x.id === m)?.name ?? m).join(', '))
-    if (state.categories.length) parts.push(`${state.categories.length} genres`)
-    if (state.langs.length) parts.push(`${state.langs.length} languages`)
-    return parts.join(' · ')
-  }, [state.mainCat, state.categories, state.langs])
 
   // Entity filters only carry an id in the URL; the matching name is inside the
   // results themselves (author_info maps id to name).
@@ -1429,39 +1535,33 @@ export function BrowseView(props: PageProps) {
 
   return (
     <div className="grid gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-[26px] font-semibold tracking-tight">Browse the library</h1>
-          <p className="mt-0.5 text-[13px] text-muted-foreground">
-            {loading ? 'Searching…' : `${fmtInt(found)} torrents${facetSummary ? ` · ${facetSummary}` : ''}`}
-          </p>
-        </div>
-        {!uploaderMode && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-[12.5px]"
-            onClick={() => void randomBook()}
-            disabled={rolling}
-          >
-            {rolling ? <Loader2 className="animate-spin" /> : <Dices />} Random book
-          </Button>
-        )}
-      </div>
+      {/* The count lives on the list itself, so the subtitle only says what this
+          page is looking at. */}
+      <PageHeader
+        title="Browse the library"
+        sub={loading ? 'Searching…' : state.text ? `Results for “${state.text}”` : chips.length ? undefined : `${fmtInt(found)} torrents`}
+      />
 
       <FilterBar>
-        <FilterSearch
-          value={state.text}
-          onChange={(v) => setState((s) => ({ ...s, text: v }))}
-          onSubmit={() => apply({})}
-          placeholder={uploaderMode ? 'Search titles and authors in these uploads…' : 'Search titles, authors, narrators, series…'}
-        />
+        {/* Rolling a random book is a way of searching, so it sits with the
+            search field rather than beside the page title. */}
+        <FilterRow className="gap-2">
+          <FilterSearch
+            className="flex-1"
+            value={state.text}
+            onChange={(v) => setState((s) => ({ ...s, text: v }))}
+            onFocus={() => setSearchFocus(true)}
+            onSubmit={() => apply({})}
+            placeholder={uploaderMode ? 'Search titles and authors in these uploads…' : 'Search titles, authors, narrators, series…'}
+          />
+        </FilterRow>
 
-        {!uploaderMode && (
+        {!uploaderMode && (state.text.length > 0 || searchFocus) && (
         <FilterRow className="gap-1.5">
           <FilterHint>in</FilterHint>
           <FilterSegments
             type="multiple"
+            ariaLabel="Search in"
             options={SRCH_FIELDS.map(([value, label]) => ({ value, label }))}
             value={state.srchIn}
             onChange={(v) => apply({ srchIn: v as SrchField[] })}
@@ -1469,21 +1569,12 @@ export function BrowseView(props: PageProps) {
         </FilterRow>
         )}
 
-        {uploaderMode ? (
-          <FilterRow>
-            <FilterSelect
-              value={effectiveSort}
-              onChange={(v) => apply({ sort: v })}
-              options={BROWSE_SORTS}
-              align="end"
-              ariaLabel="Sort order"
-              className="ml-auto"
-            />
-          </FilterRow>
-        ) : (
+        {uploaderMode ? null : (
         <FilterRow>
+          <FilterHint>show</FilterHint>
           <FilterSegments
             type="multiple"
+            ariaLabel="Media type"
             options={MAIN_CATS.map((m) => ({ value: String(m.id), label: m.name }))}
             value={state.mainCat.map(String)}
             onChange={(v) => apply({ mainCat: v.map(Number) })}
@@ -1491,6 +1582,15 @@ export function BrowseView(props: PageProps) {
 
           <FilterFacet label="Filters" count={activeFilters} width="w-[420px]" icon={<Filter className="size-3.5" />}>
             <div className="max-h-[440px] overflow-y-auto">
+              <FacetSection title="Show">
+                <FilterSegments
+                  type="single"
+                  ariaLabel="Torrent state"
+                  options={SEARCH_TYPES.map(([value, label]) => ({ value, label }))}
+                  value={state.searchType}
+                  onChange={(v) => apply({ searchType: v as BrowseState['searchType'] })}
+                />
+              </FacetSection>
               <FacetSection title="Genres">
                 {genres === null && (
                   <div className="grid gap-1.5 py-1">
@@ -1518,6 +1618,63 @@ export function BrowseView(props: PageProps) {
                 <p className="pt-1 text-[11.5px] text-muted-foreground">
                   Some older torrents are not classified yet and stay out of genre-filtered results.
                 </p>
+              </FacetSection>
+              <FacetSection title="Languages" note={state.langsMode === 'not' ? 'excluded' : undefined}>
+                {(state.langs.length > 0 || state.langsMode === 'not') && (
+                  <button
+                    type="button"
+                    className="mb-1.5 text-[12px] text-brand hover:underline"
+                    onClick={() => apply({ langsMode: state.langsMode === 'not' ? 'has' : 'not' })}
+                  >
+                    switch to “{state.langsMode === 'not' ? 'include' : 'exclude'}”
+                  </button>
+                )}
+                <FacetOptions
+                  options={LANGUAGES.map((l) => ({ value: String(l.id), label: l.name }))}
+                  selected={state.langs.map(String)}
+                  onToggle={(v) => apply({ langs: toggleValue(state.langs, Number(v)) })}
+                  onClear={() => apply({ langs: [] })}
+                  searchable
+                  searchPlaceholder="Filter languages…"
+                  emptyText="No language found."
+                />
+              </FacetSection>
+              <FacetSection title="Added">
+                <FilterSegments
+                  type="single"
+                  ariaLabel="Added within"
+                  options={DATE_RANGES.map((d) => ({ value: d.value || 'any', label: d.label }))}
+                  value={state.dateRange || 'any'}
+                  onChange={(v) => (v === 'any' ? apply({ dateRange: '', startDate: '', endDate: '' }) : apply({ dateRange: v as BrowseState['dateRange'] }))}
+                />
+                {state.dateRange === 'custom' && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <Input
+                      type="date"
+                      value={state.startDate}
+                      aria-label="Added from"
+                      className="h-8 w-[136px] text-[12.5px]"
+                      onChange={(e) => apply({ startDate: e.target.value })}
+                    />
+                    <span className="text-[12px] text-muted-foreground">to</span>
+                    <Input
+                      type="date"
+                      value={state.endDate}
+                      aria-label="Added until"
+                      className="h-8 w-[136px] text-[12.5px]"
+                      onChange={(e) => apply({ endDate: e.target.value })}
+                    />
+                  </div>
+                )}
+              </FacetSection>
+              <FacetSection title="Search in" note="the whole tracker unless you narrow it">
+                <FilterSegments
+                  type="single"
+                  ariaLabel="Where to search"
+                  options={SEARCH_INS.map(([value, label]) => ({ value, label }))}
+                  value={state.searchIn}
+                  onChange={(v) => apply({ searchIn: v as BrowseState['searchIn'] })}
+                />
               </FacetSection>
               <FacetSection title="Size">
                 <div className="flex items-center gap-2">
@@ -1588,74 +1745,6 @@ export function BrowseView(props: PageProps) {
             </div>
           </FilterFacet>
 
-          <FilterFacet label="Languages" count={state.langs.length} width="w-64">
-            {(state.langs.length > 0 || state.langsMode === 'not') && (
-              <div className="flex items-center justify-between gap-2 border-b px-2.5 py-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Mode</span>
-                <FilterSegments
-                  type="single"
-                  options={[{ value: 'has', label: 'Include' }, { value: 'not', label: 'Exclude' }]}
-                  value={state.langsMode}
-                  onChange={(v) => apply({ langsMode: v as BrowseState['langsMode'] })}
-                />
-              </div>
-            )}
-            <FacetOptions
-              options={LANGUAGES.map((l) => ({ value: String(l.id), label: l.name }))}
-              selected={state.langs.map(String)}
-              onToggle={(v) => apply({ langs: toggleValue(state.langs, Number(v)) })}
-              onClear={() => apply({ langs: [] })}
-              searchable
-              searchPlaceholder="Filter languages…"
-              emptyText="No language found."
-            />
-          </FilterFacet>
-
-          <FilterSelect
-            value={state.searchType}
-            onChange={(v) => apply({ searchType: v as BrowseState['searchType'] })}
-            options={SEARCH_TYPES.map(([value, label]) => ({ value, label }))}
-            ariaLabel="Torrent state"
-          />
-          <FilterSelect
-            value={state.searchIn}
-            onChange={(v) => apply({ searchIn: v as BrowseState['searchIn'] })}
-            options={SEARCH_INS.map(([value, label]) => ({ value, label }))}
-            ariaLabel="Where to search"
-          />
-          <FilterSelect
-            value={state.dateRange || 'any'}
-            onChange={(v) => (v === 'any' ? apply({ dateRange: '', startDate: '', endDate: '' }) : apply({ dateRange: v as BrowseState['dateRange'] }))}
-            options={DATE_RANGES.map((d) => ({ value: d.value || 'any', label: d.label }))}
-            prefix="Added"
-            ariaLabel="Added within"
-          />
-          {state.dateRange === 'custom' && (
-            <>
-              <Input
-                type="date"
-                value={state.startDate}
-                aria-label="Added from"
-                className="h-8 w-[136px] text-[12.5px]"
-                onChange={(e) => apply({ startDate: e.target.value })}
-              />
-              <Input
-                type="date"
-                value={state.endDate}
-                aria-label="Added until"
-                className="h-8 w-[136px] text-[12.5px]"
-                onChange={(e) => apply({ endDate: e.target.value })}
-              />
-            </>
-          )}
-          <FilterSelect
-            value={state.sort}
-            onChange={(v) => apply({ sort: v })}
-            options={BROWSE_SORTS}
-            align="end"
-            ariaLabel="Sort order"
-            className="ml-auto"
-          />
         </FilterRow>
         )}
       </FilterBar>
@@ -1672,47 +1761,101 @@ export function BrowseView(props: PageProps) {
             authorID: null, narratorID: null, seriesID: null, uploader: null, extra: EMPTY_EXTRA,
           })
         }}
-        meta={loading ? 'Searching…' : state.seriesID && seriesViewOn ? `${fmtInt(found)} results · grouped by part` : `${fmtInt(found)} results · ${sortLabel}`}
-      >
-        <CopyResultsButton rows={items} />
-        <ViewToggle view={view} onChange={setViewMode} />
-        {view === 'list' && <ColumnsMenu cols={cols} onToggle={toggleCol} />}
-        {!loading && shownItems.length > 0 && (
-          <ResultActions
-            items={shownItems}
-            bookmarksView={state.searchIn === 'bookmarks'}
-            onBookmark={setBookmarked}
-            onRemoved={dropOnUnbookmark}
-            onCleaned={(type, removed) => (type === 'all' ? clearList() : void refreshAfterCleanup(removed))}
-          />
-        )}
-      </FilterSummary>
+      />
 
       {state.seriesID != null && seriesGroups.length > 0 && (
         <SeriesHeader name={seriesName ?? 'This series'} groups={seriesGroups} total={found} />
       )}
 
       <Card className="overflow-hidden py-0">
+        {/* The head of the list: what you are looking at, then how you look at
+            it. Filter chips stay above with the filters they undo. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b bg-muted/25 px-6 py-2">
+          {/* A search never reloads the page, so the count is the only thing
+              that reports the outcome; a live region says it out loud too. */}
+          <span role="status" className="text-[12.5px] tabular-nums text-muted-foreground">
+            {loading
+              ? 'Searching…'
+              : state.seriesID && seriesViewOn
+                ? `${fmtInt(found)} results · grouped by part`
+                : `${fmtInt(found)} results`}
+          </span>
+          {/* The column headers carry the everyday sorts; this names the current
+              one and reaches the handful that have no column. */}
+          {!loading && !(state.seriesID && seriesViewOn) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="-ml-1.5 rounded px-1.5 py-0.5 text-[12.5px] text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
+                >
+                  sorted by {(BROWSE_SORTS.find((o) => o.value === effectiveSort)?.label ?? 'relevance').toLowerCase()}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-52">
+                {BROWSE_SORTS.map((o) => (
+                  <DropdownMenuCheckboxItem
+                    key={o.value}
+                    checked={o.value === effectiveSort}
+                    onCheckedChange={() => apply({ sort: o.value })}
+                  >
+                    {o.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          <span className="ml-auto flex flex-wrap items-center gap-1.5">
+            {!uploaderMode && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => void randomBook()}
+                    disabled={rolling}
+                    aria-label="Open a random book from these results"
+                    className="grid size-8 place-items-center rounded-lg text-muted-foreground outline-none transition-colors hover:bg-brand-soft hover:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring disabled:opacity-50"
+                  >
+                    {rolling ? <Loader2 className="size-[15px] animate-spin" /> : <Dice5 className="size-[16px]" />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Open a random book from these results</TooltipContent>
+              </Tooltip>
+            )}
+            <ViewToggle view={view} onChange={setViewMode} />
+            {!loading && shownItems.length > 0 && (
+              <ResultActions
+                items={shownItems}
+                bookmarksView={state.searchIn === 'bookmarks'}
+                onBookmark={setBookmarked}
+                onRemoved={dropOnUnbookmark}
+                onCleaned={(type, removed) => (type === 'all' ? clearList() : void refreshAfterCleanup(removed))}
+                copySlot={<CopyResultsButton rows={items} asMenuItem />}
+                cols={view === 'list' ? cols : undefined}
+                onToggleCol={view === 'list' ? toggleCol : undefined}
+              />
+            )}
+          </span>
+        </div>
         {loading && view === 'list' && (
           <div className="divide-y divide-border">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="grid grid-cols-[96px_1fr_auto] items-center gap-[18px] px-[22px] py-3.5 sm:grid-cols-[132px_1fr_auto]">
-                <Skeleton className="mx-auto h-[96px] w-[64px] rounded-[4px_7px_7px_4px] sm:h-[132px] sm:w-[88px]" />
+              <div key={i} className="grid grid-cols-[96px_1fr] items-center gap-[18px] px-6 py-3.5 md:grid-cols-[132px_1fr]">
+                <Skeleton className="mx-auto h-[96px] w-[64px] rounded-[4px_7px_7px_4px] md:h-[132px] md:w-[88px]" />
                 <div className="min-w-0">
                   <Skeleton className="h-4 w-2/3" />
                   <Skeleton className="mt-2 h-3 w-2/5" />
                   <Skeleton className="mt-2.5 h-4 w-28" />
                 </div>
-                <Skeleton className="h-4 w-72 max-w-full" />
               </div>
             ))}
           </div>
         )}
         {loading && view === 'grid' && (
-          <div className="grid grid-cols-3 items-end gap-x-[22px] gap-y-7 p-[26px] sm:grid-cols-4 lg:grid-cols-6">
+          <div className={cn(GALLERY_GRID)}>
             {Array.from({ length: 12 }).map((_, i) => (
               <div key={i}>
-                <Skeleton className="aspect-[3/4.5] w-full rounded-[4px_7px_7px_4px]" />
+                <Skeleton className="mx-auto aspect-[2/3] h-[var(--shelf)] rounded-[4px_7px_7px_4px]" />
                 <Skeleton className="mt-2.5 h-3.5 w-3/4" />
                 <Skeleton className="mt-1.5 h-3 w-1/2" />
               </div>
@@ -1743,6 +1886,7 @@ export function BrowseView(props: PageProps) {
         )}
         {!loading && shownItems.length > 0 && (!state.seriesID || !seriesViewOn) && view === 'list' && (
           <div className="divide-y divide-border">
+            <ListHeader cols={cols} lane={actionLane(3 + (ignoreOn ? 1 : 0))} sort={effectiveSort} onSort={(v) => apply({ sort: v })} />
             {shownItems.map((t) => (
               <TorrentRow
                 key={t.id}
@@ -1759,7 +1903,7 @@ export function BrowseView(props: PageProps) {
           </div>
         )}
         {!loading && shownItems.length > 0 && (!state.seriesID || !seriesViewOn) && view === 'grid' && (
-          <div className="grid grid-cols-3 items-end gap-x-[22px] gap-y-7 p-[26px] sm:grid-cols-4 lg:grid-cols-6">
+          <div className={cn(GALLERY_GRID)}>
             {shownItems.map((t) => (
               <GalleryItem key={t.id} t={t} hiddenReason={showHidden ? hiddenReason(t) : null} onUnignore={ignored.remove} />
             ))}
@@ -1792,7 +1936,7 @@ export function BrowseView(props: PageProps) {
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-3 items-end gap-x-[22px] gap-y-7 p-[26px] sm:grid-cols-4 lg:grid-cols-6">
+                <div className={cn(GALLERY_GRID)}>
                   {rows.map((t) => (
                     <GalleryItem key={t.id} t={t} hiddenReason={showHidden ? hiddenReason(t) : null} onUnignore={ignored.remove} />
                   ))}
@@ -1814,9 +1958,9 @@ export function BrowseView(props: PageProps) {
               return (
                 <div key={g.key}>
                   {g.kind === 'range' && firstRange === g.key && (
-                    <h3 className="border-t px-[22px] pt-4 pb-1 font-display text-[13px] font-semibold">Boxsets and collections</h3>
+                    <h3 className="border-t px-6 pt-4 pb-1 font-display text-[13px] font-semibold">Boxsets and collections</h3>
                   )}
-                  <h3 className="flex items-center gap-2.5 bg-muted/40 px-[22px] py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                  <h3 className="flex items-center gap-2.5 bg-muted/40 px-6 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                     {view === 'list' && seriesBulkOn && (
                       <Checkbox
                         checked={checkedCount > 0 && checkedCount === rowIds.length}
@@ -1872,7 +2016,7 @@ export function BrowseView(props: PageProps) {
             <Loader2 className="size-3.5 animate-spin" />
           ) : (
             <>
-              {`Showing ${fmtInt(from)}–${fmtInt(to)} of ${fmtInt(found)}`}
+              {`Showing ${fmtInt(from)}–${fmtInt(to)}`}
               {hiddenCount > 0 && (
                 <>
                   <span aria-hidden="true">·</span>
@@ -1890,15 +2034,6 @@ export function BrowseView(props: PageProps) {
             </>
           )}
         </span>
-        {!state.seriesID && (
-          <FilterSelect
-            value={String(state.perpage)}
-            onChange={(v) => apply({ perpage: Number(v) })}
-            options={PERPAGE_OPTIONS.map((n) => ({ value: String(n), label: `${n} / page` }))}
-            align="end"
-            ariaLabel="Results per page"
-          />
-        )}
       </div>
     </div>
   )

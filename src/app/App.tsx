@@ -56,9 +56,16 @@ export function App({ page, host }: { page: ShellData; host: HTMLElement }) {
       <SidebarProvider defaultOpen={defaultOpen}>
         <AppSidebar page={page} counts={counts} />
         <SidebarInset className="min-w-0">
+          {/* Keyboard users would otherwise tab the whole sidebar on every page. */}
+          <a
+            href="#colophon-main"
+            className="sr-only rounded-md bg-card px-3 py-2 text-[13px] font-medium ring-[3px] ring-ring focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-50"
+          >
+            Skip to content
+          </a>
           <Topbar page={page} counts={counts} onOpenSearch={() => setCmdOpen(true)} />
           <SiteAlerts alerts={page.alerts} />
-          <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          <main id="colophon-main" tabIndex={-1} className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
             <div className="mx-auto w-full max-w-6xl">
               <ViewBoundary>
                 <route.View page={page} host={host} />

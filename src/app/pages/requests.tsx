@@ -83,7 +83,7 @@ export function RequestsView(_props: PageProps) {
     <div className="grid gap-4">
       <PageHeader
         title="Requests"
-        sub={rows ? plural(found, 'request') : 'Loading…'}
+        sub="Books members are hoping someone uploads"
         action={
           <Button asChild size="sm">
             <a href="/tor/newRequest.php"><Gift /> New request</a>
@@ -126,12 +126,19 @@ export function RequestsView(_props: PageProps) {
 
       <FilterSummary
         chips={hideHidden ? [{ key: 'hideHidden', label: 'Hide hidden requesters', onRemove: () => setHideHidden(false) }] : []}
-        meta={rows ? plural(found, 'request') : 'Loading…'}
-      >
-        <CopyResultsButton rows={rows ?? []} decode />
-      </FilterSummary>
+      />
 
       <Card className="overflow-hidden py-0">
+        {/* Same head as the browse list: the count on the left, the controls
+            that act on it on the right. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b bg-muted/25 px-6 py-2">
+          <span className="text-[12.5px] tabular-nums text-muted-foreground">
+            {rows ? plural(found, 'request') : 'Loading…'}
+          </span>
+          <span className="ml-auto flex flex-wrap items-center gap-1.5">
+            <CopyResultsButton rows={rows ?? []} decode />
+          </span>
+        </div>
         <Table className="[&_th:first-child]:pl-6 [&_td:first-child]:pl-6 [&_th:last-child]:pr-6 [&_td:last-child]:pr-6">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -216,7 +223,7 @@ export function RequestsView(_props: PageProps) {
 
       <div className="flex items-center justify-end gap-2">
         <span className="mr-auto text-[12.5px] text-muted-foreground">
-          {rows ? `Showing ${fmtInt(found === 0 ? 0 : state.start + 1)}–${fmtInt(Math.min(found, state.start + rows.length))} of ${fmtInt(found)}` : ''}
+          {rows ? `Showing ${fmtInt(found === 0 ? 0 : state.start + 1)}–${fmtInt(Math.min(found, state.start + rows.length))}` : ''}
           {hiddenCount > 0 && ` · ${fmtInt(hiddenCount)} hidden on this page`}
         </span>
         <Button
