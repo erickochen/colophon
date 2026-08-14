@@ -25,7 +25,28 @@ interface ZipGroup { label: string; links: { label: string; href: string }[] }
  * reader has to do about them and say it in a sentence. */
 type BucketGroup = 'quota' | 'attention' | 'running' | 'settled' | 'other'
 
+/** Some pile names carry a scope on the end: "(active in the last 7 days)",
+ * "with 5 or fewer seeders". It rides along behind the states so two piles
+ * never land on one wording. The account cap ("150 limit") is not a scope: its
+ * own row states the number. */
+const SCOPE = /\s*(?:\(([^)]*)\)|with\s+(.+?))\s*$/i
+
+function scopeOf(label: string): string | null {
+  const found = SCOPE.exec(label)
+  const scope = found ? (found[1] ?? found[2]).trim() : null
+  return scope && !/\blimit\b/i.test(scope) ? scope : null
+}
+
 function readBucket(label: string): { group: BucketGroup; text: string } {
+  // The states are read from the whole name: a scope can hold the only word
+  // that names one ("Seeding with 5 or fewer seeders").
+  const read = readStates(label)
+  const scope = scopeOf(label)
+  // A name we could not read keeps MAM's own wording, scope included.
+  return scope && read.group !== 'other' ? { ...read, text: `${read.text} (${scope})` } : read
+}
+
+function readStates(label: string): { group: BucketGroup; text: string } {
   const s = label.toLowerCase().replace(/&amp;/g, '&').replace(/\s+/g, ' ')
   if (s.includes('leeching')) return { group: 'running', text: 'Downloading now' }
   const seeding = !s.includes('not seeding') && !s.includes('inactive')
@@ -480,7 +501,11 @@ function QuotaCard({ used, limit, attention }: { used: number; limit: number | n
  * the variant is named once per column and the row says which pile it takes. */
 function ZipMatrix({ groups }: { groups: ZipGroup[] }) {
   const cols = [...new Set(groups.flatMap((g) => g.links.map((l) => l.label)))]
-  const rowName = (label: string) => readBucket(label.replace(/^download\s+/i, '').replace(/:\s*$/, '')).text
+  const onPage = (g: ZipGroup) => g.label.replace(/^download\s+/i, '').replace(/:\s*$/, '').trim()
+  const read = groups.map((g) => readBucket(onPage(g)).text)
+  // Two rows reading the same is worse than MAM's own wording, so a clash keeps
+  // the name from the page.
+  const names = read.map((n, i) => (read.some((other, j) => j !== i && other === n) ? onPage(groups[i]) : n))
   return (
     <Card className="gap-0 overflow-hidden py-0">
       <CardHeader className="border-b !py-3">
@@ -502,9 +527,9 @@ function ZipMatrix({ groups }: { groups: ZipGroup[] }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-border/50">
-            {groups.map((z) => (
+            {groups.map((z, zi) => (
               <tr key={z.label}>
-                <th scope="row" className="py-1.5 pr-8 text-left font-normal whitespace-nowrap">{rowName(z.label)}</th>
+                <th scope="row" className="py-1.5 pr-8 text-left font-normal whitespace-nowrap">{names[zi]}</th>
                 {cols.map((c) => {
                   const link = z.links.find((l) => l.label === c)
                   return (
@@ -512,8 +537,8 @@ function ZipMatrix({ groups }: { groups: ZipGroup[] }) {
                       {link ? (
                         <a
                           href={link.href}
-                          title={`${c} from ${rowName(z.label).toLowerCase()}`}
-                          aria-label={`Download .torrent files, ${c.toLowerCase()}, from ${rowName(z.label).toLowerCase()}`}
+                          title={`${c} from ${names[zi].toLowerCase()}`}
+                          aria-label={`Download .torrent files, ${c.toLowerCase()}, from ${names[zi].toLowerCase()}`}
                           onClick={() => toast.success('Building your zip', { description: 'MAM packs the file, your browser takes it from there.' })}
                           className="inline-grid size-9 place-items-center rounded-md border text-muted-foreground transition-colors hover:border-transparent hover:bg-primary hover:text-primary-foreground sm:size-7"
                         >
