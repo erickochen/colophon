@@ -4,7 +4,9 @@ import { asBooleanRadio, asBooleanSelect, cleanLabel, type MirrorControl, type M
 import { registerInvalidAnchor } from '@/lib/invalid-anchor'
 import { rewriteFor, STATIC_LABELS } from '@/lib/pref-labels'
 import { submitGuarded } from '@/lib/form-submit'
+import { allowPickedName } from '@/lib/mam-names'
 import { BBComposer } from '@/components/bb-composer'
+import { NameSuggest } from '@/components/name-suggest'
 import { RichHtml } from '@/app/shell/bits'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -212,20 +214,39 @@ function Widget({ c, onChange, wide }: { c: MirrorControl; onChange: () => void;
       )
     }
 
-    case 'text':
+    case 'text': {
+      const size = wide ? 'h-10 w-full' : 'h-8 w-48 text-[13px]'
+      const hint = c.placeholder ?? (wide || c.el.value ? undefined : 'site default')
+      if (c.suggest) {
+        return (
+          <NameSuggest
+            kind={c.suggest}
+            defaultValue={c.el.value}
+            placeholder={hint}
+            className={size}
+            labelledBy={labelledBy}
+            onChange={(v) => {
+              c.el.value = v
+              onChange()
+            }}
+            onPick={(hit) => allowPickedName(c.el, hit.name)}
+          />
+        )
+      }
       return (
         <Input
           aria-labelledby={labelledBy}
           type={c.inputType === 'text' ? 'text' : c.inputType}
           defaultValue={c.el.value}
-          placeholder={c.placeholder ?? (wide || c.el.value ? undefined : 'site default')}
+          placeholder={hint}
           onChange={(e) => {
             c.el.value = e.target.value
             onChange()
           }}
-          className={wide ? 'h-10 w-full' : 'h-8 w-48 text-[13px]'}
+          className={size}
         />
       )
+    }
 
     case 'textarea':
       return <MirrorComposer c={c} onChange={onChange} />

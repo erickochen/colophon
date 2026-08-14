@@ -2,12 +2,13 @@
 // renders shadcn controls that write straight into the ORIGINAL (hidden)
 // elements, then submits the original form - the POST stays byte-identical.
 import { cleanHtml } from '@/lib/sanitize'
+import type { NameKind } from '@/lib/mam-names'
 
 export type MirrorControl =
   | { kind: 'radio'; name: string; options: { value: string; label: string; el: HTMLInputElement }[]; value: string | null }
   | { kind: 'checkbox'; name: string; label: string; el: HTMLInputElement; checked: boolean }
   | { kind: 'select'; name: string; el: HTMLSelectElement; options: { value: string; label: string; group?: string }[]; value: string }
-  | { kind: 'text'; name: string; el: HTMLInputElement; value: string; inputType: string; placeholder: string | null }
+  | { kind: 'text'; name: string; el: HTMLInputElement; value: string; inputType: string; placeholder: string | null; suggest: NameKind | null }
   | { kind: 'textarea'; name: string; el: HTMLTextAreaElement; value: string }
   | { kind: 'file'; name: string; el: HTMLInputElement }
 
@@ -190,6 +191,15 @@ function isInlineHidden(el: Element, stop: Element): boolean {
   return false
 }
 
+/** MAM marks the boxes that look a name up with one class per kind, on the
+ * upload form plus the second step of a new request. */
+function nameKind(el: Element): NameKind | null {
+  if (el.classList.contains('ac_author')) return 'author'
+  if (el.classList.contains('ac_narrator')) return 'narrator'
+  if (el.classList.contains('ac_series')) return 'series'
+  return null
+}
+
 function controlsInCell(cell: Element): MirrorControl[] {
   const out: MirrorControl[] = []
   const radios = new Map<string, { value: string; label: string; el: HTMLInputElement }[]>()
@@ -214,7 +224,7 @@ function controlsInCell(cell: Element): MirrorControl[] {
         out.push({ kind: 'file', name, el })
         continue
       }
-      out.push({ kind: 'text', name, el, value: el.value, inputType: type || 'text', placeholder: el.getAttribute('placeholder') })
+      out.push({ kind: 'text', name, el, value: el.value, inputType: type || 'text', placeholder: el.getAttribute('placeholder'), suggest: nameKind(el) })
     } else if (el instanceof HTMLSelectElement) {
       out.push({
         kind: 'select',
