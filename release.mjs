@@ -2,19 +2,21 @@
 // Usage: pnpm release [patch|minor|major|resume]   (default: minor)
 // The nearby edge has to serve this build exactly before a commit or tag is made.
 // Every other region is measured too, then reported.
-import { readFileSync, writeFileSync, statSync, readdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, statSync, readdirSync, writeSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { loadDeployEnv } from './env.mjs'
-import { PAYLOAD_GLOB, PURGE_FAILED_EXIT } from './version.mjs'
+import { INTERRUPT_EXIT, PAYLOAD_GLOB, PURGE_FAILED_EXIT } from './version.mjs'
 import {
   getBunnyVerificationLocations,
   planRelease,
   recordPublishedPayload,
   sha256,
   summarizeGlobalReport,
+  VARIANT_ENCODINGS,
   verifyCdnArtifacts,
   verifyGlobalArtifacts,
+  verifyGlobalEncodings,
 } from './release-verify.mjs'
 
 const HERE = fileURLToPath(new URL('.', import.meta.url))
@@ -40,6 +42,10 @@ const TRAILING_WAIT_MS = 20_000
 const say = (msg) => console.log(`[release] ${msg}`)
 const die = (msg) => { console.error(`[release] ${msg}`); process.exit(1) }
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim()
+/** A child that was stopped by hand rather than one that turned the work down.
+ * A child handling the signal itself exits with a status; one killed outright
+ * carries the signal. */
+const stoppedByHand = (err) => Boolean(err?.signal) || err?.status === INTERRUPT_EXIT
 
 loadDeployEnv()
 const { SITE_URL, BASE_PATH, BUNNY_API_KEY } = process.env
@@ -100,6 +106,31 @@ try {
 }
 const { current, next, prepared, resumed } = plan
 say(resumed ? `resuming ${next}` : `${current} -> ${next}`)
+
+// Set as the run passes those points, so an interrupt can say which half it left
+// behind. A signal arriving while execFileSync blocks is handled where it is
+// caught instead, since the queued callback only runs after that returns.
+let versionWritten = false
+let uploaded = false
+let committed = false
+// Written with writeSync because process.exit drops whatever console.error still
+// has queued for a pipe, which is where these lines are read.
+const shout = (line) => writeSync(2, `${line}\n`)
+process.on('SIGINT', () => {
+  if (committed) {
+    shout(`\n[release] stopped with ${next} committed but not tagged`)
+    shout(`[release] add the tag with: git tag -m "Release ${next}" v${next}`)
+    process.exit(INTERRUPT_EXIT)
+  }
+  shout(`\n[release] stopped before ${next} was committed`)
+  if (uploaded) shout(`[release] ${next} is on the zone already, so finish it with: pnpm release resume`)
+  // A resumed run leaves the version where it found it, which is what lets the
+  // next resume pick the same release back up.
+  else if (resumed) shout(`[release] version.mjs still holds the unfinished ${next}, so "pnpm release resume" picks it up again`)
+  else if (versionWritten) shout(`[release] nothing was uploaded, so put version.mjs back at ${current}: git checkout version.mjs`)
+  else shout('[release] nothing was written or uploaded')
+  process.exit(INTERRUPT_EXIT)
+})
 // A run that died between the commit plus the tag leaves the released version
 // untagged, which neither a bump nor a resume would notice on its own.
 if (!git('tag', '--list', `v${plan.head}`)) {
@@ -110,7 +141,8 @@ if (!git('tag', '--list', `v${plan.head}`)) {
 // refused key or an unreachable API costs nothing but the run.
 try {
   execFileSync('pnpm', ['test'], { stdio: 'inherit', cwd: HERE, env: { ...process.env } })
-} catch {
+} catch (err) {
+  if (stoppedByHand(err)) die('stopped during the tests, nothing was released')
   die('tests failed, nothing was released')
 }
 
@@ -126,6 +158,7 @@ if (bunny.unmapped.length) say(`no probe city known for ${bunny.unmapped.join(',
 if (!bunny.locations.length) die('none of the zone regions has a probe city, so a release could not be checked anywhere')
 
 writeFileSync(CONFIG, prepared)
+versionWritten = true
 
 const revert = () => {
   if (resumed) {
@@ -139,9 +172,9 @@ const revert = () => {
 const run = (cmd, args, failure) => {
   try {
     execFileSync(cmd, args, { stdio: 'inherit', cwd: HERE, env: { ...process.env } })
-  } catch {
+  } catch (err) {
     revert()
-    die(failure)
+    die(stoppedByHand(err) ? `stopped during ${args[0]}, nothing was released` : failure)
   }
 }
 
@@ -173,12 +206,24 @@ const uploadedAt = new Date()
 // Not through run(): a failed purge leaves the upload in place, so reverting the
 // version here would claim the old number while the origin serves the new one.
 try {
-  execFileSync('node', ['deploy.mjs'], { stdio: 'inherit', cwd: HERE, env: { ...process.env } })
+  // The flag tells deploy.mjs it runs inside a release, so an interrupt there can
+  // point at the command that picks this up.
+  execFileSync('node', ['deploy.mjs'], { stdio: 'inherit', cwd: HERE, env: { ...process.env, COLOPHON_RELEASE: '1' } })
+  uploaded = true
 } catch (err) {
+  // Cut short rather than turned down by deploy. By then the upload may well have
+  // landed, so putting the version back would claim the old number while the zone
+  // carries the new one. deploy.mjs handles the signal itself, so this arrives as
+  // an exit status. A child killed outright still carries the signal.
+  if (stoppedByHand(err)) {
+    say(`stopped during deploy, so ${next} may be on the zone without a purge. Finish it with "pnpm release resume".`)
+    process.exit(INTERRUPT_EXIT)
+  }
   if (err.status !== PURGE_FAILED_EXIT) {
     revert()
     die('deploy failed, check the zone before retrying')
   }
+  uploaded = true
   say('purge failed, but the upload is live so the checks below keep purging')
 }
 
@@ -269,12 +314,32 @@ if (trailingRegions.length) {
   recovered = trailingRegions.filter((region) => answered.has(region) && !troubled.has(region))
 }
 
+// The check above reads the plain copy of each file. Bunny keeps a copy per
+// Accept-Encoding, so the one browsers ask for is measured on its own, by date.
+say(`checking the ${VARIANT_ENCODINGS.join(' plus ')} copy across ${bunny.locations.length} regions`)
+const variants = await verifyGlobalEncodings({
+  artifacts: mutableArtifacts,
+  locations: bunny.locations,
+  token: process.env.GLOBALPING_TOKEN,
+})
+say(`compressed copies compared on ${variants.checked} of ${variants.asked} region reads`)
+for (const reason of variants.skipped) say(`compressed copy unchecked: ${reason}`)
+// Silence here would read as approval, since a check that measured nothing has
+// nothing to report either.
+if (!variants.checked && variants.asked) say('no region answered on a compressed copy, so this release is checked on its plain copy alone')
+
+// The date the live bytes carry beats the moment this run started: a run that had
+// nothing left to upload landed its bytes on an earlier release. Reading it the
+// other way calls a trailing replica a missed purge plus advises a purge that
+// would settle the old bytes.
+const landedAt = variants.landedAt ?? uploadedAt
+
 for (const line of summarizeGlobalReport({
   regionCodes: bunny.regionCodes,
   probed: bunny.locations.length,
   observations,
-  faults: [...faults, ...silent],
-  uploadedAt,
+  faults: [...faults, ...silent, ...variants.faults],
+  uploadedAt: landedAt,
   purgedAt,
 })) say(line)
 if (recovered.length) say(`${recovered.join(', ')} came good after the second purge, so those edges were holding an early copy`)
@@ -291,6 +356,9 @@ say(`recorded ${payload} for the next release`)
 
 git('add', '-A')
 git('commit', '-m', `Release ${next}`)
+// From here HEAD carries this version, so a resume has nothing left to pick up
+// and only the tag is missing.
+committed = true
 // Annotated: tag.gpgsign is on here and a signed tag carries a message.
 git('tag', '-m', `Release ${next}`, `v${next}`)
 say(`committed and tagged v${next} as ${identity}`)

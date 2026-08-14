@@ -4,6 +4,19 @@ import { createHash } from 'node:crypto'
 export const ENCODINGS = ['identity', 'gzip', 'br', 'zstd']
 export const GLOBALPING_CHUNK_BYTES = 10_000
 
+// Bunny holds one cached copy per Accept-Encoding. The worldwide byte check reads
+// the plain copy, because a range over a compressed one covers compressed bytes
+// that need not match between edges. Browsers ask for zstd, so that copy is the
+// one most people get. Its date is what this compares.
+export const VARIANT_ENCODINGS = ['zstd']
+// Replicas stamp one upload a few seconds apart, so a copy counts as earlier only
+// when it sits well outside that spread.
+export const VARIANT_SKEW_MS = 60_000
+// Globalping turns a measurement down under load, which would otherwise read as
+// trouble in every region at once.
+export const VARIANT_RETRIES = 1
+const VARIANT_RETRY_MS = 15_000
+
 const HASH = '[0-9a-f]{64}'
 const GLOBALPING_API = 'https://api.globalping.io/v1'
 const GLOBALPING_POLL_ATTEMPTS = 30
@@ -188,15 +201,12 @@ function globalpingHeaders(token) {
   }
 }
 
-async function globalpingMeasurement({ url, start, end, locations, token, fetchImpl }) {
+async function globalpingMeasurement({ url, locations, token, fetchImpl, method = 'GET', headers = {} }) {
   const target = new URL(url)
   const request = {
-    method: 'GET',
+    method,
     path: target.pathname,
-    headers: {
-      'Accept-Encoding': 'identity',
-      Range: `bytes=${start}-${end}`,
-    },
+    headers,
     ...(target.search ? { query: target.search.slice(1) } : {}),
   }
   const payload = {
@@ -346,6 +356,120 @@ export function assessGlobalpingChunk({ artifact, expected, start, end, location
   return { faults, observations }
 }
 
+/** Reads one compressed copy per region and calls it earlier when its date sits
+ * before the date the verified bytes carry. A region whose edge answers without
+ * compressing keeps a single copy, so the byte check already speaks for it. */
+export function assessEncodingVariant({ artifact, encoding, locations, measurement, stampedAt, skewMs = VARIANT_SKEW_MS }) {
+  const faults = []
+  const used = new Set()
+  const results = measurement.results ?? []
+  const baseline = Date.parse(stampedAt ?? '')
+  let checked = 0
+  for (const location of locations) {
+    const result = findProbeResult(results, location, used)
+    // A probe that never ran leaves this region uncounted rather than reported:
+    // the byte check has its own say about the same region.
+    if (!result) continue
+    if (header(result, 'content-encoding') !== encoding) continue
+    const dated = header(result, 'last-modified')
+    const served = Date.parse(dated ?? '')
+    if (!Number.isFinite(baseline) || !Number.isFinite(served)) continue
+    checked++
+    if (baseline - served <= skewMs) continue
+    faults.push({
+      artifact: artifact.name,
+      region: location.region,
+      kind: 'variant',
+      encoding,
+      detail: `dated ${dated}, while this release is dated ${stampedAt}`,
+      probe: [result.probe?.city, result.probe?.country].filter(Boolean).join(', '),
+      edge: header(result, 'server'),
+      storage: header(result, 'cdn-storageserver'),
+      lastModified: dated,
+      cache: header(result, 'cdn-cache'),
+      cachedAt: header(result, 'cdn-cachedat'),
+      served: null,
+      measurement: measurement.id,
+    })
+  }
+  return { faults, checked }
+}
+
+/** The date the nearby edge carries for bytes this run already compared exactly.
+ * A regional copy of the same release should be dated the same, whether or not
+ * this run had anything left to upload. */
+export async function readArtifactStamp({ artifact, fetchImpl = fetch }) {
+  try {
+    const response = await fetchImpl(artifact.url, {
+      method: 'HEAD',
+      cache: 'no-store',
+      headers: { 'Accept-Encoding': 'identity' },
+    })
+    return response.ok ? response.headers.get('last-modified') : null
+  } catch {
+    return null
+  }
+}
+
+export async function verifyGlobalEncodings({ artifacts, locations, encodings = VARIANT_ENCODINGS, token, fetchImpl = fetch, retries = VARIANT_RETRIES, retryMs = VARIANT_RETRY_MS }) {
+  const faults = []
+  const skipped = []
+  let checked = 0
+  let asked = 0
+  // The date the verified bytes carry. A run with nothing left to upload finds an
+  // earlier one here than the moment it started, which is what tells a missed
+  // purge apart from a replica that trails.
+  let landedAt = null
+  for (const artifact of artifacts) {
+    // Counted before anything can go wrong, so the totals show a check that was
+    // meant to happen rather than a clean score for work nobody did.
+    asked += locations.length * encodings.length
+    const stampedAt = await readArtifactStamp({ artifact, fetchImpl })
+    // Without a date for these bytes there is nothing to hold a regional copy against.
+    if (!stampedAt) {
+      skipped.push(`${artifact.name} carries no date to compare against`)
+      continue
+    }
+    const at = Date.parse(stampedAt)
+    if (Number.isFinite(at) && (!landedAt || at < landedAt.getTime())) landedAt = new Date(at)
+    for (const encoding of encodings) {
+      let measurement
+      let refused
+      // One retry, because a single refusal from Globalping would otherwise read
+      // as trouble across every region at once.
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          measurement = await globalpingMeasurement({
+            url: artifact.url,
+            locations,
+            token,
+            fetchImpl,
+            method: 'HEAD',
+            headers: { 'Accept-Encoding': encoding },
+          })
+          refused = null
+          break
+        } catch (error) {
+          refused = error
+          if (attempt < retries) await sleep(retryMs)
+        }
+      }
+      if (refused) {
+        // Reported per region rather than swallowed. A check that fell over has
+        // no faults to show, which reads exactly like a clean result.
+        for (const location of locations) {
+          faults.push({ artifact: artifact.name, region: location.region, kind: 'silent', detail: `the ${encoding} copy went unmeasured: ${refused}` })
+        }
+        continue
+      }
+      const assessed = assessEncodingVariant({ artifact, encoding, locations, measurement, stampedAt })
+      faults.push(...assessed.faults)
+      checked += assessed.checked
+    }
+  }
+  return { faults, checked, asked, skipped, landedAt }
+}
+
 /** Keeps the worst chunk per region, preferring one that names a version, since
  * a region in trouble fails every chunk it was asked for. */
 function worstPerRegion(faults, kind) {
@@ -358,6 +482,16 @@ function worstPerRegion(faults, kind) {
 }
 
 const routeOf = (fault) => [fault.probe, fault.edge, fault.storage].filter(Boolean).join(' via ')
+
+/** What to do about a compressed copy that trails, which turns on why it does.
+ * Purging an edge whose replica is behind makes it pull those same bytes again
+ * plus hold them for a full cache time, so that advice fits only where the purge
+ * missed the edge itself. */
+const variantAdvice = (fault, uploadedAt, purgedAt) => ({
+  'not-purged': ' A purge of that file clears it.',
+  'pulled-stale': ' Its replica had nothing newer, so a purge would settle those bytes rather than clear them.',
+  unknown: '',
+})[cacheVerdict({ cachedAt: fault.cachedAt, uploadedAt, purgedAt })]
 
 /** Reads the two stale reasons off a fault, in the words the release prints. */
 const staleBecause = (fault, uploadedAt, purgedAt) => ({
@@ -385,6 +519,18 @@ export function summarizeGlobalReport({ regionCodes, probed, observations, fault
       `${routeOf(fault) ? ` (${routeOf(fault)})` : ''}`
     )
   }
+  // Kept per file rather than per region: two files can sit stale in one region,
+  // and each names the file to purge.
+  const variants = new Map()
+  for (const fault of faults.filter((entry) => entry.kind === 'variant')) {
+    variants.set(`${fault.region} ${fault.artifact} ${fault.encoding}`, fault)
+  }
+  for (const fault of variants.values()) {
+    lines.push(
+      `${fault.region} hands ${fault.artifact} to anyone asking for ${fault.encoding} from an earlier release: ${fault.detail}` +
+      `${routeOf(fault) ? ` (${routeOf(fault)})` : ''}.${variantAdvice(fault, uploadedAt, purgedAt)}`
+    )
+  }
   const unhappy = worstPerRegion(faults, 'unhappy')
   for (const [region, fault] of unhappy) {
     lines.push(`${region} answered badly: ${fault.detail}${routeOf(fault) ? ` (${routeOf(fault)})` : ''}`)
@@ -394,7 +540,7 @@ export function summarizeGlobalReport({ regionCodes, probed, observations, fault
 
   const troubled = [...new Set(faults.map((fault) => fault.measurement).filter(Boolean))]
   if (trailing.size) lines.push(`${trailing.size} of ${probed} probed regions serve an earlier release, which keeps working there until replication catches up`)
-  if (!trailing.size && !unhappy.size && !silent.size) lines.push(`every one of the ${probed} probed regions serves this build exactly`)
+  if (!trailing.size && !unhappy.size && !silent.size && !variants.size) lines.push(`every one of the ${probed} probed regions serves this build exactly`)
   if (troubled.length) lines.push(`measurements: ${troubled.map((id) => `https://globalping.io?measurement=${id}`).join(' ')}`)
   return lines
 }
@@ -408,11 +554,10 @@ export async function verifyGlobalArtifacts({ artifacts, locations, token, fetch
       try {
         measurement = await globalpingMeasurement({
           url: artifact.url,
-          start,
-          end,
           locations,
           token,
           fetchImpl,
+          headers: { 'Accept-Encoding': 'identity', Range: `bytes=${start}-${end}` },
         })
       } catch (error) {
         for (const location of locations) {

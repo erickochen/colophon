@@ -2,8 +2,10 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   artifactRanges,
+  assessEncodingVariant,
   assessGlobalpingChunk,
   getBunnyVerificationLocations,
+  readArtifactStamp,
   planRelease,
   prepareReleaseSource,
   readFallbackPayload,
@@ -16,6 +18,7 @@ import {
   sha256,
   summarizeGlobalReport,
   verifyCdnArtifacts,
+  verifyGlobalEncodings,
 } from '../release-verify.mjs'
 
 const OLD = '1'.repeat(64)
@@ -430,6 +433,255 @@ test('the report says why a region trails when the edge stamp allows it', () => 
   const trailing = lines.find((line) => line.startsWith('SE trails'))
   assert.match(trailing, /because its replica had nothing newer/)
   assert.match(trailing, /edge copy taken 08\/13\/2026 07:45:33/)
+})
+
+const variantMeasurement = (headers) => ({
+  id: 'variant-measurement',
+  results: [{ probe: { city: 'Amsterdam', country: 'NL' }, result: { statusCode: 200, headers } }],
+})
+const AMSTERDAM = [{ region: 'DE', city: 'Amsterdam', country: 'NL' }]
+const VARIANT_ARTIFACT = { name: 'colophon.meta.js', body: Buffer.from('current meta') }
+const THIS_RELEASE = 'Fri, 14 Aug 2026 14:40:04 GMT'
+
+test('a compressed copy from an earlier release is reported per region', () => {
+  const { faults, checked } = assessEncodingVariant({
+    artifact: VARIANT_ARTIFACT,
+    encoding: 'zstd',
+    locations: AMSTERDAM,
+    stampedAt: THIS_RELEASE,
+    measurement: variantMeasurement({
+      'content-encoding': 'zstd',
+      'last-modified': 'Fri, 14 Aug 2026 07:29:33 GMT',
+      'cdn-storageserver': 'UK-317',
+      'cdn-cachedat': '08/14/2026 07:39:56',
+      server: 'BunnyCDN-AMS1-1444',
+    }),
+  })
+
+  assert.equal(checked, 1)
+  assert.equal(faults.length, 1)
+  assert.equal(faults[0].kind, 'variant')
+  assert.equal(faults[0].encoding, 'zstd')
+  assert.equal(faults[0].region, 'DE')
+  assert.match(faults[0].detail, /dated Fri, 14 Aug 2026 07:29:33 GMT/)
+})
+
+test('a compressed copy of this release passes, seconds of replica spread included', () => {
+  // Replicas stamp one upload a few seconds apart, which is not an older copy.
+  const { faults, checked } = assessEncodingVariant({
+    artifact: VARIANT_ARTIFACT,
+    encoding: 'zstd',
+    locations: AMSTERDAM,
+    stampedAt: THIS_RELEASE,
+    measurement: variantMeasurement({ 'content-encoding': 'zstd', 'last-modified': 'Fri, 14 Aug 2026 14:40:01 GMT' }),
+  })
+
+  assert.deepEqual(faults, [])
+  assert.equal(checked, 1)
+})
+
+test('an edge that does not compress leaves the byte check to speak for it', () => {
+  const { faults, checked } = assessEncodingVariant({
+    artifact: VARIANT_ARTIFACT,
+    encoding: 'zstd',
+    locations: AMSTERDAM,
+    stampedAt: THIS_RELEASE,
+    // No content-encoding means one copy rather than two, so there is nothing extra to judge.
+    measurement: variantMeasurement({ 'last-modified': 'Fri, 14 Aug 2026 07:29:33 GMT' }),
+  })
+
+  assert.deepEqual(faults, [])
+  assert.equal(checked, 0)
+})
+
+test('a region that never answered is counted as unchecked rather than failed', () => {
+  const { faults, checked } = assessEncodingVariant({
+    artifact: VARIANT_ARTIFACT,
+    encoding: 'zstd',
+    locations: AMSTERDAM,
+    stampedAt: THIS_RELEASE,
+    measurement: { id: 'variant-measurement', results: [] },
+  })
+
+  assert.deepEqual(faults, [])
+  assert.equal(checked, 0)
+})
+
+const variantFault = (cachedAt) => ({
+  artifact: 'colophon.meta.js',
+  region: 'DE',
+  kind: 'variant',
+  encoding: 'zstd',
+  detail: 'dated Fri, 14 Aug 2026 07:29:33 GMT, while this release is dated Fri, 14 Aug 2026 14:40:04 GMT',
+  storage: 'UK-317',
+  cachedAt,
+  served: null,
+  measurement: 'm1',
+})
+
+test('the report names the compressed copy plus what clears it', () => {
+  const lines = summarizeGlobalReport({
+    regionCodes: ['DE'],
+    probed: 1,
+    observations: [{ region: 'DE', replica: 'DE' }],
+    // Taken before the upload, so this edge never saw these bytes at all.
+    faults: [variantFault('08/14/2026 07:39:56')],
+    uploadedAt: new Date('2026-08-14T14:40:01Z'),
+    purgedAt: new Date('2026-08-14T14:47:00Z'),
+  })
+
+  const line = lines.find((entry) => entry.includes('zstd'))
+  assert.match(line, /^DE hands colophon\.meta\.js to anyone asking for zstd from an earlier release/)
+  assert.match(line, /A purge of that file clears it\./)
+  // A copy this old is not replication lag, so it never reads as a trailing region.
+  assert.ok(!lines.some((entry) => entry.includes('trails')))
+  assert.ok(!lines.some((entry) => entry.includes('serves this build exactly')))
+})
+
+test('a copy taken after the purge is not sent off to be purged again', () => {
+  const lines = summarizeGlobalReport({
+    regionCodes: ['DE'],
+    probed: 1,
+    observations: [{ region: 'DE', replica: 'DE' }],
+    // Taken after the purge, so this edge did pull and its replica trails.
+    faults: [variantFault('08/14/2026 14:48:30')],
+    uploadedAt: new Date('2026-08-14T14:40:01Z'),
+    purgedAt: new Date('2026-08-14T14:47:00Z'),
+  })
+
+  const line = lines.find((entry) => entry.includes('zstd'))
+  // Purging there pulls the same bytes back plus holds them for a full cache time.
+  assert.ok(!line.includes('A purge of that file clears it'))
+  assert.match(line, /replica had nothing newer/)
+})
+
+test('a compressed copy with no cache stamp gets no advice at all', () => {
+  const lines = summarizeGlobalReport({
+    regionCodes: ['DE'],
+    probed: 1,
+    observations: [{ region: 'DE', replica: 'DE' }],
+    faults: [variantFault(null)],
+    uploadedAt: new Date('2026-08-14T14:40:01Z'),
+    purgedAt: new Date('2026-08-14T14:47:00Z'),
+  })
+
+  const line = lines.find((entry) => entry.includes('zstd'))
+  assert.ok(!line.includes('purge'))
+  assert.match(line, /from an earlier release/)
+})
+
+test('two files stale in one region are named one by one', () => {
+  const stale = {
+    region: 'DE',
+    kind: 'variant',
+    encoding: 'zstd',
+    detail: 'dated earlier',
+    served: null,
+    measurement: 'm1',
+  }
+  const lines = summarizeGlobalReport({
+    regionCodes: ['DE'],
+    probed: 1,
+    observations: [{ region: 'DE', replica: 'DE' }],
+    faults: [
+      { ...stale, artifact: 'colophon.meta.js' },
+      { ...stale, artifact: 'colophon.user.js' },
+    ],
+  })
+
+  // Purging the one file a single line named would leave the other one stale.
+  assert.ok(lines.some((line) => line.includes('colophon.meta.js')))
+  assert.ok(lines.some((line) => line.includes('colophon.user.js')))
+})
+
+test('a variant check that fell over is reported rather than counted as clean', async () => {
+  const artifact = { name: 'colophon.meta.js', url: 'https://cdn.test/colophon.meta.js', body: Buffer.from('meta') }
+  const fetchImpl = async (url, init) => {
+    if (init?.method === 'HEAD' && String(url).startsWith('https://cdn.test/')) {
+      return new Response(null, { status: 200, headers: { 'last-modified': THIS_RELEASE } })
+    }
+    // Stands in for Globalping turning the measurement down.
+    return new Response('rate limited', { status: 429 })
+  }
+  const { faults, checked, asked } = await verifyGlobalEncodings({
+    artifacts: [artifact],
+    locations: AMSTERDAM,
+    token: null,
+    fetchImpl,
+    retryMs: 0,
+  })
+
+  assert.equal(checked, 0)
+  assert.equal(asked, 1)
+  assert.equal(faults.length, 1)
+  assert.equal(faults[0].kind, 'silent')
+  assert.match(faults[0].detail, /went unmeasured/)
+  // A silent region keeps the report from calling the run clean.
+  const lines = summarizeGlobalReport({ regionCodes: ['DE'], probed: 1, observations: [], faults })
+  assert.ok(!lines.some((line) => line.includes('serves this build exactly')))
+})
+
+test('a refused measurement is asked once more before it counts as trouble', async () => {
+  const artifact = { name: 'colophon.meta.js', url: 'https://cdn.test/colophon.meta.js', body: Buffer.from('meta') }
+  let measurements = 0
+  const fetchImpl = async (url, init) => {
+    if (init?.method === 'HEAD' && String(url).startsWith('https://cdn.test/')) {
+      return new Response(null, { status: 200, headers: { 'last-modified': THIS_RELEASE } })
+    }
+    measurements++
+    // Turned down once, then answered, which is what a busy Globalping looks like.
+    if (measurements === 1) return new Response('rate limited', { status: 429 })
+    if (String(url).endsWith('/measurements')) return Response.json({ id: 'retried' })
+    return Response.json({
+      status: 'finished',
+      results: [{ probe: { city: 'Amsterdam', country: 'NL' }, result: { statusCode: 200, headers: { 'content-encoding': 'zstd', 'last-modified': THIS_RELEASE } } }],
+    })
+  }
+  const { faults, checked } = await verifyGlobalEncodings({
+    artifacts: [artifact],
+    locations: AMSTERDAM,
+    token: null,
+    fetchImpl,
+    retryMs: 0,
+  })
+
+  assert.deepEqual(faults, [])
+  assert.equal(checked, 1)
+})
+
+test('an artifact without a date counts as asked and says so', async () => {
+  const artifact = { name: 'colophon.user.js', url: 'https://cdn.test/colophon.user.js', body: Buffer.from('loader') }
+  const { checked, asked, skipped, faults } = await verifyGlobalEncodings({
+    artifacts: [artifact],
+    locations: AMSTERDAM,
+    token: null,
+    fetchImpl: async () => new Response('nope', { status: 503 }),
+  })
+
+  // Counting only what succeeded would read as a perfect score for no work at all.
+  assert.equal(checked, 0)
+  assert.equal(asked, 1)
+  assert.deepEqual(faults, [])
+  assert.equal(skipped.length, 1)
+  assert.match(skipped[0], /colophon\.user\.js carries no date/)
+})
+
+test('the stamp for a release comes from the copy that was compared exactly', async () => {
+  const asked = []
+  const fetchImpl = async (url, init) => {
+    asked.push({ url, method: init.method, encoding: init.headers['Accept-Encoding'] })
+    return new Response(null, { status: 200, headers: { 'last-modified': THIS_RELEASE } })
+  }
+  const stamp = await readArtifactStamp({ artifact: { url: 'https://cdn.test/colophon.meta.js' }, fetchImpl })
+
+  assert.equal(stamp, THIS_RELEASE)
+  assert.deepEqual(asked, [{ url: 'https://cdn.test/colophon.meta.js', method: 'HEAD', encoding: 'identity' }])
+
+  const refused = await readArtifactStamp({
+    artifact: { url: 'https://cdn.test/colophon.meta.js' },
+    fetchImpl: async () => new Response('nope', { status: 403 }),
+  })
+  assert.equal(refused, null)
 })
 
 test('replication gaps name the regions a release is not listed for yet', () => {

@@ -13,6 +13,11 @@ export const PAYLOAD_GLOB = /^colophon-[0-9a-f]{16}\.payload\.js$/
 // files are live by then, so release.mjs keeps the new version and retries.
 export const PURGE_FAILED_EXIT = 2
 
+// What a run cut short with Ctrl-C leaves behind: the shell convention of 128
+// plus the signal number. A child that handles the signal itself exits with this
+// rather than dying from it, so the parent reads a status instead of a signal.
+export const INTERRUPT_EXIT = 130
+
 // Digest baked into this release as its one allowed fallback. It stays unchanged
 // after publishing, which makes a tagged release build byte-for-byte reproducible.
 export const FALLBACK_PAYLOAD_SHA256 = '73288169bbc8394e57a184f5ca83fcb973635a1f48ecb1a201d34ce58a40ed2d'

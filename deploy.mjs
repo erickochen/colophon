@@ -1,10 +1,10 @@
 // Upload dist/ to the storage zone and purge the CDN so auto-updates land at once.
 // Credentials and hosting paths come from .env.deploy (git-ignored).
-import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync, existsSync, writeSync } from 'node:fs'
 import { join, relative, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadDeployEnv } from './env.mjs'
-import { PAYLOAD_GLOB, PURGE_FAILED_EXIT } from './version.mjs'
+import { INTERRUPT_EXIT, PAYLOAD_GLOB, PURGE_FAILED_EXIT } from './version.mjs'
 import { replicationGaps, sha256 } from './release-verify.mjs'
 
 loadDeployEnv()
@@ -34,9 +34,13 @@ if (!existsSync(DIST)) {
   process.exit(1)
 }
 
+// The two files that carry a fixed name across releases, so an edge holding an
+// old copy of either one is what an update check runs into.
+const PURGE_FILES = ['colophon.user.js', 'colophon.meta.js']
+
 const MIME = {
-  // The charset is explicit because the loader hashes the payload it downloads,
-  // so the bytes it decodes have to match the bytes the build hashed.
+  // This type travels with the upload. What an edge hands out it picks per
+  // extension, so a value here reaches the storage rather than the browser.
   '.js': 'application/javascript; charset=utf-8', '.html': 'text/html', '.css': 'text/css',
   '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
@@ -49,6 +53,16 @@ const walk = (dir) => readdirSync(dir).flatMap((name) => {
 
 const base = `https://${BUNNY_STORAGE_HOST}/${BUNNY_STORAGE_ZONE}`
 
+const listing = async () => {
+  // The trailing slash is what makes this a directory listing. Without it the
+  // storage API reads the path as a file plus answers 404.
+  const res = await fetch(`${[base, basePath].filter(Boolean).join('/')}/`, {
+    headers: { AccessKey: BUNNY_STORAGE_PASSWORD, Accept: 'application/json' },
+  })
+  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
+  return res.json()
+}
+
 // The meta file is what update checks read, so it goes last. Anything announcing
 // a version before the files behind it are up would send managers to a 404.
 const uploadOrder = (a, b) => {
@@ -56,9 +70,47 @@ const uploadOrder = (a, b) => {
   return rank(a) - rank(b)
 }
 
+// Registered before the first request so every stage of a run is covered.
+// Nothing is announced until the meta file lands, but a run cut short here does
+// leave part of a release on the zone.
+let stage = 'uploading'
+let purged = []
+// Written with writeSync because process.exit drops whatever console.error still
+// has queued for a pipe, which is where these lines are read.
+const shout = (line) => writeSync(2, `${line}\n`)
+process.on('SIGINT', () => {
+  // Nothing left to leave behind, so this is a clean end rather than an interrupt.
+  if (stage === 'done') process.exit(0)
+  shout(`\n[deploy] stopped while ${stage}`)
+  if (stage === 'uploading') shout('[deploy] files written before this point stay on the zone')
+  else if (purged.length === PURGE_FILES.length) shout('[deploy] every file is uploaded plus purged, so the zone carries this release')
+  else if (purged.length) shout(`[deploy] every file is uploaded with only ${purged.join(' plus ')} purged, so edges mix this release with the previous one`)
+  else shout('[deploy] every file is uploaded with no purge landed, so edges keep serving the previous release')
+  // Started from release.mjs, so resuming the release is the way back. On its own
+  // that command has no bumped version to pick up.
+  shout(process.env.COLOPHON_RELEASE ? '[deploy] pick it up with: pnpm release resume' : '[deploy] pick it up by running the deploy again')
+  process.exit(INTERRUPT_EXIT)
+})
+
+/** The digest the zone already holds per file. An overwrite clears the replication
+ * state Bunny reports, so writing bytes that are already there costs the wait for
+ * every region to list them again. */
+let stored = new Map()
+try {
+  const rows = await listing()
+  stored = new Map(rows.filter((row) => !row.IsDirectory).map((row) => [row.ObjectName, String(row.Checksum ?? '').toLowerCase()]))
+} catch (err) {
+  console.warn(`[deploy] could not read the file listing (${err}), so every file is uploaded`)
+}
+
 for (const abs of walk(DIST).sort(uploadOrder)) {
   const rel = relative(DIST, abs).split('\\').join('/')
   const body = readFileSync(abs)
+  // The listing covers this one directory, so anything deeper is always written.
+  if (!rel.includes('/') && stored.get(rel) === sha256(body)) {
+    console.log(`[deploy] kept ${rel} (${body.length} B), the zone holds these bytes`)
+    continue
+  }
   const res = await fetch([base, basePath, rel].filter(Boolean).join('/'), {
     method: 'PUT',
     headers: { AccessKey: BUNNY_STORAGE_PASSWORD, 'Content-Type': MIME[extname(abs)] || 'application/octet-stream' },
@@ -71,6 +123,7 @@ for (const abs of walk(DIST).sort(uploadOrder)) {
   }
   console.log(`[deploy] uploaded ${rel} (${body.length} B)`)
 }
+stage = 'waiting for replication'
 
 // Bunny puts an overwrite in every region inside two minutes normally, under 30
 // seconds often. Purging ahead of that makes every edge pull at once. An edge
@@ -84,16 +137,6 @@ const REPLICATION_POLL_MS = 5_000
 // would leave the zone on the new bytes with no purge landed, so the wait keeps
 // saying what it is waiting on.
 const REPLICATION_REPORT_MS = 30_000
-
-const listing = async () => {
-  // The trailing slash is what makes this a directory listing. Without it the
-  // storage API reads the path as a file plus answers 404.
-  const res = await fetch(`${[base, basePath].filter(Boolean).join('/')}/`, {
-    headers: { AccessKey: BUNNY_STORAGE_PASSWORD, Accept: 'application/json' },
-  })
-  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
-  return res.json()
-}
 
 /** Regions this zone replicates to, which is what a file has to be listed for. */
 const zoneRegions = async () => {
@@ -175,8 +218,9 @@ const purgeFailed = (url, detail) => {
 }
 
 // Purge the two files that must never serve stale, so the userscript manager sees updates.
+stage = 'purging'
 if (BUNNY_API_KEY) {
-  for (const name of ['colophon.user.js', 'colophon.meta.js']) {
+  for (const name of PURGE_FILES) {
     const url = publicUrl(name)
     let res
     try {
@@ -188,10 +232,12 @@ if (BUNNY_API_KEY) {
       purgeFailed(url, err)
     }
     if (!res.ok) purgeFailed(url, `${res.status} ${await res.text()}`)
+    purged.push(name)
     console.log(`[deploy] purge ${url}: ${res.status}`)
   }
 } else {
   console.warn('[deploy] BUNNY_API_KEY not set, skipped purge (updates lag until the CDN cache expires)')
 }
 
+stage = 'done'
 console.log('[deploy] done')
