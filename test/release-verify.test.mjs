@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import {
   artifactRanges,
@@ -24,6 +25,43 @@ import {
 const OLD = '1'.repeat(64)
 const CURRENT = '2'.repeat(64)
 const NEXT = '3'.repeat(64)
+
+// The release scripts run top to bottom against a live zone, so a name used
+// without its import only shows up halfway through a real release. Reading the
+// source keeps that within reach of the suite.
+const scriptSource = (name) => readFileSync(new URL(`../${name}`, import.meta.url), 'utf8')
+const importedFrom = (source, module) => {
+  const block = source.match(new RegExp(`import\\s*{([^}]*)}\\s*from\\s*'${module}'`, 's'))
+  return new Set((block?.[1] ?? '').split(',').map((part) => part.trim()).filter(Boolean))
+}
+
+for (const script of ['release.mjs', 'deploy.mjs']) {
+  test(`${script} imports every helper it calls`, () => {
+    const source = scriptSource(script)
+    // Imports, block comments and line comments go first: a name explained in
+    // prose is not a name being called. The lookbehind keeps a URL intact.
+    const body = source
+      .replace(/import\s*{[^}]*}\s*from\s*'[^']*'/gs, '')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(?<!:)\/\/.*$/gm, '')
+    const held = new Set([
+      ...importedFrom(source, './release-verify.mjs'),
+      ...importedFrom(source, './version.mjs'),
+      ...importedFrom(source, './env.mjs'),
+      ...importedFrom(source, 'node:fs'),
+      ...importedFrom(source, 'node:path'),
+      ...importedFrom(source, 'node:url'),
+      ...importedFrom(source, 'node:child_process'),
+    ])
+    const exported = [...scriptSource('release-verify.mjs').matchAll(/export (?:async function|function|const) (\w+)/g)].map((m) => m[1])
+    const versionExports = [...scriptSource('version.mjs').matchAll(/export const (\w+)/g)].map((m) => m[1])
+    for (const name of [...exported, ...versionExports]) {
+      if (!new RegExp(`\\b${name}\\s*\\(|\\b${name}\\b`).test(body)) continue
+      if (!body.match(new RegExp(`(?<![.\\w])${name}\\s*[(),.\\]}\\s]`))) continue
+      assert.ok(held.has(name), `${script} uses ${name} without importing it`)
+    }
+  })
+}
 
 test('release state keeps the baked fallback reproducible', () => {
   const source = [
@@ -435,9 +473,9 @@ test('the report says why a region trails when the edge stamp allows it', () => 
   assert.match(trailing, /edge copy taken 08\/13\/2026 07:45:33/)
 })
 
-const variantMeasurement = (headers) => ({
+const variantMeasurement = (headers, statusCode = 200) => ({
   id: 'variant-measurement',
-  results: [{ probe: { city: 'Amsterdam', country: 'NL' }, result: { statusCode: 200, headers } }],
+  results: [{ probe: { city: 'Amsterdam', country: 'NL' }, result: { statusCode, headers } }],
 })
 const AMSTERDAM = [{ region: 'DE', city: 'Amsterdam', country: 'NL' }]
 const VARIANT_ARTIFACT = { name: 'colophon.meta.js', body: Buffer.from('current meta') }
@@ -492,6 +530,51 @@ test('an edge that does not compress leaves the byte check to speak for it', () 
 
   assert.deepEqual(faults, [])
   assert.equal(checked, 0)
+})
+
+test('an edge refusing the compressed copy is reported rather than passed over', () => {
+  const { faults, checked } = assessEncodingVariant({
+    artifact: VARIANT_ARTIFACT,
+    encoding: 'zstd',
+    locations: AMSTERDAM,
+    stampedAt: THIS_RELEASE,
+    // A refusal carries no content-encoding, which would otherwise read as an
+    // edge that simply does not compress.
+    measurement: variantMeasurement({ server: 'BunnyCDN-AMS1-1444' }, 502),
+  })
+
+  assert.equal(checked, 0)
+  assert.equal(faults.length, 1)
+  assert.equal(faults[0].kind, 'unhappy')
+  assert.match(faults[0].detail, /answered 502, expected 200/)
+})
+
+test('a handed in date is used instead of reading one from an edge', async () => {
+  const artifact = { name: 'colophon.meta.js', url: 'https://cdn.test/colophon.meta.js', body: Buffer.from('meta') }
+  let headRequests = 0
+  const fetchImpl = async (url, init) => {
+    if (init?.method === 'HEAD' && String(url).startsWith('https://cdn.test/')) {
+      headRequests++
+      // Stands in for an edge that was purged and pulled an earlier release back.
+      return new Response(null, { status: 200, headers: { 'last-modified': 'Fri, 14 Aug 2026 07:29:33 GMT' } })
+    }
+    if (String(url).endsWith('/measurements')) return Response.json({ id: 'handed-in' })
+    return Response.json({
+      status: 'finished',
+      results: [{ probe: { city: 'Amsterdam', country: 'NL' }, result: { statusCode: 200, headers: { 'content-encoding': 'zstd', 'last-modified': THIS_RELEASE } } }],
+    })
+  }
+  const { faults, landedAt } = await verifyGlobalEncodings({
+    artifacts: [artifact],
+    locations: AMSTERDAM,
+    token: null,
+    fetchImpl,
+    stamps: new Map([['colophon.meta.js', THIS_RELEASE]]),
+  })
+
+  assert.equal(headRequests, 0)
+  assert.deepEqual(faults, [])
+  assert.equal(landedAt.toUTCString(), THIS_RELEASE)
 })
 
 test('a region that never answered is counted as unchecked rather than failed', () => {

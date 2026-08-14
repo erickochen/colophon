@@ -370,6 +370,24 @@ export function assessEncodingVariant({ artifact, encoding, locations, measureme
     // A probe that never ran leaves this region uncounted rather than reported:
     // the byte check has its own say about the same region.
     if (!result) continue
+    const status = result.result?.statusCode
+    // An edge that will not serve this copy at all is its own kind of trouble,
+    // and the byte check covers the plain copy rather than this one.
+    if (status !== 200) {
+      faults.push({
+        artifact: artifact.name,
+        region: location.region,
+        kind: 'unhappy',
+        encoding,
+        detail: `the ${encoding} copy answered ${status ?? 'nothing'}, expected 200`,
+        probe: [result.probe?.city, result.probe?.country].filter(Boolean).join(', '),
+        edge: header(result, 'server'),
+        storage: header(result, 'cdn-storageserver'),
+        served: null,
+        measurement: measurement.id,
+      })
+      continue
+    }
     if (header(result, 'content-encoding') !== encoding) continue
     const dated = header(result, 'last-modified')
     const served = Date.parse(dated ?? '')
@@ -411,7 +429,7 @@ export async function readArtifactStamp({ artifact, fetchImpl = fetch }) {
   }
 }
 
-export async function verifyGlobalEncodings({ artifacts, locations, encodings = VARIANT_ENCODINGS, token, fetchImpl = fetch, retries = VARIANT_RETRIES, retryMs = VARIANT_RETRY_MS }) {
+export async function verifyGlobalEncodings({ artifacts, locations, encodings = VARIANT_ENCODINGS, token, fetchImpl = fetch, retries = VARIANT_RETRIES, retryMs = VARIANT_RETRY_MS, stamps = null }) {
   const faults = []
   const skipped = []
   let checked = 0
@@ -424,7 +442,9 @@ export async function verifyGlobalEncodings({ artifacts, locations, encodings = 
     // Counted before anything can go wrong, so the totals show a check that was
     // meant to happen rather than a clean score for work nobody did.
     asked += locations.length * encodings.length
-    const stampedAt = await readArtifactStamp({ artifact, fetchImpl })
+    // A date handed in was read where the bytes were compared exactly, which is
+    // the sound moment for it. Reading one here is the fallback.
+    const stampedAt = stamps?.get(artifact.name) ?? await readArtifactStamp({ artifact, fetchImpl })
     // Without a date for these bytes there is nothing to hold a regional copy against.
     if (!stampedAt) {
       skipped.push(`${artifact.name} carries no date to compare against`)

@@ -10,6 +10,7 @@ import { INTERRUPT_EXIT, PAYLOAD_GLOB, PURGE_FAILED_EXIT } from './version.mjs'
 import {
   getBunnyVerificationLocations,
   planRelease,
+  readArtifactStamp,
   recordPublishedPayload,
   sha256,
   summarizeGlobalReport,
@@ -42,10 +43,12 @@ const TRAILING_WAIT_MS = 20_000
 const say = (msg) => console.log(`[release] ${msg}`)
 const die = (msg) => { console.error(`[release] ${msg}`); process.exit(1) }
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim()
-/** A child that was stopped by hand rather than one that turned the work down.
- * A child handling the signal itself exits with a status; one killed outright
- * carries the signal. */
-const stoppedByHand = (err) => Boolean(err?.signal) || err?.status === INTERRUPT_EXIT
+/** A child that was stopped by hand rather than one that turned the work down or
+ * fell over. A child handling the signal itself exits with a status; one killed
+ * outright carries the signal. A crash keeps the ordinary failure path, where the
+ * version goes back. */
+const STOP_SIGNALS = ['SIGINT', 'SIGTERM']
+const stoppedByHand = (err) => STOP_SIGNALS.includes(err?.signal) || err?.status === INTERRUPT_EXIT
 
 loadDeployEnv()
 const { SITE_URL, BASE_PATH, BUNNY_API_KEY } = process.env
@@ -216,7 +219,7 @@ try {
   // carries the new one. deploy.mjs handles the signal itself, so this arrives as
   // an exit status. A child killed outright still carries the signal.
   if (stoppedByHand(err)) {
-    say(`stopped during deploy, so ${next} may be on the zone without a purge. Finish it with "pnpm release resume".`)
+    shout(`[release] stopped during deploy, so ${next} may be on the zone without a purge. Finish it with "pnpm release resume".`)
     process.exit(INTERRUPT_EXIT)
   }
   if (err.status !== PURGE_FAILED_EXIT) {
@@ -254,6 +257,15 @@ for (let i = 1; i <= ATTEMPTS; i++) {
 }
 
 if (localFaults.length) die(`the nearby CDN edge is not this build after ${ATTEMPTS} attempts: ${localFaults.join('; ')}. Version stays at ${next}.`)
+
+// Read here, where this edge has just been compared byte-for-byte, so the date
+// belongs to these bytes. A later purge drops that copy and the pull behind it
+// can land an earlier release, which would set the whole comparison off.
+const stamps = new Map()
+for (const artifact of mutableArtifacts) {
+  const stampedAt = await readArtifactStamp({ artifact })
+  if (stampedAt) stamps.set(artifact.name, stampedAt)
+}
 
 // A healthy nearby edge says nothing about Bunny's other replicas, so one probe
 // near every region reads exact byte ranges of both mutable files. A trailing
@@ -321,6 +333,7 @@ const variants = await verifyGlobalEncodings({
   artifacts: mutableArtifacts,
   locations: bunny.locations,
   token: process.env.GLOBALPING_TOKEN,
+  stamps,
 })
 say(`compressed copies compared on ${variants.checked} of ${variants.asked} region reads`)
 for (const reason of variants.skipped) say(`compressed copy unchecked: ${reason}`)
@@ -354,12 +367,20 @@ try {
 }
 say(`recorded ${payload} for the next release`)
 
-git('add', '-A')
-git('commit', '-m', `Release ${next}`)
-// From here HEAD carries this version, so a resume has nothing left to pick up
-// and only the tag is missing.
-committed = true
-// Annotated: tag.gpgsign is on here and a signed tag carries a message.
-git('tag', '-m', `Release ${next}`, `v${next}`)
+// Guarded because a signal kills git outright, which throws past the handler and
+// ends the run on a stack trace. Signing the tag can wait on a passphrase, so
+// that window is real.
+try {
+  git('add', '-A')
+  git('commit', '-m', `Release ${next}`)
+  // From here HEAD carries this version, so a resume has nothing left to pick up
+  // and only the tag is missing.
+  committed = true
+  // Annotated: tag.gpgsign is on here and a signed tag carries a message.
+  git('tag', '-m', `Release ${next}`, `v${next}`)
+} catch (err) {
+  if (committed) die(`${next} is committed without a tag. Add it with: git tag -m "Release ${next}" v${next}`)
+  die(`${next} is published but not committed (${err.message ?? err}). The tree still holds it, so commit plus tag by hand.`)
+}
 say(`committed and tagged v${next} as ${identity}`)
 say(`done. Push when you want to: git push --follow-tags`)
