@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { COVER_RATIO, type CoverShape } from "@/lib/cover-shape"
+import { COVER_ASPECT, type CoverShape } from "@/lib/cover-shape"
 import { cn } from "@/lib/utils"
 
 // Deterministic linen color for covers that never arrive.
@@ -18,20 +18,25 @@ type BookProps = {
   poster: string | string[] | null
   title: string
   author?: string
-  /** Reserves the frame before the image lands; the loaded image corrects it. */
+  /** Reserves the shape before the image lands; the loaded image corrects it. */
   shape?: CoverShape
-  /** Which axis the frame fills. Lists pin the height, grids pin the width. */
-  fit?: "width" | "height"
+  /** Stands the cover in a frame of this shape, resting on its floor. A row of
+   * frames lines up whatever shapes the covers turn out to be. */
+  frame?: CoverShape
+  /** Sizes the frame. Ignored where no frame is asked for. */
+  frameClassName?: string
   /** Skip the spine and fore-edge; small covers keep their detail this way. */
   plain?: boolean
   size?: BookSize
   className?: string
   style?: React.CSSProperties
+  /** Badges that belong on the cover rather than on the frame around it. */
+  children?: React.ReactNode
 }
 
 /* The physical book: spine light strip, fore-edge, asymmetric radius and the
  * layered shadow. Block-level on purpose: transforms no-op on inline boxes. */
-export function Book({ poster, title, author, shape = "portrait", fit = "width", plain = false, size = "row", className, style }: BookProps) {
+export function Book({ poster, title, author, shape = "portrait", frame, frameClassName, plain = false, size = "row", className, style, children }: BookProps) {
   const candidates = Array.isArray(poster) ? poster : poster ? [poster] : []
   const trail = candidates.join("|")
   // The walk position belongs to this poster, so it is compared during render
@@ -47,16 +52,16 @@ export function Book({ poster, title, author, shape = "portrait", fit = "width",
   // square and landscape art gets the flat sleeve.
   const measuredShape: CoverShape | null = measured ? (measured.w < measured.h ? "portrait" : "square") : null
   const bookish = !plain && (measuredShape ?? shape) === "portrait"
-  const ratio = measured ? `${measured.w} / ${measured.h}` : COVER_RATIO[shape]
-  // A landscape image filling the slot height would run out of its column, so
-  // it fills the width instead and lets the flex slot center it vertically.
-  const fillsWidth = fit === "width" || (measured != null && measured.w > measured.h)
-  return (
+  const aspect = measured ? measured.w / measured.h : COVER_ASPECT[shape]
+  // Inside a frame the cover keeps its own proportions and gives up whichever
+  // axis runs out first, so nothing is ever cropped to fit.
+  const share = frame ? Math.min(1, aspect / COVER_ASPECT[frame]) : 1
+  const cover = (
     <span
-      style={{ ...style, aspectRatio: ratio }}
+      style={{ ...style, aspectRatio: String(aspect), ...(frame ? { width: `${share * 100}%` } : null) }}
       className={cn(
         "book relative block overflow-visible bg-card",
-        fillsWidth ? "w-full" : "h-full w-auto",
+        !frame && "w-full",
         bookish
           ? cn(
               "rounded-[4px_7px_7px_4px] shadow-book",
@@ -104,9 +109,16 @@ export function Book({ poster, title, author, shape = "portrait", fit = "width",
               setMeasured({ w: im.naturalWidth, h: im.naturalHeight })
             }
           }}
-          className="block size-full rounded-[inherit] object-cover dark:brightness-[.88]"
+          className="block size-full rounded-[inherit] object-contain dark:brightness-[.88]"
         />
       )}
+      {children}
+    </span>
+  )
+  if (!frame) return cover
+  return (
+    <span className={cn("relative flex items-end justify-center", frameClassName)} style={{ aspectRatio: String(COVER_ASPECT[frame]) }}>
+      {cover}
     </span>
   )
 }

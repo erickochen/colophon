@@ -4,6 +4,8 @@ import { createPortal } from 'react-dom'
 import { mutedUserColor } from '@/lib/colors'
 import { rewriteHiddenBlocks, toggleSpoiler } from '@/lib/hidden-text'
 import { getPortalContainer } from '@/lib/portals'
+import { onThemeSide } from '@/lib/theme-paint'
+import { tameHtml } from '@/lib/user-html'
 import { cn } from '@/lib/utils'
 
 export function PageHeader({ title, sub, action }: { title: ReactNode; sub?: ReactNode; action?: ReactNode }) {
@@ -179,7 +181,16 @@ function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
 /** MAM rich-content (sanitized upstream) in readable Reading Room typography. */
 export function RichHtml({ html, className }: { html: string; className?: string }) {
   const [zoom, setZoom] = useState<string | null>(null)
-  const body = useMemo(() => rewriteHiddenBlocks(tidyQuotes(html)), [html])
+  // Whether a color in a post can be read depends on which side is painted, so
+  // a flip sends the fragment back through the same pass. Rebuilding it costs a
+  // reader their open spoilers plus any selection, so nothing smaller counts.
+  const [side, setSide] = useState(0)
+  useEffect(() => onThemeSide(() => setSide((n) => n + 1)), [])
+  const body = useMemo(
+    () => tameHtml(rewriteHiddenBlocks(tidyQuotes(html))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [html, side]
+  )
 
   function onClick(e: MouseEvent<HTMLDivElement>) {
     // The trigger is a real button, so it brings its own Enter and Space.
@@ -199,7 +210,9 @@ export function RichHtml({ html, className }: { html: string; className?: string
     <div
       onClick={onClick}
       className={cn(
-        'user-html text-[13.5px] leading-relaxed [overflow-wrap:anywhere] [&_:where(:not(a))>img]:cursor-zoom-in [&_a]:text-brand [&_a]:underline [&_blockquote]:my-2 [&_blockquote]:rounded-md [&_blockquote]:bg-muted [&_blockquote]:px-3 [&_blockquote]:py-2 [&_blockquote]:text-[13px] [&_img]:my-1 [&_img]:h-auto [&_img]:max-h-[600px] [&_img]:max-w-[min(600px,100%)] [&_img]:rounded-md [&_img:hover]:max-h-none [&_img:hover]:max-w-full [&_li]:ml-4 [&_ol]:list-decimal [&_p]:mb-2.5 [&_p:last-child]:mb-0 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-[12px] [&_table]:my-2 [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-1 [&_ul]:list-disc',
+        'user-html text-[13.5px] leading-relaxed [container-type:inline-size] [overflow-wrap:anywhere]',
+        '[&_.table-lane]:max-w-full [&_.table-lane]:overflow-x-auto [&_table_img]:max-w-[min(100%,40cqw)] [&_table_img:hover]:max-w-[min(100%,40cqw)]',
+        '[&_:where(:not(a))>img]:cursor-zoom-in [&_a]:text-brand [&_a]:underline [&_blockquote]:my-2 [&_blockquote]:rounded-md [&_blockquote]:bg-muted [&_blockquote]:px-3 [&_blockquote]:py-2 [&_blockquote]:text-[13px] [&_img]:my-1 [&_img]:h-auto [&_img]:max-h-[600px] [&_img]:max-w-[min(600px,100%)] [&_img]:rounded-md [&_img:hover]:max-h-none [&_img:hover]:max-w-full [&_li]:ml-4 [&_ol]:list-decimal [&_p]:mb-2.5 [&_p:last-child]:mb-0 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-[12px] [&_table]:my-2 [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-1 [&_ul]:list-disc',
         QUOTE_CLASSES,
         className
       )}

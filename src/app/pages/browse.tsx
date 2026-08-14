@@ -128,8 +128,9 @@ const ROW_ACTION_SIZE = 34
 const ROW_ACTION_GAP = 6
 const actionLane = (slots: number) => `${slots * ROW_ACTION_SIZE + (slots - 1) * ROW_ACTION_GAP}px`
 
-// Gallery shelf: --shelf is the height every cover is drawn at, so a row of
-// covers shares one baseline and the titles under them line up.
+// Gallery shelf: --shelf is the tallest a frame gets, so a row of frames shares
+// one floor plus the titles under them line up. Narrow columns shrink the frame
+// rather than the cover inside it.
 const GALLERY_GRID =
   'grid grid-cols-3 gap-x-[22px] gap-y-7 p-6 [--shelf:150px] sm:grid-cols-4 sm:[--shelf:180px] lg:grid-cols-6 lg:[--shelf:210px]'
 
@@ -479,6 +480,18 @@ function initialState(myUid: string | null): BrowseState {
   return next
 }
 
+// Ceiling on a restored list. Past this the page fetches the first slice and
+// Load more covers the rest, rather than pulling hundreds of rows at once.
+const RESTORE_MAX_ROWS = 200
+
+/** A reader who loaded more rows and then reloaded gets the whole list back,
+ * not the last batch on its own. The offset in the URL says how far they got,
+ * so the opening search asks for every row up to there in one request. */
+function restored(s: BrowseState): { state: BrowseState; take?: number } {
+  if (s.start <= 0) return { state: s }
+  return { state: { ...s, start: 0 }, take: Math.min(RESTORE_MAX_ROWS, s.start + s.perpage) }
+}
+
 /** The state as the newer page's blob URL, the one form we write. */
 function urlFromState(s: BrowseState): string {
   return search2Url(toQuery2(s))
@@ -522,8 +535,8 @@ function catName(id: number): string {
   return `cat ${id}`
 }
 
-/** Row cover in a fixed-height slot, with a large peek beside it while
- * hovered. The slot pins the height plus centers whatever shape fits in it. */
+/** Row cover in a fixed slot, with a large peek beside it while hovered. The
+ * slot is square, so a cover of any shape fits without losing an edge. */
 function RowCover({ t }: { t: SearchTorrent }) {
   const poster = t.poster_type ? coverUrl(t.id, t.poster_type) : null
   const shape = coverShape({ mediatype: t.mediatype, mainCat: t.main_cat })
@@ -535,7 +548,15 @@ function RowCover({ t }: { t: SearchTorrent }) {
       className="flex h-[var(--cover-h)] items-center justify-center self-center text-[9px] md:h-[var(--cover-h-lg)]"
       style={{ '--cover-h': `${ROW_COVER_H_SM}px`, '--cover-h-lg': `${ROW_COVER_H}px` } as CSSProperties}
     >
-      <Book poster={poster} title={t.title} shape={shape} fit="height" plain className="transition-shadow group-hover:shadow-book-lift" />
+      <Book
+        poster={poster}
+        title={t.title}
+        shape={shape}
+        frame="square"
+        frameClassName="h-full items-center"
+        plain
+        className="transition-shadow group-hover:shadow-book-lift"
+      />
     </a>
   )
   if (!poster) return cover
@@ -847,32 +868,33 @@ function GalleryItem({ t, hiddenReason, onUnignore }: { t: SearchTorrent; hidden
   return (
     <span className={cn('relative block', hiddenReason && 'opacity-60')}>
       <a href={torrentUrl(t.id)} className="group block">
-        {/* One shelf line: the slot pins the height, so covers of every shape
-            end on the same baseline and every title starts level. */}
-        <span className="relative flex h-[var(--shelf)] items-end justify-center text-[11px] transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1.5 motion-reduce:transition-none">
+        {/* One shelf line: every frame is the same book shape, so the covers
+            rest on one floor and every title starts level. Whatever shape a
+            cover turns out to be, it keeps it and takes the room it needs. */}
+        <span className="flex justify-center text-[11px] transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1.5 motion-reduce:transition-none">
           <Book
             poster={t.poster_type ? coverUrl(t.id, t.poster_type) : null}
             title={t.title}
             author={authorsText || undefined}
             shape={coverShape({ mediatype: t.mediatype, mainCat: t.main_cat })}
-            fit="height"
+            frame="portrait"
+            frameClassName="w-[min(100%,calc(var(--shelf)*2/3))]"
             size="shelf"
-            /* A wide cover keeps the shelf line by giving up height, not by
-               spilling into the next column. */
-            className="max-w-full group-hover:shadow-book-lift"
-          />
-          {!!t.bookmarked && (
-            <span
-              role="img"
-              aria-label="Bookmarked"
-              className="absolute right-1.5 top-1.5 z-3 grid size-[22px] place-items-center rounded-full bg-card/90 text-brand shadow-sm"
-            >
-              <BookmarkCheck className="size-[13px]" />
-            </span>
-          )}
+            className="group-hover:shadow-book-lift"
+          >
+            {!!t.bookmarked && (
+              <span
+                role="img"
+                aria-label="Bookmarked"
+                className="absolute right-1.5 top-1.5 z-3 grid size-[22px] place-items-center rounded-full bg-card/90 text-brand shadow-sm"
+              >
+                <BookmarkCheck className="size-[13px]" />
+              </span>
+            )}
+          </Book>
         </span>
-        <span className="font-display mt-2.5 line-clamp-2 block min-h-[2.7em] text-[13px] font-medium leading-[1.35]">{t.title}</span>
-        {authorsText && <span className="mt-0.5 line-clamp-1 block text-[11.5px] text-muted-foreground">{authorsText}</span>}
+        <span className="font-display mt-2.5 line-clamp-2 min-h-[2.7em] text-[13px] font-medium leading-[1.35]">{t.title}</span>
+        {authorsText && <span className="mt-0.5 line-clamp-1 text-[11.5px] text-muted-foreground">{authorsText}</span>}
       </a>
       {hiddenReason === 'ignored' && onUnignore && (
         <button
@@ -1171,8 +1193,8 @@ export function BrowseView(props: PageProps) {
     })
   }
 
-  const run = useCallback(async (s: BrowseState, opts: { append?: boolean; push?: boolean } = {}) => {
-    const { append = false, push = true } = opts
+  const run = useCallback(async (s: BrowseState, opts: { append?: boolean; push?: boolean; take?: number } = {}) => {
+    const { append = false, push = true, take } = opts
     // A series loads whole from row 0, so an offset riding in on the URL must
     // not skew the shown count.
     const q = s.seriesID && s.start !== 0 ? { ...s, start: 0 } : s
@@ -1194,11 +1216,18 @@ export function BrowseView(props: PageProps) {
     try {
       const res = q.seriesID
         ? await searchAllTorrents2(toQuery2(q))
-        : await searchTorrents2(toQuery2(q))
+        : await searchTorrents2(take ? { ...toQuery2(q), perPage: take } : toQuery2(q))
       if (seq.current !== mine) return
       setFound(res.found)
       setItems((prev) => (append ? [...prev, ...res.data] : res.data))
       if (!append) setBaseStart(q.start)
+      // A restored list holds more rows than the offset it was asked for, so
+      // the state plus the address bar move to where those rows actually end.
+      if (take != null) {
+        const settled = { ...q, start: Math.max(0, res.data.length - q.perpage) }
+        setState(settled)
+        history.replaceState(null, '', urlFromState(settled))
+      }
     } catch (e) {
       if (seq.current === mine) setError(e instanceof Error ? e.message : 'Search failed')
     } finally {
@@ -1210,7 +1239,8 @@ export function BrowseView(props: PageProps) {
   }, [])
 
   useEffect(() => {
-    void run(state, { push: false })
+    const first = restored(state)
+    void run(first.state, { push: false, take: first.take })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -1220,8 +1250,9 @@ export function BrowseView(props: PageProps) {
     const onPop = () => {
       const s = initialState(uid)
       setState(s)
-      setBaseStart(s.start)
-      void run(s, { push: false })
+      const back = restored(s)
+      setBaseStart(back.state.start)
+      void run(back.state, { push: false, take: back.take })
     }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
@@ -1294,8 +1325,10 @@ export function BrowseView(props: PageProps) {
     }
   }, [found, state])
 
+  // Counted from what is on screen rather than from the last offset, so a
+  // restored list carries on where it ended plus a failed batch can be retried.
   const loadMore = () => {
-    const next = { ...state, start: state.start + state.perpage }
+    const next = { ...state, start: baseStart + items.length }
     setState(next)
     void run(next, { append: true })
   }
@@ -1855,7 +1888,7 @@ export function BrowseView(props: PageProps) {
           <div className={cn(GALLERY_GRID)}>
             {Array.from({ length: 12 }).map((_, i) => (
               <div key={i}>
-                <Skeleton className="mx-auto aspect-[2/3] h-[var(--shelf)] rounded-[4px_7px_7px_4px]" />
+                <Skeleton className="mx-auto aspect-[3/4.5] w-[min(100%,calc(var(--shelf)*2/3))] rounded-[4px_7px_7px_4px]" />
                 <Skeleton className="mt-2.5 h-3.5 w-3/4" />
                 <Skeleton className="mt-1.5 h-3 w-1/2" />
               </div>
@@ -1981,7 +2014,7 @@ export function BrowseView(props: PageProps) {
           <div className="flex items-center justify-center border-t py-4">
             {error ? (
               <span className="text-sm text-destructive">
-                {error}. <button className="underline" onClick={() => void run(state, { append: true })}>try again</button>
+                {error}. <button className="underline" onClick={loadMore}>try again</button>
               </span>
             ) : (
               <Button variant="outline" disabled={loadingMore} onClick={loadMore}>

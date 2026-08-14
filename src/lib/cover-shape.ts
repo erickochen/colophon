@@ -8,9 +8,11 @@ const SQUARE_MEDIA_TYPES: ReadonlySet<number> = new Set([1, 4])
 // only used where a page knows nothing finer.
 const SQUARE_MAIN_CATS: ReadonlySet<number> = new Set([13, 16])
 
-export const COVER_RATIO: Record<CoverShape, string> = {
-  portrait: '3 / 4.5',
-  square: '1 / 1',
+// Width over height. A frame reserves one of these while a loaded cover reports
+// its own; the smaller of the two decides how much of the frame it fills.
+export const COVER_ASPECT: Record<CoverShape, number> = {
+  portrait: 3 / 4.5,
+  square: 1,
 }
 
 /** Media type wins when a row carries one, category is the fallback. */

@@ -61,11 +61,37 @@ function extract(doc: Document) {
 
 interface DonOption { title: string; lines: { k: string; v: string }[] }
 
+/** Every panel here is also an anchor MAM links to from posts plus from its own
+ * menu, so the hash picks the tab the way jQuery-UI does on the classic page. */
+function tabFromHash(ids: string[]): string | null {
+  const raw = location.hash.replace(/^#/, '')
+  let id = raw
+  try {
+    id = decodeURIComponent(raw)
+  } catch {
+    // A stray percent is not an escape, so the hash counts as written.
+  }
+  return ids.includes(id) ? id : null
+}
+
 export function DonateView(props: PageProps) {
   const data = useMemo(() => extract(document), [])
   const [amount, setAmount] = useState('5')
   const [options, setOptions] = useState<DonOption[]>([])
   const timer = useRef<number>(0)
+  const tabIds = useMemo(() => data?.tabs.map((t) => t.id) ?? [], [data])
+  const [tab, setTab] = useState(() => tabFromHash(tabIds) ?? tabIds[0])
+
+  // A link to another panel on this page only moves the hash, so the tabs
+  // follow it instead of waiting for a reload that never comes.
+  useEffect(() => {
+    const onHash = () => {
+      const hit = tabFromHash(tabIds)
+      if (hit) setTab(hit)
+    }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [tabIds])
 
   // Each donation type (Normal / Request Only) has its own reward block that
   // MAM's JS recomputes as the amount changes; mirror both blocks live.
@@ -153,7 +179,7 @@ export function DonateView(props: PageProps) {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue={data.tabs[0]?.id}>
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex-wrap">
           {data.tabs.map((t) => <TabsTrigger key={t.id} value={t.id}>{t.label}</TabsTrigger>)}
         </TabsList>
