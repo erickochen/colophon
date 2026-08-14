@@ -210,8 +210,10 @@ export function RichHtml({ html, className }: { html: string; className?: string
     <div
       onClick={onClick}
       className={cn(
-        'user-html text-[13.5px] leading-relaxed [container-type:inline-size] [overflow-wrap:anywhere]',
-        '[&_.table-lane]:max-w-full [&_.table-lane]:overflow-x-auto [&_table_img]:max-w-[min(100%,40cqw)] [&_table_img:hover]:max-w-[min(100%,40cqw)]',
+        'user-html text-[13.5px] leading-relaxed [overflow-wrap:anywhere]',
+        // A percentage cap inside a table cell is circular, so the cap on images
+        // there is a flat length. Wider tables scroll in their lane instead.
+        '[&_.table-lane]:max-w-full [&_.table-lane]:overflow-x-auto [&_table_img]:max-w-[20rem] [&_table_img:hover]:max-w-[20rem]',
         '[&_:where(:not(a))>img]:cursor-zoom-in [&_a]:text-brand [&_a]:underline [&_blockquote]:my-2 [&_blockquote]:rounded-md [&_blockquote]:bg-muted [&_blockquote]:px-3 [&_blockquote]:py-2 [&_blockquote]:text-[13px] [&_img]:my-1 [&_img]:h-auto [&_img]:max-h-[600px] [&_img]:max-w-[min(600px,100%)] [&_img]:rounded-md [&_img:hover]:max-h-none [&_img:hover]:max-w-full [&_li]:ml-4 [&_ol]:list-decimal [&_p]:mb-2.5 [&_p:last-child]:mb-0 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-[12px] [&_table]:my-2 [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-1 [&_ul]:list-disc',
         QUOTE_CLASSES,
         className
