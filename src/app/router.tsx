@@ -44,6 +44,7 @@ import { InvitesView, SendInviteView } from '@/app/pages/invites'
 import { AllowedClientsView } from '@/app/pages/allowed-clients'
 import { PostsHistoryView } from '@/app/pages/posts-history'
 import { TicketsView, TicketDetailView } from '@/app/pages/tickets'
+import { TicketNewView } from '@/app/pages/ticket-new'
 import { UnreadTopicsView, DailyPostsView } from '@/app/pages/forum-lists'
 import { ForumSearchView } from '@/app/pages/forum-search'
 import { ForumComposeView, ForumPostEditView } from '@/app/pages/forum-compose'
@@ -161,7 +162,9 @@ export function resolveRoute(loc: Location): Route {
     return { id: 'tickets', View: TicketsView }
   }
   if (p.startsWith('/ticket.php/ticket/')) return { id: 'ticket-detail', View: TicketDetailView }
-  if (p === '/ticket.php/newTicket') return { id: 'simple-form', View: SimpleFormView }
+  if (p === '/ticket.php/newTicket' || p === '/ticket.php/newTicket/') {
+    return { id: 'ticket-new', View: TicketNewView }
+  }
   if (p.startsWith('/ticket.php')) return { id: 'doc', View: DocView }
   if (DOC_PAGES.has(p)) return { id: 'doc', View: DocView }
   return { id: 'legacy', View: LegacyView }

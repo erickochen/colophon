@@ -1,21 +1,24 @@
-import { useMemo, useState } from 'react'
-import { ArrowLeft, ArrowRight, LifeBuoy, Send, TicketPlus } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowLeft, ChevronRight, LifeBuoy, Send, TicketPlus } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { cleanHtml } from '@/lib/sanitize'
 import { LegacyView } from '@/app/pages/legacy'
-import { PageHeader, RichHtml } from '@/app/shell/bits'
+import { PageHeader, RichHtml, UserLink } from '@/app/shell/bits'
 import { relTime, utcTitle } from '@/lib/format'
+import { submitGuarded } from '@/lib/form-submit'
+import { findSubmitter } from '@/lib/form-mirror'
+import { clearTicketDraft } from '@/lib/tickets'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { BBComposer } from '@/components/bb-composer'
 import { Conversation, ConversationBubble } from '@/components/conversation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { Card, CardContent } from '@/components/ui/card'
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { Spinner } from '@/components/ui/spinner'
+import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
-import { mutedUserColor } from '@/lib/colors'
 
-interface Ticket {
+export interface Ticket {
   category: string[]
   added: string | null
   status: string
@@ -24,24 +27,30 @@ interface Ticket {
   lastByColor: string | null
   href: string | null
 }
-interface TicketSection { title: string; tickets: Ticket[] }
+export interface TicketSection { title: string; tickets: Ticket[] }
 
-function statusTone(status: string): string {
+/** Dot plus text tone for a status. MAM's own wording is always what shows, so
+ * only the color is a guess and an unknown status keeps a neutral one. */
+function statusTone(status: string): { dot: string; text: string } {
   const s = status.toLowerCase()
-  if (/^open/.test(s)) return 'bg-ok/15 text-ok'
-  if (/pending|waiting|respond/.test(s)) return 'bg-warn/15 text-warn'
-  if (/closed|resolved/.test(s)) return 'bg-muted text-muted-foreground'
-  return 'bg-brand-soft text-accent-foreground'
+  if (/^open/.test(s)) return { dot: 'bg-ok', text: 'text-ok' }
+  if (/pending|waiting|respond/.test(s)) return { dot: 'bg-warn', text: 'text-warn' }
+  if (/closed|resolved/.test(s)) return { dot: 'bg-muted-foreground/40', text: 'text-muted-foreground' }
+  return { dot: 'bg-muted-foreground/40', text: 'text-muted-foreground' }
 }
 
 const dateOf = (s: string | null) => s?.match(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/)?.[0] ?? null
 
-function extract(doc: Document): TicketSection[] | null {
+/** Long enough to be a sentence MAM wrote, rather than a stray word. */
+const MIN_NOTE_CHARS = 20
+
+/** The ticket tables MAM renders, both on the list page plus above the create
+ * form. Null when this is not one of those pages. */
+export function readTicketSections(doc: Document): TicketSection[] | null {
   const main = doc.querySelector('#mainBody')
   if (!main || !/ticket/i.test(doc.title + (main.textContent ?? ''))) return null
   const sections: TicketSection[] = []
   for (const table of main.querySelectorAll('table.tickTable')) {
-    // Section title = nearest preceding h1-h4 ("In progress tickets", "Closed tickets", ...)
     let title = 'Tickets'
     for (let n: Element | null = table.previousElementSibling; n; n = n.previousElementSibling) {
       if (/^H[1-4]$/.test(n.tagName)) { title = n.textContent?.replace(/\s+/g, ' ').trim() || title; break }
@@ -69,84 +78,90 @@ function extract(doc: Document): TicketSection[] | null {
   return sections
 }
 
-function TicketRow({ t }: { t: Ticket }) {
+/** One ticket, in the list plus in the strip above the create form. The topic
+ * is the headline; the path plus the dates are context under it. */
+export function TicketRow({ t }: { t: Ticket }) {
+  const tone = statusTone(t.status)
+  const leaf = t.category.at(-1) ?? 'Ticket'
+  const parents = t.category.slice(0, -1).join(' › ')
   const inner = (
     <>
+      <span aria-hidden className={cn('mt-[7px] size-2 shrink-0 rounded-full', tone.dot)} />
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {t.category.map((c, i) => (
-            <span key={i} className="flex items-center gap-1.5">
-              {i > 0 && <span className="text-[10px] text-muted-foreground">›</span>}
-              <span className={cn('text-[13.5px]', i === t.category.length - 1 ? 'font-semibold' : 'text-muted-foreground')}>{c}</span>
-            </span>
-          ))}
-        </div>
-        <div className="pt-1 text-[12px] text-muted-foreground">
-          Opened <span title={utcTitle(t.added)}>{t.added ? relTime(t.added) : '–'}</span>
+        <div className="truncate text-[14px] font-semibold leading-snug">{leaf}</div>
+        <div className="pt-0.5 text-[12px] leading-relaxed text-muted-foreground">
+          <span className={tone.text}>{t.status}</span>
+          {parents && <> · {parents}</>}
+          {t.added && (
+            <span className="hidden sm:inline"> · opened <span title={utcTitle(t.added)}>{relTime(t.added)}</span></span>
+          )}
           {t.lastUpdate && (
-            <>
-              {' · '}last reply <span title={utcTitle(t.lastUpdate)}>{relTime(t.lastUpdate)}</span>
-              {t.lastBy && <> by <span className="font-medium" style={{ color: mutedUserColor(t.lastByColor) }}>{t.lastBy}</span></>}
+            <> · last reply <span title={utcTitle(t.lastUpdate)}>{relTime(t.lastUpdate)}</span>
+              {t.lastBy && <> by <UserLink name={t.lastBy} color={t.lastByColor} /></>}
             </>
           )}
         </div>
       </div>
-      <Badge variant="secondary" className={cn('shrink-0 text-[11px]', statusTone(t.status))}>{t.status}</Badge>
-      <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+      <ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
     </>
   )
-  const cls = 'group flex items-center gap-3 px-6 py-3.5 transition-colors'
+  const cls = 'group flex items-start gap-3 px-6 py-3.5 transition-colors'
   return t.href
     ? <a href={t.href} className={cn(cls, 'hover:bg-accent/40')}>{inner}</a>
     : <div className={cls}>{inner}</div>
 }
 
 export function TicketsView(props: PageProps) {
-  const sections = useMemo(() => extract(document), [])
+  const sections = useMemo(() => readTicketSections(document), [])
+  // Landing here means a ticket went out, so the parked draft is spent.
+  useEffect(clearTicketDraft, [])
   if (!sections) return <LegacyView {...props} />
 
   const total = sections.reduce((n, s) => n + s.tickets.length, 0)
+  const filled = sections.filter((s) => s.tickets.length > 0)
+  const newTicket = (
+    <Button asChild size="sm">
+      <a href="/ticket.php/newTicket"><TicketPlus /> New ticket</a>
+    </Button>
+  )
 
   return (
-    <div className="mx-auto grid w-full max-w-4xl gap-5">
+    <div className="mx-auto grid w-full max-w-3xl gap-5">
       <PageHeader
-        title="Staff tickets"
-        sub={total > 0 ? `${total} ticket${total === 1 ? '' : 's'} between you and the staff` : 'Your direct line to the staff'}
-        action={
-          <Button asChild size="sm">
-            <a href="/ticket.php/newTicket"><TicketPlus /> New ticket</a>
-          </Button>
-        }
+        title="Tickets"
+        sub={total > 0 ? `${total} ticket${total === 1 ? '' : 's'} between you and the staff` : 'Your private line to the staff'}
+        action={total > 0 ? newTicket : undefined}
       />
-      {sections.map((s) => (
-        <Card key={s.title} className="gap-0 py-0">
-          <CardHeader className="!py-3.5">
-            <CardTitle className="flex items-center gap-2">
-              {s.title} <span className="text-[12px] font-normal text-muted-foreground">{s.tickets.length}</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-0 py-0">
-            {s.tickets.length > 0 ? (
-              s.tickets.map((t, i) => <TicketRow key={i} t={t} />)
-            ) : (
-              <p className="px-6 py-8 text-center text-sm text-muted-foreground">Nothing here.</p>
-            )}
-          </CardContent>
-        </Card>
-      ))}
-      {total === 0 && (
-        <Card>
-          <CardContent>
-            <Empty>
+
+      <Card className="gap-0 py-0">
+        <CardContent className="grid px-0 py-0">
+          {total === 0 ? (
+            <Empty className="py-10">
               <EmptyHeader>
                 <EmptyMedia variant="icon"><LifeBuoy /></EmptyMedia>
-                <EmptyTitle>No open tickets</EmptyTitle>
-                <EmptyDescription>Questions about your account, a torrent or the rules? Staff answers through tickets.</EmptyDescription>
+                <EmptyTitle>No tickets yet</EmptyTitle>
+                <EmptyDescription>
+                  A ticket is a private conversation with the staff. Use one for anything a forum post
+                  cannot fix: an account change, a torrent that is wrong or a rule you want explained.
+                </EmptyDescription>
               </EmptyHeader>
+              <EmptyContent>{newTicket}</EmptyContent>
             </Empty>
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+            filled.map((s) => (
+              <div key={s.title} className="grid divide-y">
+                {filled.length > 1 && (
+                  <div className="flex items-center gap-2 border-b bg-muted/40 px-6 py-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                    {s.title}
+                    <span className="font-normal tabular-nums">{s.tickets.length}</span>
+                  </div>
+                )}
+                {s.tickets.map((t, i) => <TicketRow key={i} t={t} />)}
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -155,6 +170,7 @@ export function TicketsView(props: PageProps) {
 
 interface TicketMessage {
   author: string
+  uid: string | null
   href: string | null
   at: string | null
   bodyHtml: string
@@ -162,6 +178,8 @@ interface TicketMessage {
 interface TicketDetail {
   category: string[]
   statusNote: string | null
+  /** MAM's line about adding more later, printed loose after the status note. */
+  addNote: string | null
   messages: TicketMessage[]
   reply: { textarea: HTMLTextAreaElement; form: HTMLFormElement; submitLabel: string } | null
 }
@@ -175,6 +193,7 @@ function extractDetail(doc: Document): TicketDetail | null {
     const a = head?.querySelector<HTMLAnchorElement>('a[href^="/u/"]')
     messages.push({
       author: a?.textContent?.trim() ?? 'unknown',
+      uid: a?.getAttribute('href')?.match(/\/u\/(\d+)/)?.[1] ?? null,
       href: a?.getAttribute('href') ?? null,
       at: head?.textContent?.match(/added\s+([\d-]+ [\d:]+)/)?.[1] ?? null,
       bodyHtml: cleanHtml(sec.querySelector('.tickSecMes')) ?? '',
@@ -183,16 +202,20 @@ function extractDetail(doc: Document): TicketDetail | null {
   const form = main.querySelector<HTMLFormElement>('#tickReply')
   const textarea = form?.querySelector('textarea') ?? null
   const submit = form?.querySelector<HTMLInputElement>('input[type="submit"]')
-  const statusNote = [...main.querySelectorAll(':scope > h2')]
-    .map((h) => h.textContent?.replace(/\s+/g, ' ').trim() ?? '')
-    .find((t) => !/=>/.test(t) && t.length > 20) ?? null
-  const category = ([...main.querySelectorAll(':scope > h2')]
-    .map((h) => h.textContent?.replace(/\s+/g, ' ').trim() ?? '')
-    .find((t) => /=>/.test(t)) ?? '')
-    .split('=>').map((s) => s.trim()).filter(Boolean)
+  const heads = [...main.querySelectorAll(':scope > h2')].map((h) => h.textContent?.replace(/\s+/g, ' ').trim() ?? '')
+  const statusNote = heads.find((t) => !/=>/.test(t) && t.length > MIN_NOTE_CHARS) ?? null
+  const category = (heads.find((t) => /=>/.test(t)) ?? '').split('=>').map((s) => s.trim()).filter(Boolean)
+  // MAM prints this one loose between the status heading plus the form, so it
+  // reaches no element of its own.
+  const addNote = [...main.childNodes]
+    .filter((n) => n.nodeType === Node.TEXT_NODE)
+    .map((n) => n.textContent?.replace(/\s+/g, ' ').trim() ?? '')
+    .find((t) => t.length > MIN_NOTE_CHARS) ?? null
+
   return {
     category,
     statusNote,
+    addNote,
     messages,
     reply: form && textarea ? { textarea, form, submitLabel: submit?.value || 'Reply' } : null,
   }
@@ -201,66 +224,84 @@ function extractDetail(doc: Document): TicketDetail | null {
 export function TicketDetailView(props: PageProps) {
   const data = useMemo(() => extractDetail(document), [])
   const [draft, setDraft] = useState('')
+  const [sending, setSending] = useState(false)
+  const boxRef = useRef<HTMLTextAreaElement>(null)
+  useEffect(clearTicketDraft, [])
   if (!data) return <LegacyView {...props} />
-  // Falls back so an unreadable username cannot make every own post read as staff.
-  const me = props.page.user.name || 'you'
+
+  const me = props.page.user.uid != null ? String(props.page.user.uid) : null
+  const isMine = (m: TicketMessage) =>
+    me && m.uid ? m.uid === me : m.author === props.page.user.name
 
   function send() {
     if (!data?.reply) return
     if (!draft.trim()) {
-      toast.warning('Write a message first.')
+      toast.warning('Write a reply first.')
+      boxRef.current?.focus()
       return
     }
     data.reply.textarea.value = draft
-    data.reply.form.requestSubmit()
+    setSending(true)
+    if (!submitGuarded(data.reply.form, findSubmitter(data.reply.form))) setSending(false)
   }
+
+  const leaf = data.category.at(-1) ?? 'Ticket'
+  const parents = data.category.slice(0, -1).join(' › ')
 
   return (
     <div className="mx-auto grid w-full max-w-3xl gap-5">
       <PageHeader
-        title="Staff ticket"
-        sub={
-          <span className="flex flex-wrap items-center gap-1.5">
-            {data.category.map((c, i) => (
-              <span key={i} className="flex items-center gap-1.5">
-                {i > 0 && <span className="text-[10px]">›</span>}
-                {c}
-              </span>
-            ))}
-          </span>
-        }
+        title={leaf}
+        sub={parents || undefined}
         action={
-          <Button asChild variant="outline" size="sm" className="h-8">
+          <Button asChild variant="outline" size="sm" className="h-8 text-[12.5px]">
             <a href="/ticket.php/myTickets"><ArrowLeft /> All tickets</a>
           </Button>
         }
       />
 
-      <Conversation>
+      {data.statusNote && (
+        <div className="flex items-start gap-2.5 text-[12.5px]">
+          <span aria-hidden className="mt-[6px] size-2 shrink-0 rounded-full bg-warn" />
+          <span className="text-muted-foreground">{data.statusNote}</span>
+        </div>
+      )}
+
+      <Conversation label="Ticket conversation" startKey={`m${data.messages.length - 1}`}>
         {data.messages.map((m, i) => (
           <ConversationBubble
             key={i}
             author={m.author}
             href={m.href}
             at={m.at}
-            mine={m.author === me}
-            badge={m.author !== me && <Badge variant="secondary" className="text-[9.5px]">staff</Badge>}
+            mine={!!isMine(m)}
+            navKey={`m${i}`}
+            position={i + 1}
+            total={data.messages.length}
+            badge={!isMine(m) && <Badge variant="secondary" className="text-[9.5px]">staff</Badge>}
           >
             <RichHtml html={m.bodyHtml} className="text-[13.5px]" />
           </ConversationBubble>
         ))}
       </Conversation>
 
-      {data.statusNote && (
-        <p className="text-center text-[12px] italic text-muted-foreground">{data.statusNote}</p>
-      )}
-
       {data.reply ? (
         <Card className="py-0">
           <CardContent className="grid gap-2.5 py-4">
-            <BBComposer value={draft} onChange={setDraft} placeholder="Write a reply to the staff…" minHeightClass="min-h-24" />
+            {data.addNote && <p className="text-[12px] text-muted-foreground">{data.addNote}</p>}
+            <Textarea
+              ref={boxRef}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              disabled={sending}
+              aria-label="Your reply"
+              placeholder="Anything else staff should know."
+              className="min-h-40 text-[13.5px]"
+            />
             <div className="flex justify-end">
-              <Button onClick={send}><Send /> {data.reply.submitLabel}</Button>
+              <Button onClick={send} disabled={sending}>
+                {sending ? <><Spinner /> Sending…</> : <><Send /> {data.reply.submitLabel}</>}
+              </Button>
             </div>
           </CardContent>
         </Card>
