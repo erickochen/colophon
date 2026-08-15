@@ -54,12 +54,19 @@ export function extractFreeleech(doc: Document): FreeleechData | null {
     const mediaType = heads[0] ?? txt(g.querySelector('.torrentInfo')) ?? g.id
     const mainCat = heads[1] ?? null
     const items: FlItem[] = []
+    // With MAM's group-by-category preference on, a section repeats an item once
+    // per genre it carries, so one torrent can appear several times. Our own
+    // "Group by" control covers that, so each torrent is read once here.
+    const seen = new Set<string>()
     for (const item of g.querySelectorAll<HTMLElement>('.freeleechItem')) {
       const a = item.querySelector<HTMLAnchorElement>('a.fLeech')
       if (!a) continue
+      const tid = item.id.replace(/^tid/, '')
+      if (seen.has(tid)) continue
+      seen.add(tid)
       const lang = item.querySelector('.searchMultiCat a.language')
       items.push({
-        tid: item.id.replace(/^tid/, ''),
+        tid,
         title: txt(a.querySelector('h4')) ?? txt(a) ?? '',
         author: txt(a.querySelector('.green'))?.replace(/^By:\s*/i, '') ?? null,
         cats: [...item.querySelectorAll<HTMLAnchorElement>('.searchMultiCat a.mCat:not(.language)')].map((c) => ({
