@@ -39,6 +39,21 @@ export function NameSuggest({
   const live = useRef<AbortController | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
+  // A value set from outside (a metadata lookup, a row removed above this one)
+  // wins over what the box holds. Typing hands the same string back, so it
+  // never fights the caret.
+  const fromCaller = useRef(defaultValue)
+  if (fromCaller.current !== defaultValue) {
+    fromCaller.current = defaultValue
+    setText(defaultValue)
+    // A lookup still on its way belongs to the text that just left.
+    clearTimeout(timer.current)
+    live.current?.abort()
+    setHits([])
+    setBusy(false)
+    setFailed(false)
+  }
+
   useEffect(() => () => {
     clearTimeout(timer.current)
     live.current?.abort()

@@ -51,6 +51,7 @@ import { ForumComposeView, ForumPostEditView } from '@/app/pages/forum-compose'
 import { BugReportView } from '@/app/pages/bug-report'
 import { UsersView } from '@/app/pages/users'
 import { TagsView, SmiliesView } from '@/app/pages/reference'
+import { NewRequestView } from '@/app/pages/new-request'
 
 export interface PageProps {
   page: ShellData
@@ -74,7 +75,6 @@ const SIMPLE_FORM_PAGES = new Set([
   '/tor/editRequest.php',
   '/comment.php',
   '/banner/index.php',
-  '/tor/newRequest.php',
 ])
 
 export function resolveRoute(loc: Location): Route {
@@ -102,6 +102,7 @@ export function resolveRoute(loc: Location): Route {
   if (p === '/tags.php') return { id: 'tags', View: TagsView }
   if (p === '/smilies.php') return { id: 'smilies', View: SmiliesView }
   if (p === '/tor/upload.php') return { id: 'simple-form', View: SimpleFormView }
+  if (p === '/tor/newRequest.php') return { id: 'new-request', View: NewRequestView }
   if (p === '/tor/search.php') {
     // One page serves both lists; the s= blob says which one.
     return isRequestSearch(loc) ? { id: 'requests', View: RequestsView } : { id: 'browse', View: BrowseView }

@@ -28,6 +28,10 @@ export interface FacetOption {
   badge?: number
   /** 1 nests the row under the plain row above it, for grouped lists. */
   depth?: 0 | 1
+  /** Off limits next to what is already picked. */
+  disabled?: boolean
+  /** Why it is off limits, shown on hover and to a screen reader. */
+  hint?: string
 }
 
 /** Shared control height, so every trigger on a bar lines up. */
@@ -306,12 +310,16 @@ export function FacetOptions({
                 <CommandItem
                   key={o.value}
                   value={o.label}
-                  onSelect={() => onToggle(o.value)}
+                  onSelect={() => !o.disabled && onToggle(o.value)}
                   role="checkbox"
                   aria-checked={selected.includes(o.value)}
+                  disabled={o.disabled}
+                  title={o.hint}
+                  className={cn(o.disabled && 'opacity-45')}
                 >
                   <Checkbox checked={selected.includes(o.value)} aria-hidden className="pointer-events-none" />
                   <span className="truncate">{o.label}</span>
+                  {o.hint && <span className="ml-auto pl-2 text-[11px] text-muted-foreground">{o.hint}</span>}
                   {o.count != null && (
                     <span className="ml-auto pl-2 text-[11px] tabular-nums text-muted-foreground">{fmtInt(o.count)}</span>
                   )}
@@ -332,9 +340,17 @@ export function FacetOptions({
         {options.map((o) => (
           <Label
             key={o.value}
-            className="flex items-center gap-2 rounded-sm px-1.5 py-1.5 text-[12.5px] font-normal hover:bg-accent/50"
+            title={o.hint}
+            className={cn(
+              'flex items-center gap-2 rounded-sm px-1.5 py-1.5 text-[12.5px] font-normal hover:bg-accent/50',
+              o.disabled && 'opacity-45'
+            )}
           >
-            <Checkbox checked={selected.includes(o.value)} onCheckedChange={() => onToggle(o.value)} />
+            <Checkbox
+              checked={selected.includes(o.value)}
+              disabled={o.disabled}
+              onCheckedChange={() => onToggle(o.value)}
+            />
             <span className={cn('truncate', o.depth === 1 && 'pl-2 text-muted-foreground')}>{o.label}</span>
             {o.count != null && (
               <span className="ml-auto pl-2 text-[11px] tabular-nums text-muted-foreground">{fmtInt(o.count)}</span>

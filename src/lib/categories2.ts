@@ -7,9 +7,19 @@ export interface Category2 {
   name: string
   mainTypes: number[]
   mediaTypes: number[]
+  /** Genres MAM expects alongside this one, like Fantasy under Urban Fantasy. */
+  requires: number[]
+  /** Genres that cannot be picked together with this one. */
+  excludes: number[]
 }
 
-const CACHE_KEY = 'colophon:categories2'
+export interface Taxonomy2 {
+  categories: Category2[]
+  mediaTypes: { id: number; name: string }[]
+  mainTypes: { id: number; name: string }[]
+}
+
+const CACHE_KEY = 'colophon:categories2:v2'
 const SOURCE_URL = '/tor/json/categories.php?new&js'
 const ASSIGNMENT_PREFIX = 'var categoryDefinitions = '
 
@@ -18,68 +28,106 @@ interface RawCategory {
   name: string
   main_type_ids: number[]
   media_type_ids: number[]
+  required_siblings?: number[]
+  excluded_siblings?: number[]
 }
 
-function parseDefinitions(text: string): Category2[] {
+interface RawType {
+  id: string
+  name: string
+}
+
+const numbers = (v: unknown): number[] => (Array.isArray(v) ? v.map(Number).filter((n) => n > 0) : [])
+
+function parseTypes(raw: Record<string, RawType> | undefined): { id: number; name: string }[] {
+  return Object.values(raw ?? {})
+    .map((t) => ({ id: Number(t.id), name: String(t.name) }))
+    .filter((t) => t.id > 0 && t.name)
+    .sort((a, b) => a.id - b.id)
+}
+
+function parseDefinitions(text: string): Taxonomy2 {
+  const empty: Taxonomy2 = { categories: [], mediaTypes: [], mainTypes: [] }
   const start = text.indexOf(ASSIGNMENT_PREFIX)
-  if (start < 0) return []
+  if (start < 0) return empty
   const json = text.slice(start + ASSIGNMENT_PREFIX.length).replace(/;\s*$/, '')
   try {
-    const parsed = JSON.parse(json) as { categories?: Record<string, RawCategory> }
-    return Object.values(parsed.categories ?? {})
-      .map((c) => ({
-        id: Number(c.id),
-        name: String(c.name),
-        mainTypes: Array.isArray(c.main_type_ids) ? c.main_type_ids.map(Number) : [],
-        mediaTypes: Array.isArray(c.media_type_ids) ? c.media_type_ids.map(Number) : [],
-      }))
-      .filter((c) => c.id > 0 && c.name)
-      .sort((a, b) => a.name.localeCompare(b.name))
+    const parsed = JSON.parse(json) as {
+      categories?: Record<string, RawCategory>
+      media_types?: Record<string, RawType>
+      main_types?: Record<string, RawType>
+    }
+    return {
+      categories: Object.values(parsed.categories ?? {})
+        .map((c) => ({
+          id: Number(c.id),
+          name: String(c.name),
+          mainTypes: numbers(c.main_type_ids),
+          mediaTypes: numbers(c.media_type_ids),
+          requires: numbers(c.required_siblings),
+          excludes: numbers(c.excluded_siblings),
+        }))
+        .filter((c) => c.id > 0 && c.name)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+      mediaTypes: parseTypes(parsed.media_types),
+      mainTypes: parseTypes(parsed.main_types),
+    }
   } catch {
-    return []
+    return empty
   }
 }
 
-let inFlight: Promise<Category2[]> | null = null
+const EMPTY: Taxonomy2 = { categories: [], mediaTypes: [], mainTypes: [] }
 
-export function loadCategories2(): Promise<Category2[]> {
+let inFlight: Promise<Taxonomy2> | null = null
+
+export function loadTaxonomy2(): Promise<Taxonomy2> {
   try {
     const cached = sessionStorage.getItem(CACHE_KEY)
-    if (cached) return Promise.resolve(JSON.parse(cached) as Category2[])
+    if (cached) return Promise.resolve(JSON.parse(cached) as Taxonomy2)
   } catch {
     // storage may be unavailable
   }
   inFlight ??= fetch(SOURCE_URL, { credentials: 'include' })
     .then((res) => (res.ok ? res.text() : Promise.reject(new Error(`categories failed: ${res.status}`))))
     .then((text) => {
-      const cats = parseDefinitions(text)
-      if (cats.length) {
+      const tax = parseDefinitions(text)
+      if (tax.categories.length) {
         try {
-          sessionStorage.setItem(CACHE_KEY, JSON.stringify(cats))
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify(tax))
         } catch {
           // storage may be unavailable
         }
       }
-      return cats
+      return tax
     })
-    .catch(() => [])
+    .catch(() => EMPTY)
     .finally(() => {
       inFlight = null
     })
   return inFlight
 }
 
-/** null while loading, then the list; an empty list means the fetch failed. */
-export function useCategories2(): Category2[] | null {
-  const [cats, setCats] = useState<Category2[] | null>(null)
+export function loadCategories2(): Promise<Category2[]> {
+  return loadTaxonomy2().then((t) => t.categories)
+}
+
+/** null while loading, then the taxonomy; empty lists mean the fetch failed. */
+export function useTaxonomy2(): Taxonomy2 | null {
+  const [tax, setTax] = useState<Taxonomy2 | null>(null)
   useEffect(() => {
     let live = true
-    void loadCategories2().then((c) => {
-      if (live) setCats(c)
+    void loadTaxonomy2().then((t) => {
+      if (live) setTax(t)
     })
     return () => {
       live = false
     }
   }, [])
-  return cats
+  return tax
+}
+
+/** null while loading, then the list; an empty list means the fetch failed. */
+export function useCategories2(): Category2[] | null {
+  return useTaxonomy2()?.categories ?? null
 }
