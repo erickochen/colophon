@@ -121,7 +121,10 @@ function groups(page: ShellData, counts: NotifCounts): { dashboard: NavItem; gro
           { title: 'My uploads', href: '/tor/search.php?s=%7B%22tor%22%3A%7B%22uploader%22%3A%22me%22%7D%2C%22searchType%22%3A%22Torrents%22%7D', icon: Upload, fold: 2 },
         ],
         more: [
-          { title: 'Upload torrent', href: '/tor/requestUpload.php' },
+          // MAM sends uploaders to the form and everyone else to the application
+          // page, so follow its own menu. Without that entry the account type is
+          // unknown; most members do not hold the right.
+          { title: 'Upload torrent', href: page.uploadHref ?? '/tor/requestUpload.php' },
           { title: 'Unsats', href: '/snatch_summary.php#unsat', badge: page.stats.unsats || null },
           { title: 'History graph', href: '/stats/userBonusPointHistory.php' },
           { title: 'Client status', href: '/userClientDetails.php' },

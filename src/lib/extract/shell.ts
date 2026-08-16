@@ -28,6 +28,7 @@ export interface ShellData {
   pmCount: number
   donationPct: string | null
   serverDate: string | null
+  uploadHref: string | null
   mainContent: HTMLElement | null
   title: string
 }
@@ -119,6 +120,28 @@ function readAlerts(doc: Document): SiteAlert[] {
   return out
 }
 
+/** MAM aims its own upload entry at one of two pages: the upload form for
+ * members who hold the right, the application page for everyone else. The item
+ * carries no id or class, so the target is the signal. */
+const UPLOAD_PATHS = new Set(['/tor/upload.php', '/tor/requestUpload.php'])
+
+/** Which upload page this account gets, as a root-relative link. Null when the
+ * entry is absent, which a preference or another userscript can do. Menu hrefs
+ * are relative today, so resolve before matching in case that ever changes. */
+function readUploadHref(doc: Document): string | null {
+  for (const a of doc.querySelectorAll<HTMLAnchorElement>('#mainmenu a[href]')) {
+    const href = a.getAttribute('href') ?? ''
+    let url: URL
+    try {
+      url = new URL(href, doc.baseURI)
+    } catch {
+      continue
+    }
+    if (UPLOAD_PATHS.has(url.pathname)) return url.pathname + url.search
+  }
+  return null
+}
+
 /** Value of a user-submenu entry, by label ("FL Wedges: N" -> "N"). */
 function userMenuValue(doc: Document, label: RegExp): string | null {
   const items = doc.querySelectorAll('li.mmUserStats ul li a')
@@ -197,6 +220,7 @@ export function capturePage(doc: Document): ShellData {
     pmCount,
     donationPct: donationRaw?.match(/([\d.]+%)/)?.[1] ?? null,
     serverDate: doc.querySelector('#preNav .tP')?.getAttribute('data-basedate') ?? null,
+    uploadHref: readUploadHref(doc),
     mainContent: doc.querySelector<HTMLElement>('#mainBody') ?? doc.querySelector<HTMLElement>('main'),
     title: doc.title.replace(/\s*\|\s*My Anonamouse\s*$/, ''),
   }
