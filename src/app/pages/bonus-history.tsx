@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Gift, History, Coins, Gauge, TrendingUp } from 'lucide-react'
+import { Gift, History, Coins, Gauge, Ticket, TrendingDown, TrendingUp } from 'lucide-react'
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import type { PageProps } from '@/app/router'
 import { fmtInt, relTime } from '@/lib/format'
 import { PageHeader, UserLink } from '@/app/shell/bits'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { AreaTrend, type TrendSeries } from '@/components/ui/area-trend'
+import {
+  ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig,
+} from '@/components/ui/chart'
 import { FilterSegments } from '@/components/filters'
 import { NumberRoll } from '@/components/ui/number-roll'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -26,7 +29,7 @@ interface BonusEvent {
 
 type MetricKey = 'sat' | 'unsat' | 'leeching' | 'bonus' | 'pph' | 'ratio' | 'wedges' | 'up' | 'down'
 
-const METRICS: Record<MetricKey, { label: string; color: string }> = {
+const METRICS = {
   sat: { label: 'Satisfied seeding', color: 'var(--chart-3)' },
   unsat: { label: 'Unsatisfied seeding', color: 'var(--chart-4)' },
   leeching: { label: 'Leeching', color: 'var(--chart-2)' },
@@ -36,41 +39,103 @@ const METRICS: Record<MetricKey, { label: string; color: string }> = {
   wedges: { label: 'FL wedges', color: 'var(--chart-4)' },
   up: { label: 'Upload (GiB)', color: 'var(--chart-3)' },
   down: { label: 'Download (GiB)', color: 'var(--chart-4)' },
+} satisfies Record<MetricKey, { label: string; color: string }> & ChartConfig
+
+/* A band is a gradient area under its own line. Stacked bands share a stackId
+ * so they sit on top of each other rather than overlapping. Animation stays off:
+ * a range holds hundreds of points and every one of them would tween. */
+function band(key: MetricKey, opts: { stacked?: boolean; width?: number } = {}) {
+  return (
+    <Area
+      key={key}
+      dataKey={key}
+      type="monotone"
+      stackId={opts.stacked ? 'a' : undefined}
+      stroke={`var(--color-${key})`}
+      strokeWidth={opts.width ?? 2}
+      fill={`url(#fill-${key})`}
+      isAnimationActive={false}
+      dot={false}
+      activeDot={{ r: 3.5, strokeWidth: 2 }}
+    />
+  )
 }
 
-const band = (key: MetricKey): TrendSeries<Trend> => ({ key, ...METRICS[key] })
+const FILL_TOP = 0.35
+const FILL_BOTTOM = 0.04
 
-/* Quarter-hour samples draw as sawtooth; average them into ~72 buckets so
- * the curves read as trends, the way modern dashboards do. */
-function downsample(rows: Trend[], target: number): Trend[] {
-  if (rows.length <= target) return rows
-  const NUMERIC = ['leeching', 'unsat', 'sat', 'wedges', 'pph', 'bonus', 'up', 'down', 'ratio'] as const
-  const size = rows.length / target
+function fills(keys: readonly MetricKey[]) {
+  return (
+    <defs>
+      {keys.map((k) => (
+        <linearGradient key={k} id={`fill-${k}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor={`var(--color-${k})`} stopOpacity={FILL_TOP} />
+          <stop offset="95%" stopColor={`var(--color-${k})`} stopOpacity={FILL_BOTTOM} />
+        </linearGradient>
+      ))}
+    </defs>
+  )
+}
+
+/** Axis numbers stay short: 12,400 reads as 12.4k so the lane stays narrow. A
+ * decimal that lands on zero is dropped, so 6.0k and 12k do not sit under each
+ * other written two different ways. */
+function compact(v: number): string {
+  const n = Math.abs(v)
+  const trim = (s: string) => s.replace(/\.0$/, '')
+  if (n >= 1_000_000) return `${trim((v / 1_000_000).toFixed(1))}M`
+  if (n >= 1_000) return `${trim((v / 1_000).toFixed(n >= 10_000 ? 0 : 1))}k`
+  return String(Math.round(v * 100) / 100)
+}
+
+const Y_AXIS_W = 46
+// Room for the last axis label so it does not clip against the card edge.
+const CHART_MARGIN = { left: 4, right: 12, top: 8 }
+
+// A wide chart is around this many pixels wide. A point per pixel is all one
+// can show, so every sample the tracker took is drawn below this.
+const MAX_POINTS = 900
+
+/** Thin a long series without flattening it. Each bucket keeps its lowest plus
+ * its highest row in time order, so a spike or a dip survives the pass. Height
+ * is the top of the drawing: the sum for stacked bands, the tallest series
+ * otherwise. */
+function sample(rows: Trend[], keys: readonly MetricKey[], stacked = false): Trend[] {
+  if (rows.length <= MAX_POINTS) return rows
+  const height = (r: Trend) =>
+    stacked ? keys.reduce((sum, k) => sum + r[k], 0) : Math.max(...keys.map((k) => r[k]))
+  const buckets = Math.floor(MAX_POINTS / 2)
+  const size = rows.length / buckets
   const out: Trend[] = []
-  for (let i = 0; i < target; i++) {
+  for (let i = 0; i < buckets; i++) {
     const start = Math.floor(i * size)
-    const end = Math.max(Math.floor((i + 1) * size), start + 1)
-    const slice = rows.slice(start, end)
-    const mid = { ...slice[Math.floor(slice.length / 2)] }
-    for (const k of NUMERIC) {
-      let sum = 0
-      for (const r of slice) sum += r[k]
-      mid[k] = sum / slice.length
+    const end = Math.min(rows.length, Math.max(Math.floor((i + 1) * size), start + 1))
+    let lo = start
+    let hi = start
+    for (let j = start + 1; j < end; j++) {
+      if (height(rows[j]) < height(rows[lo])) lo = j
+      if (height(rows[j]) > height(rows[hi])) hi = j
     }
-    out.push(mid)
+    out.push(rows[Math.min(lo, hi)])
+    if (lo !== hi) out.push(rows[Math.max(lo, hi)])
   }
-  out[out.length - 1] = rows[rows.length - 1]
+  // The newest reading always ends the curve, otherwise the right edge can
+  // disagree with the totals beside it.
+  const last = rows[rows.length - 1]
+  if (out[out.length - 1] !== last) out.push(last)
   return out
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000
+
+// Ranges cut on time rather than on a sample count, so a gap in the tracker's
+// history cannot stretch a range past the days it names.
 const RANGES = [
-  { k: 'day', label: '24h', pts: 96 },
-  { k: 'week', label: '7d', pts: 672 },
-  { k: 'all', label: 'All', pts: Infinity },
+  { k: 'day', label: '24h', span: DAY_MS },
+  { k: 'week', label: '7d', span: 7 * DAY_MS },
+  { k: 'all', label: 'All', span: Infinity },
 ] as const
 type RangeKey = (typeof RANGES)[number]['k']
-
-const DAY_MS = 24 * 60 * 60 * 1000
 // Up to this span the axis reads as clock times, above it as dates.
 const CLOCK_SPAN_MS = 2 * DAY_MS
 
@@ -81,23 +146,66 @@ function tick(t: string): string {
   return Number.isNaN(d.getTime()) ? t : d.toLocaleString('en-US', { month: 'short', day: 'numeric' })
 }
 
-/** Axis plus tooltip label. A day of history needs hours, a month needs dates. */
+/** Axis label. A day of history needs hours, a month needs dates. */
 function labelFor(spanMs: number) {
-  return (row: Trend): string => {
-    const d = parseTs(row.t)
-    if (Number.isNaN(d.getTime())) return row.t
+  return (t: string): string => {
+    const d = parseTs(t)
+    if (Number.isNaN(d.getTime())) return t
     return spanMs <= CLOCK_SPAN_MS
       ? d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
       : d.toLocaleString('en-US', { month: 'short', day: 'numeric' })
   }
 }
 
+// Labels past this crowd the lane on a narrow card.
+const MAX_TICKS = 8
+
+/** Tick values on day boundaries. A short range switches to hour boundaries.
+ * Spacing the axis by distance instead would print the same date twice, since
+ * a day holds many samples. */
+function axisTicks(rows: Trend[], spanMs: number): string[] {
+  const bucket = (t: string) => (spanMs <= CLOCK_SPAN_MS ? t.slice(0, 13) : t.slice(0, 10))
+  const firsts: string[] = []
+  let prev = ''
+  for (const r of rows) {
+    const key = bucket(r.t)
+    if (key !== prev) {
+      firsts.push(r.t)
+      prev = key
+    }
+  }
+  const step = Math.max(1, Math.ceil(firsts.length / MAX_TICKS))
+  return firsts.filter((_, i) => i % step === 0)
+}
+
+/** Tooltip heading: the exact moment, since the axis only carries a rough one.
+ * The label arrives as a node, so anything that is not our timestamp goes back
+ * out untouched. */
+function stamp(label: ReactNode): ReactNode {
+  if (typeof label !== 'string') return label
+  const d = parseTs(label)
+  if (Number.isNaN(d.getTime())) return label
+  return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+}
+
+/** MAM files a gift under one type whichever way it went, so the sign is what
+ * says who gave. */
 function eventLabel(e: BonusEvent): string {
+  const sent = e.amount < 0
   switch (e.type) {
-    case 'giftPoints': return 'Gift received'
-    case 'giftSent': return 'Gift sent'
+    case 'giftPoints': return sent ? 'Gift sent' : 'Gift received'
+    case 'giftWedge': return sent ? 'Wedge sent' : 'Wedge received'
+    case 'wedgePF': return 'Wedge spent'
     default: return e.type.replace(/([A-Z])/g, ' $1').replace(/^\w/, (c) => c.toUpperCase()).trim()
   }
+}
+
+/** A gift moved between two members, a wedge landed on a torrent plus anything
+ * else is the balance itself. */
+function eventIcon(type: string) {
+  if (type.startsWith('gift')) return Gift
+  if (/wedge/i.test(type)) return Ticket
+  return Coins
 }
 
 function Stat({ icon, label, value, hint }: { icon: ReactNode; label: string; value: ReactNode; hint?: string }) {
@@ -147,11 +255,32 @@ export function BonusHistoryView({ page }: PageProps) {
   }, [])
 
   const fullView = useMemo(() => {
-    if (!trends) return []
-    const pts = RANGES.find((r) => r.k === range)!.pts
-    return pts === Infinity ? trends : trends.slice(-pts)
+    if (!trends?.length) return []
+    const span = RANGES.find((r) => r.k === range)!.span
+    if (span === Infinity) return trends
+    // Measured back from the last sample, so the range holds whatever the
+    // tracker recorded rather than whatever the clock says.
+    const end = parseTs(trends[trends.length - 1].t).getTime()
+    if (Number.isNaN(end)) return trends
+    return trends.filter((r) => {
+      const at = parseTs(r.t).getTime()
+      return Number.isNaN(at) || at >= end - span
+    })
   }, [trends, range])
-  const view = useMemo(() => downsample(fullView, 72), [fullView])
+
+  // Each chart thins on the series it draws, so no peak is lost to a metric
+  // that sits still on another card.
+  const bonusView = useMemo(() => sample(fullView, ['bonus']), [fullView])
+  const seedView = useMemo(() => sample(fullView, ['leeching', 'unsat', 'sat'], true), [fullView])
+  const transferView = useMemo(() => sample(fullView, ['down', 'up']), [fullView])
+  const singleViews = useMemo(
+    () => ({
+      pph: sample(fullView, ['pph']),
+      ratio: sample(fullView, ['ratio']),
+      wedges: sample(fullView, ['wedges']),
+    }),
+    [fullView]
+  )
 
   const stats = useMemo(() => {
     const agg = (pick: (r: Trend) => number) => {
@@ -173,13 +302,39 @@ export function BonusHistoryView({ page }: PageProps) {
   const loading = trends === null
   const rangeLabel = fullView.length ? `${tick(fullView[0].t)} to ${tick(fullView[fullView.length - 1].t)}` : ''
 
-  const xLabel = useMemo(() => {
-    if (view.length < 2) return labelFor(0)
-    const from = parseTs(view[0].t).getTime()
-    const to = parseTs(view[view.length - 1].t).getTime()
-    const span = Number.isFinite(from) && Number.isFinite(to) ? Math.abs(to - from) : 0
-    return labelFor(span)
-  }, [view])
+  /** What the balance did across the range, walked step by step: everything the
+   * tracker added, everything spent plus where the two leave you. */
+  const flow = useMemo(() => {
+    let earned = 0
+    let spent = 0
+    for (let i = 1; i < fullView.length; i++) {
+      const step = fullView[i].bonus - fullView[i - 1].bonus
+      if (step > 0) earned += step
+      else spent -= step
+    }
+    return { earned: Math.round(earned), spent: Math.round(spent), net: Math.round(earned - spent) }
+  }, [fullView])
+
+  const span = useMemo(() => {
+    if (fullView.length < 2) return 0
+    const from = parseTs(fullView[0].t).getTime()
+    const to = parseTs(fullView[fullView.length - 1].t).getTime()
+    return Number.isFinite(from) && Number.isFinite(to) ? Math.abs(to - from) : 0
+  }, [fullView])
+  const xLabel = useMemo(() => labelFor(span), [span])
+  // Ticks come from the rows a chart actually draws: a thinned series may not
+  // hold the row a shared tick list would point at.
+  const xTicks = useMemo(
+    () => ({
+      bonus: axisTicks(bonusView, span),
+      seed: axisTicks(seedView, span),
+      transfer: axisTicks(transferView, span),
+      pph: axisTicks(singleViews.pph, span),
+      ratio: axisTicks(singleViews.ratio, span),
+      wedges: axisTicks(singleViews.wedges, span),
+    }),
+    [bonusView, seedView, transferView, singleViews, span]
+  )
 
 
   return (
@@ -205,27 +360,34 @@ export function BonusHistoryView({ page }: PageProps) {
       <Card>
         <CardHeader>
           <CardTitle>Bonus points</CardTitle>
-          <CardDescription>Cumulative points earned in this range.</CardDescription>
+          <CardDescription>What your balance did over this range. Every drop is something you bought.</CardDescription>
         </CardHeader>
         <CardContent>
-          {loading ? <Skeleton className="h-[250px] w-full" /> : view.length === 0 ? (
+          {loading ? <Skeleton className="h-[250px] w-full" /> : bonusView.length === 0 ? (
             <p className="py-16 text-center text-sm text-muted-foreground">The tracker did not return any history.</p>
           ) : (
-            <AreaTrend
-              className="h-[250px] w-full"
-              data={view}
-              series={[band('bonus')]}
-              x={xLabel}
-              indicator="line"
-            />
+            <ChartContainer config={METRICS} className="aspect-auto h-[250px] w-full">
+              <AreaChart accessibilityLayer data={bonusView} margin={CHART_MARGIN}>
+                {fills(['bonus'])}
+                <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                <XAxis dataKey="t" tickLine={false} axisLine={false} tickMargin={8} ticks={xTicks.bonus} tickFormatter={xLabel} />
+                <YAxis tickLine={false} axisLine={false} width={Y_AXIS_W} tickFormatter={compact} />
+                <ChartTooltip content={<ChartTooltipContent indicator="line" labelFormatter={stamp} />} />
+                {band('bonus')}
+              </AreaChart>
+            </ChartContainer>
           )}
         </CardContent>
         <CardFooter>
           <div className="grid gap-1.5 text-sm">
             <div className="flex items-center gap-2 leading-none font-medium">
-              Earned {fmtInt(Math.round(last?.bonus ?? 0))} points this range <TrendingUp className="size-4" />
+              Earned {fmtInt(flow.earned)} points this range
+              {flow.net >= 0 ? <TrendingUp className="size-4 text-ok" /> : <TrendingDown className="size-4 text-warn" />}
             </div>
-            <div className="leading-none text-muted-foreground">{rangeLabel}</div>
+            <div className="leading-none text-muted-foreground">
+              {flow.spent > 0 ? `Spent ${fmtInt(flow.spent)}, so ${flow.net >= 0 ? '+' : '−'}${fmtInt(Math.abs(flow.net))} on balance · ` : ''}
+              {rangeLabel}
+            </div>
           </div>
         </CardFooter>
       </Card>
@@ -236,16 +398,20 @@ export function BonusHistoryView({ page }: PageProps) {
           <CardDescription>Satisfied and unsatisfied seeding, plus anything still leeching.</CardDescription>
         </CardHeader>
         <CardContent>
-          {loading ? <Skeleton className="h-52 w-full" /> : view.length > 0 && (
-            <AreaTrend
-              className="h-52 w-full"
-              data={view}
-              series={[band('leeching'), band('unsat'), band('sat')]}
-              x={xLabel}
-              stacked
-              legend
-              strokeWidth={1}
-            />
+          {loading ? <Skeleton className="h-52 w-full" /> : seedView.length > 0 && (
+            <ChartContainer config={METRICS} className="aspect-auto h-52 w-full">
+              <AreaChart accessibilityLayer data={seedView} margin={CHART_MARGIN}>
+                {fills(['leeching', 'unsat', 'sat'])}
+                <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                <XAxis dataKey="t" tickLine={false} axisLine={false} tickMargin={8} ticks={xTicks.seed} tickFormatter={xLabel} />
+                <YAxis tickLine={false} axisLine={false} width={Y_AXIS_W} tickFormatter={compact} />
+                <ChartTooltip content={<ChartTooltipContent labelFormatter={stamp} />} />
+                <ChartLegend content={<ChartLegendContent />} />
+                {band('leeching', { stacked: true, width: 1 })}
+                {band('unsat', { stacked: true, width: 1 })}
+                {band('sat', { stacked: true, width: 1 })}
+              </AreaChart>
+            </ChartContainer>
           )}
         </CardContent>
         <CardFooter>
@@ -270,14 +436,17 @@ export function BonusHistoryView({ page }: PageProps) {
               <CardDescription>{note}</CardDescription>
             </CardHeader>
             <CardContent>
-              {loading ? <Skeleton className="h-44 w-full" /> : view.length > 0 && (
-                <AreaTrend
-                  className="h-44 w-full"
-                  data={view}
-                  series={[band(key)]}
-                  x={xLabel}
-                  indicator="line"
-                />
+              {loading ? <Skeleton className="h-44 w-full" /> : singleViews[key].length > 0 && (
+                <ChartContainer config={METRICS} className="aspect-auto h-44 w-full">
+                  <AreaChart accessibilityLayer data={singleViews[key]} margin={CHART_MARGIN}>
+                    {fills([key])}
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                    <XAxis dataKey="t" tickLine={false} axisLine={false} tickMargin={8} ticks={xTicks[key]} tickFormatter={xLabel} />
+                    <YAxis tickLine={false} axisLine={false} width={Y_AXIS_W} tickFormatter={compact} />
+                    <ChartTooltip content={<ChartTooltipContent indicator="line" labelFormatter={stamp} />} />
+                    {band(key)}
+                  </AreaChart>
+                </ChartContainer>
               )}
             </CardContent>
           </Card>
@@ -289,15 +458,19 @@ export function BonusHistoryView({ page }: PageProps) {
             <CardDescription>Upload and download in this range, in GiB.</CardDescription>
           </CardHeader>
           <CardContent>
-            {loading ? <Skeleton className="h-44 w-full" /> : view.length > 0 && (
-              <AreaTrend
-                className="h-44 w-full"
-                data={view}
-                series={[band('down'), band('up')]}
-                x={xLabel}
-                legend
-                strokeWidth={1}
-              />
+            {loading ? <Skeleton className="h-44 w-full" /> : transferView.length > 0 && (
+              <ChartContainer config={METRICS} className="aspect-auto h-44 w-full">
+                <AreaChart accessibilityLayer data={transferView} margin={CHART_MARGIN}>
+                  {fills(['down', 'up'])}
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <XAxis dataKey="t" tickLine={false} axisLine={false} tickMargin={8} ticks={xTicks.transfer} tickFormatter={xLabel} />
+                  <YAxis tickLine={false} axisLine={false} width={Y_AXIS_W} tickFormatter={compact} />
+                  <ChartTooltip content={<ChartTooltipContent labelFormatter={stamp} />} />
+                  <ChartLegend content={<ChartLegendContent />} />
+                  {band('down', { width: 1 })}
+                  {band('up', { width: 1 })}
+                </AreaChart>
+              </ChartContainer>
             )}
           </CardContent>
         </Card>
@@ -332,10 +505,12 @@ export function BonusHistoryView({ page }: PageProps) {
         </CardHeader>
         <CardContent className="grid px-0 py-1">
           {events?.length === 0 && <p className="px-6 py-8 text-center text-sm text-muted-foreground">No recent point events.</p>}
-          {events?.map((e, i) => (
+          {events?.map((e, i) => {
+            const Icon = eventIcon(e.type)
+            return (
             <div key={i} className="flex items-center justify-between gap-4 px-6 py-2.5 text-[13px]">
               <span className="flex min-w-0 items-center gap-2">
-                <Gift className="size-3.5 shrink-0 text-muted-foreground" />
+                <Icon className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="font-medium">{eventLabel(e)}</span>
                 {e.other_name && <> · <UserLink name={e.other_name} href={e.other_userid ? `/u/${e.other_userid}` : null} /></>}
                 {e.title && <span className="truncate text-muted-foreground"> · {e.title}</span>}
@@ -345,7 +520,8 @@ export function BonusHistoryView({ page }: PageProps) {
                 <span className="w-16 text-right text-[11.5px] text-muted-foreground">{relTime(new Date(e.timestamp * 1000).toISOString())}</span>
               </span>
             </div>
-          ))}
+            )
+          })}
           {events === null && <div className="grid gap-2 px-6 py-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-5 w-full" />)}</div>}
         </CardContent>
       </Card>
