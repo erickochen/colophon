@@ -1,7 +1,10 @@
 import * as React from "react"
+import { motion, useInView, useReducedMotion } from "motion/react"
 
 import { COVER_ASPECT, type CoverShape } from "@/lib/cover-shape"
 import { cn } from "@/lib/utils"
+import { Magnet } from "@/components/ui/magnet"
+import { Tilt } from "@/components/ui/tilt"
 
 // Deterministic linen color for covers that never arrive.
 export function bookSpineHue(title: string): number {
@@ -123,56 +126,53 @@ export function Book({ poster, title, author, shape = "portrait", frame, frameCl
   )
 }
 
-/* Hero variant: rests face-on and tilts toward the cursor, the 3d-card
- * pattern. Inline transforms only, so it works inside the shadow root. */
+// The side under the pointer dips away, the way a card presses down.
+const HERO_TILT_DEGREES = 8
+const HERO_TILT_SPRING = { stiffness: 260, damping: 26, mass: 0.8 }
+
+/* Hero variant: rests face-on and tilts toward the cursor on a spring. */
 export function Book3D({ className, children, ...props }: BookProps & { children?: React.ReactNode }) {
-  const ref = React.useRef<HTMLSpanElement>(null)
-  const [tilt, setTilt] = React.useState<{ x: number; y: number } | null>(null)
-
-  function onMove(e: React.PointerEvent) {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
-    const r = ref.current?.getBoundingClientRect()
-    if (!r) return
-    const px = (e.clientX - r.left) / r.width - 0.5
-    const py = (e.clientY - r.top) / r.height - 0.5
-    setTilt({ x: py * -13, y: px * 19 })
-  }
-
   return (
-    <span
-      ref={ref}
-      onPointerMove={onMove}
-      onPointerLeave={() => setTilt(null)}
-      className={cn("block [perspective:1100px]", className)}
-    >
-      <Book
-        {...props}
-        size="hero"
-        style={{
-          transform: tilt ? `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(1.035)` : undefined,
-          transition: tilt ? "transform 0.08s linear" : "transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)",
-        }}
-        className="shadow-book-lift will-change-transform"
-      />
+    <Tilt rotationFactor={HERO_TILT_DEGREES} isRevese springOptions={HERO_TILT_SPRING} className={cn("block", className)}>
+      <Book {...props} size="hero" className="shadow-book-lift" />
       {children}
-    </span>
+    </Tilt>
   )
 }
 
-/* Ambient glow behind a hero cover: the same image blurred, fading out
- * horizontally. Masks must stay at 90deg or the fade leaves a hard edge. */
+// One breath of the glow: how long it takes and how far it swells.
+const AMBILIGHT_BREATH_SECONDS = 8
+const AMBILIGHT_BREATH_SCALE = 1.08
+// How far the glow follows the pointer: the pointer offset divided by this.
+const AMBILIGHT_MAGNET_STRENGTH = 12
+// The glow blooms in over the same beat as the rest of the hero.
+const AMBILIGHT_BLOOM_SECONDS = 0.9
+
+/* Ambient glow behind a hero cover: the same image blurred across the whole
+ * hero. It breathes while in view and drifts a little toward the pointer. */
 export function BookAmbilight({ poster, className }: { poster: string | null; className?: string }) {
+  const ref = React.useRef<HTMLSpanElement>(null)
+  const inView = useInView(ref)
+  const reduced = useReducedMotion()
   if (!poster) return null
   return (
-    <span
+    <motion.span
+      ref={ref}
       aria-hidden
-      className={cn(
-        "pointer-events-none absolute -inset-y-16 -left-16 z-0 w-[640px] scale-110 opacity-[.55] blur-[52px] saturate-100 dark:opacity-[.38]",
-        "[mask-image:linear-gradient(90deg,oklch(0_0_0)_35%,transparent_88%)]",
-        className
-      )}
+      className={cn("pointer-events-none absolute inset-0 z-0 overflow-hidden", className)}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: AMBILIGHT_BLOOM_SECONDS, ease: "easeOut" }}
     >
-      <img src={poster} alt="" className="size-full object-cover" />
-    </span>
+      <Magnet padding={0} magnetStrength={AMBILIGHT_MAGNET_STRENGTH} disabled={!!reduced} wrapperClassName="size-full align-top" innerClassName="size-full">
+        <motion.span
+          className="absolute -inset-16 block opacity-[.5] blur-[22px] saturate-[1.35] brightness-[1.2] dark:opacity-[.42] dark:brightness-100"
+          animate={inView ? { scale: [1, AMBILIGHT_BREATH_SCALE, 1] } : { scale: 1 }}
+          transition={{ repeat: Infinity, duration: AMBILIGHT_BREATH_SECONDS, ease: "linear", repeatType: "mirror" }}
+        >
+          <img src={poster} alt="" className="size-full object-cover" />
+        </motion.span>
+      </Magnet>
+    </motion.span>
   )
 }

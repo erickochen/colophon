@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
+import { useCallback, useRef, useState, type ComponentProps, type KeyboardEvent, type RefObject } from 'react'
 import { Ticket } from 'lucide-react'
 import { applyPointsUpdate, useLiveWedges } from '@/lib/bonus'
 import { fmtInt, fmtRatio, plural } from '@/lib/format'
@@ -184,7 +184,14 @@ export function WedgeRowButton({ target, className, onDone }: { target: WedgeTar
 }
 
 /** Wedge download on the torrent page, sitting next to the plain Download. */
-export function WedgeDetailButton({ target, emphasis, onDone }: { target: WedgeTarget; emphasis?: boolean; onDone?: () => void }) {
+export function WedgeDetailButton({
+  target, emphasis, size, onDone,
+}: {
+  target: WedgeTarget
+  emphasis?: boolean
+  size?: ComponentProps<typeof Button>['size']
+  onDone?: () => void
+}) {
   const [open, setOpen] = useState(false)
   const [skip] = useFeature('skipWedgeConfirm')
   const { spend, busy } = useSpendWedge(target, onDone ?? (() => {}))
@@ -192,6 +199,7 @@ export function WedgeDetailButton({ target, emphasis, onDone }: { target: WedgeT
     <>
       <Button
         variant={emphasis ? 'default' : 'outline'}
+        size={size}
         disabled={busy}
         onClick={() => (skip ? void spend() : setOpen(true))}
         className={cn(emphasis && 'font-medium')}

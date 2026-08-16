@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type ComponentProps, type RefObject } from 'react'
+import { MotionConfig, motion, useInView, useReducedMotion, type Variants } from 'motion/react'
 import { Bookmark, BookmarkCheck, Check, CircleSlash, Copy, Download, FilePenLine, Flag, Gift, History, Info, Lock, MessageSquarePlus, Minus, MoreHorizontal, Quote, Settings2, Sprout } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { extractTorrent, type MediaNode, type TorrentComment, type TorrentDetail } from '@/lib/extract/torrent'
@@ -18,6 +19,8 @@ import { Book, Book3D, BookAmbilight } from '@/components/book'
 import { TagLinks } from '@/components/tag-links'
 import { TorLinks, useReadingSnippet } from '@/components/tor-links'
 import { WedgeDetailButton } from '@/components/wedge-download'
+import { AnimatedGroup } from '@/components/ui/animated-group'
+import { AnimatedNumber } from '@/components/ui/animated-number'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { BlurFade } from '@/components/ui/blur-fade'
@@ -26,18 +29,38 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/componen
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { ProgressiveBlur } from '@/components/ui/progressive-blur'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TextEffect } from '@/components/ui/text-effect'
 import { toast } from '@/components/ui/toast'
 import { scrollIntoView } from '@/lib/motion'
 
-/** One statline figure: serif number over a small-caps label. */
-function Stat({ label, value, title }: { label: string; value: string; title?: string }) {
+// The statline counts up over the same beat as the words arrive.
+const STAT_COUNT_SPRING = { bounce: 0, duration: 900 }
+
+/** A stat figure that starts at zero on the first paint and counts up. */
+function CountUp({ value }: { value: number }) {
+  const reduced = useReducedMotion()
+  const [shown, setShown] = useState(0)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setShown(value))
+    return () => cancelAnimationFrame(id)
+  }, [value])
+  if (reduced) return <>{fmtInt(value)}</>
+  return <AnimatedNumber value={shown} springOptions={STAT_COUNT_SPRING} />
+}
+
+/** One statline figure: serif number over a small-caps label. A count rolls
+ * in from zero; any other value stands still. */
+function Stat({ label, value, count, title }: { label: string; value: string; count?: number; title?: string }) {
   return (
     <div>
-      <b className="block font-display text-[17px] font-semibold tabular-nums" title={title}>{value}</b>
+      <b className="block font-display text-[17px] font-semibold tabular-nums" title={title}>
+        {count != null ? <CountUp value={count} /> : value}
+      </b>
       <span className="text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground">{label}</span>
     </div>
   )
@@ -85,13 +108,12 @@ function proxyClick(sel: string, fail: string): boolean {
   return false
 }
 
-// Same status idiom as the topbar chips: a small dot carries the level, the
-// text only turns loud when action is needed.
-const RATIO_NOTE_TONE: Record<RatioLevel, { text: string; dot: string | null }> = {
-  none: { text: 'text-muted-foreground', dot: null },
-  notice: { text: 'text-muted-foreground', dot: 'bg-warn' },
-  warn: { text: 'font-medium text-warn', dot: 'bg-warn' },
-  block: { text: 'font-medium text-destructive', dot: 'bg-destructive' },
+// The text color carries the level; it only turns loud when action is needed.
+const RATIO_NOTE_TONE: Record<RatioLevel, string> = {
+  none: 'text-muted-foreground',
+  notice: 'text-foreground',
+  warn: 'font-medium text-warn',
+  block: 'font-medium text-destructive',
 }
 
 /** On/off switch and personal floor for the ratio guard, kept in localStorage. */
@@ -147,15 +169,13 @@ function GuardSettings({ guard }: { guard: RatioGuard }) {
   )
 }
 
-/** What one click costs, shown above the buttons so the reason comes before
- * the choice. Appears once the totals arrive. */
-function RatioNote({ guard, className }: { guard: RatioGuard; className?: string }) {
+/** What one click costs, as a footnote under the buttons. Appears once the
+ * totals arrive. */
+function RatioNote({ guard }: { guard: RatioGuard }) {
   const { current, next, drop, level } = guard.impact
   if (drop != null && drop <= TRIVIAL_DROP) return null
-  const tone = RATIO_NOTE_TONE[level]
   return (
-    <p className={cn('mt-2 text-[12px] leading-snug', tone.text, className)}>
-      {tone.dot && <span aria-hidden className={cn('mr-1.5 inline-block size-1.5 rounded-full align-[1px]', tone.dot)} />}
+    <p className={cn('mt-2 text-[12px] leading-snug', RATIO_NOTE_TONE[level])}>
       {current == null ? (
         <>First download: your ratio would start at <b className="tabular-nums">{fmtRatio(next)}</b>.</>
       ) : (
@@ -168,56 +188,75 @@ function RatioNote({ guard, className }: { guard: RatioGuard; className?: string
   )
 }
 
-/** Download row with the ratio guard: freeleech, VIP and seeding torrents pass
- * untouched; a blocking ratio hit swaps the plain download for the FL routes. */
-function DownloadDock({ data, spent, onSpent }: { data: TorrentDetail; spent: boolean; onSpent: () => void }) {
-  const freeCost = data.freeleech || data.personalFreeleech || data.vip
-  // History quiets the guard but not the wedge: MAM keeps its own FL link on
-  // torrents you seed. A fresh download of an old snatch costs ratio again.
-  const guard = useRatioGuard(freeCost || !!data.dlHistory || !!data.downloadBlocked || spent ? null : data.size)
-  const href = data.downloadHref ?? (data.id ? `/tor/download.php?tid=${data.id}` : null)
-  const level = guard?.impact.level ?? 'none'
-  const buyFl = data.ratio?.buttons.find((b) => b.name === 'personalFL')
+type ButtonSize = ComponentProps<typeof Button>['size']
 
-  const wedgeAction = freeCost || !!data.downloadBlocked || spent ? null : data.id != null ? (
-    <WedgeDetailButton
-      target={{ id: data.id, title: data.title, size: data.size, href }}
-      onDone={onSpent}
-    />
-  ) : buyFl ? (
+/** Where the plain download goes; null when the page offers none. */
+function downloadHref(data: TorrentDetail): string | null {
+  return data.downloadHref ?? (data.id ? `/tor/download.php?tid=${data.id}` : null)
+}
+
+/** The plain download for the current guard level: locked, blocked or live. */
+function DownloadButton({ data, level, size }: { data: TorrentDetail; level: RatioLevel; size?: ButtonSize }) {
+  const href = downloadHref(data)
+  if (data.downloadBlocked) return <Button size={size} disabled><Download /> Download blocked</Button>
+  if (!href) return null
+  if (level === 'block') return <Button size={size} disabled variant="outline"><Lock /> Download</Button>
+  return (
+    <Button size={size} asChild>
+      <a href={href}><Download /> Download</a>
+    </Button>
+  )
+}
+
+/** The wedge route, when the torrent still costs ratio. */
+function WedgeAction({ data, spent, onSpent, size }: { data: TorrentDetail; spent: boolean; onSpent: () => void; size?: ButtonSize }) {
+  const freeCost = data.freeleech || data.personalFreeleech || data.vip
+  const buyFl = data.ratio?.buttons.find((b) => b.name === 'personalFL')
+  if (freeCost || !!data.downloadBlocked || spent || !downloadHref(data)) return null
+  if (data.id != null) {
+    return (
+      <WedgeDetailButton
+        target={{ id: data.id, title: data.title, size: data.size, href: downloadHref(data) }}
+        size={size}
+        onDone={onSpent}
+      />
+    )
+  }
+  if (!buyFl) return null
+  return (
     <Button
       variant="outline"
+      size={size}
       title="Spends one FL wedge"
       onClick={() => proxyClick(`input[data-freetor="${buyFl.torId}"][name="personalFL"]`, 'Buying freeleech is not available right now.')}
     >
       <Gift /> {buyFl.label}
     </Button>
-  ) : null
+  )
+}
 
+/** Download row with the ratio guard: freeleech, VIP and seeding torrents pass
+ * untouched; a blocking ratio hit swaps the plain download for the FL routes.
+ * The row ref lets the sticky strip know when the buttons scroll away. */
+function DownloadDock({
+  data, guard, spent, onSpent, rowRef,
+}: {
+  data: TorrentDetail
+  guard: RatioGuard | null
+  spent: boolean
+  onSpent: () => void
+  rowRef: RefObject<HTMLDivElement | null>
+}) {
+  const level = guard?.impact.level ?? 'none'
   return (
     <>
-      {guard && !data.downloadBlocked && <RatioNote guard={guard} className="mt-5 mb-0" />}
-      <div className="mt-3 flex flex-wrap items-center gap-2.5">
-        {data.downloadBlocked ? (
-          <Button disabled><Download /> Download blocked</Button>
-        ) : href ? (
-          level === 'block' ? (
-            <>
-              <Button disabled variant="outline"><Lock /> Download</Button>
-              {wedgeAction}
-            </>
-          ) : (
-            <>
-              <Button asChild>
-                <a href={href}><Download /> Download</a>
-              </Button>
-              {wedgeAction}
-            </>
-          )
-        ) : null}
+      <div ref={rowRef} className="mt-5 flex flex-wrap items-center gap-2.5">
+        <DownloadButton data={data} level={level} />
+        <WedgeAction data={data} spent={spent} onSpent={onSpent} />
         <BookmarkButton />
         <MoreActions data={data} />
       </div>
+      {guard && !data.downloadBlocked && <RatioNote guard={guard} />}
       {data.downloadBlocked && (
         <p className="mt-2 text-[12px] leading-snug text-muted-foreground">{data.downloadBlocked}</p>
       )}
@@ -251,6 +290,69 @@ function MoreActions({ data }: { data: TorrentDetail }) {
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+// The topbar the strip has to clear; it is h-14 before it condenses.
+const TOPBAR_HEIGHT_PX = 56
+// The watch root reaches this far below the viewport, so only a button row
+// that scrolled up past the topbar counts as gone. One still below the fold
+// on a narrow screen does not.
+const WATCH_BELOW_PX = 100000
+// Hidden means gone for the keyboard and the pointer too, not only faded.
+const MINI_HERO_STATES: Variants = {
+  hidden: { opacity: 0, y: -8, transition: { duration: 0.2 }, transitionEnd: { visibility: 'hidden' } },
+  visible: { opacity: 1, y: 0, visibility: 'visible', transition: { duration: 0.25, ease: [0.16, 1, 0.3, 1] } },
+}
+
+/** The hero condensed to one strip: cover, title and the download routes. It
+ * sticks under the topbar once the button row scrolls up past it. On lg it
+ * stops where the sticky details card begins; below sm one action fits. */
+function MiniHero({
+  data, guard, spent, onSpent, watch,
+}: {
+  data: TorrentDetail
+  guard: RatioGuard | null
+  spent: boolean
+  onSpent: () => void
+  watch: RefObject<HTMLElement | null>
+}) {
+  const dockInView = useInView(watch, { margin: `-${TOPBAR_HEIGHT_PX}px 0px ${WATCH_BELOW_PX}px 0px`, initial: true })
+  const level = guard?.impact.level ?? 'none'
+  const shape = coverShape({ mediatype: mediaTypeFromHref(data.catIconHref) })
+  const download = <DownloadButton data={data} level={level} size="sm" />
+  const wedge = <WedgeAction data={data} spent={spent} onSpent={onSpent} size="sm" />
+  // Nothing to keep at hand when the account cannot download this at all.
+  if (data.downloadBlocked || !downloadHref(data)) return null
+  return (
+    <div className="sticky top-12 z-10 h-0 lg:mr-[340px]">
+      <motion.div
+        initial={false}
+        animate={dockInView ? 'hidden' : 'visible'}
+        variants={MINI_HERO_STATES}
+        inert={dockInView}
+        className="pt-3"
+      >
+        <Card className="flex-row items-center gap-3 px-3 py-2 shadow-card">
+          <span className="shrink-0 text-[6px]">
+            <Book poster={data.poster} title={data.title ?? ''} shape={shape} frame="square" frameClassName="size-8" plain size="row" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-display text-[15px] font-semibold leading-tight">{data.title}</span>
+            {data.authors.length > 0 && (
+              <span className="hidden truncate text-[12px] text-muted-foreground sm:block">
+                by {data.authors.map((a) => a.name).join(', ')}
+              </span>
+            )}
+          </span>
+          <span className="flex shrink-0 items-center sm:hidden">{level === 'block' ? wedge : download}</span>
+          <span className="hidden shrink-0 items-center gap-2 sm:flex">
+            {download}
+            {wedge}
+          </span>
+        </Card>
+      </motion.div>
+    </div>
   )
 }
 
@@ -981,6 +1083,61 @@ function EditionsStrip({ data }: { data: TorrentDetail }) {
   )
 }
 
+// The frosted column: backdrop blur layers that grow toward the text.
+const HERO_GLASS_LAYERS = 6
+const HERO_GLASS_BLUR_STEP_PX = 6
+
+// The arrival, one sequence under 800ms: the book settles first, the kicker
+// follows, the title writes itself per word and the rest of the column trails.
+const ARRIVAL_EASE = [0.16, 1, 0.3, 1] as const
+const ARRIVAL_STAGGER_S = 0.06
+const TITLE_DELAY_S = 0.14
+const TITLE_REVEAL_SPEED = 1.6
+const BODY_DELAY_S = 0.32
+
+const ARRIVAL_ITEM: Variants = {
+  hidden: { opacity: 0, y: 10, filter: 'blur(6px)' },
+  visible: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.5, ease: ARRIVAL_EASE } },
+}
+
+const arrivalGroup = (delayChildren: number) => ({
+  container: { hidden: {}, visible: { transition: { staggerChildren: ARRIVAL_STAGGER_S, delayChildren } } },
+  item: ARRIVAL_ITEM,
+})
+
+const KICKER_ARRIVAL = arrivalGroup(0)
+const BODY_ARRIVAL = arrivalGroup(BODY_DELAY_S)
+
+const TITLE_ARRIVAL = {
+  item: {
+    hidden: { opacity: 0, y: 8, filter: 'blur(8px)' },
+    visible: { opacity: 1, y: 0, filter: 'blur(0px)' },
+  } satisfies Variants,
+}
+
+// The book swings in from a slight angle and settles on a spring.
+const BOOK_ARRIVAL = {
+  container: { hidden: {}, visible: {} },
+  item: {
+    hidden: { opacity: 0, x: -14, rotateY: -16, transformPerspective: 1100 },
+    visible: {
+      opacity: 1,
+      x: 0,
+      rotateY: 0,
+      transformPerspective: 1100,
+      transition: { type: 'spring', stiffness: 130, damping: 17, mass: 1, opacity: { duration: 0.45, ease: 'easeOut' } },
+    },
+  } satisfies Variants,
+}
+
+interface StatEntry {
+  label: string
+  value: string | null
+  /** Set for whole numbers, which count up on arrival. */
+  count?: number
+  title?: string
+}
+
 export function TorrentView(props: PageProps) {
   const data = useMemo(() => extractTorrent(document), [])
   const [points, setPoints] = useState(() => {
@@ -992,6 +1149,11 @@ export function TorrentView(props: PageProps) {
   const [spent, setSpent] = useState(false)
   const thankBox = useRef<HTMLDivElement>(null)
   const thankInput = useRef<HTMLInputElement>(null)
+  const dockRow = useRef<HTMLDivElement>(null)
+  // History quiets the guard but not the wedge: MAM keeps its own FL link on
+  // torrents you seed. A fresh download of an old snatch costs ratio again.
+  const guardFree = !data || !data.title || data.freeleech || data.personalFreeleech || data.vip || !!data.dlHistory || !!data.downloadBlocked || spent
+  const guard = useRatioGuard(guardFree ? null : data.size)
 
   if (!data || !data.title) return <LegacyView {...props} />
 
@@ -1025,332 +1187,368 @@ export function TorrentView(props: PageProps) {
     !(data.freeleech || data.personalFreeleech || data.vip) && !data.downloadBlocked && !spent && data.id != null
   const sideRatioButtons = data.ratio?.buttons.filter((b) => !(dockHasWedge && b.name === 'personalFL')) ?? []
 
-  const stats = [
+  const count = (raw: string | null) => (raw ? countOf(raw) : undefined)
+  const stats: StatEntry[] = [
     { label: 'size', value: data.size },
-    { label: data.files.count === '1' ? 'file' : 'files', value: data.files.count && fmtInt(data.files.count) },
-    { label: 'seeders', value: data.seeders && fmtInt(data.seeders) },
-    { label: 'leechers', value: data.leechers && fmtInt(data.leechers) },
-    { label: 'snatched', value: data.snatched && fmtInt(data.snatched) },
+    { label: data.files.count === '1' ? 'file' : 'files', value: data.files.count && fmtInt(data.files.count), count: count(data.files.count) },
+    { label: 'seeders', value: data.seeders && fmtInt(data.seeders), count: count(data.seeders) },
+    { label: 'leechers', value: data.leechers && fmtInt(data.leechers), count: count(data.leechers) },
+    { label: 'snatched', value: data.snatched && fmtInt(data.snatched), count: count(data.snatched) },
     { label: 'added', value: data.added && relTime(data.added), title: utcTitle(data.added) || undefined },
-  ].filter((s): s is { label: string; value: string; title?: string } => !!s.value)
+  ]
+  const shownStats = stats.filter((s): s is StatEntry & { value: string } => !!s.value)
 
   return (
-    // grid-cols-1 pins the tracks to the page width; a bare grid would widen
-    // to the min-content of the series strip and push cards past the card edge.
-    <div className="grid grid-cols-1 gap-5">
-      {/* HERO: ambilight glow from the cover, 3D book, kicker and statline */}
-      <BlurFade direction="up" offset={12}>
+    <MotionConfig reducedMotion="user">
+      <MiniHero data={data} guard={guard} spent={spent} onSpent={() => setSpent(true)} watch={dockRow} />
+      {/* grid-cols-1 pins the tracks to the page width; a bare grid would widen
+          to the min-content of the series strip and push cards past the card
+          edge. */}
+      <div className="grid grid-cols-1 gap-5">
+        {/* HERO: ambilight glow from the cover, 3D book, kicker and statline */}
         <div className="relative overflow-hidden rounded-xl border bg-card shadow-card">
           {data.poster && (
             <>
               <BookAmbilight poster={data.poster} />
+              {/* The glass runs under the text column: to the right of the
+                  book from sm up, below the book while the hero stacks. */}
+              <ProgressiveBlur
+                direction="right"
+                blurLayers={HERO_GLASS_LAYERS}
+                blurIntensity={HERO_GLASS_BLUR_STEP_PX}
+                className="pointer-events-none absolute inset-y-0 left-[26%] right-0 z-1 max-sm:hidden"
+              />
+              <ProgressiveBlur
+                direction="bottom"
+                blurLayers={HERO_GLASS_LAYERS}
+                blurIntensity={HERO_GLASS_BLUR_STEP_PX}
+                className="pointer-events-none absolute inset-x-0 bottom-0 top-[30%] z-1 sm:hidden"
+              />
               <div
                 aria-hidden
-                className="pointer-events-none absolute inset-0 z-1 bg-[linear-gradient(90deg,transparent,color-mix(in_oklab,var(--card)_55%,transparent)_45%,var(--card)_82%)]"
+                className={cn(
+                  'pointer-events-none absolute inset-0 z-1',
+                  'bg-[linear-gradient(180deg,transparent_24%,color-mix(in_oklab,var(--card)_64%,transparent)_40%,color-mix(in_oklab,var(--card)_92%,transparent)_100%)]',
+                  'sm:bg-[linear-gradient(90deg,transparent_12%,color-mix(in_oklab,var(--card)_64%,transparent)_30%,color-mix(in_oklab,var(--card)_92%,transparent)_100%)]'
+                )}
               />
             </>
           )}
           <div className="relative z-2 grid gap-8 p-6 sm:grid-cols-[252px_minmax(0,1fr)] sm:p-8">
-            <div className="mx-auto w-full max-w-[252px] sm:mx-0">
+            <AnimatedGroup variants={BOOK_ARRIVAL} className="mx-auto w-full max-w-[252px] sm:mx-0">
               <Book3D poster={data.poster} title={data.title} shape={coverShape({ mediatype: mediaTypeFromHref(data.catIconHref) })} className="text-[15px]" />
-            </div>
+            </AnimatedGroup>
 
             <div className="min-w-0">
-              {/* Status only. What the torrent is about lives in Details, so one
-                  row of chips carries one meaning. */}
-              {(data.dlHistory || data.vip || data.freeleech || data.personalFreeleech || spent || data.fileTypes.length > 0) && (
-                <div className="mb-3 flex flex-wrap items-center gap-1.5">
-                  {data.dlHistory && <DlHistoryBadge label={data.dlHistory} />}
-                  {data.freeleech && <Badge className="bg-ok/15 text-ok" variant="secondary">Freeleech</Badge>}
-                  {(data.personalFreeleech || spent) && (
-                    <Badge className="bg-ok/15 text-ok" variant="secondary">Personal freeleech</Badge>
-                  )}
-                  {data.vip && (
-                    <Badge
-                      className="bg-brand-soft text-accent-foreground"
-                      variant="secondary"
-                      title={data.vipExpires ? `VIP freeleech expires ${data.vipExpires}` : 'VIP freeleech'}
-                    >
-                      VIP{data.vipExpires && ` · until ${data.vipExpires}`}
-                    </Badge>
-                  )}
-                  {data.fileTypes.map((f) => (
-                    <Badge key={f} variant="outline" className="font-mono uppercase">{f}</Badge>
-                  ))}
-                </div>
-              )}
+              <AnimatedGroup variants={KICKER_ARRIVAL}>
+                {/* Status only. What the torrent is about lives in Details, so one
+                    row of chips carries one meaning. */}
+                {(data.dlHistory || data.vip || data.freeleech || data.personalFreeleech || spent || data.fileTypes.length > 0) && (
+                  <div key="badges" className="mb-3 flex flex-wrap items-center gap-1.5">
+                    {data.dlHistory && <DlHistoryBadge label={data.dlHistory} />}
+                    {data.freeleech && <Badge className="bg-ok/15 text-ok" variant="secondary">Freeleech</Badge>}
+                    {(data.personalFreeleech || spent) && (
+                      <Badge className="bg-ok/15 text-ok" variant="secondary">Personal freeleech</Badge>
+                    )}
+                    {data.vip && (
+                      <Badge
+                        className="bg-brand-soft text-accent-foreground"
+                        variant="secondary"
+                        title={data.vipExpires ? `VIP freeleech expires ${data.vipExpires}` : 'VIP freeleech'}
+                      >
+                        VIP{data.vipExpires && ` · until ${data.vipExpires}`}
+                      </Badge>
+                    )}
+                    {data.fileTypes.map((f) => (
+                      <Badge key={f} variant="outline" className="font-mono uppercase">{f}</Badge>
+                    ))}
+                  </div>
+                )}
 
-              {data.series.length > 0 && (
-                <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-brand">
-                  {data.series.map((s, i) => (
-                    <span key={s.href + i}>
-                      {i > 0 && <span className="text-muted-foreground/60"> / </span>}
-                      <a href={s.href} className="hover:underline">
-                        {s.name}
-                        {s.part && ` · Part ${s.part}`}
-                      </a>
-                    </span>
-                  ))}
-                </div>
-              )}
+                {data.series.length > 0 && (
+                  <div key="series" className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-brand">
+                    {data.series.map((s, i) => (
+                      <span key={s.href + i}>
+                        {i > 0 && <span className="text-muted-foreground/60"> / </span>}
+                        <a href={s.href} className="hover:underline">
+                          {s.name}
+                          {s.part && ` · Part ${s.part}`}
+                        </a>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </AnimatedGroup>
 
-              <h1 className="font-display text-[31px] font-semibold leading-[1.15] tracking-[-0.018em] text-balance">{data.title}</h1>
+              <TextEffect
+                as="h1"
+                per="word"
+                preset="fade-in-blur"
+                variants={TITLE_ARRIVAL}
+                delay={TITLE_DELAY_S}
+                speedReveal={TITLE_REVEAL_SPEED}
+                className="font-display text-[31px] font-semibold leading-[1.15] tracking-[-0.018em] text-balance"
+              >
+                {data.title}
+              </TextEffect>
 
-              {(data.authors.length > 0 || data.narrators.length > 0) && (
-                <p className="mt-2 text-[14px] text-muted-foreground">
-                  {data.authors.length > 0 && <>by {people(data.authors)}</>}
-                  {data.narrators.length > 0 && (
-                    <>
-                      {data.authors.length > 0 && ' · '}
-                      read by {people(data.narrators)}
-                    </>
-                  )}
-                </p>
-              )}
+              <AnimatedGroup variants={BODY_ARRIVAL}>
+                {(data.authors.length > 0 || data.narrators.length > 0) && (
+                  <p key="people" className="mt-2 text-[14px] text-muted-foreground">
+                    {data.authors.length > 0 && <>by {people(data.authors)}</>}
+                    {data.narrators.length > 0 && (
+                      <>
+                        {data.authors.length > 0 && ' · '}
+                        read by {people(data.narrators)}
+                      </>
+                    )}
+                  </p>
+                )}
 
-              <TorLinks data={data} />
+                <TorLinks key="links" data={data} />
 
-              {stats.length > 0 && (
-                <div className="mt-5 flex flex-wrap gap-x-7 gap-y-3 border-t pt-4">
-                  {stats.map((s) => <Stat key={s.label} label={s.label} value={s.value} title={s.title} />)}
-                </div>
-              )}
+                {shownStats.length > 0 && (
+                  <div key="stats" className="mt-5 flex flex-wrap gap-x-7 gap-y-3 border-t pt-4">
+                    {shownStats.map((s) => <Stat key={s.label} label={s.label} value={s.value} count={s.count} title={s.title} />)}
+                  </div>
+                )}
 
-              {data.mediaInfoMicro && (
-                <p className="mt-3 font-mono text-[11.5px] tracking-wide text-muted-foreground">{data.mediaInfoMicro}</p>
-              )}
+                {data.mediaInfoMicro && (
+                  <p key="micro" className="mt-3 font-mono text-[11.5px] tracking-wide text-muted-foreground">{data.mediaInfoMicro}</p>
+                )}
 
-              <DownloadDock data={data} spent={spent} onSpent={() => setSpent(true)} />
+                <DownloadDock key="dock" data={data} guard={guard} spent={spent} onSpent={() => setSpent(true)} rowRef={dockRow} />
+              </AnimatedGroup>
             </div>
           </div>
         </div>
-      </BlurFade>
 
-      {/* grid-cols-1 below lg as well: a bare grid gets an auto track that a
-          wide table pushes past the page instead of scrolling inside its own
-          box. */}
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-        {/* MAIN COLUMN: description, series strip, media info, files, peers */}
-        <div className="grid min-w-0 grid-cols-1 gap-5">
-          {data.descriptionHtml && (
-            <Card>
-              <CardHeader><CardTitle>Description</CardTitle></CardHeader>
-              <CardContent>
-                <div
-                  className="user-html prose-read prose-dropcap text-[14.5px] leading-[1.68] [&_a]:text-brand [&_a]:underline [&_p]:mb-3.5 [&_p:last-child]:mb-0"
-                  dangerouslySetInnerHTML={{ __html: data.descriptionHtml }}
-                />
-              </CardContent>
-            </Card>
-          )}
+        {/* grid-cols-1 below lg as well: a bare grid gets an auto track that a
+            wide table pushes past the page instead of scrolling inside its own
+            box. */}
+        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+          {/* MAIN COLUMN: description, series strip, media info, files, peers */}
+          <div className="grid min-w-0 grid-cols-1 gap-5">
+            {data.descriptionHtml && (
+              <Card>
+                <CardHeader><CardTitle>Description</CardTitle></CardHeader>
+                <CardContent>
+                  <div
+                    className="user-html prose-read prose-dropcap text-[14.5px] leading-[1.68] [&_a]:text-brand [&_a]:underline [&_p]:mb-3.5 [&_p:last-child]:mb-0"
+                    dangerouslySetInnerHTML={{ __html: data.descriptionHtml }}
+                  />
+                </CardContent>
+              </Card>
+            )}
 
-          {data.series.length > 0 && <SeriesStrip data={data} />}
+            {data.series.length > 0 && <SeriesStrip data={data} />}
 
-          <EditionsStrip data={data} />
+            <EditionsStrip data={data} />
 
-          <TorrentPanels data={data} />
+            <TorrentPanels data={data} />
+          </div>
+
+          {/* DETAILS sidebar: A24-style label-over-value grid */}
+          <Card className="lg:sticky lg:top-20">
+            <CardHeader><CardTitle>Details</CardTitle></CardHeader>
+            <CardContent>
+              <dl className="divide-y divide-border/50">
+                {data.uploader && (
+                  <KV label="Uploaded by">
+                    <a className="font-medium hover:underline" style={{ color: mutedUserColor(data.uploader.color) }} href={data.uploader.href}>
+                      {data.uploader.name}
+                    </a>
+                    <Button
+                      variant="link"
+                      className="mt-0.5 block h-auto p-0 text-[12px] text-brand"
+                      onClick={() => {
+                        scrollIntoView(thankBox.current, { block: 'center' })
+                        thankInput.current?.focus({ preventScroll: true })
+                      }}
+                    >
+                      Say thanks
+                    </Button>
+                  </KV>
+                )}
+
+                {genres.length > 0 && (
+                  <KV label="Genres" full>
+                    <div className="flex flex-wrap gap-1.5">
+                      {genres.map((c) => (
+                        <Badge key={c.href} variant="secondary" asChild><a href={c.href}>{c.name}</a></Badge>
+                      ))}
+                    </div>
+                  </KV>
+                )}
+
+                {languages.length > 0 && (
+                  <KV label="Language">
+                    {languages.map((c, i) => (
+                      <span key={c.href + i}>
+                        {i > 0 && ', '}
+                        <a className="hover:underline" href={c.href}>{c.name}</a>
+                      </span>
+                    ))}
+                  </KV>
+                )}
+
+                {data.tags && (
+                  <KV label="Tags" full>
+                    <TagLinks raw={data.tags} full chips />
+                  </KV>
+                )}
+
+                {/* The badges live in the hero now, so this row is what you can
+                    still do about the cost. A spent wedge makes both untrue. */}
+                {data.ratio && !spent && (sideRatioButtons.length > 0 || data.ratio.note) && (
+                  <KV label="Freeleech" full>
+                    <div className="grid gap-2 text-[13px]">
+                      {sideRatioButtons.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {sideRatioButtons.map((b) => (
+                            <Button
+                              key={b.name ?? b.label}
+                              size="sm"
+                              variant="outline"
+                              className="h-8 gap-1.5"
+                              title="Spend a wedge to make this a personal freeleech download."
+                              onClick={() =>
+                                proxyClick(
+                                  `input[data-freetor="${b.torId}"]${b.name ? `[name="${b.name}"]` : ''}`,
+                                  'This freeleech option is not available.',
+                                )
+                              }
+                            >
+                              <Gift className="size-3.5" /> {b.label}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+                      {data.ratio.note && <div className="text-[12px] text-muted-foreground">{data.ratio.note}</div>}
+                    </div>
+                  </KV>
+                )}
+
+                {!data.ratio && !data.freeleech && !data.personalFreeleech && !spent && data.ratioHtml && (
+                  <KV label="Ratio after" full>
+                    <div
+                      className="text-[13px] leading-relaxed text-muted-foreground [&_a]:text-brand [&_a]:underline"
+                      dangerouslySetInnerHTML={{ __html: data.ratioHtml }}
+                    />
+                  </KV>
+                )}
+
+                {data.reseed && (
+                  <KV label="Reseed" full>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
+                      {data.reseed.status && <span>{data.reseed.status}</span>}
+                      {data.reseed.actionHref && (
+                        <a href={data.reseed.actionHref} className="text-brand underline">Request reseed</a>
+                      )}
+                      {data.reseed.reason && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="link" className="h-auto gap-1 p-0 text-[12.5px] text-brand">
+                              <Info className="size-3.5" /> Find out why
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-64 text-[13px] leading-relaxed">{data.reseed.reason}</PopoverContent>
+                        </Popover>
+                      )}
+                    </div>
+                  </KV>
+                )}
+
+                {data.downloadBlocked && (
+                  <KV label="Access" full>
+                    <span className="text-[13px] leading-relaxed text-muted-foreground">
+                      {data.downloadBlocked}{' '}
+                      {data.blockedClassesHref && (
+                        <a href={data.blockedClassesHref} className="text-brand underline">About the classes</a>
+                      )}
+                    </span>
+                  </KV>
+                )}
+
+                {data.extraRows.map((r, i) => (
+                  <KV key={i} label={r.label}>
+                    <span className="legacy-html" dangerouslySetInnerHTML={{ __html: r.html }} />
+                  </KV>
+                ))}
+              </dl>
+
+              {(data.hasSubmitInfo || data.reportIssueHref) && (
+                <div className="mt-4 grid justify-items-start gap-1 border-t pt-3.5">
+                  {data.hasSubmitInfo && (
+                    <Button
+                      variant="link"
+                      className={FOOTER_LINK}
+                      onClick={() => proxyClick('#submitInfo [data-tormissdataj]', 'Submitting info is not available for this torrent.')}
+                    >
+                      <FilePenLine className="size-3.5 shrink-0" /> Submit missing info
+                    </Button>
+                  )}
+                  {data.reportIssueHref && (
+                    <Button asChild variant="link" className={FOOTER_LINK}>
+                      <a href={data.reportIssueHref}>
+                        <Flag className="size-3.5 shrink-0" /> Report an issue
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
-        {/* DETAILS sidebar: A24-style label-over-value grid */}
-        <Card className="lg:sticky lg:top-20">
-          <CardHeader><CardTitle>Details</CardTitle></CardHeader>
-          <CardContent>
-            <dl className="divide-y divide-border/50">
-              {data.uploader && (
-                <KV label="Uploaded by">
-                  <a className="font-medium hover:underline" style={{ color: mutedUserColor(data.uploader.color) }} href={data.uploader.href}>
-                    {data.uploader.name}
-                  </a>
-                  <Button
-                    variant="link"
-                    className="mt-0.5 block h-auto p-0 text-[12px] text-brand"
-                    onClick={() => {
-                      scrollIntoView(thankBox.current, { block: 'center' })
-                      thankInput.current?.focus({ preventScroll: true })
-                    }}
-                  >
-                    Say thanks
-                  </Button>
-                </KV>
+        {/* COMMENTS: full width, real conversation */}
+        <Card className="gap-0 py-0">
+          <CardHeader className="flex flex-row items-center justify-between !py-3.5">
+            <CardTitle>
+              Comments{data.commentCount ? ` (${data.commentCount})` : data.comments.length ? ` (${data.comments.length})` : ''}
+            </CardTitle>
+            {data.addCommentHref && (
+              <Button asChild size="sm" variant="outline" className="h-8">
+                <a href={data.addCommentHref}><MessageSquarePlus /> Add comment</a>
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent className="grid gap-4 px-6 py-5">
+            {/* Thank the uploader, inline */}
+            <div ref={thankBox} className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 px-4 py-3">
+              <Gift className="size-4 text-brand" />
+              <span className="text-[13px] font-medium">Thank the uploader</span>
+              <Input
+                ref={thankInput}
+                type="number"
+                min={0}
+                max={THANK_MAX}
+                step={50}
+                value={points}
+                onChange={(e) => setPoints(e.target.value)}
+                placeholder="0"
+                aria-invalid={!thankValid}
+                aria-describedby={thankValid ? undefined : 'thank-points-hint'}
+                className="ml-auto h-8 w-24"
+              />
+              <span className="text-[12.5px] text-muted-foreground">points</span>
+              <Button size="sm" className="h-8" onClick={thank} disabled={!thankValid}>Say thanks</Button>
+              {!thankValid && (
+                <span id="thank-points-hint" className="basis-full text-[11.5px] text-destructive">
+                  A whole number up to {THANK_MAX.toLocaleString('en-US')}. Empty sends plain thanks.
+                </span>
               )}
-
-              {genres.length > 0 && (
-                <KV label="Genres" full>
-                  <div className="flex flex-wrap gap-1.5">
-                    {genres.map((c) => (
-                      <Badge key={c.href} variant="secondary" asChild><a href={c.href}>{c.name}</a></Badge>
-                    ))}
-                  </div>
-                </KV>
-              )}
-
-              {languages.length > 0 && (
-                <KV label="Language">
-                  {languages.map((c, i) => (
-                    <span key={c.href + i}>
-                      {i > 0 && ', '}
-                      <a className="hover:underline" href={c.href}>{c.name}</a>
-                    </span>
-                  ))}
-                </KV>
-              )}
-
-              {data.tags && (
-                <KV label="Tags" full>
-                  <TagLinks raw={data.tags} full chips />
-                </KV>
-              )}
-
-              {/* The badges live in the hero now, so this row is what you can
-                  still do about the cost. A spent wedge makes both untrue. */}
-              {data.ratio && !spent && (sideRatioButtons.length > 0 || data.ratio.note) && (
-                <KV label="Freeleech" full>
-                  <div className="grid gap-2 text-[13px]">
-                    {sideRatioButtons.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {sideRatioButtons.map((b) => (
-                          <Button
-                            key={b.name ?? b.label}
-                            size="sm"
-                            variant="outline"
-                            className="h-8 gap-1.5"
-                            title="Spend a wedge to make this a personal freeleech download."
-                            onClick={() =>
-                              proxyClick(
-                                `input[data-freetor="${b.torId}"]${b.name ? `[name="${b.name}"]` : ''}`,
-                                'This freeleech option is not available.',
-                              )
-                            }
-                          >
-                            <Gift className="size-3.5" /> {b.label}
-                          </Button>
-                        ))}
-                      </div>
-                    )}
-                    {data.ratio.note && <div className="text-[12px] text-muted-foreground">{data.ratio.note}</div>}
-                  </div>
-                </KV>
-              )}
-
-              {!data.ratio && !data.freeleech && !data.personalFreeleech && !spent && data.ratioHtml && (
-                <KV label="Ratio after" full>
-                  <div
-                    className="text-[13px] leading-relaxed text-muted-foreground [&_a]:text-brand [&_a]:underline"
-                    dangerouslySetInnerHTML={{ __html: data.ratioHtml }}
-                  />
-                </KV>
-              )}
-
-              {data.reseed && (
-                <KV label="Reseed" full>
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
-                    {data.reseed.status && <span>{data.reseed.status}</span>}
-                    {data.reseed.actionHref && (
-                      <a href={data.reseed.actionHref} className="text-brand underline">Request reseed</a>
-                    )}
-                    {data.reseed.reason && (
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="link" className="h-auto gap-1 p-0 text-[12.5px] text-brand">
-                            <Info className="size-3.5" /> Find out why
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64 text-[13px] leading-relaxed">{data.reseed.reason}</PopoverContent>
-                      </Popover>
-                    )}
-                  </div>
-                </KV>
-              )}
-
-              {data.downloadBlocked && (
-                <KV label="Access" full>
-                  <span className="text-[13px] leading-relaxed text-muted-foreground">
-                    {data.downloadBlocked}{' '}
-                    {data.blockedClassesHref && (
-                      <a href={data.blockedClassesHref} className="text-brand underline">About the classes</a>
-                    )}
-                  </span>
-                </KV>
-              )}
-
-              {data.extraRows.map((r, i) => (
-                <KV key={i} label={r.label}>
-                  <span className="legacy-html" dangerouslySetInnerHTML={{ __html: r.html }} />
-                </KV>
-              ))}
-            </dl>
-
-            {(data.hasSubmitInfo || data.reportIssueHref) && (
-              <div className="mt-4 grid justify-items-start gap-1 border-t pt-3.5">
-                {data.hasSubmitInfo && (
-                  <Button
-                    variant="link"
-                    className={FOOTER_LINK}
-                    onClick={() => proxyClick('#submitInfo [data-tormissdataj]', 'Submitting info is not available for this torrent.')}
-                  >
-                    <FilePenLine className="size-3.5 shrink-0" /> Submit missing info
-                  </Button>
-                )}
-                {data.reportIssueHref && (
-                  <Button asChild variant="link" className={FOOTER_LINK}>
-                    <a href={data.reportIssueHref}>
-                      <Flag className="size-3.5 shrink-0" /> Report an issue
-                    </a>
-                  </Button>
-                )}
+            </div>
+            {data.comments.length > 0 ? (
+              <div className="grid">
+                {data.comments.map((c) => <Comment key={c.id} c={c} />)}
               </div>
+            ) : (
+              <p className="py-6 text-center text-sm text-muted-foreground">No comments yet. Be the first to leave one.</p>
             )}
           </CardContent>
         </Card>
       </div>
-
-      {/* COMMENTS: full width, real conversation */}
-      <Card className="gap-0 py-0">
-        <CardHeader className="flex flex-row items-center justify-between !py-3.5">
-          <CardTitle>
-            Comments{data.commentCount ? ` (${data.commentCount})` : data.comments.length ? ` (${data.comments.length})` : ''}
-          </CardTitle>
-          {data.addCommentHref && (
-            <Button asChild size="sm" variant="outline" className="h-8">
-              <a href={data.addCommentHref}><MessageSquarePlus /> Add comment</a>
-            </Button>
-          )}
-        </CardHeader>
-        <CardContent className="grid gap-4 px-6 py-5">
-          {/* Thank the uploader, inline */}
-          <div ref={thankBox} className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 px-4 py-3">
-            <Gift className="size-4 text-brand" />
-            <span className="text-[13px] font-medium">Thank the uploader</span>
-            <Input
-              ref={thankInput}
-              type="number"
-              min={0}
-              max={THANK_MAX}
-              step={50}
-              value={points}
-              onChange={(e) => setPoints(e.target.value)}
-              placeholder="0"
-              aria-invalid={!thankValid}
-              aria-describedby={thankValid ? undefined : 'thank-points-hint'}
-              className="ml-auto h-8 w-24"
-            />
-            <span className="text-[12.5px] text-muted-foreground">points</span>
-            <Button size="sm" className="h-8" onClick={thank} disabled={!thankValid}>Say thanks</Button>
-            {!thankValid && (
-              <span id="thank-points-hint" className="basis-full text-[11.5px] text-destructive">
-                A whole number up to {THANK_MAX.toLocaleString('en-US')}. Empty sends plain thanks.
-              </span>
-            )}
-          </div>
-          {data.comments.length > 0 ? (
-            <div className="grid">
-              {data.comments.map((c) => <Comment key={c.id} c={c} />)}
-            </div>
-          ) : (
-            <p className="py-6 text-center text-sm text-muted-foreground">No comments yet. Be the first to leave one.</p>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+    </MotionConfig>
   )
 }
