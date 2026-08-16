@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Spinner } from '@/components/ui/spinner'
-import { FilterBar, FilterHint, FilterRow, FilterSearch, FilterSelect } from '@/components/filters'
+import { FilterBar, FilterRow, FilterSearch, FilterSelect } from '@/components/filters'
 
 const clean = (s: string | null | undefined) => s?.replace(/\s+/g, ' ').trim() ?? ''
 
@@ -62,11 +62,11 @@ export function UsersView(props: PageProps) {
       <FilterBar>
         <FilterSearch value={text} onChange={setText} onSubmit={run} placeholder="Member name…" autoFocus />
         <FilterRow>
-          <FilterHint>class</FilterHint>
           <FilterSelect
             value={cls}
             onChange={setCls}
             options={classes.map((c) => ({ value: c.value || '-', label: c.label }))}
+            prefix="Class"
             ariaLabel="Member class"
           />
         </FilterRow>

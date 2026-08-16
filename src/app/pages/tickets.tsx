@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Conversation, ConversationBubble } from '@/components/conversation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item'
 import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/toast'
@@ -29,14 +30,23 @@ export interface Ticket {
 }
 export interface TicketSection { title: string; tickets: Ticket[] }
 
-/** Dot plus text tone for a status. MAM's own wording is always what shows, so
- * only the color is a guess and an unknown status keeps a neutral one. */
-function statusTone(status: string): { dot: string; text: string } {
+/** Badge tone for a status. MAM's own wording is always what shows, so only the
+ * color is a guess and an unknown status keeps a neutral one. */
+function statusTone(status: string): string {
   const s = status.toLowerCase()
-  if (/^open/.test(s)) return { dot: 'bg-ok', text: 'text-ok' }
-  if (/pending|waiting|respond/.test(s)) return { dot: 'bg-warn', text: 'text-warn' }
-  if (/closed|resolved/.test(s)) return { dot: 'bg-muted-foreground/40', text: 'text-muted-foreground' }
-  return { dot: 'bg-muted-foreground/40', text: 'text-muted-foreground' }
+  if (/^open/.test(s)) return 'bg-ok/15 text-ok'
+  if (/pending|waiting|respond/.test(s)) return 'bg-warn/15 text-warn'
+  return 'bg-muted text-muted-foreground'
+}
+
+/** MAM writes a status as a state plus what it wants from you, split by a
+ * comma: "Pending Close, respond to reopen". The state fits a badge, the rest
+ * belongs with the other things worth knowing about this ticket. */
+function splitStatus(status: string): { state: string; asks: string | null } {
+  const at = status.indexOf(',')
+  return at < 0
+    ? { state: status, asks: null }
+    : { state: status.slice(0, at).trim(), asks: status.slice(at + 1).trim() || null }
 }
 
 const dateOf = (s: string | null) => s?.match(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/)?.[0] ?? null
@@ -81,34 +91,45 @@ export function readTicketSections(doc: Document): TicketSection[] | null {
 /** One ticket, in the list plus in the strip above the create form. The topic
  * is the headline; the path plus the dates are context under it. */
 export function TicketRow({ t }: { t: Ticket }) {
-  const tone = statusTone(t.status)
+  const { state, asks } = splitStatus(t.status)
   const leaf = t.category.at(-1) ?? 'Ticket'
   const parents = t.category.slice(0, -1).join(' › ')
+  // The subject leads, the path sits behind it as context plus the state gets
+  // the one strong color on the row.
   const inner = (
     <>
-      <span aria-hidden className={cn('mt-[7px] size-2 shrink-0 rounded-full', tone.dot)} />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-[14px] font-semibold leading-snug">{leaf}</div>
-        <div className="pt-0.5 text-[12px] leading-relaxed text-muted-foreground">
-          <span className={tone.text}>{t.status}</span>
-          {parents && <> · {parents}</>}
+      <ItemContent className="gap-0">
+        <ItemTitle className="max-w-full gap-2">
+          <span className="font-display truncate text-[14.5px] font-semibold">{leaf}</span>
+          {parents && <span className="truncate text-[11.5px] font-normal text-muted-foreground">{parents}</span>}
+        </ItemTitle>
+        <ItemDescription className="pt-1 text-[12px]">
           {t.added && (
-            <span className="hidden sm:inline"> · opened <span title={utcTitle(t.added)}>{relTime(t.added)}</span></span>
+            <>opened <span title={utcTitle(t.added)}>{relTime(t.added)}</span></>
           )}
           {t.lastUpdate && (
-            <> · last reply <span title={utcTitle(t.lastUpdate)}>{relTime(t.lastUpdate)}</span>
+            <>{t.added && ' · '}last reply <span title={utcTitle(t.lastUpdate)}>{relTime(t.lastUpdate)}</span>
               {t.lastBy && <> by <UserLink name={t.lastBy} color={t.lastByColor} /></>}
             </>
           )}
-        </div>
-      </div>
-      <ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+          {asks && <span className="text-warn"> · {asks}</span>}
+        </ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        <Badge variant="secondary" className={cn('font-medium', statusTone(t.status))} title={t.status}>
+          {state}
+        </Badge>
+        <ChevronRight className="size-4 text-muted-foreground/60 transition-transform group-hover/item:translate-x-0.5" />
+      </ItemActions>
     </>
   )
-  const cls = 'group flex items-start gap-3 px-6 py-3.5 transition-colors'
-  return t.href
-    ? <a href={t.href} className={cn(cls, 'hover:bg-accent/40')}>{inner}</a>
-    : <div className={cls}>{inner}</div>
+  return t.href ? (
+    <Item asChild size="sm" className="rounded-none px-6 py-3.5">
+      <a href={t.href}>{inner}</a>
+    </Item>
+  ) : (
+    <Item size="sm" className="rounded-none px-6 py-3.5">{inner}</Item>
+  )
 }
 
 export function TicketsView(props: PageProps) {
@@ -120,7 +141,7 @@ export function TicketsView(props: PageProps) {
   const total = sections.reduce((n, s) => n + s.tickets.length, 0)
   const filled = sections.filter((s) => s.tickets.length > 0)
   const newTicket = (
-    <Button asChild size="sm">
+    <Button asChild size="sm" className="h-8 text-[12.5px]">
       <a href="/ticket.php/newTicket"><TicketPlus /> New ticket</a>
     </Button>
   )

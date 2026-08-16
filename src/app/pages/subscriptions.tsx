@@ -4,6 +4,7 @@ import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader, RichHtml } from '@/app/shell/bits'
 import { cleanHtml } from '@/lib/sanitize'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -267,20 +268,23 @@ export function SubscriptionsView(props: PageProps) {
             {data.boards.filter((b) => b.section === section).map((b) => (
               <div key={b.id} className="grid items-center gap-3 px-6 py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
                 <span className="truncate text-[13.5px] font-medium">{b.name}</span>
-                <div className="flex rounded-lg border p-0.5">
+                <ToggleGroup
+                  type="single"
+                  variant="outline"
+                  aria-label={`Watch level for ${b.name}`}
+                  value={b.state}
+                  onValueChange={(v: string) => v && setBoard(b, v as BoardSub['state'])}
+                >
                   {([['unsubscribed', 'Off'], ['new-topics', 'New topics'], ['all-posts', 'All posts']] as const).map(([mode, label]) => (
-                    <button
+                    <ToggleGroupItem
                       key={mode}
-                      onClick={() => setBoard(b, mode)}
-                      className={
-                        'rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors ' +
-                        (b.state === mode ? 'bg-brand-soft text-accent-foreground' : 'text-muted-foreground hover:text-foreground')
-                      }
+                      value={mode}
+                      className="h-8 px-2.5 text-[12px] font-medium text-muted-foreground data-pressed:bg-brand-soft data-pressed:text-accent-foreground"
                     >
                       {label}
-                    </button>
+                    </ToggleGroupItem>
                   ))}
-                </div>
+                </ToggleGroup>
                 <Label className="flex items-center gap-2 text-[12px] font-normal text-muted-foreground">
                   Hide on dashboard
                   <Switch checked={b.hideFront} onCheckedChange={(v) => toggleHide(b, v === true)} />

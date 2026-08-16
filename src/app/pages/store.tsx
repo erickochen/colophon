@@ -69,18 +69,19 @@ function Section({ s, points }: { s: StoreSection; points: number | null }) {
             const c = costOf(o.cost)
             const affordable = points == null || c == null || c <= points
             return (
-              <button
+              <Button
                 key={o.buttonSelector + o.label}
+                variant="outline"
                 onClick={() => buy(o.buttonSelector, o.label)}
                 className={cn(
-                  'group grid gap-0.5 rounded-lg border px-3.5 py-2 text-left transition-colors',
-                  affordable ? 'hover:border-brand/50 hover:bg-brand-soft/40' : 'opacity-55 hover:opacity-100'
+                  'group grid h-auto justify-items-start gap-0.5 px-3.5 py-2 text-left',
+                  affordable ? 'hover:bg-brand-soft/60 dark:hover:bg-brand-soft/60' : 'opacity-55 hover:opacity-100'
                 )}
                 title={affordable ? `Buy for ${o.cost}` : `Costs ${o.cost}, keep earning`}
               >
                 <span className="text-[13.5px] font-semibold">{o.label}</span>
                 <span className={cn('text-[11px]', affordable ? 'text-brand' : 'text-muted-foreground')}>{o.cost}</span>
-              </button>
+              </Button>
             )
           })}
         </div>

@@ -91,9 +91,9 @@ function ResultCard({ r }: { r: Row }) {
         </div>
       )}
       {r.truncated && (
-        <button onClick={() => setExpanded(!expanded)} className="flex w-fit items-center gap-1 text-[12px] font-medium text-brand hover:underline">
+        <Button variant="link" onClick={() => setExpanded(!expanded)} className="h-auto w-fit gap-1 p-0 text-[12px] text-brand">
           <ChevronsUpDown className="size-3.5" /> {expanded ? 'Show less' : 'Show more'}
-        </button>
+        </Button>
       )}
     </div>
   )

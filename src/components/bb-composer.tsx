@@ -3,6 +3,7 @@ import {
   Bold, Braces, ChevronDown, Code, Eye, FileCode2, Image as ImageIcon, Italic, Link2, List,
   ListOrdered, Palette, PencilLine, Quote, Strikethrough, Type, Underline,
 } from 'lucide-react'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -465,9 +466,10 @@ export function BBComposer({
           <PopoverContent className="w-auto p-2" align="start">
             <div className="grid grid-cols-5 gap-1.5">
               {COLORS.map((c) => (
-                <button
+                <Button
                   key={c}
-                  type="button"
+                  variant="ghost"
+                  size="icon"
                   title={c}
                   aria-label={c}
                   onClick={() => (wysiwyg ? exec('foreColor', c) : insert(`[color=${c}]`, '[/color]'))}
@@ -526,26 +528,27 @@ export function BBComposer({
           <span aria-hidden="true" className="hidden text-[10.5px] text-muted-foreground opacity-0 transition-opacity group-focus-within:opacity-100 md:inline">
             Alt+F10 for the toolbar
           </span>
-          <div className="flex items-center gap-0.5 rounded-md bg-muted/70 p-0.5">
+          <ToggleGroup
+            type="single"
+            aria-label="What the box shows"
+            value={tab}
+            onValueChange={(v) => v && setTab(v as typeof tab)}
+            spacing={0.5}
+            className="rounded-md bg-muted/70 p-0.5"
+          >
             {(wysiwyg
               ? ([['write', PencilLine, 'Write'], ['preview', Eye, 'Preview'], ['source', FileCode2, 'Code']] as const)
               : ([['write', PencilLine, 'Write'], ['preview', Eye, 'Preview']] as const)
             ).map(([key, Icon, label]) => (
-              <button
+              <ToggleGroupItem
                 key={key}
-                type="button"
-                tabIndex={-1}
-                aria-pressed={tab === key}
-                onClick={() => setTab(key)}
-                className={cn(
-                  'flex items-center gap-1 rounded px-2 py-0.5 text-[11.5px] transition-colors',
-                  tab === key ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                )}
+                value={key}
+                className="h-6 gap-1 px-2 text-[11.5px] text-muted-foreground data-pressed:bg-background data-pressed:font-medium data-pressed:shadow-sm"
               >
                 <Icon aria-hidden="true" className="size-3" /> {label}
-              </button>
+              </ToggleGroupItem>
             ))}
-          </div>
+          </ToggleGroup>
         </div>
       </div>
 

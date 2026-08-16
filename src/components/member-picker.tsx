@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { UserRound } from 'lucide-react'
 import { searchMembers, type UserRow } from '@/lib/extract/users'
 import { FilterSearch } from '@/components/filters'
+import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
@@ -85,16 +86,17 @@ export function MemberPicker({
               <p className="px-4 py-8 text-center text-[13px] text-muted-foreground">No members match that name.</p>
             ) : (
               rows.map((u, i) => (
-                <button
+                <Button
                   key={u.href + i}
+                  variant="ghost"
                   onClick={() => onPick(u)}
                   disabled={!u.uid}
-                  className="flex w-full items-center gap-2.5 border-b px-4 py-2.5 text-left text-[13px] transition-colors last:border-b-0 hover:bg-accent/40 disabled:opacity-50"
+                  className="h-auto w-full justify-start gap-2.5 rounded-none border-b px-4 py-2.5 text-left text-[13px] font-normal last:border-b-0"
                 >
                   <UserRound className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate font-medium">{u.name}</span>
                   {u.className && <Badge variant="secondary" className="shrink-0 text-[10px]">{u.className}</Badge>}
-                </button>
+                </Button>
               ))
             )}
           </div>

@@ -4,6 +4,7 @@ import type { PageProps } from '@/app/router'
 import { extractFaq, extractRules, type KbSection } from '@/lib/extract/knowledge'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader, RichHtml } from '@/app/shell/bits'
+import { Button } from '@/components/ui/button'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -168,7 +169,7 @@ function KnowledgeBase({ title, sub, sections: raw, mode }: { title: string; sub
         <div className="-mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
           <span className="flex items-center gap-1 font-medium text-brand"><Sparkles className="size-3.5" /> Recently updated</span>
           {updated.map(({ sec, it }) => (
-            <button key={it.key} onClick={() => openUpdated(sec, it.key)} className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">{it.title}</button>
+            <Button key={it.key} variant="link" onClick={() => openUpdated(sec, it.key)} className="h-auto p-0 text-left font-normal text-muted-foreground hover:text-foreground">{it.title}</Button>
           ))}
         </div>
       )}
@@ -186,7 +187,7 @@ function KnowledgeBase({ title, sub, sections: raw, mode }: { title: string; sub
             <Card><CardContent className="grid justify-items-center gap-1 py-12 text-center">
               <Search className="size-5 text-muted-foreground" />
               <p className="text-sm font-medium">Nothing matches “{q.trim()}”</p>
-              <button onClick={() => setQ('')} className="text-[12.5px] text-brand hover:underline">Clear search</button>
+              <Button variant="link" onClick={() => setQ('')} className="h-auto p-0 text-[12.5px] text-brand">Clear search</Button>
             </CardContent></Card>
           )}
         </div>

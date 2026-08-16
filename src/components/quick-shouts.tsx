@@ -80,17 +80,17 @@ export function QuickShouts({ draft, onInsert }: { draft: string; onInsert: (tex
                 </div>
               ) : (
                 <div key={s.name} className="group flex items-center gap-1 rounded-md px-1 hover:bg-muted">
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     onClick={() => {
                       onInsert(s.text)
                       setOpen(false)
                     }}
-                    className="min-w-0 flex-1 rounded px-1.5 py-1.5 text-left focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
+                    className="h-auto min-w-0 flex-1 flex-col items-start gap-0 px-1.5 py-1.5 text-left font-normal hover:bg-transparent"
                   >
-                    <span className="block truncate text-[12.5px] font-medium">{s.name}</span>
-                    <span className="block truncate text-[11.5px] text-muted-foreground">{s.text}</span>
-                  </button>
+                    <span className="block w-full truncate text-[12.5px] font-medium">{s.name}</span>
+                    <span className="block w-full truncate text-[11.5px] text-muted-foreground">{s.text}</span>
+                  </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger
                       aria-label={`Actions for ${s.name}`}

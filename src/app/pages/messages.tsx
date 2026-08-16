@@ -30,7 +30,7 @@ import {
 } from '@/components/conversation'
 import { MemberPicker } from '@/components/member-picker'
 import { BBComposer, type ComposerHandle } from '@/components/bb-composer'
-import { FilterBar, FilterRow, FilterSearch, FilterSegments } from '@/components/filters'
+import { FilterBar, FilterRow, FilterSearch, FilterSegments, TAP_TARGET } from '@/components/filters'
 import { dateOnly, plural, relTime, utcTitle } from '@/lib/format'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -589,11 +589,12 @@ export function MessagesView(props: PageProps) {
               {shown.map((t) => {
                 const count = unreadIn(t)
                 return (
-                  <button
+                  <Button
                     key={t.key}
+                    variant="ghost"
                     onClick={() => openThread(t)}
                     className={cn(
-                      'grid w-full grid-cols-[10px_minmax(0,1fr)] items-start gap-x-2 gap-y-0.5 border-b px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-accent/40',
+                      'grid h-auto w-full grid-cols-[10px_minmax(0,1fr)] items-start gap-x-2 gap-y-0.5 rounded-none border-b px-4 py-3 text-left font-normal last:border-b-0',
                       t.key === selected?.key ? 'bg-brand-soft/60' : count > 0 && 'bg-brand-soft/25'
                     )}
                   >
@@ -621,7 +622,7 @@ export function MessagesView(props: PageProps) {
                         <span className="text-[11px] text-muted-foreground">{t.messages.length} messages</span>
                       )}
                     </span>
-                  </button>
+                  </Button>
                 )
               })}
             </div>
@@ -720,17 +721,18 @@ export function MessagesView(props: PageProps) {
                               <Badge variant="secondary" className="shrink-0 text-[10px]">your selection</Badge>
                             )}
                             <span className="shrink-0 text-[11px] text-muted-foreground">Esc to cancel</span>
-                            <button
-                              type="button"
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               aria-label="Stop replying to that message"
                               onClick={() => {
                                 setAnswering(null)
                                 setPicked(null)
                               }}
-                              className="shrink-0 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
+                              className={cn(TAP_TARGET, 'size-5 shrink-0 text-muted-foreground')}
                             >
                               <X className="size-3.5" />
-                            </button>
+                            </Button>
                           </div>
                           <p className="truncate pl-5 text-[11.5px] italic text-muted-foreground">
                             {answeringQuote === null

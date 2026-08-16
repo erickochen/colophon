@@ -5,6 +5,7 @@ import { cleanHtml } from '@/lib/sanitize'
 import { DocView } from '@/app/pages/doc'
 import { PageHeader, RichHtml } from '@/app/shell/bits'
 import { FormMirrorView } from '@/app/shell/form-mirror-view'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 
 /** Pages that are one explanatory text plus one form (upload slot, vault
@@ -58,12 +59,7 @@ export function SimpleFormView(props: PageProps) {
       ) : (
         <Card>
           <CardContent className="flex justify-end py-4">
-            <button
-              className="rounded-lg bg-primary px-4 py-2 text-[13px] font-medium text-primary-foreground"
-              onClick={() => mirror.el.requestSubmit(mirror.submitter)}
-            >
-              {submitLabel}
-            </button>
+            <Button onClick={() => mirror.el.requestSubmit(mirror.submitter)}>{submitLabel}</Button>
           </CardContent>
         </Card>
       )}

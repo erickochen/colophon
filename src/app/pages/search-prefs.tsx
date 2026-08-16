@@ -5,6 +5,8 @@ import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { MirrorCards } from '@/app/shell/form-mirror-view'
 import { MirrorSelect, PrefCard, SaveBar, SettingRow } from '@/app/pages/prefs-bits'
+import { Button } from '@/components/ui/button'
+import { Toggle } from '@/components/ui/toggle'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -89,7 +91,7 @@ function FacetShell({
           <CardTitle>{title}</CardTitle>
           <span className="flex items-center gap-3 text-[12px] text-muted-foreground">
             {count} / {total} selected
-            {count > 0 && <button onClick={onClear} className="text-brand hover:underline">Clear</button>}
+            {count > 0 && <Button variant="link" onClick={onClear} className="h-auto p-0 text-[12px] text-brand">Clear</Button>}
           </span>
         </div>
         {note && <p className="pt-0.5 text-[12px] text-muted-foreground">{note}</p>}
@@ -121,20 +123,16 @@ function ChipChecks({ items, onChange }: { items: Check[]; onChange: () => void 
       {items.map((c, i) => {
         const active = c.el.checked
         return (
-          <button
+          <Toggle
             key={i}
-            type="button"
-            aria-pressed={active}
-            onClick={() => { c.el.checked = !active; onChange() }}
-            className={cn(
-              'flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[12.5px] shadow-xs transition-colors',
-              'focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none',
-              active ? 'bg-brand-soft text-accent-foreground' : 'bg-muted/60 text-muted-foreground hover:bg-accent hover:text-foreground'
-            )}
+            variant="outline"
+            pressed={active}
+            onPressedChange={() => { c.el.checked = !active; onChange() }}
+            className="h-8 w-auto gap-1.5 px-2.5 text-[12.5px] text-muted-foreground data-pressed:bg-brand-soft data-pressed:text-accent-foreground"
           >
             {c.img && <img src={c.img} alt="" className="size-4 shrink-0" />}
             {c.name}
-          </button>
+          </Toggle>
         )
       })}
     </div>

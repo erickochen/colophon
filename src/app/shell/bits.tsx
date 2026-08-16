@@ -1,6 +1,13 @@
 // Small shared page components (Reading Room voice).
-import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react'
+import { Fragment, useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import {
+  Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
+import {
+  Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink,
+  PaginationNext, PaginationPrevious,
+} from '@/components/ui/pagination'
 import { mutedUserColor } from '@/lib/colors'
 import { rewriteHiddenBlocks, toggleSpoiler } from '@/lib/hidden-text'
 import { getPortalContainer } from '@/lib/portals'
@@ -22,18 +29,22 @@ export function PageHeader({ title, sub, action }: { title: ReactNode; sub?: Rea
 
 export function Crumbs({ items }: { items: { name: string; href: string | null }[] }) {
   return (
-    <nav className="flex flex-wrap items-center gap-1 text-[12.5px] text-muted-foreground">
-      {items.map((c, i) => (
-        <span key={i} className="flex items-center gap-1">
-          {i > 0 && <span className="text-border">/</span>}
-          {c.href ? (
-            <a href={c.href} className="hover:text-foreground hover:underline">{c.name}</a>
-          ) : (
-            <span className="text-foreground">{c.name}</span>
-          )}
-        </span>
-      ))}
-    </nav>
+    <Breadcrumb>
+      <BreadcrumbList className="text-[12.5px]">
+        {items.map((c, i) => (
+          <Fragment key={i}>
+            {i > 0 && <BreadcrumbSeparator />}
+            <BreadcrumbItem>
+              {c.href ? (
+                <BreadcrumbLink href={c.href}>{c.name}</BreadcrumbLink>
+              ) : (
+                <BreadcrumbPage>{c.name}</BreadcrumbPage>
+              )}
+            </BreadcrumbItem>
+          </Fragment>
+        ))}
+      </BreadcrumbList>
+    </Breadcrumb>
   )
 }
 
@@ -61,32 +72,36 @@ export function Pager({
 }) {
   if (pages.length <= 1 && !prevHref && !nextHref) return null
   return (
-    <div className={cn('flex flex-wrap items-center gap-1', className)}>
-      {prevHref && (
-        <a href={prevHref} className="rounded-md border px-2.5 py-1 text-[12px] font-medium text-muted-foreground hover:bg-accent/50">
-          ← Prev
-        </a>
-      )}
-      {pages.map((p, i) => {
-        const prev = pages[i - 1]
-        const gap = prev && /^\d+$/.test(prev.label) && /^\d+$/.test(p.label) && Number(p.label) - Number(prev.label) > 1
-        return (<span key={i} className="flex items-center gap-1">
-        {gap && <span className="px-0.5 text-[12px] text-muted-foreground">…</span>}
-        {p.current ? (
-          <span key={i} className="rounded-md bg-primary px-2.5 py-1 text-[12px] font-medium text-primary-foreground">{p.label}</span>
-        ) : (
-          <a href={p.href} className="rounded-md border px-2.5 py-1 text-[12px] font-medium text-muted-foreground hover:bg-accent/50">
-            {p.label}
-          </a>
+    <Pagination className={cn('mx-0 w-auto justify-start', className)}>
+      <PaginationContent>
+        {prevHref && (
+          <PaginationItem>
+            <PaginationPrevious href={prevHref} />
+          </PaginationItem>
         )}
-        </span>)
-      })}
-      {nextHref && (
-        <a href={nextHref} className="rounded-md border px-2.5 py-1 text-[12px] font-medium text-muted-foreground hover:bg-accent/50">
-          Next →
-        </a>
-      )}
-    </div>
+        {pages.map((p, i) => {
+          const prev = pages[i - 1]
+          const gap = prev && /^\d+$/.test(prev.label) && /^\d+$/.test(p.label) && Number(p.label) - Number(prev.label) > 1
+          return (
+            <Fragment key={i}>
+              {gap && (
+                <PaginationItem>
+                  <PaginationEllipsis />
+                </PaginationItem>
+              )}
+              <PaginationItem>
+                <PaginationLink href={p.href} isActive={p.current}>{p.label}</PaginationLink>
+              </PaginationItem>
+            </Fragment>
+          )
+        })}
+        {nextHref && (
+          <PaginationItem>
+            <PaginationNext href={nextHref} />
+          </PaginationItem>
+        )}
+      </PaginationContent>
+    </Pagination>
   )
 }
 

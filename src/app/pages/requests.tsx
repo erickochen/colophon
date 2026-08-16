@@ -168,7 +168,7 @@ export function RequestsView(_props: PageProps) {
               <TableRow>
                 <TableCell colSpan={4} className="py-12 text-center text-sm text-muted-foreground">
                   Every request on this page is from a hidden requester.{' '}
-                  <button type="button" className="underline" onClick={() => setHideHidden(false)}>Show them</button>
+                  <Button variant="link" className="h-auto p-0 text-sm" onClick={() => setHideHidden(false)}>Show them</Button>
                 </TableCell>
               </TableRow>
             )}

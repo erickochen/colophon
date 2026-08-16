@@ -48,17 +48,18 @@ function HideButton({ label, onHide, className }: { label: string; onHide: () =>
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={onHide}
           aria-label={`Hide ${label}`}
           className={cn(
-            'grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition-[opacity,color,background-color] hover:bg-accent/60 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none group-hover/sect:opacity-100 pointer-coarse:opacity-100',
+            'size-6 shrink-0 text-muted-foreground opacity-0 transition-[opacity,color,background-color] focus-visible:opacity-100 group-hover/sect:opacity-100 pointer-coarse:opacity-100',
             className
           )}
         >
           <X className="size-3.5" />
-        </button>
+        </Button>
       </TooltipTrigger>
       <TooltipContent>Hide this section</TooltipContent>
     </Tooltip>
@@ -73,24 +74,21 @@ function HiddenBar({ sections }: { sections: HiddenSections }) {
     <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-muted-foreground">
       <span>Hidden</span>
       {gone.map((s) => (
-        <button
+        <Button
           key={s.id}
-          type="button"
+          variant="outline"
+          size="sm"
           onClick={() => sections.show(s.id)}
-          className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 transition-colors hover:bg-accent/50 hover:text-foreground"
+          className="h-7 gap-1 rounded-full px-2.5 text-[12.5px] font-normal text-muted-foreground hover:text-foreground"
         >
           <Plus className="size-3" />
           {s.label}
-        </button>
+        </Button>
       ))}
       {gone.length > 1 && (
-        <button
-          type="button"
-          onClick={sections.showAll}
-          className="font-medium text-brand underline-offset-4 hover:underline"
-        >
+        <Button variant="link" onClick={sections.showAll} className="h-auto p-0 text-[12.5px] text-brand">
           Show all
-        </button>
+        </Button>
       )}
     </div>
   )
@@ -351,13 +349,13 @@ export function HomeView({ page }: PageProps) {
                   )}
                 </ScrollArea>
                 {!shoutsAtLatest && (
-                  <button
-                    type="button"
+                  <Button
+                    size="sm"
                     onClick={jumpToLatestShout}
-                    className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground shadow-lg transition-transform hover:scale-105"
+                    className="absolute bottom-2 left-1/2 h-6 -translate-x-1/2 gap-1.5 rounded-full px-2.5 text-[11px] shadow-lg transition-transform hover:scale-105"
                   >
                     <ArrowDown className="size-3" /> Jump to latest
-                  </button>
+                  </Button>
                 )}
               </div>
               <div className="flex h-10 items-center gap-1.5 rounded-lg border border-input bg-background pr-1 transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring">

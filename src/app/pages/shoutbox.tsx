@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { TAP_TARGET } from '@/components/filters'
 import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/toast'
 import { GiftActions } from '@/components/giftmam-actions'
@@ -123,15 +124,16 @@ function EmojiPicker({ onPick }: { onPick: (code: string) => void }) {
         <ScrollArea className="h-60">
           <div className="grid grid-cols-8 gap-0.5 p-2">
             {smilies.map((s, i) => (
-              <button
+              <Button
                 key={s.code + i}
-                type="button"
+                variant="ghost"
+                size="icon"
                 title={s.title || s.code}
                 onClick={() => onPick(s.code)}
-                className="flex size-8 items-center justify-center rounded-md transition-colors hover:bg-muted"
+                className="size-8"
               >
                 <img src={s.src} loading="lazy" alt={s.code} className="h-5 w-5 object-contain" />
-              </button>
+              </Button>
             ))}
             {smilies.length === 0 && (
               <div className="col-span-8 py-10 text-center text-[12px] text-muted-foreground">Loading smilies…</div>
@@ -360,13 +362,13 @@ export function ShoutboxView(props: PageProps) {
                       <span className="italic">
                         Muted: {g.user?.name} · {g.items.length === 1 ? '1 shout' : `${g.items.length} shouts`}
                       </span>
-                      <button
-                        type="button"
-                        className="rounded text-brand hover:underline focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
+                      <Button
+                        variant="link"
+                        className="h-auto p-0 text-[12px] text-brand"
                         onClick={() => setRevealedMutes((s) => new Set(s).add(g.items[0].id))}
                       >
                         show
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 )
@@ -491,12 +493,13 @@ export function ShoutboxView(props: PageProps) {
           </div>
 
           {!pinnedToBottom && (
-            <button
+            <Button
+              size="sm"
               onClick={scrollToLatest}
-              className="absolute bottom-24 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-[12px] font-medium text-primary-foreground shadow-lg transition-transform hover:scale-105"
+              className="absolute bottom-24 left-1/2 -translate-x-1/2 gap-1.5 rounded-full text-[12px] shadow-lg transition-transform hover:scale-105"
             >
               <ArrowDown className="size-3.5" /> Jump to latest
-            </button>
+            </Button>
           )}
 
           <div className="border-t bg-muted/30 px-4 py-3 sm:px-6">
@@ -504,9 +507,9 @@ export function ShoutboxView(props: PageProps) {
               <div className="mb-2 flex items-center gap-2 rounded-lg bg-brand-soft/40 py-1.5 pl-3 pr-2 text-[12px]">
                 <QuoteIcon className="size-3 shrink-0 text-brand" />
                 <span className="min-w-0 flex-1 truncate text-muted-foreground">Replying to {quoting.label}</span>
-                <button type="button" onClick={() => setQuoting(null)} className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground" title="Remove quote">
+                <Button variant="ghost" size="icon" onClick={() => setQuoting(null)} className={cn(TAP_TARGET, 'size-5 shrink-0 text-muted-foreground')} title="Remove quote">
                   <X className="size-3.5" />
-                </button>
+                </Button>
               </div>
             )}
             <div className="flex h-11 items-center gap-1 rounded-lg border border-input bg-background pl-1 pr-1.5 transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring">

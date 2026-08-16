@@ -165,15 +165,16 @@ export function WedgeRowButton({ target, className, onDone }: { target: WedgeTar
     <>
       <Tooltip>
         <TooltipTrigger asChild>
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="icon"
             disabled={busy}
             onClick={() => (skip ? void spend() : setOpen(true))}
             aria-label={LABEL}
             className={className}
           >
             {busy ? <Spinner className="size-[15px]" /> : <Ticket className="size-[15px]" />}
-          </button>
+          </Button>
         </TooltipTrigger>
         <TooltipContent>{LABEL}</TooltipContent>
       </Tooltip>

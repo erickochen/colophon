@@ -187,20 +187,21 @@ export function SmiliesView(props: PageProps) {
             {shown.map((s) => {
               const isCopied = copied === s.code
               return (
-                <button
+                <Button
                   key={s.code + s.src}
+                  variant="ghost"
                   onClick={() => copy(s.code, s.code)}
                   title={`Copy ${s.code}`}
                   className={cn(
-                    'group grid justify-items-center gap-1.5 rounded-lg px-2 py-3 transition-colors',
-                    isCopied ? 'bg-ok/15' : 'hover:bg-accent/60'
+                    'group grid h-auto justify-items-center gap-1.5 px-2 py-3 font-normal',
+                    isCopied && 'bg-ok/15 hover:bg-ok/15'
                   )}
                 >
                   <img src={s.src} alt={s.code} loading="lazy" className="h-6 object-contain" />
                   <span className={cn('truncate font-mono text-[10.5px]', isCopied ? 'text-ok' : 'text-muted-foreground')}>
                     {isCopied ? 'copied' : s.code}
                   </span>
-                </button>
+                </Button>
               )
             })}
           </CardContent>

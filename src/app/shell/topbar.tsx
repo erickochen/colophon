@@ -185,14 +185,15 @@ export function Topbar({ page, counts, onOpenSearch }: { page: ShellData; counts
   return (
     <header className="topbar-condense sticky top-0 z-20 flex h-14 items-center gap-3 border-b bg-background/85 px-4 backdrop-blur lg:px-6">
       <SidebarTrigger />
-      <button
+      <Button
+        variant="outline"
         onClick={onOpenSearch}
-        className="flex h-10 w-full max-w-sm items-center gap-2 rounded-lg border bg-card px-3 text-[13px] text-muted-foreground shadow-xs transition-colors hover:bg-accent/50"
+        className="h-10 w-full min-w-0 max-w-sm shrink justify-start gap-2 bg-card px-3 text-[13px] font-normal text-muted-foreground"
       >
         <Search className="size-3.5" />
         Search the catalog…
         <Kbd className="ml-auto">⌘K</Kbd>
-      </button>
+      </Button>
       <div className="ml-auto flex items-center gap-4">
         <NotifChips counts={counts} />
         <ClientChip client={page.client} />

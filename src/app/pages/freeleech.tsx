@@ -246,9 +246,9 @@ export function FreeleechView(props: PageProps) {
       {sections.length === 0 && (
         <p className="py-12 text-center text-sm text-muted-foreground">
           Nothing matches. Loosen a filter or{' '}
-          <button type="button" onClick={clearAll} className="text-brand hover:underline">
+          <Button variant="link" onClick={clearAll} className="h-auto p-0 text-brand">
             clear them all
-          </button>
+          </Button>
           .
         </p>
       )}

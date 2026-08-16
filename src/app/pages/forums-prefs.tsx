@@ -5,7 +5,10 @@ import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { FormMirrorView } from '@/app/shell/form-mirror-view'
 import { MirrorSelect, PrefCard, SettingRow } from '@/app/pages/prefs-bits'
+import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { TAP_TARGET } from '@/components/filters'
+import { cn } from '@/lib/utils'
 
 // Three cards for what MAM serves as one flat list: forums, shoutbox and alert
 // words. The two image-resize selects share a MAM row, so that row is split and
@@ -112,14 +115,15 @@ function TermChips({ el, label }: { el: HTMLTextAreaElement; label: string }) {
         {terms.map((term) => (
           <Badge key={term} variant="secondary" className="gap-1 pr-1 font-mono text-[11.5px]">
             {term}
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               aria-label={`Remove ${term}`}
               onClick={() => write(terms.filter((t) => t !== term))}
-              className="rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className={cn(TAP_TARGET, 'size-4 text-muted-foreground hover:bg-transparent hover:text-foreground')}
             >
               <X className="size-3" />
-            </button>
+            </Button>
           </Badge>
         ))}
         <input

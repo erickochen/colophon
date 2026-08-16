@@ -6,6 +6,7 @@ import type { ComponentType } from 'react'
 import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { FilterPill, FilterPillList, FilterSearch } from '@/components/filters'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
@@ -92,7 +93,7 @@ export function GuidesView(props: PageProps) {
             <Card><CardContent className="grid justify-items-center gap-1 py-12 text-center">
               <Search className="size-5 text-muted-foreground" />
               <p className="text-sm font-medium">No guide matches “{q.trim()}”</p>
-              <button onClick={() => setQ('')} className="text-[12.5px] text-brand hover:underline">Clear search</button>
+              <Button variant="link" onClick={() => setQ('')} className="h-auto p-0 text-[12.5px] text-brand">Clear search</Button>
             </CardContent></Card>
           )}
         </div>

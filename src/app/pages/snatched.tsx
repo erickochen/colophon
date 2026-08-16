@@ -4,6 +4,7 @@ import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
 import { FilterSelect } from '@/components/filters'
+import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -256,13 +257,13 @@ function SnatchHeader({ sort, onSort }: { sort: SortState | null; onSort: (key: 
             <ArrowUpDown className="size-3 opacity-0 transition-opacity group-hover/sort:opacity-60" />
           )
         return (
-          <button
+          <Button
             key={h.label}
-            type="button"
+            variant="ghost"
             onClick={() => onSort(h.key!)}
             title={`Sort by ${h.label.toLowerCase()}`}
             className={cn(
-              'group/sort inline-flex items-center gap-1 uppercase tracking-wide transition-colors hover:text-foreground',
+              'group/sort h-auto gap-1 rounded-sm p-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground hover:bg-transparent hover:text-foreground',
               h.align === 'right' && 'justify-end text-right',
               sort?.key === h.key && 'text-foreground'
             )}
@@ -270,7 +271,7 @@ function SnatchHeader({ sort, onSort }: { sort: SortState | null; onSort: (key: 
             {h.align === 'right' && icon}
             {h.label}
             {h.align !== 'right' && icon}
-          </button>
+          </Button>
         )
       })}
       <span />
@@ -407,14 +408,15 @@ function BucketRow({ b }: { b: Bucket }) {
   const openable = !!b.toggleId && b.count > 0
   return (
     <div>
-      <button
+      <Button
+        variant="ghost"
         onClick={openable ? toggle : undefined}
         aria-expanded={openable ? open : undefined}
         className={cn(
-          'flex w-full items-center gap-4 px-6 py-2.5 text-left transition-colors',
-          openable ? 'hover:bg-brand-soft/25' : 'cursor-default'
+          'h-auto w-full justify-start gap-4 rounded-none px-6 py-2.5 text-left font-normal',
+          openable ? 'hover:bg-brand-soft/25' : 'cursor-default hover:bg-transparent'
         )}
-        disabled={!openable}
+        aria-disabled={!openable || undefined}
       >
         <span className={cn('w-10 shrink-0 text-right font-display text-[16px] font-semibold tabular-nums', !b.count && 'text-muted-foreground/45')}>
           {b.count.toLocaleString('en-US')}
@@ -423,14 +425,14 @@ function BucketRow({ b }: { b: Bucket }) {
         {openable && (
           <ChevronDown className={cn('ml-auto size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
         )}
-      </button>
+      </Button>
       {open && (
         <div className="border-y bg-muted/10">
           {items === null ? (
             late ? (
               <p className="px-6 py-5 text-sm text-muted-foreground">
                 This list did not arrive.{' '}
-                <button type="button" onClick={retry} className="text-brand underline">Try again</button>
+                <Button variant="link" onClick={retry} className="h-auto p-0 text-brand">Try again</Button>
               </p>
             ) : (
               <p className="px-6 py-5 text-sm text-muted-foreground">Loading list…</p>

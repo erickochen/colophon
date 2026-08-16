@@ -74,14 +74,15 @@ function LinkRow({ link, onDelete }: { link: TinyLink; onDelete: (link: TinyLink
           <a href={link.shortHref} className="truncate font-mono text-[13px] text-brand hover:underline" title={link.shortHref}>
             {shown || link.code}
           </a>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => copyLink(link.shortHref)}
             aria-label={`Copy ${shown}`}
-            className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
+            className="size-6 shrink-0 text-muted-foreground"
           >
             <Copy className="size-3.5" />
-          </button>
+          </Button>
         </div>
         <div className="truncate pt-0.5 text-[12px] text-muted-foreground" title={link.target}>
           {link.target}
