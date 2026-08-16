@@ -1,16 +1,18 @@
 // One filter language for every list page: a framed bar holding the search
 // field, segments and facet popovers, with a summary row of what is active.
 import * as React from 'react'
-import { ChevronDown, Search, X } from 'lucide-react'
+import { Calendar as CalendarIcon, ChevronDown, Search, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { fmtInt } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Calendar } from '@/components/ui/calendar'
+import type { DateRange } from 'react-day-picker'
 import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { Input } from '@/components/ui/input'
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -31,6 +33,10 @@ export interface FacetOption {
 /** Shared control height, so every trigger on a bar lines up. */
 export const TRIGGER = 'h-8 gap-1.5 text-[12.5px] font-medium'
 
+// A glyph this small still needs a finger-sized target. The pseudo-element
+// grows the tap area to the 24px minimum without moving anything on screen.
+export const TAP_TARGET = "relative after:absolute after:-inset-1 after:content-['']"
+
 export function FilterBar({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <Card className={cn('gap-0 py-0', className)}>
@@ -43,7 +49,9 @@ export function FilterRow({ children, className }: { children: React.ReactNode; 
   return <div className={cn('flex flex-wrap items-center gap-2', className)}>{children}</div>
 }
 
-/** Quiet lead-in word before a group of controls, like "in" or "show". */
+/** Quiet lead-in word that finishes a sentence the search field started, as in
+ * "search … in [Title] [Author]". Anything else carries its own label: a select
+ * takes a prefix, a facet takes its name. */
 export function FilterHint({ children }: { children: React.ReactNode }) {
   return <span className="pr-0.5 text-[12px] text-muted-foreground">{children}</span>
 }
@@ -74,9 +82,11 @@ export function FilterSearch({
   hint?: React.ReactNode
 }) {
   const field = (
-    <div className="relative flex-1">
-      <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-      <Input
+    <InputGroup className="h-10 flex-1">
+      <InputGroupAddon>
+        <Search />
+      </InputGroupAddon>
+      <InputGroupInput
         ref={inputRef}
         value={value}
         onFocus={onFocus}
@@ -89,20 +99,16 @@ export function FilterSearch({
         }}
         placeholder={placeholder}
         autoFocus={autoFocus}
-        className={cn('h-10 pl-9', (value || hint) && 'pr-10')}
       />
-      {!value && hint && <span className="absolute right-3 top-1/2 -translate-y-1/2">{hint}</span>}
+      {!value && hint && <InputGroupAddon align="inline-end">{hint}</InputGroupAddon>}
       {value && (
-        <button
-          type="button"
-          aria-label="Clear search"
-          onClick={() => onChange('')}
-          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-sm p-1.5 text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
-        >
-          <X className="size-3.5" />
-        </button>
+        <InputGroupAddon align="inline-end">
+          <InputGroupButton size="icon-xs" aria-label="Clear search" onClick={() => onChange('')}>
+            <X />
+          </InputGroupButton>
+        </InputGroupAddon>
       )}
-    </div>
+    </InputGroup>
   )
 
   if (!onSubmit) return <div className={cn('flex gap-2', className)}>{field}</div>
@@ -281,9 +287,9 @@ export function FacetOptions({
       <Separator />
       <div className="flex items-center justify-between px-2.5 py-1.5">
         <span className="text-[11.5px] text-muted-foreground">{selected.length} selected</span>
-        <button type="button" onClick={onClear} className="text-[12px] text-brand hover:underline">
+        <Button variant="link" onClick={onClear} className="h-auto p-0 text-[12px] text-brand">
           Clear
-        </button>
+        </Button>
       </div>
     </>
   )
@@ -341,6 +347,41 @@ export function FacetOptions({
   )
 }
 
+/** Two-way switch at the head of a facet, for a list that can mean include or
+ * exclude. Sits above the options it flips, so the meaning is set before the
+ * picking starts. */
+export function FacetMode({
+  value, onChange, options, ariaLabel,
+}: {
+  value: string
+  onChange: (v: string) => void
+  options: FacetOption[]
+  ariaLabel: string
+}) {
+  return (
+    <div className="border-b p-1.5">
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        aria-label={ariaLabel}
+        value={value}
+        onValueChange={(v) => v && onChange(v)}
+        className="w-full"
+      >
+        {options.map((o) => (
+          <ToggleGroupItem
+            key={o.value}
+            value={o.value}
+            className="h-7 flex-1 text-[12px] text-muted-foreground data-pressed:bg-brand-soft data-pressed:text-accent-foreground"
+          >
+            {o.label}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+    </div>
+  )
+}
+
 /** Titled block inside a wider facet popover. */
 export function FacetSection({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
@@ -388,6 +429,117 @@ export function FilterSelect({
   )
 }
 
+/* Date fields travel as YYYY-MM-DD, which the endpoints speak. Both sides parse
+ * in local time: an ISO string would land on UTC midnight plus shift the day for
+ * anyone west of Greenwich. */
+const asDate = (v: string): Date | undefined => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v)
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : undefined
+}
+
+const asText = (d: Date | undefined): string =>
+  d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : ''
+
+const dayLabel = (d: Date | undefined): string =>
+  d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
+
+/** How a picked span reads. One day gives one date; a span names both ends;
+ * one filled side reads as open-ended. */
+export function dateRangeLabel(from: string, to: string, empty = ''): string {
+  const a = asDate(from)
+  const b = asDate(to)
+  if (a && b) return +a === +b ? dayLabel(a) : `${dayLabel(a)} to ${dayLabel(b)}`
+  if (a) return `From ${dayLabel(a)}`
+  if (b) return `Until ${dayLabel(b)}`
+  return empty
+}
+
+/** Two dates as one control, open-ended when a side is empty. A pick reports
+ * outward once it is settled, on the second day or when the calendar closes,
+ * because a search per click earns a 403. */
+export function FilterDateRange({
+  from,
+  to,
+  onChange,
+  ariaLabel,
+  placeholder = 'Pick a range',
+  className,
+}: {
+  from: string
+  to: string
+  onChange: (from: string, to: string) => void
+  ariaLabel: string
+  placeholder?: string
+  className?: string
+}) {
+  const [open, setOpen] = React.useState(false)
+  // Touched keeps an emptied calendar empty: a draft of undefined would
+  // otherwise read as "nothing picked yet" plus fall back to the settled span.
+  const [draft, setDraft] = React.useState<{ touched: boolean; range?: DateRange }>({ touched: false })
+  // Either side on its own is a valid span, so an end-only filter still reads
+  // back in the trigger plus keeps its Clear button.
+  const settled: DateRange | undefined =
+    asDate(from) || asDate(to) ? { from: asDate(from), to: asDate(to) } : undefined
+  const shown = (draft.touched ? draft.range : settled) ?? { from: undefined }
+
+  const send = (next: DateRange | undefined) => {
+    setDraft({ touched: false })
+    onChange(asText(next?.from), asText(next?.to))
+  }
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next && draft.touched) send(draft.range)
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" aria-label={ariaLabel} className={cn(TRIGGER, 'justify-start font-normal', className)}>
+          <CalendarIcon className="size-3.5 text-muted-foreground" />
+          {dateRangeLabel(asText(shown.from), asText(shown.to), placeholder)}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto p-0">
+        <Calendar
+          mode="range"
+          autoFocus
+          defaultMonth={shown.from}
+          selected={shown}
+          onSelect={(next) => {
+            // The first day of a span comes back with both ends on it, so only
+            // the second click makes it a range worth searching for.
+            if (next?.from && next.to && +next.from !== +next.to) {
+              send(next)
+              setOpen(false)
+            } else {
+              setDraft({ touched: true, range: next })
+            }
+          }}
+        />
+        {(shown.from || shown.to) && (
+          <>
+            <Separator />
+            <div className="flex justify-end px-2.5 py-1.5">
+              <Button
+                variant="link"
+                onClick={() => {
+                  send(undefined)
+                  setOpen(false)
+                }}
+                className="h-auto p-0 text-[12px] text-brand"
+              >
+                Clear dates
+              </Button>
+            </div>
+          </>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 export interface FilterChip {
   key: string
   label: string
@@ -413,25 +565,23 @@ export function FilterSummary({
   return (
     <div className={cn('flex flex-wrap items-center gap-2 px-6', className)}>
       {list.map((c) => (
-        <span
-          key={c.key}
-          className="inline-flex items-center gap-1.5 rounded-full border border-input bg-card py-[3px] pl-2.5 pr-2 text-[12px] text-muted-foreground"
-        >
+        <Badge key={c.key} variant="outline" className="gap-1 rounded-full py-[3px] pl-2.5 pr-1 text-[12px] font-normal text-muted-foreground">
           {c.label}
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             aria-label={`Remove ${c.label}`}
             onClick={c.onRemove}
-            className="-m-1 rounded-sm p-1 text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
+            className={cn('size-4 rounded-full text-muted-foreground/70 hover:bg-transparent hover:text-foreground', TAP_TARGET)}
           >
             <X className="size-3" />
-          </button>
-        </span>
+          </Button>
+        </Badge>
       ))}
       {list.length > 0 && onClearAll && (
-        <button type="button" onClick={onClearAll} className="text-[12px] text-brand hover:underline">
+        <Button variant="link" onClick={onClearAll} className="h-auto p-0 text-[12px] text-brand">
           Clear all
-        </button>
+        </Button>
       )}
       {(meta || children) && (
         <div className="ml-auto flex flex-wrap items-center gap-2">

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { AlignJustify, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, BookmarkCheck, BookmarkX, ChevronDown, Dice5, Download, EyeOff, FileArchive, Filter, LayoutGrid, Loader2, Search, Trash2, Undo2 } from 'lucide-react'
+import { AlignJustify, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, BookmarkCheck, BookmarkX, ChevronDown, Dice5, Download, EyeOff, FileArchive, Filter, LayoutGrid, Loader2, Trash2, Undo2 } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { PageHeader } from '@/app/shell/bits'
 import {
@@ -34,8 +34,9 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
-  FacetOptions, FacetSection, FilterBar, FilterFacet, FilterHint, FilterRow, FilterSearch,
-  FilterSegments, FilterSelect, FilterSummary, TRIGGER, toggleValue,
+  FacetMode, FacetOptions, FacetSection, FilterBar, FilterDateRange, FilterFacet, FilterHint,
+  FilterRow, FilterSearch, FilterSegments, FilterSelect, FilterSummary, TRIGGER, dateRangeLabel,
+  toggleValue,
 } from '@/components/filters'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -43,9 +44,10 @@ import {
 } from '@/components/ui/alert-dialog'
 import {
   DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
-  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { toast } from '@/components/ui/toast'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 const SRCH_FIELDS = [
   ['title', 'Title'], ['author', 'Author'], ['narrator', 'Narrator'], ['series', 'Series'],
@@ -61,6 +63,15 @@ const SEARCH_INS = [
   ['torrents', 'Everywhere'], ['bookmarks', 'My bookmarks'],
   ['mine', 'My uploads'], ['allReseed', 'All reseed requests'], ['myReseed', 'I could reseed'],
 ] as const
+
+// The list you are in is what the page is about, so it names the page as well.
+const SEARCH_IN_TITLES: Record<(typeof SEARCH_INS)[number][0], string> = {
+  torrents: 'Browse the library',
+  bookmarks: 'My bookmarks',
+  mine: 'My uploads',
+  allReseed: 'Reseed requests',
+  myReseed: 'Torrents I could reseed',
+}
 
 // The search endpoint has no bookmark-date order; the rest of the shared sort
 // list answers as labeled.
@@ -579,10 +590,11 @@ type BookmarkSetter = (ids: number[], bookmarked: boolean) => void
  * an unbookmarked row has nothing left to sit under. */
 type RowDropper = (ids: number[]) => void
 
+/* Outline icon button, round and one size down from the bar controls. Pair with
+ * Button variant="outline" size="icon" so the states come from the button. */
 const ROW_ACTION =
-  'grid size-[34px] place-items-center rounded-full border border-input text-muted-foreground outline-none transition-[opacity,color,background-color,border-color] duration-200 ' +
-  'hover:border-transparent hover:bg-primary hover:text-primary-foreground disabled:pointer-events-none ' +
-  'focus-visible:border-ring focus-visible:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring'
+  'size-[34px] rounded-full text-muted-foreground transition-[opacity,color,background-color,border-color] duration-200 ' +
+  'hover:bg-primary hover:text-primary-foreground focus-visible:opacity-100'
 
 /* Resting actions stay faintly visible: a row that hides what it can do is a
  * row nobody finds. Hover, focus and touch bring them to full strength. */
@@ -611,18 +623,16 @@ function RowBookmark({ t, onBookmark, onRemoved }: { t: SearchTorrent; onBookmar
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="icon"
           disabled={busy}
           onClick={toggleBookmark}
           aria-label={on ? 'Remove bookmark' : 'Bookmark'}
-          className={cn(
-            ROW_ACTION,
-            on ? 'border-brand/40 text-brand' : ROW_ACTION_REST
-          )}
+          className={cn(ROW_ACTION, on ? 'bg-brand-soft text-brand dark:bg-brand-soft' : ROW_ACTION_REST)}
         >
           {on ? <BookmarkCheck className="size-[15px]" /> : <Bookmark className="size-[15px]" />}
-        </button>
+        </Button>
       </TooltipTrigger>
       <TooltipContent>{on ? 'Remove bookmark' : 'Bookmark'}</TooltipContent>
     </Tooltip>
@@ -656,19 +666,19 @@ function SortHead({ label, keyName, sort, onSort, align }: {
   const active = sort === pair.asc ? 'asc' : sort === pair.desc ? 'desc' : null
   const next = active === 'desc' ? pair.asc : pair.desc
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
       onClick={() => onSort(next)}
       aria-label={`Sort by ${label.toLowerCase()}`}
       className={cn(
-        'group/sort inline-flex items-center gap-1 whitespace-nowrap uppercase tracking-[0.08em] transition-colors hover:text-foreground',
+        'group/sort h-auto gap-1 rounded-sm p-0 text-[10px] font-semibold whitespace-nowrap uppercase tracking-[0.08em] text-muted-foreground hover:bg-transparent hover:text-foreground',
         align === 'right' && 'justify-end',
         active && 'text-foreground'
       )}
     >
       {label}
       <SortMark active={active} />
-    </button>
+    </Button>
   )
 }
 
@@ -802,14 +812,15 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onU
         <div className="col-span-full flex items-center justify-end gap-1.5 md:col-span-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="icon"
                 aria-label="Show this torrent again"
                 onClick={() => onUnignore(t.id)}
-                className={cn(ROW_ACTION, 'border-input text-muted-foreground')}
+                className={ROW_ACTION}
               >
                 <Undo2 className="size-[15px]" />
-              </button>
+              </Button>
             </TooltipTrigger>
             <TooltipContent>Show this torrent again</TooltipContent>
           </Tooltip>
@@ -821,13 +832,11 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onU
           <RowBookmark t={t} onBookmark={onBookmark} onRemoved={onRemoved} />
           <Tooltip>
             <TooltipTrigger asChild>
-              <a
-                href={downloadUrl(t.id)}
-                aria-label="Download .torrent"
-                className={cn(ROW_ACTION, ROW_ACTION_REST)}
-              >
-                <Download className="size-[15px]" />
-              </a>
+              <Button asChild variant="outline" size="icon" className={cn(ROW_ACTION, ROW_ACTION_REST)}>
+                <a href={downloadUrl(t.id)} aria-label="Download .torrent">
+                  <Download className="size-[15px]" />
+                </a>
+              </Button>
             </TooltipTrigger>
             <TooltipContent>Download .torrent</TooltipContent>
           </Tooltip>
@@ -844,14 +853,15 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onU
           {onIgnore && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="icon"
                   aria-label="Ignore this torrent"
                   onClick={() => onIgnore(t)}
                   className={cn(ROW_ACTION, ROW_ACTION_REST)}
                 >
                   <EyeOff className="size-[15px]" />
-                </button>
+                </Button>
               </TooltipTrigger>
               <TooltipContent>Ignore this torrent</TooltipContent>
             </Tooltip>
@@ -897,13 +907,14 @@ function GalleryItem({ t, hiddenReason, onUnignore }: { t: SearchTorrent; hidden
         {authorsText && <span className="mt-0.5 line-clamp-1 text-[11.5px] text-muted-foreground">{authorsText}</span>}
       </a>
       {hiddenReason === 'ignored' && onUnignore && (
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={() => onUnignore(t.id)}
-          className="absolute left-1.5 top-1.5 z-3 flex items-center gap-1 rounded-full bg-card/90 px-2 py-1 text-[11px] font-medium shadow-sm transition-colors hover:text-brand"
+          className="absolute left-1.5 top-1.5 z-3 h-7 gap-1 rounded-full bg-card/90 px-2 text-[11px] shadow-sm hover:text-brand"
         >
           <Undo2 className="size-3" /> Unignore
-        </button>
+        </Button>
       )}
     </span>
   )
@@ -1088,33 +1099,25 @@ function ResultActions({
   )
 }
 
+/** Same joined-segment language as every other switch on a bar, so the list and
+ * gallery choice reads as one control. */
 function ViewToggle({ view, onChange }: { view: ViewMode; onChange: (v: ViewMode) => void }) {
-  const base = 'grid h-8 w-9 place-items-center border transition-colors outline-none focus-visible:z-10 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring'
-  const off = 'border-input bg-card text-muted-foreground hover:text-foreground'
-  const on = 'border-transparent bg-brand-soft text-accent-foreground'
+  const item = 'h-8 w-9 px-0 text-muted-foreground data-pressed:bg-brand-soft data-pressed:text-accent-foreground'
   return (
-    <span className="inline-flex">
-      <button
-        type="button"
-        aria-label="List view"
-        title="List view"
-        aria-pressed={view === 'list'}
-        onClick={() => onChange('list')}
-        className={cn(base, 'rounded-l-lg', view === 'list' ? on : off)}
-      >
+    <ToggleGroup
+      type="single"
+      variant="outline"
+      aria-label="Result layout"
+      value={view}
+      onValueChange={(v) => v && onChange(v as ViewMode)}
+    >
+      <ToggleGroupItem value="list" aria-label="List view" title="List view" className={item}>
         <AlignJustify className="size-[15px]" />
-      </button>
-      <button
-        type="button"
-        aria-label="Gallery view"
-        title="Gallery view"
-        aria-pressed={view === 'grid'}
-        onClick={() => onChange('grid')}
-        className={cn(base, '-ml-px rounded-r-lg', view === 'grid' ? on : off)}
-      >
+      </ToggleGroupItem>
+      <ToggleGroupItem value="grid" aria-label="Gallery view" title="Gallery view" className={item}>
         <LayoutGrid className="size-[15px]" />
-      </button>
-    </span>
+      </ToggleGroupItem>
+    </ToggleGroup>
   )
 }
 
@@ -1135,6 +1138,13 @@ export function BrowseView(props: PageProps) {
   })
   const [cols, setCols] = useState<ColKey[]>(readCols)
   const seq = useRef(0)
+  // The rows on screen plus where they start, readable from inside a search
+  // that was created once and never sees fresh state.
+  const shownRef = useRef<SearchTorrent[]>([])
+  const baseStartRef = useRef(state.start)
+  // Rows this list dropped by itself, for as long as the endpoint keeps
+  // answering with them.
+  const dropped = useRef<Set<number>>(new Set())
   const [hideSnatched, setHideSnatched] = useFeature('hideSnatched')
   const [ignoreOn] = useFeature('ignoreAction')
   const [seriesViewOn] = useFeature('seriesView')
@@ -1218,9 +1228,29 @@ export function BrowseView(props: PageProps) {
         ? await searchAllTorrents2(toQuery2(q))
         : await searchTorrents2(take ? { ...toQuery2(q), perPage: take } : toQuery2(q))
       if (seq.current !== mine) return
-      setFound(res.found)
-      setItems((prev) => (append ? [...prev, ...res.data] : res.data))
-      if (!append) setBaseStart(q.start)
+      if (append) {
+        // Removing a bookmark takes its row out of this list at once while the
+        // endpoint keeps answering with it for a while, so a batch can repeat
+        // rows that are already here or rows that just left. Both are dropped,
+        // then the total gives up whatever it was still counting.
+        const seen = new Set(shownRef.current.map((t) => t.id))
+        const fresh = res.data.filter((t) => !seen.has(t.id) && !dropped.current.has(t.id))
+        // Rows this list dropped that the endpoint still hands out are rows the
+        // total is still counting, so they come off it.
+        const ghosts = res.data.filter((t) => dropped.current.has(t.id)).length
+        const held = baseStartRef.current + shownRef.current.length + fresh.length
+        setItems((prev) => [...prev, ...fresh])
+        // A batch that brings nothing new is the end of what this list can
+        // reach, whatever the endpoint keeps promising.
+        const spent = fresh.length === 0 && res.data.length > 0
+        setFound(spent ? held : Math.max(held, res.found - ghosts))
+      } else {
+        dropped.current.clear()
+        setFound(res.found)
+        setItems(res.data)
+        setBaseStart(q.start)
+        baseStartRef.current = q.start
+      }
       // A restored list holds more rows than the offset it was asked for, so
       // the state plus the address bar move to where those rows actually end.
       if (take != null) {
@@ -1237,6 +1267,14 @@ export function BrowseView(props: PageProps) {
       }
     }
   }, [])
+
+  useEffect(() => {
+    shownRef.current = items
+  }, [items])
+
+  useEffect(() => {
+    baseStartRef.current = baseStart
+  }, [baseStart])
 
   useEffect(() => {
     const first = restored(state)
@@ -1288,11 +1326,13 @@ export function BrowseView(props: PageProps) {
   // ids always come from the rendered list, so their count is what leaves it.
   const dropRows = useCallback((ids: number[]) => {
     const hit = new Set(ids)
+    for (const id of ids) dropped.current.add(id)
     setItems((prev) => prev.filter((t) => !hit.has(t.id)))
     setFound((n) => Math.max(0, n - ids.length))
   }, [])
 
   const clearList = useCallback(() => {
+    dropped.current.clear()
     setItems([])
     setFound(0)
   }, [])
@@ -1309,10 +1349,12 @@ export function BrowseView(props: PageProps) {
         const res = await searchTorrents2(toQuery2(next))
         if (seq.current !== mine) return
         if (res.found <= target || attempt === REFRESH_POLL_TRIES) {
+          dropped.current.clear()
           setState(next)
           setItems(res.data)
           setFound(res.found)
           setBaseStart(0)
+          baseStartRef.current = 0
           setLoading(false)
           history.replaceState(null, '', urlFromState(next))
           return
@@ -1391,11 +1433,11 @@ export function BrowseView(props: PageProps) {
   const to = Math.min(found, baseStart + items.length)
   const remaining = Math.max(0, found - to)
   const sizeActive = state.minSize !== null || state.maxSize !== null
-  // The badge counts everything the one facet now holds.
-  const activeFilters =
-    state.categories.length + state.langs.length + state.flags.length +
-    (sizeActive ? 1 : 0) + (state.dateRange ? 1 : 0) + (hideSnatched ? 1 : 0) +
-    (state.searchType !== 'all' ? 1 : 0) + (state.searchIn !== 'torrents' ? 1 : 0)
+  // Every facet carries its own count, so this one covers what sits behind the
+  // overflow button alone.
+  const moreCount =
+    state.flags.length + (sizeActive ? 1 : 0) + (state.dateRange ? 1 : 0) +
+    (hideSnatched ? 1 : 0) + (hasExtra(state.extra) ? 1 : 0)
   const uploaderMode = state.uploader != null
   // The endpoint names the owner on every row, which labels the chip.
   const uploaderName = uploaderMode && state.uploader !== 'else' ? items.find((t) => t.owner_name)?.owner_name ?? null : null
@@ -1414,9 +1456,11 @@ export function BrowseView(props: PageProps) {
       : state.minSize !== null
         ? `≥ ${fmtInt(state.minSize)} ${sizeUnitLabel}`
         : `≤ ${fmtInt(state.maxSize ?? 0)} ${sizeUnitLabel}`
+  // A custom range with no days picked yet narrows nothing, so it says so
+  // rather than showing two placeholders.
   const dateChipLabel =
     state.dateRange === 'custom'
-      ? [state.startDate || '…', state.endDate || '…'].join(' to ')
+      ? dateRangeLabel(state.startDate, state.endDate, 'Any day')
       : DATE_RANGES.find((d) => d.value === state.dateRange)?.label ?? state.dateRange
 
   // Entity filters only carry an id in the URL; the matching name is inside the
@@ -1499,8 +1543,10 @@ export function BrowseView(props: PageProps) {
     })
   }, [])
 
-  // Every active filter gets a chip. Nothing should narrow the list from a place
-  // the reader cannot see. Clear all only appears once a chip does.
+  // A chip for every choice whose value cannot be read off the bar itself.
+  // Nothing may narrow the list from a place the reader cannot see. A value
+  // shown twice reads as two filters, so what a control already spells out
+  // stays out of here. Clear all only appears once a chip does.
   const chips: { key: string; label: string; onRemove: () => void }[] = [
     ...(state.uploader
       ? [{
@@ -1512,11 +1558,6 @@ export function BrowseView(props: PageProps) {
     ...entityChip('author', state.authorID, () => apply({ authorID: null })),
     ...entityChip('narrator', state.narratorID, () => apply({ narratorID: null })),
     ...entityChip('series', state.seriesID, () => apply({ seriesID: null })),
-    ...state.mainCat.map((m) => ({
-      key: `m${m}`,
-      label: MAIN_CATS.find((x) => x.id === m)?.name ?? String(m),
-      onRemove: () => apply({ mainCat: toggleValue(state.mainCat, m) }),
-    })),
     ...state.categories.map((c) => ({
       key: `g${c}`,
       label: genreName(c),
@@ -1547,20 +1588,6 @@ export function BrowseView(props: PageProps) {
     ...(hasExtra(state.extra)
       ? [{ key: 'extra', label: 'More filters', onRemove: () => apply({ extra: EMPTY_EXTRA }) }]
       : []),
-    ...(state.searchType !== 'all'
-      ? [{
-          key: 'searchType',
-          label: SEARCH_TYPES.find(([v]) => v === state.searchType)?.[1] ?? state.searchType,
-          onRemove: () => apply({ searchType: 'all' }),
-        }]
-      : []),
-    ...(state.searchIn !== 'torrents'
-      ? [{
-          key: 'searchIn',
-          label: SEARCH_INS.find(([v]) => v === state.searchIn)?.[1] ?? state.searchIn,
-          onRemove: () => apply({ searchIn: 'torrents' }),
-        }]
-      : []),
     ...(hideSnatched
       ? [{ key: 'hideSnatched', label: 'Hide snatched', onRemove: () => setHideSnatched(false) }]
       : []),
@@ -1571,7 +1598,7 @@ export function BrowseView(props: PageProps) {
       {/* The count lives on the list itself, so the subtitle only says what this
           page is looking at. */}
       <PageHeader
-        title="Browse the library"
+        title={uploaderMode ? 'Uploads' : SEARCH_IN_TITLES[state.searchIn]}
         sub={loading ? 'Searching…' : state.text ? `Results for “${state.text}”` : chips.length ? undefined : `${fmtInt(found)} torrents`}
       />
 
@@ -1603,8 +1630,8 @@ export function BrowseView(props: PageProps) {
         )}
 
         {uploaderMode ? null : (
+        <>
         <FilterRow>
-          <FilterHint>show</FilterHint>
           <FilterSegments
             type="multiple"
             ariaLabel="Media type"
@@ -1612,102 +1639,87 @@ export function BrowseView(props: PageProps) {
             value={state.mainCat.map(String)}
             onChange={(v) => apply({ mainCat: v.map(Number) })}
           />
+        </FilterRow>
 
-          <FilterFacet label="Filters" count={activeFilters} width="w-[420px]" icon={<Filter className="size-3.5" />}>
-            <div className="max-h-[440px] overflow-y-auto">
-              <FacetSection title="Show">
-                <FilterSegments
-                  type="single"
-                  ariaLabel="Torrent state"
-                  options={SEARCH_TYPES.map(([value, label]) => ({ value, label }))}
-                  value={state.searchType}
-                  onChange={(v) => apply({ searchType: v as BrowseState['searchType'] })}
-                />
-              </FacetSection>
-              <FacetSection title="Genres">
-                {genres === null && (
-                  <div className="grid gap-1.5 py-1">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-4 w-2/3" />
-                    <Skeleton className="h-4 w-4/5" />
-                  </div>
-                )}
-                {genres !== null && genreOptions.length === 0 && (
-                  <p className="py-1 text-[12.5px] text-muted-foreground">Genres could not load.</p>
-                )}
-                {genreOptions.length > 0 && (
-                  <div className="grid max-h-52 grid-cols-2 gap-x-3 overflow-y-auto">
-                    {genreOptions.map((c) => (
-                      <Label key={c.id} className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
-                        <Checkbox
-                          checked={state.categories.includes(c.id)}
-                          onCheckedChange={() => apply({ categories: toggleValue(state.categories, c.id) })}
-                        />
-                        {c.name}
-                      </Label>
-                    ))}
-                  </div>
-                )}
-                <p className="pt-1 text-[11.5px] text-muted-foreground">
-                  Some older torrents are not classified yet and stay out of genre-filtered results.
-                </p>
-              </FacetSection>
-              <FacetSection title="Languages" note={state.langsMode === 'not' ? 'excluded' : undefined}>
-                {(state.langs.length > 0 || state.langsMode === 'not') && (
-                  <button
-                    type="button"
-                    className="mb-1.5 text-[12px] text-brand hover:underline"
-                    onClick={() => apply({ langsMode: state.langsMode === 'not' ? 'has' : 'not' })}
-                  >
-                    switch to “{state.langsMode === 'not' ? 'include' : 'exclude'}”
-                  </button>
-                )}
-                <FacetOptions
-                  options={LANGUAGES.map((l) => ({ value: String(l.id), label: l.name }))}
-                  selected={state.langs.map(String)}
-                  onToggle={(v) => apply({ langs: toggleValue(state.langs, Number(v)) })}
-                  onClear={() => apply({ langs: [] })}
-                  searchable
-                  searchPlaceholder="Filter languages…"
-                  emptyText="No language found."
-                />
-              </FacetSection>
+        {/* One control per dimension, each naming what it holds. The two on the
+            left pick which list you are in; the facets narrow it. */}
+        <FilterRow>
+          <FilterSelect
+            value={state.searchIn}
+            onChange={(v) => apply({ searchIn: v as BrowseState['searchIn'] })}
+            options={SEARCH_INS.map(([value, label]) => ({ value, label }))}
+            ariaLabel="Which list to search"
+          />
+          <FilterSelect
+            value={state.searchType}
+            onChange={(v) => apply({ searchType: v as BrowseState['searchType'] })}
+            options={SEARCH_TYPES.map(([value, label]) => ({ value, label }))}
+            ariaLabel="Which torrents to show"
+          />
+
+          <FilterFacet label="Genres" count={state.categories.length} width="w-72">
+            {genres === null ? (
+              <div className="grid gap-1.5 p-3">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-4 w-4/5" />
+              </div>
+            ) : (
+              <FacetOptions
+                options={genreOptions.map((c) => ({ value: String(c.id), label: c.name }))}
+                selected={state.categories.map(String)}
+                onToggle={(v) => apply({ categories: toggleValue(state.categories, Number(v)) })}
+                onClear={() => apply({ categories: [] })}
+                searchable
+                searchPlaceholder="Filter genres…"
+                emptyText="No genre found."
+                maxHeight="max-h-72"
+              />
+            )}
+            <p className="border-t px-2.5 py-2 text-[11.5px] text-muted-foreground">
+              Older torrents without a genre stay out of these results.
+            </p>
+          </FilterFacet>
+
+          <FilterFacet label="Languages" count={state.langs.length} width="w-64">
+            <FacetMode
+              value={state.langsMode}
+              onChange={(v) => apply({ langsMode: v as BrowseState['langsMode'] })}
+              options={[{ value: 'has', label: 'Include' }, { value: 'not', label: 'Exclude' }]}
+              ariaLabel="Include or exclude these languages"
+            />
+            <FacetOptions
+              options={LANGUAGES.map((l) => ({ value: String(l.id), label: l.name }))}
+              selected={state.langs.map(String)}
+              onToggle={(v) => apply({ langs: toggleValue(state.langs, Number(v)) })}
+              onClear={() => apply({ langs: [] })}
+              searchable
+              searchPlaceholder="Filter languages…"
+              emptyText="No language found."
+            />
+          </FilterFacet>
+
+          <FilterFacet label="More filters" count={moreCount} width="w-80" align="end" icon={<Filter className="size-3.5" />}>
+            <div className="max-h-[420px] divide-y overflow-y-auto">
               <FacetSection title="Added">
-                <FilterSegments
-                  type="single"
-                  ariaLabel="Added within"
-                  options={DATE_RANGES.map((d) => ({ value: d.value || 'any', label: d.label }))}
+                <FilterSelect
                   value={state.dateRange || 'any'}
                   onChange={(v) => (v === 'any' ? apply({ dateRange: '', startDate: '', endDate: '' }) : apply({ dateRange: v as BrowseState['dateRange'] }))}
+                  options={DATE_RANGES.map((d) => ({ value: d.value || 'any', label: d.label }))}
+                  ariaLabel="Added within"
                 />
                 {state.dateRange === 'custom' && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <Input
-                      type="date"
-                      value={state.startDate}
-                      aria-label="Added from"
-                      className="h-8 w-[136px] text-[12.5px]"
-                      onChange={(e) => apply({ startDate: e.target.value })}
-                    />
-                    <span className="text-[12px] text-muted-foreground">to</span>
-                    <Input
-                      type="date"
-                      value={state.endDate}
-                      aria-label="Added until"
-                      className="h-8 w-[136px] text-[12.5px]"
-                      onChange={(e) => apply({ endDate: e.target.value })}
+                  <div className="mt-2">
+                    <FilterDateRange
+                      from={state.startDate}
+                      to={state.endDate}
+                      onChange={(startDate, endDate) => apply({ startDate, endDate })}
+                      ariaLabel="Added between"
+                      placeholder="Pick the days"
+                      className="w-full"
                     />
                   </div>
                 )}
-              </FacetSection>
-              <FacetSection title="Search in" note="the whole tracker unless you narrow it">
-                <FilterSegments
-                  type="single"
-                  ariaLabel="Where to search"
-                  options={SEARCH_INS.map(([value, label]) => ({ value, label }))}
-                  value={state.searchIn}
-                  onChange={(v) => apply({ searchIn: v as BrowseState['searchIn'] })}
-                />
               </FacetSection>
               <FacetSection title="Size">
                 <div className="flex items-center gap-2">
@@ -1718,7 +1730,7 @@ export function BrowseView(props: PageProps) {
                     defaultValue={state.minSize ?? ''}
                     placeholder="Min"
                     aria-label="Minimum size"
-                    className="h-8 w-24 text-[12.5px]"
+                    className="h-8 w-20 text-[12.5px]"
                     onBlur={(e) => commitSize('min', e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') e.currentTarget.blur()
@@ -1732,7 +1744,7 @@ export function BrowseView(props: PageProps) {
                     defaultValue={state.maxSize ?? ''}
                     placeholder="Max"
                     aria-label="Maximum size"
-                    className="h-8 w-24 text-[12.5px]"
+                    className="h-8 w-20 text-[12.5px]"
                     onBlur={(e) => commitSize('max', e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') e.currentTarget.blur()
@@ -1746,23 +1758,13 @@ export function BrowseView(props: PageProps) {
                   />
                 </div>
               </FacetSection>
-              <FacetSection title="Personal" note="only in this browser">
-                <Label className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
-                  <Checkbox checked={hideSnatched} onCheckedChange={(v) => setHideSnatched(!!v)} />
-                  Hide snatched torrents
-                </Label>
-              </FacetSection>
-              <FacetSection
-                title="Content flags"
-                note={state.flagsMode === 0 ? 'torrents containing these stay out' : 'only torrents containing these'}
-              >
-                <button
-                  type="button"
-                  className="mb-1.5 text-[12px] text-brand hover:underline"
-                  onClick={() => apply({ flagsMode: state.flagsMode === 0 ? 1 : 0 })}
-                >
-                  switch to “{state.flagsMode === 0 ? 'show only' : 'hide'}”
-                </button>
+              <FacetSection title="Content flags">
+                <FacetMode
+                  value={String(state.flagsMode)}
+                  onChange={(v) => apply({ flagsMode: Number(v) as BrowseState['flagsMode'] })}
+                  options={[{ value: '0', label: 'Hide these' }, { value: '1', label: 'Only these' }]}
+                  ariaLabel="Hide or show torrents carrying these flags"
+                />
                 <div className="grid grid-cols-2">
                   {CONTENT_FLAGS.map((f) => (
                     <Label key={f.bit} className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
@@ -1775,10 +1777,16 @@ export function BrowseView(props: PageProps) {
                   ))}
                 </div>
               </FacetSection>
+              <FacetSection title="Personal" note="only in this browser">
+                <Label className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
+                  <Checkbox checked={hideSnatched} onCheckedChange={(v) => setHideSnatched(!!v)} />
+                  Hide snatched torrents
+                </Label>
+              </FacetSection>
             </div>
           </FilterFacet>
-
         </FilterRow>
+        </>
         )}
       </FilterBar>
 
@@ -1818,12 +1826,9 @@ export function BrowseView(props: PageProps) {
           {!loading && !(state.seriesID && seriesViewOn) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="-ml-1.5 rounded px-1.5 py-0.5 text-[12.5px] text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
-                >
+                <Button variant="link" className="h-auto p-0 text-[12.5px] font-normal text-muted-foreground hover:text-foreground">
                   sorted by {(BROWSE_SORTS.find((o) => o.value === effectiveSort)?.label ?? 'relevance').toLowerCase()}
-                </button>
+                </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-52">
                 {BROWSE_SORTS.map((o) => (
@@ -1842,15 +1847,18 @@ export function BrowseView(props: PageProps) {
             {!uploaderMode && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button
-                    type="button"
+                  {/* Same shape as the toggle plus the menu beside it: what it
+                      does is the icon's job, not the button's. */}
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => void randomBook()}
                     disabled={rolling}
                     aria-label="Open a random book from these results"
-                    className="grid size-8 place-items-center rounded-lg text-muted-foreground outline-none transition-colors hover:bg-brand-soft hover:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring disabled:opacity-50"
+                    className="h-8 w-9 px-0"
                   >
-                    {rolling ? <Loader2 className="size-[15px] animate-spin" /> : <Dice5 className="size-[16px]" />}
-                  </button>
+                    {rolling ? <Loader2 className="size-[15px] animate-spin" /> : <Dice5 className="size-[15px]" />}
+                  </Button>
                 </TooltipTrigger>
                 <TooltipContent>Open a random book from these results</TooltipContent>
               </Tooltip>
@@ -1897,7 +1905,7 @@ export function BrowseView(props: PageProps) {
         )}
         {!loading && error && items.length === 0 && (
           <div className="py-10 text-center text-sm text-destructive">
-            {error}. <button className="underline" onClick={() => void run(state)}>try again</button>
+            {error}. <Button variant="link" className="h-auto p-0 text-sm text-destructive" onClick={() => void run(state)}>try again</Button>
           </div>
         )}
         {!loading && !error && items.length === 0 && (
@@ -1914,7 +1922,7 @@ export function BrowseView(props: PageProps) {
         {!loading && !error && items.length > 0 && shownItems.length === 0 && (
           <div className="py-12 text-center text-sm text-muted-foreground">
             All {fmtInt(hiddenCount)} loaded results are hidden ({hiddenParts}).{' '}
-            <button className="underline" onClick={() => setShowHidden(true)}>Show them</button>
+            <Button variant="link" className="h-auto p-0 text-sm" onClick={() => setShowHidden(true)}>Show them</Button>
           </div>
         )}
         {!loading && shownItems.length > 0 && (!state.seriesID || !seriesViewOn) && view === 'list' && (
@@ -2014,7 +2022,7 @@ export function BrowseView(props: PageProps) {
           <div className="flex items-center justify-center border-t py-4">
             {error ? (
               <span className="text-sm text-destructive">
-                {error}. <button className="underline" onClick={loadMore}>try again</button>
+                {error}. <Button variant="link" className="h-auto p-0 text-sm text-destructive" onClick={loadMore}>try again</Button>
               </span>
             ) : (
               <Button variant="outline" disabled={loadingMore} onClick={loadMore}>

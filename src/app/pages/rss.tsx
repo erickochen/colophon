@@ -12,8 +12,8 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from '@/components/ui/toast'
 import {
-  FacetOptions, FacetSection, FilterFacet, FilterHint, FilterRow, FilterSearch, FilterSegments, FilterSelect,
-  toggleValue,
+  FacetMode, FacetOptions, FacetSection, FilterDateRange, FilterFacet, FilterHint, FilterRow,
+  FilterSearch, FilterSegments, FilterSelect, toggleValue,
 } from '@/components/filters'
 
 const SRCH_FIELDS = [
@@ -135,17 +135,13 @@ export function RssView(props: PageProps) {
             </FilterFacet>
 
             <FilterFacet label="Flags" count={flags.length} width="w-72">
-              <FacetSection
-                title="Content flags"
-                note={flagsMode === 0 ? 'torrents containing these stay out' : 'only torrents containing these'}
-              >
-                <button
-                  type="button"
-                  className="mb-1.5 text-[12px] text-brand hover:underline"
-                  onClick={() => setFlagsMode(flagsMode === 0 ? 1 : 0)}
-                >
-                  switch to “{flagsMode === 0 ? 'show only' : 'hide'}”
-                </button>
+              <FacetMode
+                value={String(flagsMode)}
+                onChange={(v) => setFlagsMode(Number(v) as 0 | 1)}
+                options={[{ value: '0', label: 'Hide these' }, { value: '1', label: 'Only these' }]}
+                ariaLabel="Hide or show torrents carrying these flags"
+              />
+              <FacetSection title="Content flags">
                 {CONTENT_FLAGS.map((fl) => (
                   <Label key={fl.bit} className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
                     <Checkbox checked={flags.includes(fl.bit)} onCheckedChange={() => setFlags(toggleValue(flags, fl.bit))} /> {fl.name}
@@ -158,11 +154,14 @@ export function RssView(props: PageProps) {
               <div className="grid gap-3 p-3">
                 <div className="grid gap-1.5">
                   <Label className="text-[12px] text-muted-foreground">Uploaded between</Label>
-                  <div className="flex items-center gap-2">
-                    <Input type="date" value={adv.startDate ?? ''} onChange={(e) => setAdv((a) => ({ ...a, startDate: e.target.value }))} className="h-8 text-[12.5px]" />
-                    <span className="text-[12px] text-muted-foreground">to</span>
-                    <Input type="date" value={adv.endDate ?? ''} onChange={(e) => setAdv((a) => ({ ...a, endDate: e.target.value }))} className="h-8 text-[12.5px]" />
-                  </div>
+                  <FilterDateRange
+                    from={adv.startDate ?? ''}
+                    to={adv.endDate ?? ''}
+                    onChange={(startDate, endDate) => setAdv((a) => ({ ...a, startDate, endDate }))}
+                    ariaLabel="Uploaded between"
+                    placeholder="Any day"
+                    className="w-full"
+                  />
                 </div>
                 <div className="grid gap-1.5">
                   <Label className="text-[12px] text-muted-foreground">Size</Label>
