@@ -1,17 +1,11 @@
 // External search links plus the currently-reading snippet on torrent detail.
 // The snippet output matches MAM+ so existing forum threads look consistent.
-import { useRef, useState } from 'react'
-import { Check, Quote } from 'lucide-react'
 import type { TorrentDetail } from '@/lib/extract/torrent'
 import { useFeature } from '@/lib/settings'
-import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/toast'
-import { cn } from '@/lib/utils'
 
 // MAM+ caps the author list of the snippet at three names plus an "etc.".
 const SNIPPET_AUTHOR_MAX = 3
-// How long the copy button shows its checkmark.
-const COPIED_FLASH_MS = 2000
 
 const SITE_ORIGIN = 'https://www.myanonamouse.net'
 
@@ -70,32 +64,19 @@ export function TorLinks({ data }: { data: TorrentDetail }) {
   )
 }
 
-/** Copying the snippet acts on this torrent, so it rides with the download and
- * bookmark buttons rather than with the links that lead off site. */
-export function CopySnippetButton({ data }: { data: TorrentDetail }) {
+/** Copying the snippet acts on this torrent, so it rides with the download
+ * routes rather than with the links that lead off site. Null when the feature
+ * is off, which lets the caller drop the entry. */
+export function useReadingSnippet(data: TorrentDetail): (() => Promise<void>) | null {
   const [snippetOn] = useFeature('forumSnippet')
-  const [copied, setCopied] = useState(false)
-  const flashTimer = useRef<number | null>(null)
   const snippet = snippetOn ? buildReadingSnippet(data) : null
   if (!snippet) return null
-
-  async function copySnippet() {
-    if (!snippet) return
+  return async () => {
     try {
       await navigator.clipboard.writeText(snippet)
-      setCopied(true)
       toast.success('Snippet copied', { description: 'Paste it in a forum post or your profile.' })
-      if (flashTimer.current) window.clearTimeout(flashTimer.current)
-      flashTimer.current = window.setTimeout(() => setCopied(false), COPIED_FLASH_MS)
     } catch {
       toast.error('Copying did not go through.')
     }
   }
-
-  return (
-    <Button variant="outline" onClick={copySnippet} className={cn(copied && 'text-ok')}>
-      {copied ? <Check /> : <Quote />}
-      {copied ? 'Copied' : 'Quote for forum'}
-    </Button>
-  )
 }

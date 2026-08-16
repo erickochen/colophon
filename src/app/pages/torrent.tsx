@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bookmark, BookmarkCheck, ChevronDown, Copy, Download, FilePenLine, FileText, Flag, Gift, History, Info, Lock, MessageSquarePlus, Settings2, Sprout, Users } from 'lucide-react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Bookmark, BookmarkCheck, Check, CircleSlash, Copy, Download, FilePenLine, Flag, Gift, History, Info, Lock, MessageSquarePlus, Minus, MoreHorizontal, Quote, Settings2, Sprout } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { extractTorrent, type MediaNode, type TorrentComment, type TorrentDetail } from '@/lib/extract/torrent'
+import { parseFileList, parsePeers, type FileListData, type PeerData, type PeerRow, type TorrentFile } from '@/lib/extract/torrent-panels'
 import { LegacyView } from '@/app/pages/legacy'
 import { RichHtml } from '@/app/shell/bits'
-import { cleanHtml } from '@/lib/sanitize'
-import { swapStatusIcons } from '@/lib/status-dots'
 import { mutedUserColor } from '@/lib/colors'
-import { fmtInt, fmtRatio, initials, relTime, utcTitle } from '@/lib/format'
+import { fmtInt, fmtRatio, initials, plural, relTime, utcTitle } from '@/lib/format'
+import { mediaInfoGroupLabel, mediaInfoLabel } from '@/lib/media-info'
 import { searchTorrents, parsePeople, coverUrl, torrentUrl, THANK_MAX, type SearchTorrent } from '@/lib/mam-api'
 import { coverShape, mediaTypeFromHref, type CoverShape } from '@/lib/cover-shape'
 import { seriesEntry } from '@/lib/series'
@@ -16,18 +16,20 @@ import { HARD_FLOOR, TRIVIAL_DROP, useRatioGuard, type RatioGuard, type RatioLev
 import { cn } from '@/lib/utils'
 import { Book, Book3D, BookAmbilight } from '@/components/book'
 import { TagLinks } from '@/components/tag-links'
-import { CopySnippetButton, TorLinks } from '@/components/tor-links'
+import { TorLinks, useReadingSnippet } from '@/components/tor-links'
 import { WedgeDetailButton } from '@/components/wedge-download'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { BlurFade } from '@/components/ui/blur-fade'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from '@/components/ui/toast'
 import { scrollIntoView } from '@/lib/motion'
 
@@ -66,6 +68,11 @@ function KV({ label, full = false, children }: { label: string; full?: boolean; 
   )
 }
 
+// Both footer entries run through Button, one as a button and one as a link, so
+// the size variant cannot indent one of them past the other.
+const FOOTER_LINK =
+  'h-auto gap-2 p-0 text-[12.5px] font-normal text-muted-foreground no-underline hover:text-brand has-[>svg]:px-0'
+
 /** Click a control in the hidden legacy DOM; MAM's own handler takes it from
  * there. The boolean says whether the control was found. */
 function proxyClick(sel: string, fail: string): boolean {
@@ -96,14 +103,15 @@ function GuardSettings({ guard }: { guard: RatioGuard }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
           aria-label="Ratio protection settings"
           title="Ratio protection settings"
-          className="-m-1 ml-0.5 inline-flex rounded p-1 align-[-4px] outline-none transition-colors hover:text-brand focus-visible:ring-[3px] focus-visible:ring-ring"
+          className="ml-0.5 size-6 align-[-4px] hover:text-brand"
         >
           <Settings2 className="size-3.5" />
-        </button>
+        </Button>
       </PopoverTrigger>
       <PopoverContent className="w-72 text-[13px]">
         <label className="flex items-center justify-between gap-3 text-[12px] font-semibold">
@@ -208,12 +216,7 @@ function DownloadDock({ data, spent, onSpent }: { data: TorrentDetail; spent: bo
           )
         ) : null}
         <BookmarkButton />
-        <CopySnippetButton data={data} />
-        {data.clone && (
-          <Button asChild variant="outline" title="Opens the upload form filled in with this torrent's details">
-            <a href={data.clone}><Copy /> Copy to upload form</a>
-          </Button>
-        )}
+        <MoreActions data={data} />
       </div>
       {data.downloadBlocked && (
         <p className="mt-2 text-[12px] leading-snug text-muted-foreground">{data.downloadBlocked}</p>
@@ -222,6 +225,32 @@ function DownloadDock({ data, spent, onSpent }: { data: TorrentDetail; spent: bo
         <p className="mt-2 text-[12px] leading-snug text-ok">This torrent is a personal freeleech now, so downloading it costs you nothing.</p>
       )}
     </>
+  )
+}
+
+/** The rarer routes for this torrent, behind one trigger so the download row
+ * keeps a single primary action. Every entry carries its own words. */
+function MoreActions({ data }: { data: TorrentDetail }) {
+  const copySnippet = useReadingSnippet(data)
+  if (!copySnippet && !data.clone) return null
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="icon" aria-label="More actions for this torrent">
+          <MoreHorizontal />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        {copySnippet && (
+          <DropdownMenuItem onClick={copySnippet}><Quote /> Quote for forum</DropdownMenuItem>
+        )}
+        {data.clone && (
+          <DropdownMenuItem asChild>
+            <a href={data.clone}><Copy /> Copy to upload form</a>
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -317,29 +346,69 @@ function Comment({ c }: { c: TorrentComment }) {
   )
 }
 
-/** MAM's MediaInfo tree: headings become subheadings, key/value become rows. */
-export function MediaInfoTree({ nodes, depth = 0 }: { nodes: MediaNode[]; depth?: number }) {
+// Above this many rows a section gets its own scroll box, the way MAM caps its
+// own chapter list.
+const MEDIA_LONG_SECTION = 12
+
+/** A run of numbered entries is a chapter list, not a set of fields. */
+function isNumbered(nodes: MediaNode[]): boolean {
+  return nodes.length > 1 && nodes.every((n) => /^\d+$/.test(n.label.trim()))
+}
+
+/** Key and value in one shared grid, so every value starts in the same column
+ * whichever section it belongs to. */
+function MediaInfoRows({ nodes }: { nodes: MediaNode[] }) {
   return (
-    <div className={depth === 0 ? 'grid gap-4' : 'grid gap-1'}>
-      {nodes.map((n, i) =>
-        n.children.length > 0 ? (
-          <div key={n.label + i}>
-            <div className={depth === 0
-              ? 'text-[10px] font-semibold uppercase tracking-[0.11em] text-muted-foreground'
-              : 'text-[12.5px] font-medium'}>
-              {n.label}
-            </div>
-            <div className={n.children.length > 12 ? 'mt-1.5 max-h-64 overflow-y-auto rounded-lg bg-muted/40 p-2.5' : 'mt-1.5 pl-0.5'}>
-              <MediaInfoTree nodes={n.children} depth={depth + 1} />
-            </div>
-          </div>
-        ) : (
-          <div key={n.label + i} className="grid grid-cols-[minmax(88px,auto)_1fr] gap-x-3 text-[12.5px] leading-relaxed">
-            <span className="text-muted-foreground">{n.label}</span>
-            <span className="font-mono tabular-nums [overflow-wrap:anywhere]">{n.value}</span>
-          </div>
-        )
-      )}
+    <dl className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-[12.5px] leading-relaxed sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)]">
+      {nodes.map((n, i) => (
+        <Fragment key={n.label + i}>
+          <dt className="text-muted-foreground">{mediaInfoLabel(n.label)}</dt>
+          <dd className="font-mono tabular-nums [overflow-wrap:anywhere]">{n.value}</dd>
+        </Fragment>
+      ))}
+    </dl>
+  )
+}
+
+function ChapterList({ nodes }: { nodes: MediaNode[] }) {
+  return (
+    <ol className="grid grid-cols-1 gap-1 text-[12.5px] leading-relaxed">
+      {nodes.map((n, i) => (
+        <li key={n.label + i} className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3">
+          <span className="text-right font-mono tabular-nums text-muted-foreground">{n.label}</span>
+          <span>{n.value}</span>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+function MediaInfoSection({ node, parent }: { node: MediaNode; parent: string | null }) {
+  // A section holding nothing but one named section is a wrapper, so its own
+  // heading says nothing the inner one does not.
+  const only = node.children.length === 1 && node.children[0].children.length > 0 ? node.children[0] : null
+  if (only) return <MediaInfoSection node={only} parent={node.label} />
+  const long = node.children.length > MEDIA_LONG_SECTION
+  return (
+    <section>
+      <h3 className="text-[10px] font-semibold uppercase tracking-[0.11em] text-muted-foreground">
+        {mediaInfoGroupLabel(node.label, parent)}
+      </h3>
+      <div className={cn('mt-2', long && 'max-h-64 overflow-y-auto rounded-lg bg-muted/40 p-3')}>
+        <MediaInfoBody nodes={node.children} parent={node.label} />
+      </div>
+    </section>
+  )
+}
+
+/** MAM's MediaInfo tree: named sections holding key/value pairs. */
+function MediaInfoBody({ nodes, parent }: { nodes: MediaNode[]; parent: string | null }) {
+  const leaves = nodes.filter((n) => n.children.length === 0)
+  const sections = nodes.filter((n) => n.children.length > 0)
+  return (
+    <div className="grid grid-cols-1 gap-5">
+      {leaves.length > 0 && (isNumbered(leaves) ? <ChapterList nodes={leaves} /> : <MediaInfoRows nodes={leaves} />)}
+      {sections.map((s, i) => <MediaInfoSection key={s.label + i} node={s} parent={parent} />)}
     </div>
   )
 }
@@ -369,18 +438,29 @@ function legacyFragment(run: () => void, sel: string): Promise<string> {
   })
 }
 
-/** Fetch a same-origin HTML fragment (filelist, peers) once, on first expand.
- * When the fetch fails the fallback loader gets a try before showing an error. */
-function useRemoteHtml(url: string | null, fallback?: () => Promise<string>) {
-  const [s, setS] = useState<{ loading: boolean; html: string | null; error: boolean }>({ loading: false, html: null, error: false })
-  function apply(t: string) {
-    const doc = new DOMParser().parseFromString(t, 'text/html')
-    swapStatusIcons(doc)
-    setS({ loading: false, html: cleanHtml(doc.body) ?? '', error: false })
+interface Remote<T> {
+  loading: boolean
+  data: T | null
+  error: boolean
+  load: () => void
+}
+
+/** Fetch a same-origin fragment (file list, peers) once and parse it into our
+ * own shape. When the fetch fails the fallback loader gets a try first. */
+function useRemoteData<T>(url: string | null, parse: (doc: Document) => T, fallback?: () => Promise<string>): Remote<T> {
+  const [s, setS] = useState<{ loading: boolean; data: T | null; error: boolean }>({ loading: false, data: null, error: false })
+  const started = useRef(false)
+
+  // A parse that does not know what came back throws, so a served error page
+  // reaches the error state instead of rendering as rows.
+  function apply(text: string) {
+    setS({ loading: false, data: parse(new DOMParser().parseFromString(text, 'text/html')), error: false })
   }
+
   function load() {
-    if (!url || s.html || s.loading) return
-    setS({ loading: true, html: null, error: false })
+    if (!url || started.current) return
+    started.current = true
+    setS({ loading: true, data: null, error: false })
     fetch(url, { credentials: 'include' })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
@@ -392,47 +472,299 @@ function useRemoteHtml(url: string | null, fallback?: () => Promise<string>) {
           if (!fallback) throw new Error('no fallback')
           apply(await fallback())
         } catch {
-          setS({ loading: false, html: null, error: true })
+          started.current = false
+          setS({ loading: false, data: null, error: true })
         }
       })
   }
   return { ...s, load }
 }
 
-// No borders anywhere in this design (see index.css): tables separate rows with
-// a zebra fill, not rules.
-const REMOTE_HTML_CLS =
-  'legacy-html overflow-x-auto text-[12.5px] leading-relaxed [&_a[href]]:text-brand [&_a[href]]:underline [&_table]:w-full [&_table]:border-separate [&_table]:border-spacing-0 [&_th]:px-2.5 [&_th]:py-1.5 [&_th]:text-left [&_th]:font-medium [&_th]:text-muted-foreground [&_td]:px-2.5 [&_td]:py-1.5 [&_tbody_tr:nth-child(odd)]:bg-muted/30 [&_img]:inline-block [&_img]:h-4 [&_img]:w-auto'
+/** Loading and failure sit in the same spot for every panel. Both announce
+ * themselves because the content arrives after the tab is already open. */
+function PanelStatus({ state, url }: { state: Remote<unknown>; url: string }) {
+  if (state.loading) {
+    return (
+      <p role="status" className="flex items-center gap-2 py-3 text-[13px] text-muted-foreground">
+        <Spinner className="size-4" /> Loading…
+      </p>
+    )
+  }
+  if (state.error) {
+    return (
+      <p role="status" className="py-3 text-[13px] text-muted-foreground">
+        Could not load this.{' '}
+        <Button variant="link" className="h-auto p-0 text-brand" onClick={state.load}>Try again</Button>
+        {' '}or <a className="text-brand underline" href={url}>open it directly</a>.
+      </p>
+    )
+  }
+  return null
+}
 
-/** Collapsible card that lazy-loads a MAM fragment the first time it opens. */
-function RemotePanel({ title, icon, url, fallback }: { title: string; icon: React.ReactNode; url: string | null; fallback?: () => Promise<string> }) {
-  const r = useRemoteHtml(url, fallback)
-  if (!url) return null
+// Rows and headings line up with the card gutter, so the table has none of its
+// own horizontal padding on the outer columns.
+const CELL = 'px-2 first:pl-0 last:pr-0'
+const HEAD = `${CELL} h-8 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground`
+
+const COPIED_FLASH_MS = 2000
+
+/** The info hash, in full and ready to paste into a client. */
+function InfoHash({ hash }: { hash: string }) {
+  const [copied, setCopied] = useState(false)
+  const timer = useRef<number | null>(null)
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(hash)
+      setCopied(true)
+      if (timer.current) window.clearTimeout(timer.current)
+      timer.current = window.setTimeout(() => setCopied(false), COPIED_FLASH_MS)
+    } catch {
+      toast.error('Copying did not go through.')
+    }
+  }
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      aria-label="Copy the info hash"
+      className="h-8 gap-2 px-2 text-[12px] font-normal text-muted-foreground hover:text-foreground"
+      onClick={copy}
+    >
+      {copied ? <Check className="text-ok" /> : <Copy />}
+      Info hash
+      <span className="max-w-[18ch] truncate font-mono sm:max-w-none">{hash}</span>
+    </Button>
+  )
+}
+
+interface FileFolder {
+  path: string
+  files: TorrentFile[]
+}
+
+/** Keep the torrent's own file order and start a new block per folder. */
+function groupFiles(files: TorrentFile[]): FileFolder[] {
+  const out: FileFolder[] = []
+  for (const file of files) {
+    const last = out[out.length - 1]
+    if (last && last.path === file.path) last.files.push(file)
+    else out.push({ path: file.path, files: [file] })
+  }
+  return out
+}
+
+function FilesPanel({ state, url }: { state: Remote<FileListData>; url: string }) {
+  if (!state.data) return <PanelStatus state={state} url={url} />
+  const { hash, files } = state.data
+  if (files.length === 0) {
+    return <p className="text-[13px] text-muted-foreground">This torrent lists no files.</p>
+  }
+  return (
+    <div className="grid grid-cols-1 gap-1">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <p className="text-[12.5px] text-muted-foreground">{plural(files.length, 'file')}</p>
+        {hash && <InfoHash hash={hash} />}
+      </div>
+      <Table className="text-[12.5px]">
+        <TableHeader>
+          <TableRow>
+            <TableHead scope="col" className={HEAD}>Filename</TableHead>
+            <TableHead scope="col" className={cn(HEAD, 'text-right')}>Size</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {groupFiles(files).map((folder, fi) => (
+            <Fragment key={folder.path + fi}>
+              {folder.path && (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={2} className={cn(CELL, 'pt-3 text-[11.5px] font-medium text-muted-foreground')}>
+                    {folder.path}
+                  </TableCell>
+                </TableRow>
+              )}
+              {folder.files.map((f, i) => (
+                <TableRow key={f.name + i}>
+                  <TableCell className={cn(CELL, 'whitespace-normal [overflow-wrap:anywhere]')}>{f.name}</TableCell>
+                  <TableCell className={cn(CELL, 'text-right font-mono text-muted-foreground')}>{f.size}</TableCell>
+                </TableRow>
+              ))}
+            </Fragment>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
+/** A shape rather than a color alone, plus MAM's own word for a screen reader.
+ * Not connectable and offline are different states, so they read differently. */
+function Connectable({ row }: { row: PeerRow }) {
+  if (row.reach == null) return <span className="text-muted-foreground">–</span>
+  const yes = row.reach === 'connectable'
+  const label = row.reachLabel ?? (yes ? 'Connectable' : row.reach === 'offline' ? 'Offline' : 'Not connectable')
+  return (
+    <span className="inline-flex items-center" title={label}>
+      {yes
+        ? <Check className="size-3.5 text-ok" />
+        : row.reach === 'offline'
+          ? <CircleSlash className="size-3.5 text-muted-foreground" />
+          : <Minus className="size-3.5 text-muted-foreground" />}
+      <span className="sr-only">{label}</span>
+    </span>
+  )
+}
+
+// Durations vary in width, so they hang off their right edge and the seconds
+// line up down the column.
+const HEAD_TIME = `${HEAD} text-right`
+const CELL_TIME = `${CELL} text-right font-mono text-muted-foreground`
+
+function PeerTable({ rows }: { rows: PeerRow[] }) {
+  return (
+    <Table className="text-[12.5px]">
+      <TableHeader>
+        <TableRow>
+          <TableHead scope="col" className={HEAD}>Client</TableHead>
+          <TableHead scope="col" className={HEAD}>Connectable</TableHead>
+          <TableHead scope="col" className={HEAD_TIME}>Connected</TableHead>
+          <TableHead scope="col" className={HEAD_TIME}>Last announce</TableHead>
+          <TableHead scope="col" className={HEAD_TIME}>Next announce</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((p, i) => (
+          <TableRow key={p.client + i}>
+            <TableCell className={cn(CELL, 'font-medium')}>{p.client}</TableCell>
+            <TableCell className={CELL}><Connectable row={p} /></TableCell>
+            <TableCell className={CELL_TIME} title={p.connectedAt ? utcTitle(p.connectedAt) : undefined}>
+              {p.connectedFor}
+            </TableCell>
+            <TableCell className={CELL_TIME} title={p.lastAnnounceAt ? utcTitle(p.lastAnnounceAt) : undefined}>
+              {p.lastAnnounce}
+            </TableCell>
+            <TableCell className={CELL_TIME}>{p.nextAnnounce}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  )
+}
+
+function PeerSection({ title, rows, empty }: { title: string; rows: PeerRow[]; empty: string }) {
+  return (
+    <section>
+      <h3 className="flex items-baseline gap-2 text-[10px] font-semibold uppercase tracking-[0.11em] text-muted-foreground">
+        {title}
+        <span className="font-mono text-[11px] tabular-nums tracking-normal">{fmtInt(rows.length)}</span>
+      </h3>
+      {rows.length > 0
+        ? <PeerTable rows={rows} />
+        : <p className="mt-1.5 text-[12.5px] text-muted-foreground">{empty}</p>}
+    </section>
+  )
+}
+
+function PeersPanel({ state, url }: { state: Remote<PeerData>; url: string }) {
+  if (!state.data) return <PanelStatus state={state} url={url} />
+  return (
+    <div className="grid grid-cols-1 gap-5">
+      <PeerSection title="Seeding" rows={state.data.seeding} empty="Nobody is seeding this torrent right now." />
+      <PeerSection title="Leeching" rows={state.data.leeching} empty="Nobody is downloading this torrent right now." />
+    </div>
+  )
+}
+
+function MediaPanel({ data }: { data: TorrentDetail }) {
+  if (data.mediaInfo.length === 0) {
+    return (
+      <div
+        className="legacy-html text-[12.5px] leading-relaxed"
+        dangerouslySetInnerHTML={{ __html: data.mediaInfoHtml ?? '' }}
+      />
+    )
+  }
+  return (
+    <div className="grid grid-cols-1 gap-5">
+      <MediaInfoBody nodes={data.mediaInfo} parent={null} />
+      {data.mediaInfoFullHref && (
+        <a href={data.mediaInfoFullHref} className="w-fit text-[12px] text-brand hover:underline">
+          View the full media info
+        </a>
+      )}
+    </div>
+  )
+}
+
+const countOf = (raw: string | null) => {
+  const n = Number((raw ?? '').replace(/,/g, ''))
+  return Number.isFinite(n) ? n : 0
+}
+
+/** What is inside the torrent, in one card. The counts sit on the tabs so the
+ * reader knows what a tab holds before opening it. Each fetch waits until its
+ * own tab is shown. */
+function TorrentPanels({ data }: { data: TorrentDetail }) {
+  const filesUrl = data.hasFilelist && data.id != null ? `/tor/filelist.php?torrentid=${data.id}` : null
+  const peersUrl = data.hasPeers && data.id != null ? `/tor/peers.php?simple=true&torrentid=${data.id}` : null
+  const files = useRemoteData(filesUrl, parseFileList, () =>
+    legacyFragment(() => (window as unknown as { fileListToggle?: (id: number) => void }).fileListToggle?.(data.id!), '#filesDisplay')
+  )
+  const peers = useRemoteData(peersUrl, parsePeers, () =>
+    legacyFragment(() => (window as unknown as { togglePeersList?: (id: number) => void }).togglePeersList?.(data.id!), '#peersDisplay')
+  )
+
+  const tabs: { value: string; label: string; count: number | null }[] = []
+  if (data.mediaInfo.length > 0 || data.mediaInfoHtml) tabs.push({ value: 'media', label: 'Media info', count: null })
+  if (filesUrl) tabs.push({ value: 'files', label: 'Files', count: countOf(data.files.count) || null })
+  if (peersUrl) tabs.push({ value: 'peers', label: 'Peers', count: countOf(data.seeders) + countOf(data.leechers) })
+
+  const [tab, setTab] = useState(() => tabs[0]?.value ?? 'media')
+  useEffect(() => {
+    if (tab === 'files') files.load()
+    if (tab === 'peers') peers.load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab])
+
+  if (tabs.length === 0) return null
+
+  const body = (value: string) =>
+    value === 'media' ? <MediaPanel data={data} />
+      : value === 'files' ? <FilesPanel state={files} url={filesUrl ?? ''} />
+        : <PeersPanel state={peers} url={peersUrl ?? ''} />
+
+  if (tabs.length === 1) {
+    return (
+      <Card className="gap-0 py-0">
+        <CardHeader className="!py-3.5"><CardTitle>{tabs[0].label}</CardTitle></CardHeader>
+        <CardContent className="px-6 pb-5">{body(tabs[0].value)}</CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card className="gap-0 py-0">
-      <Collapsible onOpenChange={(open) => open && r.load()}>
-        <CollapsibleTrigger asChild>
-          <button className="flex w-full items-center justify-between px-6 py-4 text-left [&[data-panel-open]_.chev]:rotate-180">
-            <span className="flex items-center gap-2 font-display text-[15px] font-semibold">{icon} {title}</span>
-            <ChevronDown className="chev size-4 text-muted-foreground transition-transform" />
-          </button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="px-6 pb-5">
-            {r.loading && (
-              <div className="flex items-center gap-2 py-4 text-[13px] text-muted-foreground"><Spinner className="size-4" /> Loading…</div>
-            )}
-            {r.error && (
-              <p className="py-4 text-[13px] text-muted-foreground">
-                Could not load this.{' '}
-                <button type="button" className="text-brand underline" onClick={r.load}>Try again</button>
-                {' '}or <a className="text-brand underline" href={url}>open it directly</a>.
-              </p>
-            )}
-            {r.html && <div className={REMOTE_HTML_CLS} dangerouslySetInnerHTML={{ __html: r.html }} />}
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
+      <Tabs value={tab} onValueChange={setTab} className="gap-0">
+        {/* The line marker hangs below the list, so the strip reserves that
+            space and the marker lands on the divider. */}
+        <div className="border-b px-6 pt-3 pb-[5px]">
+          <TabsList variant="line" className="gap-5 p-0">
+            {tabs.map((t) => (
+              <TabsTrigger key={t.value} value={t.value} className="flex-none px-0 text-[13px]">
+                {t.label}
+                {t.count != null && (
+                  <span className="font-mono text-[11px] tabular-nums text-muted-foreground">{fmtInt(t.count)}</span>
+                )}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
+        {tabs.map((t) => (
+          <TabsContent key={t.value} value={t.value} className="px-6 py-5">{body(t.value)}</TabsContent>
+        ))}
+      </Tabs>
     </Card>
   )
 }
@@ -674,11 +1006,13 @@ export function TorrentView(props: PageProps) {
     toast.success(amount > 0 ? `Sent ${amount.toLocaleString('en-US')} points to the uploader` : 'Thanked the uploader')
   }
 
+  // The series line is the one accent in the hero, so names carry their weight
+  // in the text color instead of a second one.
   const people = (list: { name: string; href: string }[]) =>
     list.map((p, i) => (
       <span key={p.href + i}>
         {i > 0 && ', '}
-        <a className="text-brand hover:underline" href={p.href}>{p.name}</a>
+        <a className="text-foreground hover:underline" href={p.href}>{p.name}</a>
       </span>
     ))
 
@@ -722,9 +1056,15 @@ export function TorrentView(props: PageProps) {
             </div>
 
             <div className="min-w-0">
-              {(data.dlHistory || data.vip || data.fileTypes.length > 0 || data.categories.length > 0) && (
+              {/* Status only. What the torrent is about lives in Details, so one
+                  row of chips carries one meaning. */}
+              {(data.dlHistory || data.vip || data.freeleech || data.personalFreeleech || spent || data.fileTypes.length > 0) && (
                 <div className="mb-3 flex flex-wrap items-center gap-1.5">
                   {data.dlHistory && <DlHistoryBadge label={data.dlHistory} />}
+                  {data.freeleech && <Badge className="bg-ok/15 text-ok" variant="secondary">Freeleech</Badge>}
+                  {(data.personalFreeleech || spent) && (
+                    <Badge className="bg-ok/15 text-ok" variant="secondary">Personal freeleech</Badge>
+                  )}
                   {data.vip && (
                     <Badge
                       className="bg-brand-soft text-accent-foreground"
@@ -736,12 +1076,6 @@ export function TorrentView(props: PageProps) {
                   )}
                   {data.fileTypes.map((f) => (
                     <Badge key={f} variant="outline" className="font-mono uppercase">{f}</Badge>
-                  ))}
-                  {genres.map((c) => (
-                    <Badge key={c.href} variant="secondary" asChild><a href={c.href}>{c.name}</a></Badge>
-                  ))}
-                  {languages.map((c) => (
-                    <Badge key={c.href} variant="outline" asChild><a href={c.href}>{c.name}</a></Badge>
                   ))}
                 </div>
               )}
@@ -783,11 +1117,7 @@ export function TorrentView(props: PageProps) {
               )}
 
               {data.mediaInfoMicro && (
-                <div className="mt-3.5 flex flex-wrap gap-1.5">
-                  {data.mediaInfoMicro.split(/\s+/).filter(Boolean).map((chip, i) => (
-                    <Badge key={chip + i} variant="secondary" className="font-mono text-[11px]">{chip}</Badge>
-                  ))}
-                </div>
+                <p className="mt-3 font-mono text-[11.5px] tracking-wide text-muted-foreground">{data.mediaInfoMicro}</p>
               )}
 
               <DownloadDock data={data} spent={spent} onSpent={() => setSpent(true)} />
@@ -796,7 +1126,10 @@ export function TorrentView(props: PageProps) {
         </div>
       </BlurFade>
 
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      {/* grid-cols-1 below lg as well: a bare grid gets an auto track that a
+          wide table pushes past the page instead of scrolling inside its own
+          box. */}
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         {/* MAIN COLUMN: description, series strip, media info, files, peers */}
         <div className="grid min-w-0 grid-cols-1 gap-5">
           {data.descriptionHtml && (
@@ -815,49 +1148,7 @@ export function TorrentView(props: PageProps) {
 
           <EditionsStrip data={data} />
 
-          {(data.mediaInfo.length > 0 || data.mediaInfoHtml) && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Media info</CardTitle>
-                {data.mediaInfoFullHref && (
-                  <CardAction>
-                    <a href={data.mediaInfoFullHref} className="text-[12px] text-brand hover:underline">Full media info</a>
-                  </CardAction>
-                )}
-              </CardHeader>
-              <CardContent>
-                {data.mediaInfo.length > 0 ? (
-                  <MediaInfoTree nodes={data.mediaInfo} />
-                ) : (
-                  <div
-                    className="legacy-html text-[12.5px] leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: data.mediaInfoHtml ?? '' }}
-                  />
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {data.hasFilelist && data.id && (
-            <RemotePanel
-              title="Files"
-              icon={<FileText className="size-4 text-muted-foreground" />}
-              url={`/tor/filelist.php?torrentid=${data.id}`}
-              fallback={() =>
-                legacyFragment(() => (window as unknown as { fileListToggle?: (id: number) => void }).fileListToggle?.(data.id!), '#filesDisplay')
-              }
-            />
-          )}
-          {data.hasPeers && data.id && (
-            <RemotePanel
-              title="Peers"
-              icon={<Users className="size-4 text-muted-foreground" />}
-              url={`/tor/peers.php?simple=true&torrentid=${data.id}`}
-              fallback={() =>
-                legacyFragment(() => (window as unknown as { togglePeersList?: (id: number) => void }).togglePeersList?.(data.id!), '#peersDisplay')
-              }
-            />
-          )}
+          <TorrentPanels data={data} />
         </div>
 
         {/* DETAILS sidebar: A24-style label-over-value grid */}
@@ -870,16 +1161,26 @@ export function TorrentView(props: PageProps) {
                   <a className="font-medium hover:underline" style={{ color: mutedUserColor(data.uploader.color) }} href={data.uploader.href}>
                     {data.uploader.name}
                   </a>
-                  <button
-                    type="button"
-                    className="mt-0.5 block text-[12px] text-brand hover:underline"
+                  <Button
+                    variant="link"
+                    className="mt-0.5 block h-auto p-0 text-[12px] text-brand"
                     onClick={() => {
                       scrollIntoView(thankBox.current, { block: 'center' })
                       thankInput.current?.focus({ preventScroll: true })
                     }}
                   >
                     Say thanks
-                  </button>
+                  </Button>
+                </KV>
+              )}
+
+              {genres.length > 0 && (
+                <KV label="Genres" full>
+                  <div className="flex flex-wrap gap-1.5">
+                    {genres.map((c) => (
+                      <Badge key={c.href} variant="secondary" asChild><a href={c.href}>{c.name}</a></Badge>
+                    ))}
+                  </div>
                 </KV>
               )}
 
@@ -900,46 +1201,43 @@ export function TorrentView(props: PageProps) {
                 </KV>
               )}
 
-              {/* Without the projection this row is only about freeleech. */}
-              {(data.freeleech || data.ratio || data.ratioHtml) && (
-                <KV label={data.ratio ? 'Freeleech' : 'Ratio after'} full>
-                  {(data.freeleech || data.personalFreeleech || spent) && (
-                    <div className="mb-1.5 flex flex-wrap gap-1.5">
-                      {data.freeleech && <Badge className="bg-ok/15 text-ok" variant="secondary">Freeleech</Badge>}
-                      {(data.personalFreeleech || spent) && <Badge className="bg-ok/15 text-ok" variant="secondary">Personal freeleech</Badge>}
-                    </div>
-                  )}
-                  {/* A spent wedge makes the projection and the buy buttons untrue. */}
-                  {spent ? null : data.ratio ? (
-                    <div className="grid gap-2 text-[13px]">
-                      {sideRatioButtons.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                          {sideRatioButtons.map((b) => (
-                            <Button
-                              key={b.name ?? b.label}
-                              size="sm"
-                              variant="outline"
-                              className="h-8 gap-1.5"
-                              title="Spend a wedge to make this a personal freeleech download."
-                              onClick={() =>
-                                proxyClick(
-                                  `input[data-freetor="${b.torId}"]${b.name ? `[name="${b.name}"]` : ''}`,
-                                  'This freeleech option is not available.',
-                                )
-                              }
-                            >
-                              <Gift className="size-3.5" /> {b.label}
-                            </Button>
-                          ))}
-                        </div>
-                      )}
-                      {data.ratio.note && <div className="text-[12px] text-muted-foreground">{data.ratio.note}</div>}
-                    </div>
-                  ) : (
-                    data.ratioHtml && (
-                      <div className="text-[13px] leading-relaxed text-muted-foreground [&_a]:text-brand [&_a]:underline" dangerouslySetInnerHTML={{ __html: data.ratioHtml }} />
-                    )
-                  )}
+              {/* The badges live in the hero now, so this row is what you can
+                  still do about the cost. A spent wedge makes both untrue. */}
+              {data.ratio && !spent && (sideRatioButtons.length > 0 || data.ratio.note) && (
+                <KV label="Freeleech" full>
+                  <div className="grid gap-2 text-[13px]">
+                    {sideRatioButtons.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {sideRatioButtons.map((b) => (
+                          <Button
+                            key={b.name ?? b.label}
+                            size="sm"
+                            variant="outline"
+                            className="h-8 gap-1.5"
+                            title="Spend a wedge to make this a personal freeleech download."
+                            onClick={() =>
+                              proxyClick(
+                                `input[data-freetor="${b.torId}"]${b.name ? `[name="${b.name}"]` : ''}`,
+                                'This freeleech option is not available.',
+                              )
+                            }
+                          >
+                            <Gift className="size-3.5" /> {b.label}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                    {data.ratio.note && <div className="text-[12px] text-muted-foreground">{data.ratio.note}</div>}
+                  </div>
+                </KV>
+              )}
+
+              {!data.ratio && !data.freeleech && !data.personalFreeleech && !spent && data.ratioHtml && (
+                <KV label="Ratio after" full>
+                  <div
+                    className="text-[13px] leading-relaxed text-muted-foreground [&_a]:text-brand [&_a]:underline"
+                    dangerouslySetInnerHTML={{ __html: data.ratioHtml }}
+                  />
                 </KV>
               )}
 
@@ -953,9 +1251,9 @@ export function TorrentView(props: PageProps) {
                     {data.reseed.reason && (
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1 text-[12.5px] text-brand underline underline-offset-2">
+                          <Button variant="link" className="h-auto gap-1 p-0 text-[12.5px] text-brand">
                             <Info className="size-3.5" /> Find out why
-                          </button>
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-64 text-[13px] leading-relaxed">{data.reseed.reason}</PopoverContent>
                       </Popover>
@@ -983,19 +1281,22 @@ export function TorrentView(props: PageProps) {
             </dl>
 
             {(data.hasSubmitInfo || data.reportIssueHref) && (
-              <div className="mt-4 grid gap-2 border-t pt-3.5 text-[12.5px]">
+              <div className="mt-4 grid justify-items-start gap-1 border-t pt-3.5">
                 {data.hasSubmitInfo && (
-                  <button
+                  <Button
+                    variant="link"
+                    className={FOOTER_LINK}
                     onClick={() => proxyClick('#submitInfo [data-tormissdataj]', 'Submitting info is not available for this torrent.')}
-                    className="inline-flex items-center gap-2 text-left text-muted-foreground transition-colors hover:text-brand"
                   >
                     <FilePenLine className="size-3.5 shrink-0" /> Submit missing info
-                  </button>
+                  </Button>
                 )}
                 {data.reportIssueHref && (
-                  <a href={data.reportIssueHref} className="inline-flex items-center gap-2 text-muted-foreground transition-colors hover:text-brand">
-                    <Flag className="size-3.5 shrink-0" /> Report an issue
-                  </a>
+                  <Button asChild variant="link" className={FOOTER_LINK}>
+                    <a href={data.reportIssueHref}>
+                      <Flag className="size-3.5 shrink-0" /> Report an issue
+                    </a>
+                  </Button>
                 )}
               </div>
             )}
