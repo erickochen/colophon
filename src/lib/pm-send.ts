@@ -1,6 +1,7 @@
 // Sending a private message runs through MAM's own form. We fetch the page MAM
 // would have shown, drop the text in and submit it, so the quote stack plus
 // every hidden field are exactly what the site expects.
+import { mamFetch } from '@/lib/mam-fetch'
 
 export interface SendDraft {
   receiverUid: string
@@ -63,7 +64,7 @@ export async function buildSendForm(draft: SendDraft): Promise<BuiltForm | SendR
 
   let html: string
   try {
-    const res = await fetch(`${SEND_PATH}?${params}`, { credentials: 'same-origin' })
+    const res = await mamFetch(`${SEND_PATH}?${params}`, { credentials: 'same-origin' })
     if (!res.ok) return { ok: false, reason: 'no-form' }
     html = await res.text()
   } catch {

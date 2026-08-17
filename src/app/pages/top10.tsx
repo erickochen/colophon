@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
   FacetSection, FilterBar, FilterFacet, FilterRow, FilterSegments, FilterSelect, FilterSummary, toggleValue,
 } from '@/components/filters'
+import { mamFetch } from '@/lib/mam-fetch'
 
 // Periods come from cdn top10TorAvailable.php: year -> month -> week -> [start, end].
 type Available = Record<string, { all: boolean } & Record<string, { all: boolean } & Record<string, [number, number, number]>>>
@@ -91,7 +92,7 @@ export function Top10View(_props: PageProps) {
   }, [])
 
   useEffect(() => {
-    fetch('https://cdn.myanonamouse.net/stats/js/top10TorAvailable.php', { credentials: 'include' })
+    mamFetch('https://cdn.myanonamouse.net/stats/js/top10TorAvailable.php', { credentials: 'include' })
       .then((r) => r.json())
       .then((j: Available) => setAvail(j))
       .catch(() => setAvail(null))

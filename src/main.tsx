@@ -35,6 +35,9 @@ migrateLegacyKeys()
  * properties from the slot's parent, so the tokens follow the active scheme. */
 const DIALOG_BODY_CSS = `
 #dialog-message{display:none}
+/* A manager that runs us in its own sandbox cannot replace MAM's dialog layer,
+   so their jQuery-UI box opens instead of ours. Hand its body back there. */
+.ui-dialog #dialog-message{display:block!important}
 #dialog-message[slot]{display:block!important;font:400 13.5px/1.6 ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--foreground);background:none!important;border:0!important;padding:0!important;margin:0!important}
 #dialog-message[slot] *{font-family:inherit!important;background:none!important;border-color:transparent!important;box-shadow:none!important;max-width:100%}
 #dialog-message[slot] h1,#dialog-message[slot] h2,#dialog-message[slot] h3{font-size:14px;font-weight:600;margin:.6em 0 .3em}

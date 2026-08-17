@@ -22,6 +22,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
+import { submitNative } from '@/lib/form-submit'
 
 const IPV4 = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/
 
@@ -164,7 +165,7 @@ function postAction(d: SecData, action: string, ssid: string) {
   d.secact.value = action
   d.secdat.value = ssid
   allowNavigation(d.form)
-  d.form.submit()
+  submitNative(d.form)
 }
 
 /** POSTs a session update the way MAM's own dialog form does. */
@@ -184,7 +185,7 @@ function postUpdate(ssid: string, fields: Record<string, string>) {
   add('secact', 'update')
   add('data', ssid)
   document.body.appendChild(form)
-  form.submit()
+  submitNative(form)
 }
 
 function ConfirmAction({

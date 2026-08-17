@@ -1,9 +1,18 @@
 import { cleanLabel, humanizeFieldName } from '@/lib/form-mirror'
 import { markInvalid } from '@/lib/invalid-anchor'
+import { releaseFields } from '@/lib/wysiwyg'
 import { toast } from '@/components/ui/toast'
 
 /** How many field names a message lists before it starts summarising. */
 const NAMED_FIELDS = 3
+
+/** Posts a form the way `form.submit()` does, validation skipped. MAM's editor
+ * replaces that method on the element itself and writes its own content into the
+ * body first, so the call goes through the prototype instead. */
+export function submitNative(form: HTMLFormElement): void {
+  releaseFields(form)
+  HTMLFormElement.prototype.submit.call(form)
+}
 
 /** The label MAM puts beside a control, for naming it back to the reader. */
 function labelFor(el: Element): string {
@@ -17,6 +26,7 @@ function labelFor(el: Element): string {
  * The check runs here instead: rows that mirror an invalid control get marked
  * in place, anything unmapped is named in the toast. */
 export function submitGuarded(form: HTMLFormElement, submitter?: HTMLElement | null): boolean {
+  releaseFields(form)
   if (form.checkValidity()) {
     form.requestSubmit(submitter instanceof HTMLElement ? submitter : undefined)
     return true

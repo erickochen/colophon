@@ -46,6 +46,40 @@ export function preventWysiwyg(target: Window = window): void {
   }
 }
 
+/** What each form held the last time it was handed over, so a submit that never
+ * happened cannot restore stale text on the next one. */
+const handedOver = new WeakMap<HTMLFormElement, Map<HTMLTextAreaElement, string>>()
+
+/** Hands a form back to us right before it goes out. MAM's editor mirrors its
+ * own content into the textarea it took over, so a message written in our
+ * composer would post empty. */
+export function releaseFields(form: HTMLFormElement): void {
+  // form.elements, not a descendant query: MAM's legacy forms sit in a table
+  // cell with their rows outside the form node.
+  const kept = new Map<HTMLTextAreaElement, string>()
+  for (const el of form.elements) if (el instanceof HTMLTextAreaElement) kept.set(el, el.value)
+  // Nothing an editor could have claimed, so leave the rest of the page alone.
+  if (kept.size === 0) return
+
+  const restore = () => {
+    for (const [el, value] of handedOver.get(form) ?? []) if (el.value !== value) el.value = value
+  }
+  handedOver.set(form, kept)
+  detachWysiwyg()
+  restore()
+  // Removing the editor needs MAM's own global, which a sandbox cannot reach.
+  // Its submit handler was bound first so it runs before this one, while the
+  // browser reads the fields only once every handler is done.
+  form.addEventListener(
+    'submit',
+    () => {
+      restore()
+      handedOver.delete(form)
+    },
+    { once: true }
+  )
+}
+
 /** Undo an editor that mounted anyway (prevention is best-effort). Removing one
  * syncs its content back and restores the textarea, so nothing is lost. */
 export function detachWysiwyg(): void {

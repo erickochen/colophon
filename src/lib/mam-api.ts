@@ -1,6 +1,8 @@
 // MAM's officially automatable JSON endpoints (see /api/list.php).
 // Same-origin fetch with session cookie; CSP allows 'self' only.
 import { decodeEntities } from '@/lib/format'
+import { mamFetch } from '@/lib/mam-fetch'
+import { submitNative } from '@/lib/form-submit'
 
 export interface SearchQuery {
   text?: string
@@ -143,7 +145,7 @@ export async function searchTorrents(query: SearchQuery, opts: { dlLink?: boolea
   const extras: Record<string, string> = {}
   if (opts.dlLink) extras.dlLink = ''
   if (opts.description) extras.description = ''
-  const res = await fetch('/tor/js/loadSearchJSONbasic.php', {
+  const res = await mamFetch('/tor/js/loadSearchJSONbasic.php', {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -342,7 +344,7 @@ export async function searchRequests(q: RequestQuery): Promise<RequestResult> {
   if (q.start) body.set('start', String(q.start))
   body.set('perPage', String(REQUESTS_PER_PAGE))
   body.set('searchType', 'Requests')
-  const res = await fetch('/tor/json/search.php', {
+  const res = await mamFetch('/tor/json/search.php', {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -508,7 +510,7 @@ export async function searchTorrents2(q: Search2Query): Promise<SearchResult> {
   if (q.start) body.set('start', String(q.start))
   body.set('perPage', String(q.perPage ?? TORRENTS_PER_PAGE))
   body.set('searchType', 'Torrents')
-  const res = await fetch('/tor/json/search.php', {
+  const res = await mamFetch('/tor/json/search.php', {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -562,14 +564,14 @@ export interface UserLive {
 }
 
 export async function loadUserData(withNotifs = true): Promise<UserLive> {
-  const res = await fetch(`/jsonLoad.php${withNotifs ? '?notif' : ''}`, { credentials: 'include' })
+  const res = await mamFetch(`/jsonLoad.php${withNotifs ? '?notif' : ''}`, { credentials: 'include' })
   if (!res.ok) throw new Error(`jsonLoad failed: ${res.status}`)
   return res.json()
 }
 
 /** Single bookmark toggle. Answers {success:true,action:"add"} and is idempotent. */
 export async function bookmarkOne(id: number, action: 'add' | 'delete'): Promise<void> {
-  const res = await fetch(`/tor/json/bookmark.php?action=${action}&tid=${id}`, { credentials: 'include' })
+  const res = await mamFetch(`/tor/json/bookmark.php?action=${action}&tid=${id}`, { credentials: 'include' })
   if (!res.ok) throw new Error(`bookmark failed: ${res.status}`)
   const json = await res.json()
   if (!json?.success) throw new Error(String(json?.error ?? 'bookmark failed'))
@@ -601,7 +603,7 @@ export interface BonusBuyResult {
 async function bonusBuy(params: URLSearchParams): Promise<BonusBuyResult> {
   let res: Response
   try {
-    res = await fetch(`/json/bonusBuy.php?${params}`, {
+    res = await mamFetch(`/json/bonusBuy.php?${params}`, {
       credentials: 'include',
       signal: AbortSignal.timeout(BONUS_BUY_TIMEOUT_MS),
     })
@@ -651,7 +653,7 @@ export async function bookmarkMass(ids: number[], action: 'add' | 'remove'): Pro
     const batch = ids.slice(i, i + BOOKMARK_BATCH_MAX)
     const p = new URLSearchParams()
     for (const id of batch) p.append(`${action}[]`, String(id))
-    const res = await fetch(`/tor/json/bookmarkMass.php?${p}`, { credentials: 'include' })
+    const res = await mamFetch(`/tor/json/bookmarkMass.php?${p}`, { credentials: 'include' })
     if (!res.ok) throw new BookmarkMassError(`bookmark failed: ${res.status}`, applied)
     const json = await res.json()
     if (json && !Array.isArray(json) && 'error' in json) throw new BookmarkMassError(String(json.error), applied)
@@ -664,7 +666,7 @@ export type BookmarkCleanup = 'seedCom' | 'seedAll' | 'dl' | 'all'
 /** Cleanup over the whole bookmark list rather than a set of ids. Answers
  * {"changes":n} for a known type and plain text for anything else. */
 export async function bookmarkCleanup(type: BookmarkCleanup): Promise<number> {
-  const res = await fetch(`/tor/json/bookmarkMass.php?remove=${type}`, { credentials: 'include' })
+  const res = await mamFetch(`/tor/json/bookmarkMass.php?remove=${type}`, { credentials: 'include' })
   if (!res.ok) throw new Error(`cleanup failed: ${res.status}`)
   const text = await res.text()
   let json: { changes?: number; error?: unknown }
@@ -687,7 +689,7 @@ const POST_PREVIEW_TIMEOUT_MS = 20_000
  * preview button uses. Stores nothing. */
 export async function postPreview(source: string, signal?: AbortSignal): Promise<PostPreviewResult> {
   const timeout = AbortSignal.timeout(POST_PREVIEW_TIMEOUT_MS)
-  const res = await fetch('/jsonPostTest.php', {
+  const res = await mamFetch('/jsonPostTest.php', {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -721,7 +723,7 @@ export function downloadZipOf(ids: number[]): void {
     form.append(input)
   }
   document.documentElement.append(form)
-  form.submit()
+  submitNative(form)
   form.remove()
 }
 

@@ -3,6 +3,7 @@
 // POST spends the credit. This module does the first two and hands the third
 // to a real form so MAM decides where the reader lands.
 import { decodeEntities } from '@/lib/format'
+import { mamFetch } from '@/lib/mam-fetch'
 
 const REQUEST_URL = '/tor/newRequest.php'
 const ISBN_URL = '/json/isbn.php'
@@ -100,7 +101,7 @@ function parseHtml(text: string): Document {
 /** The request form of a section. MAM only serves it in answer to a POST, so
  * the section choice has to travel with the request. */
 export async function fetchRequestForm(mainCat: string): Promise<RequestForm> {
-  const res = await fetch(REQUEST_URL, {
+  const res = await mamFetch(REQUEST_URL, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -195,7 +196,7 @@ export function readErrors(doc: Document): FieldError[] {
 /** Sends the filled form. MAM answers with either its complaints or the last
  * step, which carries every value back as one blob. */
 export async function submitDetails(values: RequestValues, form: RequestForm): Promise<DetailsResult> {
-  const res = await fetch(REQUEST_URL, {
+  const res = await mamFetch(REQUEST_URL, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -242,7 +243,7 @@ async function dupePost(url: string, combined: string): Promise<Record<string, u
   const stop = new AbortController()
   const timer = setTimeout(() => stop.abort(), DUPE_TIMEOUT_MS)
   try {
-    const res = await fetch(url, {
+    const res = await mamFetch(url, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
@@ -307,7 +308,7 @@ export interface FillData {
 }
 
 export async function lookupIsbn(isbn: string): Promise<FillData> {
-  const res = await fetch(`${ISBN_URL}?isbn=${encodeURIComponent(isbn)}`, { credentials: 'include' })
+  const res = await mamFetch(`${ISBN_URL}?isbn=${encodeURIComponent(isbn)}`, { credentials: 'include' })
   if (!res.ok) throw new Error(`isbn lookup failed: ${res.status}`)
   return (await res.json()) as FillData
 }

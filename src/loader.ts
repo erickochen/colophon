@@ -32,9 +32,15 @@ interface GmRequest {
 declare const GM_xmlhttpRequest: ((req: GmRequest) => void) | undefined
 declare const unsafeWindow: Window | undefined
 
-/** The window MAM's own scripts see. Under a grant a manager may hand us a
- * sandboxed one, where a trap would never be reached. */
-const pageWindow: Window = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window
+/** What the manager hands us as the page window. In a Firefox content sandbox
+ * this is an X-ray view: reads pass, writes stay on our side and its eval runs
+ * here rather than in the page. */
+const managerWindow: Window = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window
+
+/** MAM's own realm, where the app has to run to reach their globals. Behind an
+ * X-ray view the page's real window sits at wrappedJSObject; elsewhere the
+ * manager window already is that realm. */
+const pageWindow: Window = (managerWindow as Window & { wrappedJSObject?: Window }).wrappedJSObject ?? managerWindow
 
 interface CacheEntry {
   hash: string
@@ -71,8 +77,9 @@ function writeCache(code: string): void {
   }
 }
 
+// The message differs per engine: Chrome names the policy, Firefox says CSP.
 const blockedByPolicy = (err: unknown) =>
-  err instanceof EvalError || /content security policy|unsafe-eval/i.test(String(err))
+  err instanceof EvalError || /content security policy|unsafe-eval|blocked by CSP/i.test(String(err))
 
 /** Runs in page context, where MAM's globals plus our own hooks live. MAM serves
  * 'unsafe-eval' on every page measured while 'unsafe-inline' is missing on some,
@@ -154,7 +161,10 @@ async function fallBack(reason: string, cached: CacheEntry | null): Promise<void
 }
 
 async function boot(): Promise<void> {
-  preventWysiwyg(pageWindow)
+  // Only where no X-ray sits between us and the page: an accessor from this
+  // side on the page's own window makes MAM's assignment to it throw. Behind
+  // an X-ray the app installs the trap itself once it runs in the page.
+  if (managerWindow === pageWindow) preventWysiwyg(pageWindow)
 
   const cached = readCache()
   // Once an eval has started, part of the app may already be applied, so a

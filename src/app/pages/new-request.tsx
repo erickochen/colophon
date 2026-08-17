@@ -36,6 +36,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
+import { submitNative } from '@/lib/form-submit'
 
 const STEPS = ['Type', 'Details', 'Categories', 'Confirm']
 const TITLE_CASE_URL = 'https://titlecaseconverter.com/'
@@ -792,7 +793,7 @@ export function NewRequestView(props: PageProps) {
     document.body.appendChild(el)
     // The draft stays until the reader drops it. A refused POST leaves them on
     // MAM's own page, where losing everything typed is the worse outcome.
-    el.submit()
+    submitNative(el)
   }
 
   const canLeaveType = !!values.mediaType && !!form && !formBusy

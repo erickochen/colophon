@@ -2,6 +2,7 @@
 // Exact byte totals come from /jsonLoad.php; the torrent size from the page.
 import { useEffect, useState } from 'react'
 import { useFeature, useRatioFloor } from '@/lib/settings'
+import { mamFetch } from '@/lib/mam-fetch'
 
 // Drops at or under this are noise (MAM+ trivial threshold).
 export const TRIVIAL_DROP = 0.009
@@ -77,7 +78,7 @@ function useByteTotals(wanted: boolean): ByteTotals | null {
   useEffect(() => {
     if (!wanted) return
     let live = true
-    fetch('/jsonLoad.php', { credentials: 'include' })
+    mamFetch('/jsonLoad.php', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((u: { uploaded_bytes?: number; downloaded_bytes?: number; wedges?: number } | null) => {
         if (!live || u == null) return

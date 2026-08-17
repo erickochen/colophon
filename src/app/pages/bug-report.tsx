@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ShineBorder } from '@/components/ui/shine-border'
 import { toast } from '@/components/ui/toast'
+import { releaseFields } from '@/lib/wysiwyg'
 
 /** Module-scope so it is not recreated each render (which would remount the
  * inputs and drop focus on every keystroke). */
@@ -91,6 +92,7 @@ export function BugReportView(props: PageProps) {
     if (state.reproduce.trim().length < 10) return toast.warning('Describe how to reproduce it (at least 10 characters).')
     if (state.expected.trim().length < 10) return toast.warning('Describe what you expected (at least 10 characters).')
     if (f.userScriptFree && !state.certified) return toast.warning('Please confirm you reproduced this without userscripts or extensions.')
+    releaseFields(model!.form)
     model!.form.requestSubmit()
   }
 

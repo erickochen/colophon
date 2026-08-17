@@ -3,6 +3,7 @@
 // other party with the subject stripped of its Re: prefixes, then peel off the
 // quote stack MAM puts in every reply.
 import { cleanHtml } from '@/lib/sanitize'
+import { mamFetch } from '@/lib/mam-fetch'
 
 /** MAM's own account, sender of gift and system notices. */
 const SYSTEM_UID = '6'
@@ -166,7 +167,7 @@ export async function scanBox(box: PmBox, fromPage = 1): Promise<BoxScan> {
   let failed = false
   for (let page = fromPage; page < fromPage + SCAN_PAGE_LIMIT; page++) {
     try {
-      const res = await fetch(mailboxUrl(box, page), { credentials: 'same-origin' })
+      const res = await mamFetch(mailboxUrl(box, page), { credentials: 'same-origin' })
       if (!res.ok) {
         failed = true
         break
@@ -207,7 +208,7 @@ export async function fetchPmBody(id: string, box: PmBox): Promise<string | null
   const stamp = Date.now()
   const url = `/jsonLoadPM.php/${stamp}?box=${box}&pid=${encodeURIComponent(id)}&timestamp=${stamp}`
   try {
-    const res = await fetch(url, { credentials: 'same-origin' })
+    const res = await mamFetch(url, { credentials: 'same-origin' })
     if (!res.ok) return null
     const data = (await res.json()) as { message?: string; Error?: string }
     if (!data.message) return null

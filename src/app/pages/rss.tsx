@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from '@/components/ui/toast'
+import { submitNative } from '@/lib/form-submit'
 import {
   FacetMode, FacetOptions, FacetSection, FilterDateRange, FilterFacet, FilterHint, FilterRow,
   FilterSearch, FilterSegments, FilterSelect, toggleValue,
@@ -81,7 +82,7 @@ export function RssView(props: PageProps) {
     setVal('select[name="tor[linkType]"]', linkType)
     setVal('input[name="tor[perpage]"], select[name="tor[perpage]"]', perpage)
     toast.success('Saving feed…')
-    f.submit()
+    submitNative(f)
   }
 
   return (

@@ -7,6 +7,7 @@ import { PageHeader, RichHtml } from '@/app/shell/bits'
 import { FormMirrorView } from '@/app/shell/form-mirror-view'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { releaseFields } from '@/lib/wysiwyg'
 
 /** Pages that are one explanatory text plus one form (upload slot, vault
  * donation, lotto): intro as reader content, form mirrored into our controls. */
@@ -59,7 +60,7 @@ export function SimpleFormView(props: PageProps) {
       ) : (
         <Card>
           <CardContent className="flex justify-end py-4">
-            <Button onClick={() => mirror.el.requestSubmit(mirror.submitter)}>{submitLabel}</Button>
+            <Button onClick={() => { releaseFields(mirror.el); mirror.el.requestSubmit(mirror.submitter) }}>{submitLabel}</Button>
           </CardContent>
         </Card>
       )}

@@ -50,6 +50,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar'
 import { UserMenu } from '@/app/shell/user-menu'
+import { mamFetch } from '@/lib/mam-fetch'
 
 interface PeekEntry {
   title: string
@@ -77,7 +78,7 @@ interface NavGroup {
 /** The watchlist page lists the topics behind the count. Serving it does not
  * consume the notification, so the sidebar can peek at it. */
 async function fetchWatchlistPeek(): Promise<PeekEntry[]> {
-  const res = await fetch('/forums/subscriptions.php/newPosts', { credentials: 'same-origin' })
+  const res = await mamFetch('/forums/subscriptions.php/newPosts', { credentials: 'same-origin' })
   if (!res.ok) throw new Error(`watchlist ${res.status}`)
   const doc = new DOMParser().parseFromString(await res.text(), 'text/html')
   const data = extractNewPosts(doc)

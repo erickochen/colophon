@@ -15,6 +15,7 @@ import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/toast'
+import { releaseFields } from '@/lib/wysiwyg'
 
 interface JumpOption { value: string; label: string; group?: string }
 
@@ -68,6 +69,7 @@ export function ForumComposeView(props: PageProps) {
       toast.warning('Your post is empty.')
       return
     }
+    releaseFields(model!.form)
     model!.form.requestSubmit()
   }
 

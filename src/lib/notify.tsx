@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { requestsUrl } from '@/lib/mam-api'
 import { readFeature, subscribeSettings } from '@/lib/settings'
 import { toast } from '@/components/ui/toast'
+import { mamFetch } from '@/lib/mam-fetch'
 
 /** How often the badges refresh. MAM's own header polls every second. */
 const POLL_MS = 60_000
@@ -69,7 +70,7 @@ const num = (v: unknown): number => (typeof v === 'number' ? v : 0)
  * counters drop them from the DOM, so this endpoint is the only source. */
 export async function fetchNotifCounts(): Promise<NotifCounts | null> {
   try {
-    const res = await fetch('/jsonLoad.php?notif', { credentials: 'same-origin' })
+    const res = await mamFetch('/jsonLoad.php?notif', { credentials: 'same-origin' })
     if (!res.ok) return null
     const data = (await res.json()) as { notifs?: Partial<Record<keyof NotifCounts, unknown>> }
     if (!data.notifs) return null

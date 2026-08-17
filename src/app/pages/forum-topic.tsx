@@ -16,6 +16,8 @@ import { toast } from '@/components/ui/toast'
 import { GiftActions } from '@/components/giftmam-actions'
 import { uidFromHref } from '@/lib/giftmam'
 import { scrollIntoView } from '@/lib/motion'
+import { mamFetch } from '@/lib/mam-fetch'
+import { submitNative } from '@/lib/form-submit'
 
 /** Post images can finish loading after the first paint and push the target
  * down, so the anchor jump runs once more after this pause. */
@@ -207,7 +209,7 @@ export function ForumTopicView(props: PageProps) {
   // TinyMCE and so dropped the quote entirely.
   async function quotePost(p: TopicPost) {
     try {
-      const r = await fetch(`/forums/json/getQuote.php?pid=${p.pid}`, { credentials: 'include' })
+      const r = await mamFetch(`/forums/json/getQuote.php?pid=${p.pid}`, { credentials: 'include' })
       const q = await r.json()
       if (!q?.success) {
         toast.error(q?.msg || 'Quote is not available.')
@@ -237,7 +239,7 @@ export function ForumTopicView(props: PageProps) {
       toast.warning('Write something first.')
       return
     }
-    form.submit()
+    submitNative(form)
   }
 
   function subscribe() {

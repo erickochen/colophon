@@ -1,3 +1,5 @@
+import { mamFetch } from '@/lib/mam-fetch'
+
 // MAM's name lookup behind the author, narrator and series boxes on the upload
 // and request forms. It answers from the cdn host, where the session cookie
 // does not travel along, so the mbsc cookie rides in the body instead.
@@ -25,7 +27,7 @@ function sessionToken(): string {
 }
 
 export async function searchNames(kind: NameKind, term: string, signal?: AbortSignal): Promise<NameHit[]> {
-  const res = await fetch(NAMES_URL, {
+  const res = await mamFetch(NAMES_URL, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },

@@ -11,6 +11,7 @@ import {
 import { FilterSegments } from '@/components/filters'
 import { NumberRoll } from '@/components/ui/number-roll'
 import { Skeleton } from '@/components/ui/skeleton'
+import { mamFetch } from '@/lib/mam-fetch'
 
 // The tracker's own graph (userBonusPointHistoryJSON.php): a multi-series time
 // series of seeding, bonus points, ratio and transfer, 15 min apart. We split
@@ -230,7 +231,7 @@ export function BonusHistoryView({ page }: PageProps) {
   useEffect(() => {
     const uid = page.user.uid
     if (uid == null) { setTrends([]); return }
-    fetch(`/stats/userBonusPointHistoryJSON.php?uid=${uid}&limited=true`, { credentials: 'include' })
+    mamFetch(`/stats/userBonusPointHistoryJSON.php?uid=${uid}&limited=true`, { credentials: 'include' })
       .then((r) => r.json())
       .then((j: { timestamps: string[]; entries: { name: string; y: number[] }[] }) => {
         const y = (n: string) => j.entries.find((e) => e.name === n)?.y ?? []
@@ -248,7 +249,7 @@ export function BonusHistoryView({ page }: PageProps) {
   }, [page.user.uid])
 
   useEffect(() => {
-    fetch('/json/userBonusHistory.php', { credentials: 'include' })
+    mamFetch('/json/userBonusHistory.php', { credentials: 'include' })
       .then((r) => r.json())
       .then((j: BonusEvent[]) => setEvents(Array.isArray(j) ? j : []))
       .catch(() => setEvents([]))

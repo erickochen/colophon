@@ -1,3 +1,5 @@
+import { mamFetch } from '@/lib/mam-fetch'
+
 // Member lookup through /users.php, which answers a plain fetch. Used by the
 // member list page plus anywhere that needs to pick someone by name.
 
@@ -52,7 +54,7 @@ export function parseUsers(html: string): UserRow[] {
 /** Searches the membership by name, with an optional class filter. */
 export async function searchMembers(term: string, klass = ''): Promise<UserRow[]> {
   const params = new URLSearchParams({ search: term.trim(), class: klass })
-  const res = await fetch(`/users.php?${params.toString()}`, { credentials: 'same-origin' })
+  const res = await mamFetch(`/users.php?${params.toString()}`, { credentials: 'same-origin' })
   if (!res.ok) return []
   return parseUsers(await res.text())
 }

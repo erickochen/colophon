@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { scrollIntoView } from '@/lib/motion'
+import { mamFetch } from '@/lib/mam-fetch'
 
 interface TocItem { id: string; text: string; level: number }
 
@@ -106,7 +107,7 @@ export function GuideView(props: PageProps) {
 
   useEffect(() => {
     if (!gid) { setError(true); return }
-    fetch(`/guides/loadGuide.php?gid=${encodeURIComponent(gid)}`, { credentials: 'include' })
+    mamFetch(`/guides/loadGuide.php?gid=${encodeURIComponent(gid)}`, { credentials: 'include' })
       .then((r) => r.text())
       .then((t) => {
         const body = new DOMParser().parseFromString(t, 'text/html').body

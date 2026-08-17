@@ -13,6 +13,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { Spinner } from '@/components/ui/spinner'
 import { FacetOptions, FilterBar, FilterFacet, FilterRow, FilterSearch, FilterSelect } from '@/components/filters'
 import { mutedUserColor } from '@/lib/colors'
+import { mamFetch } from '@/lib/mam-fetch'
 
 const SEARCH_URL = 'https://cdn.myanonamouse.net/forums/json/search.php'
 const PAGE_SIZE = 25
@@ -128,7 +129,7 @@ export function ForumSearchView(props: PageProps) {
     params.set('start', String(startAt))
     for (const v of forums.length ? forums : ['-1']) params.append('FtS[]', v)
     try {
-      const res = await fetch(SEARCH_URL, {
+      const res = await mamFetch(SEARCH_URL, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },

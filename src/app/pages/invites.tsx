@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label'
 import { Spinner } from '@/components/ui/spinner'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
+import { releaseFields } from '@/lib/wysiwyg'
 
 const SEND_URL = '/invite/send.php'
 /** Where invites come from, for the empty stash. */
@@ -243,6 +244,7 @@ export function SendInviteView(props: PageProps) {
   // Submitting through the button keeps its name in the payload. MAM reads that
   // name, so a bare requestSubmit() would post a form it quietly ignores.
   function send() {
+    releaseFields(model!.form)
     model!.form.requestSubmit(model!.submitter as HTMLInputElement | null)
   }
 

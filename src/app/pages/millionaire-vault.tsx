@@ -15,6 +15,7 @@ import { ShineBorder } from '@/components/ui/shine-border'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Slider } from '@/components/ui/slider'
 import { toast } from '@/components/ui/toast'
+import { mamFetch } from '@/lib/mam-fetch'
 
 // The payout when the vault fills, from MAM's own pot page: every active
 // member gets the base wedges, giving 2,000+ to a pot adds the bonus on top.
@@ -306,7 +307,7 @@ export function VaultDonateView(props: PageProps) {
   useEffect(() => {
     if (!data) return
     let alive = true
-    fetch('/millionaires/pot.php', { credentials: 'include' })
+    mamFetch('/millionaires/pot.php', { credentials: 'include' })
       .then((r) => r.text())
       .then((html) => {
         if (!alive) return

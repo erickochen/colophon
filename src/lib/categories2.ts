@@ -1,6 +1,7 @@
 // MAM's new-search taxonomy, served as one JS assignment. Fetched once per
 // session; the session cache keeps repeat visits off the endpoint.
 import { useEffect, useState } from 'react'
+import { mamFetch } from '@/lib/mam-fetch'
 
 export interface Category2 {
   id: number
@@ -88,7 +89,7 @@ export function loadTaxonomy2(): Promise<Taxonomy2> {
   } catch {
     // storage may be unavailable
   }
-  inFlight ??= fetch(SOURCE_URL, { credentials: 'include' })
+  inFlight ??= mamFetch(SOURCE_URL, { credentials: 'include' })
     .then((res) => (res.ok ? res.text() : Promise.reject(new Error(`categories failed: ${res.status}`))))
     .then((text) => {
       const tax = parseDefinitions(text)

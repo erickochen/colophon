@@ -2,6 +2,7 @@
 // it from there. One fetch per tab session; the outcome lands in sessionStorage.
 
 import { useEffect, useState } from 'react'
+import { mamFetch } from '@/lib/mam-fetch'
 
 const CACHE_PREFIX = 'colophon:vip-until:'
 
@@ -26,7 +27,7 @@ function writeCache(uid: number, date: string | null) {
 
 /** "VIP expiration" row on /u/<uid>; null when the account has none. */
 export async function fetchVipUntil(uid: number): Promise<string | null> {
-  const res = await fetch(`/u/${uid}`, { credentials: 'include' })
+  const res = await mamFetch(`/u/${uid}`, { credentials: 'include' })
   if (!res.ok) throw new Error(`profile failed: ${res.status}`)
   const doc = new DOMParser().parseFromString(await res.text(), 'text/html')
   for (const td of doc.querySelectorAll('td.rowhead')) {

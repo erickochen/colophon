@@ -13,6 +13,7 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/componen
 import { CollapsibleSection } from '@/components/section'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
+import { mamFetch } from '@/lib/mam-fetch'
 
 const GROUPS: { title: string; match: RegExp }[] = [
   { title: 'Transfer', match: /^(uploaded|downloaded|share ratio|real uploaded|real downloaded|real share ratio)/i },
@@ -151,7 +152,7 @@ function GiftHistoryCard({ uid, name }: { uid: string; name: string }) {
 
   useEffect(() => {
     let live = true
-    fetch('/json/userBonusHistory.php', { credentials: 'include' })
+    mamFetch('/json/userBonusHistory.php', { credentials: 'include' })
       .then((r) => r.json())
       .then((j: { timestamp: number; amount: number; type: string; other_userid: number | null }[]) => {
         if (!live || !Array.isArray(j)) return

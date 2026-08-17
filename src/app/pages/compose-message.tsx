@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { releaseFields } from '@/lib/wysiwyg'
 import { toast } from '@/components/ui/toast'
 
 /** Compose or reply to a private message (/sendmessage.php). On a reply MAM
@@ -74,6 +75,7 @@ export function ComposeMessageView(props: PageProps) {
       toast.warning('Your message is empty.')
       return
     }
+    releaseFields(model!.form)
     model!.form.requestSubmit()
   }
 

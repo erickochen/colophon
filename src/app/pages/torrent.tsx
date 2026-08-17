@@ -37,6 +37,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TextEffect } from '@/components/ui/text-effect'
 import { toast } from '@/components/ui/toast'
 import { scrollIntoView } from '@/lib/motion'
+import { mamFetch } from '@/lib/mam-fetch'
 
 // The statline counts up over the same beat as the words arrive.
 const STAT_COUNT_SPRING = { bounce: 0, duration: 900 }
@@ -563,7 +564,7 @@ function useRemoteData<T>(url: string | null, parse: (doc: Document) => T, fallb
     if (!url || started.current) return
     started.current = true
     setS({ loading: true, data: null, error: false })
-    fetch(url, { credentials: 'include' })
+    mamFetch(url, { credentials: 'include' })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.text()
