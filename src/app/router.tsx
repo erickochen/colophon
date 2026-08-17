@@ -52,6 +52,7 @@ import { BugReportView } from '@/app/pages/bug-report'
 import { UsersView } from '@/app/pages/users'
 import { TagsView, SmiliesView } from '@/app/pages/reference'
 import { NewRequestView } from '@/app/pages/new-request'
+import { UploadRequestView } from '@/app/pages/upload-request'
 
 export interface PageProps {
   page: ShellData
@@ -71,7 +72,6 @@ const DOC_PAGES = new Set([
 ])
 
 const SIMPLE_FORM_PAGES = new Set([
-  '/tor/requestUpload.php',
   '/tor/editRequest.php',
   '/comment.php',
   '/banner/index.php',
@@ -102,6 +102,7 @@ export function resolveRoute(loc: Location): Route {
   if (p === '/tags.php') return { id: 'tags', View: TagsView }
   if (p === '/smilies.php') return { id: 'smilies', View: SmiliesView }
   if (p === '/tor/upload.php') return { id: 'simple-form', View: SimpleFormView }
+  if (p === '/tor/requestUpload.php') return { id: 'upload-request', View: UploadRequestView }
   if (p === '/tor/newRequest.php') return { id: 'new-request', View: NewRequestView }
   if (p === '/tor/search.php') {
     // One page serves both lists; the s= blob says which one.

@@ -3,6 +3,7 @@
 // POST spends the credit. This module does the first two and hands the third
 // to a real form so MAM decides where the reader lands.
 import { decodeEntities } from '@/lib/format'
+import { draftStore } from '@/lib/draft'
 import { mamFetch } from '@/lib/mam-fetch'
 
 const REQUEST_URL = '/tor/newRequest.php'
@@ -371,33 +372,12 @@ export interface RequestDraft {
   values: RequestValues
   mainCat: string
   step: number
-  at: number
 }
 
-export function readRequestDraft(): RequestDraft | null {
-  try {
-    const raw = localStorage.getItem(DRAFT_KEY)
-    if (!raw) return null
-    const draft = JSON.parse(raw) as RequestDraft
-    if (!draft.values || draft.at < Date.now() - DRAFT_TTL) return null
-    return draft.values.title || draft.values.authors.some(Boolean) ? draft : null
-  } catch {
-    return null
-  }
-}
+const store = draftStore<RequestDraft>(DRAFT_KEY, DRAFT_TTL, (d) =>
+  !!d.values && (!!d.values.title || d.values.authors.some(Boolean))
+)
 
-export function writeRequestDraft(draft: Omit<RequestDraft, 'at'>): void {
-  try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...draft, at: Date.now() }))
-  } catch {
-    // private mode, the draft is a courtesy
-  }
-}
-
-export function clearRequestDraft(): void {
-  try {
-    localStorage.removeItem(DRAFT_KEY)
-  } catch {
-    // nothing to clear
-  }
-}
+export const readRequestDraft = (): RequestDraft | null => store.read()
+export const writeRequestDraft = (draft: RequestDraft): void => store.write(draft)
+export const clearRequestDraft = (): void => store.clear()

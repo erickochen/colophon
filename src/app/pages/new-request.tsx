@@ -18,6 +18,7 @@ import {
 } from '@/lib/new-request'
 import { useCollapsed } from '@/lib/collapsed'
 import { BBComposer } from '@/components/bb-composer'
+import { WizardNav, WizardSteps, useWizardStep } from '@/components/wizard'
 import { CollapsibleSection } from '@/components/section'
 import { FacetOptions, FilterSummary } from '@/components/filters'
 import { NameSuggest } from '@/components/name-suggest'
@@ -350,46 +351,6 @@ function JsonFillDialog({
   )
 }
 
-function StepBar({
-  step, reached, onStep,
-}: { step: number; reached: number; onStep: (n: number) => void }) {
-  return (
-    <nav aria-label="Request steps" className="flex flex-wrap items-center gap-1">
-      {STEPS.map((name, i) => {
-        const done = i < reached
-        const here = i === step
-        return (
-          <div key={name} className="flex items-center gap-1">
-            {i > 0 && <span aria-hidden className="h-px w-4 bg-border sm:w-8" />}
-            <button
-              type="button"
-              disabled={i > reached}
-              aria-current={here ? 'step' : undefined}
-              onClick={() => onStep(i)}
-              className={cn(
-                'flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-[12.5px] transition-colors',
-                here ? 'bg-brand-soft font-medium text-foreground' : 'text-muted-foreground',
-                i <= reached && !here && 'hover:bg-muted',
-                i > reached && 'cursor-not-allowed opacity-60'
-              )}
-            >
-              <span
-                className={cn(
-                  'flex size-5 items-center justify-center rounded-full text-[11px] font-semibold',
-                  here ? 'bg-brand text-brand-foreground' : done ? 'bg-brand/15 text-brand' : 'bg-muted text-muted-foreground'
-                )}
-              >
-                {done && !here ? <Check className="size-3" /> : i + 1}
-              </span>
-              {name}
-            </button>
-          </div>
-        )
-      })}
-    </nav>
-  )
-}
-
 /** What is about to be sent, so the credit is never spent on a blind form. */
 function SummaryCard({
   values, form, taxonomyNames, onEdit,
@@ -501,8 +462,7 @@ export function NewRequestView(props: PageProps) {
   const [jsonFill, setJsonFill] = useState(false)
   const [draftOffer, setDraftOffer] = useState(false)
   const [sending, setSending] = useState(false)
-  const [live, setLive] = useState('')
-  const topRef = useRef<HTMLDivElement>(null)
+  const { topRef, live } = useWizardStep(step, `Step ${step + 1} of ${STEPS.length}, ${STEPS[step]}.`)
   /** The values the current blob was built from, so an edit can invalidate it. */
   const confirmedFor = useRef<string | null>(null)
   /** Only the newest dupe run may write its answer into the lists. */
@@ -578,15 +538,6 @@ export function NewRequestView(props: PageProps) {
     setReached((r) => Math.min(r, 2))
     setStep((s) => (s === 3 ? 2 : s))
   }, [values, combined])
-
-  // Only a step change scrolls back up; landing on the page must not move it.
-  const lastStep = useRef(step)
-  useEffect(() => {
-    if (lastStep.current === step) return
-    lastStep.current = step
-    topRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
-    setLive(`Step ${step + 1} of ${STEPS.length}, ${STEPS[step]}.`)
-  }, [step])
 
   const setValue = useCallback(<K extends keyof RequestValues>(key: K, v: RequestValues[K]) => {
     setValues((s) => ({ ...s, [key]: v }))
@@ -841,7 +792,7 @@ export function NewRequestView(props: PageProps) {
         }
       />
 
-      <StepBar step={step} reached={reached} onStep={setStep} />
+      <WizardSteps steps={STEPS} step={step} reached={reached} onStep={setStep} label="Request steps" />
 
       {draftOffer && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/50 px-4 py-2.5 text-[12.5px]">
@@ -1357,16 +1308,7 @@ export function NewRequestView(props: PageProps) {
         </>
       )}
 
-      <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-background/95 px-3 py-2.5 shadow-lg backdrop-blur">
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={step === 0}
-          onClick={() => setStep((s) => Math.max(0, s - 1))}
-        >
-          <ChevronLeft /> Back
-        </Button>
-        <span className="text-[12px] text-muted-foreground">Step {step + 1} of {STEPS.length}</span>
+      <WizardNav step={step} count={STEPS.length} onBack={() => setStep((s) => Math.max(0, s - 1))}>
         {step < 3 ? (
           <Button size="sm" disabled={(step === 0 && !canLeaveType) || (step > 0 && !form) || checking} onClick={next}>
             {checking ? <><Spinner /> Checking</> : <>Next <ChevronRight /></>}
@@ -1376,7 +1318,7 @@ export function NewRequestView(props: PageProps) {
             {sending ? <><Spinner /> Sending</> : 'Create request'}
           </Button>
         )}
-      </div>
+      </WizardNav>
 
       <p aria-live="polite" className="sr-only">{live}</p>
 
