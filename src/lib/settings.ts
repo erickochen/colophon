@@ -134,14 +134,21 @@ export function useFeature(k: FeatureKey): [boolean, (v: boolean) => void] {
   return [readFeature(k), set]
 }
 
-/** Personal minimum ratio; null means only the hard floor applies. */
+/** The ratio a download may not take you under. Absent means the default;
+ * OFF is the reader clearing the field, which locks nothing. */
+export const RATIO_FLOOR_DEFAULT = 2
+const RATIO_FLOOR_OFF = 'off'
+
 export function readRatioFloor(): number | null {
-  const v = Number(rawRead(RATIO_FLOOR_KEY))
-  return Number.isFinite(v) && v > 0 ? v : null
+  const raw = rawRead(RATIO_FLOOR_KEY)
+  if (raw === RATIO_FLOOR_OFF) return null
+  const v = Number(raw)
+  // Only the OFF marker turns the guard off; unreadable text falls back.
+  return raw != null && Number.isFinite(v) && v > 0 ? v : RATIO_FLOOR_DEFAULT
 }
 
 export function writeRatioFloor(v: number | null): void {
-  if (v == null || !Number.isFinite(v) || v <= 0) rawWrite(RATIO_FLOOR_KEY, null)
+  if (v == null || !Number.isFinite(v) || v <= 0) rawWrite(RATIO_FLOOR_KEY, RATIO_FLOOR_OFF)
   else rawWrite(RATIO_FLOOR_KEY, String(v))
 }
 
@@ -441,7 +448,7 @@ function validPlainObject(raw: unknown): Record<string, unknown> | null {
 
 // Every key export and import cover, with the validator that guards an import.
 const VALUE_KEYS: Record<string, (raw: string) => boolean> = {
-  [RATIO_FLOOR_KEY]: (raw) => Number.isFinite(Number(raw)) && Number(raw) > 0,
+  [RATIO_FLOOR_KEY]: (raw) => raw === RATIO_FLOOR_OFF || (Number.isFinite(Number(raw)) && Number(raw) > 0),
   [IGNORED_KEY]: (raw) => parses(raw, validIgnored),
   [MUTED_KEY]: (raw) => parses(raw, validUsers),
   [EMPHASIZED_KEY]: (raw) => parses(raw, validUsers),

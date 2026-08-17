@@ -3,7 +3,7 @@ import { Ticket } from 'lucide-react'
 import { applyPointsUpdate, useLiveWedges } from '@/lib/bonus'
 import { fmtInt, fmtRatio, plural } from '@/lib/format'
 import { buyPersonalFreeleech, downloadZipOf, ZIP_BATCH_MAX } from '@/lib/mam-api'
-import { TRIVIAL_DROP, useRatioGuard } from '@/lib/ratio-protect'
+import { useRatioGuard, worthNoting } from '@/lib/ratio-protect'
 import { useFeature } from '@/lib/settings'
 import { spendWedgeAndDownload } from '@/lib/wedge'
 import { cn } from '@/lib/utils'
@@ -84,8 +84,7 @@ function WedgeConfirm({ target, onDone, onClose }: { target: WedgeTarget; onDone
   const { spend, busy } = useSpendWedge(target, onDone)
   const left = wedges != null ? Number(wedges.replace(/,/g, '')) : null
   const none = left === 0
-  const drop = guard?.impact.drop
-  const showRatio = guard != null && (drop == null || drop > TRIVIAL_DROP)
+  const showRatio = guard != null && worthNoting(guard.impact)
 
   // A refused spend keeps the dialog open and never saves the checkbox, so a
   // failure cannot switch the confirm off.

@@ -13,9 +13,10 @@ import { searchTorrents, parsePeople, coverUrl, torrentUrl, THANK_MAX, type Sear
 import { coverShape, mediaTypeFromHref, type CoverShape } from '@/lib/cover-shape'
 import { seriesEntry } from '@/lib/series'
 import { readDefaultAmount, resolveAmount, useFeature } from '@/lib/settings'
-import { HARD_FLOOR, TRIVIAL_DROP, useRatioGuard, type RatioGuard, type RatioLevel } from '@/lib/ratio-protect'
+import { useRatioGuard, worthNoting, type RatioGuard, type RatioLevel } from '@/lib/ratio-protect'
 import { cn } from '@/lib/utils'
 import { Book, Book3D, BookAmbilight } from '@/components/book'
+import { RatioFloorInput } from '@/components/ratio-floor'
 import { TagLinks } from '@/components/tag-links'
 import { TorLinks, useReadingSnippet } from '@/components/tor-links'
 import { WedgeDetailButton } from '@/components/wedge-download'
@@ -117,12 +118,8 @@ const RATIO_NOTE_TONE: Record<RatioLevel, string> = {
   block: 'font-medium text-destructive',
 }
 
-/** On/off switch and personal floor for the ratio guard, kept in localStorage. */
+/** On/off switch and minimum ratio for the guard, kept in localStorage. */
 function GuardSettings({ guard }: { guard: RatioGuard }) {
-  // While the field holds focus the typed text wins; otherwise it mirrors the
-  // store, so a settings import or the prefs tab shows up here at once.
-  const [draft, setDraft] = useState<string | null>(null)
-  const text = draft ?? (guard.floor != null ? String(guard.floor) : '')
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -142,28 +139,18 @@ function GuardSettings({ guard }: { guard: RatioGuard }) {
           <Switch checked={guard.enabled} onCheckedChange={guard.setEnabled} />
         </label>
         <p className="mt-1.5 text-[12px] leading-snug text-muted-foreground">
-          Locks the plain download on a heavy ratio drop or when it would cross ratio {HARD_FLOOR}.
-          Switched off, the impact still shows but nothing locks.
+          Switched off, the note still shows but nothing locks.
         </p>
         <label className="mb-1.5 mt-3 block text-[12px] font-semibold" htmlFor="ratio-floor">Minimum ratio</label>
-        <Input
+        <RatioFloorInput
           id="ratio-floor"
-          type="number"
-          min={0}
-          value={text}
-          placeholder="off"
-          className="h-8"
+          align="start"
+          className="w-full"
           disabled={!guard.enabled}
-          onFocus={() => setDraft(guard.floor != null ? String(guard.floor) : '')}
-          onBlur={() => setDraft(null)}
-          onChange={(e) => {
-            setDraft(e.target.value)
-            const v = Number(e.target.value)
-            guard.setFloor(e.target.value !== '' && Number.isFinite(v) && v > 0 ? v : null)
-          }}
+          aria-describedby="ratio-floor-note"
         />
-        <p className="mt-2 text-[12px] leading-snug text-muted-foreground">
-          Also lock when a torrent would push your ratio below this number.
+        <p id="ratio-floor-note" className="mt-2 text-[12px] leading-snug text-muted-foreground">
+          A download landing under this number locks. Clear the field to never lock.
         </p>
       </PopoverContent>
     </Popover>
@@ -173,17 +160,23 @@ function GuardSettings({ guard }: { guard: RatioGuard }) {
 /** What one click costs, as a footnote under the buttons. Appears once the
  * totals arrive. */
 function RatioNote({ guard }: { guard: RatioGuard }) {
-  const { current, next, drop, level } = guard.impact
-  if (drop != null && drop <= TRIVIAL_DROP) return null
+  const { current, next, level } = guard.impact
+  if (!worthNoting(guard.impact)) return null
+  const min = guard.floor?.toLocaleString('en-US')
+  // Round down, so a value a hair above the minimum never prints as the
+  // minimum itself while the button sits locked next to it.
+  const becomes = <b className="tabular-nums">{fmtRatio(Math.floor(next * 100) / 100)}</b>
   return (
     <p className={cn('mt-2 text-[12px] leading-snug', RATIO_NOTE_TONE[level])}>
       {current == null ? (
-        <>First download: your ratio would start at <b className="tabular-nums">{fmtRatio(next)}</b>.</>
+        <>First download: your ratio would start at {becomes}.</>
+      ) : level === 'block' ? (
+        <>Your ratio would become {becomes}, under your minimum of {min}. Use a wedge or change the minimum.</>
+      ) : level === 'warn' ? (
+        <>Your ratio would become {becomes}, close to your minimum of {min}.</>
       ) : (
-        <>Your ratio would become <b className="tabular-nums">{fmtRatio(next)}</b> <span className="tabular-nums">(now {fmtRatio(current)})</span>.</>
+        <>Your ratio would become {becomes} <span className="tabular-nums">(now {fmtRatio(current)})</span>.</>
       )}
-      {level === 'block' && <> Plain download is locked.</>}
-      {level === 'warn' && <> Consider spending a wedge.</>}
       <GuardSettings guard={guard} />
     </p>
   )

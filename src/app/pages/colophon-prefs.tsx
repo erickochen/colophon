@@ -13,16 +13,16 @@ import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   clearAllSettings, exportSettings, importSettings, restoreSettings, useDefaultAmount, useFeature,
-  useIgnoredTorrents, useRatioFloor, useUserList, useUserNotes,
+  useIgnoredTorrents, useUserList, useUserNotes,
   type AmountKind, type FeatureKey, type UserListKind,
 } from '@/lib/settings'
 import {
   AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { HARD_FLOOR } from '@/lib/ratio-protect'
 import { MAX_GIFT, THANK_MAX } from '@/lib/mam-api'
 import { PrefCard, SettingRow } from '@/app/pages/prefs-bits'
+import { RatioFloorInput } from '@/components/ratio-floor'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -91,33 +91,12 @@ function AmountRow({ kind, title, note, credit, max }: { kind: AmountKind; title
 
 function RatioFloorRow() {
   const [enabled] = useFeature('ratioProtect')
-  const [floor, setFloor] = useRatioFloor()
-  // While the field holds focus the typed text wins; otherwise it mirrors the
-  // store, so a settings import or the lock dialog shows up here at once.
-  const [draft, setDraft] = useState<string | null>(null)
-  const shown = draft ?? (floor != null ? String(floor) : '')
   return (
     <SettingRow
       title="Minimum ratio"
-      note="Also lock when a download would push your ratio below this number. Empty keeps only the hard floor."
+      note="A download landing under this number locks. Clear the field to never lock."
     >
-      <Input
-        type="number"
-        min={0}
-        step="0.1"
-        placeholder="off"
-        aria-label="Minimum ratio"
-        disabled={!enabled}
-        value={shown}
-        onFocus={() => setDraft(floor != null ? String(floor) : '')}
-        onBlur={() => setDraft(null)}
-        onChange={(e) => {
-          setDraft(e.target.value)
-          const v = Number(e.target.value)
-          setFloor(e.target.value !== '' && Number.isFinite(v) && v > 0 ? v : null)
-        }}
-        className="h-8 w-24 text-[12.5px]"
-      />
+      <RatioFloorInput disabled={!enabled} className="w-24 text-[12.5px]" />
     </SettingRow>
   )
 }
@@ -458,7 +437,7 @@ export function ColophonPrefsView(_props: PageProps) {
         <FeatureRow
           feature="ratioProtect"
           title="Ratio protection"
-          note={`Locks the plain download on a heavy ratio drop or when it would cross ratio ${HARD_FLOOR}. Switched off, the impact still shows but nothing locks.`}
+          note="Locks the plain download when it would take your ratio under your minimum. Switched off, the note still shows but nothing locks."
           credit="MAM Ratio Protect by yyyzzz999 and Disable Non-Free Download Button by Gabo"
         />
         <RatioFloorRow />

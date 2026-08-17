@@ -1,19 +1,18 @@
-// Ratio impact of a download, following the MAM+ ratioProtect thresholds.
-// Exact byte totals come from /jsonLoad.php; the torrent size from the page.
+// Ratio impact of a download: what it costs and how close it brings you to the
+// floor. Exact byte totals come from /jsonLoad.php; the torrent size from the
+// page.
 import { useEffect, useState } from 'react'
 import { useFeature, useRatioFloor } from '@/lib/settings'
 import { mamFetch } from '@/lib/mam-fetch'
 
-// Drops at or under this are noise (MAM+ trivial threshold).
-export const TRIVIAL_DROP = 0.009
+// One line does the work: the minimum ratio the reader set. A download landing
+// under it locks. The softer levels sit at a multiple of that same line.
 // Slight color change.
-export const NOTICE_DROP = 0.5
+export const NOTICE_MARGIN = 3
 // Suggest spending a wedge.
-export const WARN_DROP = 1
-// Plain download locks; freeleech only.
-export const BLOCK_DROP = 2
-// Power User requires ratio 2, so never let a download cross it.
-export const HARD_FLOOR = 2
+export const WARN_MARGIN = 1.5
+// A drop of this share of your ratio or less is noise at any ratio.
+export const TRIVIAL_SHARE = 0.005
 
 export type RatioLevel = 'none' | 'notice' | 'warn' | 'block'
 
@@ -23,6 +22,8 @@ export interface RatioImpact {
   next: number
   /** null when there is no current ratio to drop from. */
   drop: number | null
+  /** The drop as a share of the current ratio; null without a current ratio. */
+  share: number | null
   level: RatioLevel
 }
 
@@ -54,16 +55,32 @@ export function assessRatio(
   const current = downloadedBytes > 0 ? uploadedBytes / downloadedBytes : null
   const next = uploadedBytes / (downloadedBytes + sizeBytes)
   const drop = current != null ? current - next : null
+  const share = current != null && current > 0 && drop != null ? drop / current : null
+  const trivial = share != null && share <= TRIVIAL_SHARE
   let level: RatioLevel = 'none'
   if (current == null) {
     // No real ratio yet: inform, never lock (MAM+ parity).
     level = 'notice'
-  } else if (drop != null && drop > TRIVIAL_DROP) {
-    if (drop > BLOCK_DROP || next < HARD_FLOOR || (floor != null && next < floor)) level = 'block'
-    else if (drop > WARN_DROP) level = 'warn'
-    else if (drop > NOTICE_DROP) level = 'notice'
+  } else if (floor == null) {
+    // No minimum set, so nothing to warn about. The line still shows.
+    level = 'none'
+  } else if (next < floor) {
+    level = 'block'
+  } else if (trivial) {
+    // Too small to care about, however close to the line you sit.
+    level = 'none'
+  } else if (next < floor * WARN_MARGIN) {
+    level = 'warn'
+  } else if (next < floor * NOTICE_MARGIN) {
+    level = 'notice'
   }
-  return { current, next, drop, level }
+  return { current, next, drop, share, level }
+}
+
+/** Whether the impact deserves a line of text: anything above noise, plus every
+ * level that acts on it. */
+export function worthNoting(impact: RatioImpact): boolean {
+  return impact.level !== 'none' || impact.share == null || impact.share > TRIVIAL_SHARE
 }
 
 interface ByteTotals {
@@ -103,7 +120,6 @@ export interface RatioGuard {
   impact: RatioImpact
   wedges: number | null
   floor: number | null
-  setFloor: (v: number | null) => void
   enabled: boolean
   setEnabled: (v: boolean) => void
 }
@@ -114,10 +130,10 @@ export interface RatioGuard {
 export function useRatioGuard(sizeText: string | null): RatioGuard | null {
   const sizeBytes = parseSizeBytes(sizeText)
   const totals = useByteTotals(sizeBytes != null)
-  const [floor, setFloor] = useRatioFloor()
+  const [floor] = useRatioFloor()
   const [enabled, setEnabled] = useFeature('ratioProtect')
   if (sizeBytes == null || totals == null) return null
   const impact = assessRatio(totals.uploaded, totals.downloaded, sizeBytes, floor)
   if (!enabled) impact.level = 'none'
-  return { impact, wedges: totals.wedges, floor, setFloor, enabled, setEnabled }
+  return { impact, wedges: totals.wedges, floor, enabled, setEnabled }
 }
