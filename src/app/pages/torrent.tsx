@@ -9,7 +9,7 @@ import { RichHtml } from '@/app/shell/bits'
 import { mutedUserColor } from '@/lib/colors'
 import { fmtInt, fmtRatio, initials, plural, relTime, utcTitle } from '@/lib/format'
 import { mediaInfoGroupLabel, mediaInfoLabel } from '@/lib/media-info'
-import { searchTorrents, parsePeople, coverUrl, torrentUrl, THANK_MAX, type SearchTorrent } from '@/lib/mam-api'
+import { bookmarkOne, searchTorrents, parsePeople, coverUrl, torrentUrl, THANK_MAX, type SearchTorrent } from '@/lib/mam-api'
 import { coverShape, mediaTypeFromHref, type CoverShape } from '@/lib/cover-shape'
 import { seriesEntry } from '@/lib/series'
 import { readDefaultAmount, resolveAmount, useFeature } from '@/lib/settings'
@@ -27,6 +27,7 @@ import { Badge } from '@/components/ui/badge'
 import { BlurFade } from '@/components/ui/blur-fade'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { AppleCardsCarousel } from '@/components/ui/apple-cards-carousel'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -350,67 +351,42 @@ function MiniHero({
   )
 }
 
-/** Wait until sel appears in the live document (MAM swaps anchors via AJAX). */
-function waitFor(sel: string, timeout = 4000): Promise<HTMLElement | null> {
-  return new Promise((resolve) => {
-    const t0 = Date.now()
-    const tick = () => {
-      const el = document.querySelector<HTMLElement>(sel)
-      if (el) return resolve(el)
-      if (Date.now() - t0 > timeout) return resolve(null)
-      window.setTimeout(tick, 150)
-    }
-    tick()
-  })
-}
-
-/** State-aware bookmark toggle. MAM swaps between torBookmark{id} and
- * torDeBookmark{id}, the latter behind an Ok/Cancel dialog we auto-confirm. */
+/** State-aware bookmark toggle. MAM's own control names the state plus the
+ * torrent id (torBookmark{id} to add, torDeBookmark{id} to remove); the change
+ * itself goes to the JSON endpoint, since MAM's remove link asks a question
+ * whose sentence names a torrent it can only find inside a result row. */
 function BookmarkButton() {
+  const control = document.querySelector<HTMLElement>('[id^="torDeBookmark"],[id^="torBookmark"]')
+  const tid = Number(control?.id.replace(/^tor(?:De)?Bookmark/, '')) || null
   const [bookmarked, setBookmarked] = useState(() => !!document.querySelector('[id^="torDeBookmark"]'))
   const [busy, setBusy] = useState(false)
-  const available = bookmarked || !!document.querySelector('[id^="torBookmark"]')
-  if (!available) return null
+  if (tid == null) return null
 
-  async function add() {
+  async function toggle() {
+    if (tid == null) return
+    const adding = !bookmarked
     setBusy(true)
-    document.querySelector<HTMLElement>('[id^="torBookmark"]')?.click()
-    const swapped = await waitFor('[id^="torDeBookmark"]')
-    setBusy(false)
-    if (swapped) {
-      setBookmarked(true)
-      toast.success('Bookmarked', { description: 'Find it under My library > Bookmarks.' })
-    } else toast.error('Bookmarking did not go through.')
-  }
-
-  async function remove() {
-    setBusy(true)
-    // Hide MAM's own confirm dialog while we auto-accept it.
-    const veil = document.createElement('style')
-    veil.textContent = '.ui-dialog,.ui-widget-overlay{display:none!important}'
-    document.head.appendChild(veil)
     try {
-      document.querySelector<HTMLElement>('[id^="torDeBookmark"]')?.click()
-      const ok = await waitFor('.ui-dialog button')
-      const okBtn = [...document.querySelectorAll<HTMLButtonElement>('.ui-dialog button')].find((b) => /^ok$/i.test(b.textContent?.trim() ?? ''))
-      if (ok && okBtn) okBtn.click()
-      const swapped = await waitFor('[id^="torBookmark"]')
-      if (swapped) {
-        setBookmarked(false)
-        toast.success('Bookmark removed')
-      } else toast.error('Removing the bookmark did not go through.')
+      await bookmarkOne(tid, adding ? 'add' : 'delete')
+      setBookmarked(adding)
+      // MAM renames its own control on every change. That name is what this
+      // button reads when it mounts, so it has to keep telling the truth.
+      if (control) control.id = `${adding ? 'torDeBookmark' : 'torBookmark'}${tid}`
+      if (adding) toast.success('Bookmarked', { description: 'Find it under My library > Bookmarks.' })
+      else toast.success('Bookmark removed')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'That did not go through.')
     } finally {
-      veil.remove()
       setBusy(false)
     }
   }
 
   return bookmarked ? (
-    <Button variant="outline" disabled={busy} onClick={remove} className="text-brand">
+    <Button variant="outline" disabled={busy} onClick={() => void toggle()} className="text-brand">
       <BookmarkCheck /> Bookmarked
     </Button>
   ) : (
-    <Button variant="outline" disabled={busy} onClick={add}>
+    <Button variant="outline" disabled={busy} onClick={() => void toggle()}>
       <Bookmark /> Bookmark
     </Button>
   )
@@ -886,6 +862,14 @@ function partWeight(part: string | null | undefined): number {
   return Number.isNaN(n) ? STRIP_NO_ENTRY_WEIGHT : n
 }
 
+// A cover slot plus the gap after it, so one press of an arrow lands on a cover
+// edge instead of halfway through one.
+const SERIES_COVER_PITCH_PX = 108
+const SERIES_STEP_PX = SERIES_COVER_PITCH_PX * 3
+// Faster than the carousel's own default: these covers are small and there can
+// be nine of them, so the shelf should be readable well before then.
+const SERIES_STAGGER_SECONDS = 0.05
+
 /** Mini shelf of the other books in the first series, fetched via the search
  * API. Hidden while loading, on fetch errors and when this book is alone. */
 function SeriesStrip({ data }: { data: TorrentDetail }) {
@@ -961,23 +945,41 @@ function SeriesStrip({ data }: { data: TorrentDetail }) {
         </CardAction>
       </CardHeader>
       <CardContent>
-        <div className="flex items-end gap-5 overflow-x-auto pb-1">
-          {items.map((it) => (
-            <a key={it.id} href={it.href} title={it.title} className="group w-[88px] shrink-0 text-[10px]">
+        <AppleCardsCarousel
+          step={SERIES_STEP_PX}
+          stagger={SERIES_STAGGER_SECONDS}
+          prevLabel="Earlier books in this series"
+          nextLabel="Later books in this series"
+          viewportClassName="items-end pb-1"
+          rowClassName="items-end gap-5"
+          itemClassName="shrink-0"
+          arrowsClassName="mt-3"
+          items={items.map((it) => (
+            <a key={it.id} href={it.href} title={it.title} className="group block w-[88px] text-[10px]">
               <span className="block transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1 motion-reduce:transition-none">
-                <Book poster={it.poster} title={it.title} shape={it.shape} plain size="mini" className="group-hover:shadow-book-lift" />
+                <Book
+                  poster={it.poster}
+                  title={it.title}
+                  shape={it.shape}
+                  plain
+                  size="mini"
+                  className={cn('group-hover:shadow-book-lift', it.current && 'ring-2 ring-brand/60')}
+                />
               </span>
-              <span className={cn('mt-2 block font-mono text-[11px] tabular-nums', it.current ? 'font-semibold text-brand' : 'text-muted-foreground')}>
+              {/* Every label takes one line of the same height, named or not, so
+                  all the covers rest on one floor. */}
+              <span className={cn('mt-2 block h-4 font-mono text-[11px] leading-4 whitespace-nowrap tabular-nums', it.current ? 'font-semibold text-brand' : 'text-muted-foreground')}>
                 {it.part && `#${it.part}`}
                 {it.current && (it.part ? ' · this book' : 'this book')}
               </span>
             </a>
           ))}
-        </div>
+        />
       </CardContent>
     </Card>
   )
 }
+
 
 // A title search returns plenty of noise, so fetch wide and show a short list.
 const EDITIONS_FETCH_MAX = 25

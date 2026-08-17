@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { AlignJustify, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, BookmarkCheck, BookmarkX, ChevronDown, Dice5, Download, EyeOff, FileArchive, Filter, LayoutGrid, Loader2, Trash2, Undo2 } from 'lucide-react'
+import { AlignJustify, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, BookmarkCheck, BookmarkX, ChevronDown, Dice5, Download, EyeOff, FileArchive, LayoutGrid, Loader2, Minus, Trash2, Undo2 } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { PageHeader } from '@/app/shell/bits'
 import {
@@ -30,12 +30,11 @@ import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
-  FacetMode, FacetOptions, FacetSection, FilterBar, FilterDateRange, FilterFacet, FilterHint,
-  FilterRow, FilterSearch, FilterSegments, FilterSelect, FilterSummary, TRIGGER, dateRangeLabel,
+  FacetMode, FacetOptions, FilterBar, FilterDateRange, FilterFacet, FilterHint,
+  FilterRow, FilterSearch, FilterSegments, FilterSelect, FilterSummary, FilterToggle, TRIGGER,
   toggleValue,
 } from '@/components/filters'
 import {
@@ -639,6 +638,24 @@ function RowBookmark({ t, onBookmark, onRemoved }: { t: SearchTorrent; onBookmar
   )
 }
 
+/** Stands in for the wedge button on a row where a wedge buys nothing, because
+ * the torrent is free already. A dash is the table way of saying a cell has no
+ * value, so the icon row stays even without a button that does nothing. */
+function WedgeNotNeeded() {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {/* The grid cell already carries the width of an action plus the height
+            of the buttons beside it, so this only centers the glyph in it. */}
+        <span aria-hidden className="grid place-items-center text-muted-foreground/40">
+          <Minus className="size-3.5" />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>Free already, so a wedge adds nothing</TooltipContent>
+    </Tooltip>
+  )
+}
+
 /** Column tracks for one list, shared by the header and every row so nothing
  * shifts. Only from md up: narrow rows stack instead. */
 function rowTracks(stats: number, lane: string, selectable?: boolean): string {
@@ -848,7 +865,7 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onU
                 className={cn(ROW_ACTION, ROW_ACTION_REST)}
               />
             ) : (
-              <span aria-hidden />
+              <WedgeNotNeeded />
             ))}
           {onIgnore && (
             <Tooltip>
@@ -1433,11 +1450,6 @@ export function BrowseView(props: PageProps) {
   const to = Math.min(found, baseStart + items.length)
   const remaining = Math.max(0, found - to)
   const sizeActive = state.minSize !== null || state.maxSize !== null
-  // Every facet carries its own count, so this one covers what sits behind the
-  // overflow button alone.
-  const moreCount =
-    state.flags.length + (sizeActive ? 1 : 0) + (state.dateRange ? 1 : 0) +
-    (hideSnatched ? 1 : 0) + (hasExtra(state.extra) ? 1 : 0)
   const uploaderMode = state.uploader != null
   // The endpoint names the owner on every row, which labels the chip.
   const uploaderName = uploaderMode && state.uploader !== 'else' ? items.find((t) => t.owner_name)?.owner_name ?? null : null
@@ -1456,13 +1468,6 @@ export function BrowseView(props: PageProps) {
       : state.minSize !== null
         ? `≥ ${fmtInt(state.minSize)} ${sizeUnitLabel}`
         : `≤ ${fmtInt(state.maxSize ?? 0)} ${sizeUnitLabel}`
-  // A custom range with no days picked yet narrows nothing, so it says so
-  // rather than showing two placeholders.
-  const dateChipLabel =
-    state.dateRange === 'custom'
-      ? dateRangeLabel(state.startDate, state.endDate, 'Any day')
-      : DATE_RANGES.find((d) => d.value === state.dateRange)?.label ?? state.dateRange
-
   // Entity filters only carry an id in the URL; the matching name is inside the
   // results themselves (author_info maps id to name).
   const entityName = (kind: 'author' | 'narrator' | 'series', id: number): string | null => {
@@ -1566,9 +1571,6 @@ export function BrowseView(props: PageProps) {
     ...(sizeActive
       ? [{ key: 'size', label: sizeChipLabel, onRemove: () => apply({ minSize: null, maxSize: null }) }]
       : []),
-    ...(state.dateRange
-      ? [{ key: 'date', label: dateChipLabel, onRemove: () => apply({ dateRange: '' as const, startDate: '', endDate: '' }) }]
-      : []),
     ...state.flags.map((f) => {
       const name = CONTENT_FLAGS.find((x) => x.bit === f)?.name ?? String(f)
       return {
@@ -1585,11 +1587,9 @@ export function BrowseView(props: PageProps) {
         onRemove: () => apply({ langs: toggleValue(state.langs, l) }),
       }
     }),
+    // Blob fields no control on this bar covers, carried in from a link.
     ...(hasExtra(state.extra)
-      ? [{ key: 'extra', label: 'More filters', onRemove: () => apply({ extra: EMPTY_EXTRA }) }]
-      : []),
-    ...(hideSnatched
-      ? [{ key: 'hideSnatched', label: 'Hide snatched', onRemove: () => setHideSnatched(false) }]
+      ? [{ key: 'extra', label: 'Filters from the link', onRemove: () => apply({ extra: EMPTY_EXTRA }) }]
       : []),
   ]
 
@@ -1699,92 +1699,87 @@ export function BrowseView(props: PageProps) {
             />
           </FilterFacet>
 
-          <FilterFacet label="More filters" count={moreCount} width="w-80" align="end" icon={<Filter className="size-3.5" />}>
-            <div className="max-h-[420px] divide-y overflow-y-auto">
-              <FacetSection title="Added">
-                <FilterSelect
-                  value={state.dateRange || 'any'}
-                  onChange={(v) => (v === 'any' ? apply({ dateRange: '', startDate: '', endDate: '' }) : apply({ dateRange: v as BrowseState['dateRange'] }))}
-                  options={DATE_RANGES.map((d) => ({ value: d.value || 'any', label: d.label }))}
-                  ariaLabel="Added within"
-                />
-                {state.dateRange === 'custom' && (
-                  <div className="mt-2">
-                    <FilterDateRange
-                      from={state.startDate}
-                      to={state.endDate}
-                      onChange={(startDate, endDate) => apply({ startDate, endDate })}
-                      ariaLabel="Added between"
-                      placeholder="Pick the days"
-                      className="w-full"
-                    />
-                  </div>
-                )}
-              </FacetSection>
-              <FacetSection title="Size">
-                <div className="flex items-center gap-2">
-                  <Input
-                    key={`min${state.minSize ?? ''}`}
-                    type="number"
-                    min={0}
-                    defaultValue={state.minSize ?? ''}
-                    placeholder="Min"
-                    aria-label="Minimum size"
-                    className="h-8 w-20 text-[12.5px]"
-                    onBlur={(e) => commitSize('min', e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') e.currentTarget.blur()
-                    }}
-                  />
-                  <span className="text-[12px] text-muted-foreground">to</span>
-                  <Input
-                    key={`max${state.maxSize ?? ''}`}
-                    type="number"
-                    min={0}
-                    defaultValue={state.maxSize ?? ''}
-                    placeholder="Max"
-                    aria-label="Maximum size"
-                    className="h-8 w-20 text-[12.5px]"
-                    onBlur={(e) => commitSize('max', e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') e.currentTarget.blur()
-                    }}
-                  />
-                  <FilterSelect
-                    value={String(state.sizeUnit)}
-                    onChange={(v) => apply({ sizeUnit: Number(v) })}
-                    options={SIZE_UNITS.map((u) => ({ value: String(u.value), label: u.label }))}
-                    ariaLabel="Size unit"
-                  />
-                </div>
-              </FacetSection>
-              <FacetSection title="Content flags">
-                <FacetMode
-                  value={String(state.flagsMode)}
-                  onChange={(v) => apply({ flagsMode: Number(v) as BrowseState['flagsMode'] })}
-                  options={[{ value: '0', label: 'Hide these' }, { value: '1', label: 'Only these' }]}
-                  ariaLabel="Hide or show torrents carrying these flags"
-                />
-                <div className="grid grid-cols-2">
-                  {CONTENT_FLAGS.map((f) => (
-                    <Label key={f.bit} className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
-                      <Checkbox
-                        checked={state.flags.includes(f.bit)}
-                        onCheckedChange={() => apply({ flags: toggleValue(state.flags, f.bit) })}
-                      />
-                      {f.name}
-                    </Label>
-                  ))}
-                </div>
-              </FacetSection>
-              <FacetSection title="Personal" note="only in this browser">
-                <Label className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
-                  <Checkbox checked={hideSnatched} onCheckedChange={(v) => setHideSnatched(!!v)} />
-                  Hide snatched torrents
-                </Label>
-              </FacetSection>
+          {/* Each filter names itself on the bar. One drawer holding four of
+              them hid what a search was doing behind a scrollbar. */}
+          <FilterSelect
+            value={state.dateRange || 'any'}
+            onChange={(v) => (v === 'any' ? apply({ dateRange: '', startDate: '', endDate: '' }) : apply({ dateRange: v as BrowseState['dateRange'] }))}
+            options={DATE_RANGES.map((d) => ({ value: d.value || 'any', label: d.label }))}
+            prefix="Added"
+            ariaLabel="Added within"
+          />
+          {state.dateRange === 'custom' && (
+            <FilterDateRange
+              from={state.startDate}
+              to={state.endDate}
+              onChange={(startDate, endDate) => apply({ startDate, endDate })}
+              ariaLabel="Added between"
+              placeholder="Pick the days"
+            />
+          )}
+
+          <FilterFacet label="Size" count={sizeActive ? 1 : 0} width="w-auto">
+            <div className="flex items-center gap-2 p-2.5">
+              <Input
+                key={`min${state.minSize ?? ''}`}
+                type="number"
+                min={0}
+                defaultValue={state.minSize ?? ''}
+                placeholder="Min"
+                aria-label="Minimum size"
+                className="h-8 w-20 text-[12.5px]"
+                onBlur={(e) => commitSize('min', e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.currentTarget.blur()
+                }}
+              />
+              <span className="text-[12px] text-muted-foreground">to</span>
+              <Input
+                key={`max${state.maxSize ?? ''}`}
+                type="number"
+                min={0}
+                defaultValue={state.maxSize ?? ''}
+                placeholder="Max"
+                aria-label="Maximum size"
+                className="h-8 w-20 text-[12.5px]"
+                onBlur={(e) => commitSize('max', e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.currentTarget.blur()
+                }}
+              />
+              <FilterSelect
+                value={String(state.sizeUnit)}
+                onChange={(v) => apply({ sizeUnit: Number(v) })}
+                options={SIZE_UNITS.map((u) => ({ value: String(u.value), label: u.label }))}
+                ariaLabel="Size unit"
+              />
             </div>
           </FilterFacet>
+
+          <FilterFacet label="Content flags" count={state.flags.length} width="w-72">
+            <FacetMode
+              value={String(state.flagsMode)}
+              onChange={(v) => apply({ flagsMode: Number(v) as BrowseState['flagsMode'] })}
+              options={[{ value: '0', label: 'Hide these' }, { value: '1', label: 'Only these' }]}
+              ariaLabel="Hide or show torrents carrying these flags"
+            />
+            {/* One column: two of the six names run long enough that a second
+                column would clip them to the same first word. */}
+            <FacetOptions
+              options={CONTENT_FLAGS.map((f) => ({ value: String(f.bit), label: f.name }))}
+              selected={state.flags.map(String)}
+              onToggle={(v) => apply({ flags: toggleValue(state.flags, Number(v)) })}
+              onClear={() => apply({ flags: [] })}
+            />
+          </FilterFacet>
+
+          <FilterToggle
+            pressed={hideSnatched}
+            onPressedChange={setHideSnatched}
+            label="Hide snatched"
+            note="only in this browser"
+            icon={<EyeOff className="size-3.5" />}
+          />
         </FilterRow>
         </>
         )}

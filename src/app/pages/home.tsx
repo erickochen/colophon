@@ -162,19 +162,28 @@ function shelfFromDom(torrents: HomeTorrent[]): ShelfItem[] {
 function ShoutList({ shouts }: { shouts: Shout[] }) {
   return (
     <div className="grid gap-1.5">
+      {/* The time keeps a column of its own; the name and the words share the
+          next one, so a second line carries on under the name rather than
+          leaving the left of the row empty. */}
       {shouts.map((s) => (
-        <div key={s.id} className="flex min-w-0 items-baseline gap-2 text-[13px]">
-          <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground" title={utcTitle(s.time)}>{localHm(s.time)}</span>
-          {s.user && (
-            <a
-              href={s.user.uid ? `/u/${s.user.uid}` : '#'}
-              className="shrink-0 font-semibold"
-              style={{ color: mutedUserColor(s.user.color) }}
-            >
-              {s.user.name}
-            </a>
-          )}
-          <span className="min-w-0 [overflow-wrap:anywhere] text-foreground/90">{s.text}</span>
+        <div key={s.id} className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-2 text-[13px]">
+          <span className="font-mono text-[10.5px] text-muted-foreground" title={utcTitle(s.time)}>{localHm(s.time)}</span>
+          <p className="[overflow-wrap:anywhere] text-foreground/90">
+            {/* The margin sets the gap; the space after it keeps a copied line
+                readable. */}
+            {s.user && (
+              <>
+                <a
+                  href={s.user.uid ? `/u/${s.user.uid}` : '#'}
+                  className="mr-1 font-semibold whitespace-nowrap"
+                  style={{ color: mutedUserColor(s.user.color) }}
+                >
+                  {s.user.name}
+                </a>{' '}
+              </>
+            )}
+            {s.text}
+          </p>
         </div>
       ))}
     </div>

@@ -264,6 +264,34 @@ export function FilterFacet({
   )
 }
 
+/** A filter that is only ever on or off, in the same frame as a facet trigger so
+ * a bar of controls stays one row. The note rides along on hover, for a filter
+ * that works differently from the ones beside it. */
+export function FilterToggle({
+  pressed, onPressedChange, label, note, icon,
+}: {
+  pressed: boolean
+  onPressedChange: (v: boolean) => void
+  label: string
+  note?: string
+  icon?: React.ReactNode
+}) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      aria-pressed={pressed}
+      title={note}
+      onClick={() => onPressedChange(!pressed)}
+      className={cn(TRIGGER, pressed && 'bg-brand-soft text-accent-foreground')}
+    >
+      {icon}
+      {label}
+    </Button>
+  )
+}
+
 /** Checkbox list inside a facet, searchable once the list gets long. */
 export function FacetOptions({
   options,
