@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Archive, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, ChevronDown, Download, Sprout, Users } from 'lucide-react'
+import { Archive, ArrowDown, ArrowRight, ArrowUp, ArrowUpDown, CheckCircle2, ChevronDown, Download, Sprout, Users } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
@@ -17,6 +17,10 @@ interface Bucket {
   count: number
   toggleId: string | null
   targetId: string | null
+  /** Where the row goes when it is a link instead of a pile that opens. MAM
+   * renders those only when they carry something, so the set differs per
+   * account. */
+  href: string | null
 }
 
 interface ZipGroup { label: string; links: { label: string; href: string }[] }
@@ -97,6 +101,10 @@ function extract(doc: Document): { buckets: Bucket[]; zips: ZipGroup[] } | null 
     // The klappe anchor WRAPS the h1 (<a data-klappe><h1>…</h1></a>), so it is
     // an ancestor, not a descendant - querySelector would never find it.
     const toggle = h1.closest('a[data-klappe]')
+    // A row can be a link to another page rather than a pile: the anchor either
+    // wraps the heading or sits inside it. A pile stays a pile whatever else its
+    // anchor carries.
+    const link = toggle ? null : h1.closest('a[href]') ?? h1.querySelector('a[href]')
     const label = h1.textContent?.replace(count.textContent ?? '', '').replace(/\s+/g, ' ').trim() ?? ''
     buckets.push({
       id: toggle?.id ?? label,
@@ -104,6 +112,7 @@ function extract(doc: Document): { buckets: Bucket[]; zips: ZipGroup[] } | null 
       count: Number((count.textContent ?? '0').replace(/,/g, '')) || 0,
       toggleId: toggle?.id ?? null,
       targetId: toggle ? `k${toggle.id}` : null,
+      href: link?.getAttribute('href') ?? null,
     })
   }
 
@@ -406,26 +415,42 @@ function BucketRow({ b }: { b: Bucket }) {
   }
 
   const openable = !!b.toggleId && b.count > 0
+  // A row MAM points somewhere else stays a link, so it does what it looks like
+  // it does instead of sitting there as text among rows that open.
+  const linkable = !openable && !!b.href
+  const rowClass = cn(
+    'h-auto w-full justify-start gap-4 rounded-none px-6 py-2.5 text-left font-normal',
+    openable || linkable ? 'hover:bg-brand-soft/25' : 'cursor-default hover:bg-transparent'
+  )
+  const rowBody = (
+    <>
+      <span className={cn('w-10 shrink-0 text-right font-display text-[16px] font-semibold tabular-nums', !b.count && 'text-muted-foreground/45')}>
+        {b.count.toLocaleString('en-US')}
+      </span>
+      <span className={cn('text-[13px]', !b.count && 'text-muted-foreground/60')}>{readBucket(b.label).text}</span>
+      {openable && (
+        <ChevronDown className={cn('ml-auto size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
+      )}
+      {linkable && <ArrowRight className="ml-auto size-4 shrink-0 text-muted-foreground" />}
+    </>
+  )
   return (
     <div>
-      <Button
-        variant="ghost"
-        onClick={openable ? toggle : undefined}
-        aria-expanded={openable ? open : undefined}
-        className={cn(
-          'h-auto w-full justify-start gap-4 rounded-none px-6 py-2.5 text-left font-normal',
-          openable ? 'hover:bg-brand-soft/25' : 'cursor-default hover:bg-transparent'
-        )}
-        aria-disabled={!openable || undefined}
-      >
-        <span className={cn('w-10 shrink-0 text-right font-display text-[16px] font-semibold tabular-nums', !b.count && 'text-muted-foreground/45')}>
-          {b.count.toLocaleString('en-US')}
-        </span>
-        <span className={cn('text-[13px]', !b.count && 'text-muted-foreground/60')}>{readBucket(b.label).text}</span>
-        {openable && (
-          <ChevronDown className={cn('ml-auto size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
-        )}
-      </Button>
+      {linkable ? (
+        <Button asChild variant="ghost" className={rowClass}>
+          <a href={b.href!}>{rowBody}</a>
+        </Button>
+      ) : (
+        <Button
+          variant="ghost"
+          onClick={openable ? toggle : undefined}
+          aria-expanded={openable ? open : undefined}
+          className={rowClass}
+          aria-disabled={!openable || undefined}
+        >
+          {rowBody}
+        </Button>
+      )}
       {open && (
         <div className="border-y bg-muted/10">
           {items === null ? (
