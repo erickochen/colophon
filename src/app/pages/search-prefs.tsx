@@ -10,9 +10,9 @@ import { Toggle } from '@/components/ui/toggle'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import { NumberField } from '@/components/ui/number-field'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { cn } from '@/lib/utils'
 
 // MAM ships this tab as six named jQuery panels. They come back as real tabs,
 // with one exception: the automatic-wedge rules spend FL wedges on their own
@@ -208,20 +208,23 @@ function wedgeFields(form: HTMLElement): WedgeData | null {
 }
 
 function WedgeInput({ el, suffix, label }: { el: HTMLInputElement; suffix?: string; label: string }) {
-  const [v, setV] = useState(el.value)
+  const [v, setV] = useState(() => (el.value === '' ? null : Number(el.value)))
   return (
-    <label className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
+    <span className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
       {label}
-      <Input
-        type="number"
+      <NumberField
+        label={label}
+        value={v}
         min={0}
         step={1}
-        value={v}
-        onChange={(e) => { setV(e.target.value); el.value = e.target.value }}
-        className="h-8 w-24 text-[12.5px]"
+        onValueChange={(next) => {
+          setV(next)
+          // The original control is what the form posts, so it follows along.
+          el.value = next == null ? '' : String(next)
+        }}
       />
       {suffix}
-    </label>
+    </span>
   )
 }
 

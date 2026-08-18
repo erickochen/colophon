@@ -11,7 +11,7 @@ import { readDefaultAmount, resolveAmount, useFeature, useGiftedMembers } from '
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { NumberField } from '@/components/ui/number-field'
 import { Progress } from '@/components/ui/progress'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -142,15 +142,12 @@ export function NewMembersView(props: PageProps) {
     </div>
   ) : (
     <div className="flex items-center gap-2">
-      <Input
-        type="number"
+      <NumberField
+        label="Points per member"
+        value={amount === '' ? null : Number(amount)}
         min={BULK_GIFT_MIN}
         max={BULK_GIFT_MAX}
-        value={amount}
-        onChange={(e) => setAmount(e.target.value)}
-        aria-label="Points per member"
-        aria-invalid={!amountValid}
-        className="h-8 w-20 text-[12.5px] tabular-nums"
+        onValueChange={(v) => setAmount(v == null ? '' : String(v))}
       />
       <span className="text-[12.5px] text-muted-foreground">pts</span>
       <Button size="sm" className="h-8" disabled={targets.length === 0 || !amountValid} onClick={() => setConfirming(true)}>

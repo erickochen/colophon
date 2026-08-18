@@ -7,13 +7,17 @@ import { PageHeader, RichHtml } from '@/app/shell/bits'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { NumberField } from '@/components/ui/number-field'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from '@/components/ui/toast'
 
 interface Coin { name: string; address: string | null; qr: string | null }
 interface Tab { id: string; label: string; html: string | null }
 interface DonType { value: string; label: string }
+
+/** MAM's own floor for a donation plus the step its reward table is built on. */
+const DONATION_MIN = 5
+const DONATION_STEP = 5
 
 const clean = (s: string | null | undefined) => s?.replace(/\s+/g, ' ').trim() ?? ''
 
@@ -155,8 +159,14 @@ export function DonateView(props: PageProps) {
         <CardContent className="grid gap-4">
           <div className="flex items-center gap-2">
             <span className="text-[13px] text-muted-foreground">Amount €</span>
-            <Input type="number" min={5} step={5} value={amount} onChange={(e) => syncAmount(e.target.value)} className="h-8 w-28 text-[12.5px]" />
-            <span className="text-[12px] text-muted-foreground">minimum 5</span>
+            <NumberField
+              label="Donation amount"
+              value={amount === '' ? null : Number(amount)}
+              min={DONATION_MIN}
+              step={DONATION_STEP}
+              onValueChange={(v) => syncAmount(v == null ? '' : String(v))}
+            />
+            <span className="text-[12px] text-muted-foreground">minimum {DONATION_MIN}</span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {options.map((o, i) => (

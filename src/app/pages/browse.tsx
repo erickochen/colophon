@@ -30,6 +30,7 @@ import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Input } from '@/components/ui/input'
+import { NumberField } from '@/components/ui/number-field'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
@@ -223,6 +224,56 @@ const DATE_RANGES = [
 ] as const
 
 const EMPTY_EXTRA: BrowseState['extra'] = { com: {}, tor: {} }
+
+/** How long a size bound sits still before it searches. Every step of the
+ * stepper is a new value plus this endpoint answers a burst with a 403. */
+const SIZE_SETTLE_MS = 700
+
+/** One end of the size range. The figure follows every keystroke plus every
+ * step, while the search waits for the reader to stop. */
+function SizeBound({
+  label, value, onCommit,
+}: {
+  label: string
+  value: number | null
+  onCommit: (raw: string) => void
+}) {
+  const [draft, setDraft] = useState<number | null>(value)
+  const timer = useRef(0)
+  // What the timer still owes, so closing the facet cannot swallow a figure
+  // that was typed a moment before.
+  const owed = useRef<string | null>(null)
+  const commit = useRef(onCommit)
+  commit.current = onCommit
+
+  // Clearing every filter at once has to reach the field as well.
+  useEffect(() => setDraft(value), [value])
+  useEffect(
+    () => () => {
+      window.clearTimeout(timer.current)
+      if (owed.current != null) commit.current(owed.current)
+    },
+    []
+  )
+
+  return (
+    <NumberField
+      label={label}
+      value={draft}
+      min={0}
+      onValueChange={(next) => {
+        const raw = next == null ? '' : String(next)
+        setDraft(next)
+        owed.current = raw
+        window.clearTimeout(timer.current)
+        timer.current = window.setTimeout(() => {
+          owed.current = null
+          commit.current(raw)
+        }, SIZE_SETTLE_MS)
+      }}
+    />
+  )
+}
 
 const hasExtra = (extra: BrowseState['extra']): boolean =>
   Object.keys(extra.com).length > 0 || Object.keys(extra.tor).length > 0
@@ -1718,34 +1769,12 @@ export function BrowseView(props: PageProps) {
           )}
 
           <FilterFacet label="Size" count={sizeActive ? 1 : 0} width="w-auto">
+            {/* The search only runs on a settled value: one per keystroke earns
+                a 403 from the endpoint. */}
             <div className="flex items-center gap-2 p-2.5">
-              <Input
-                key={`min${state.minSize ?? ''}`}
-                type="number"
-                min={0}
-                defaultValue={state.minSize ?? ''}
-                placeholder="Min"
-                aria-label="Minimum size"
-                className="h-8 w-20 text-[12.5px]"
-                onBlur={(e) => commitSize('min', e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') e.currentTarget.blur()
-                }}
-              />
+              <SizeBound label="Minimum size" value={state.minSize} onCommit={(v) => commitSize('min', v)} />
               <span className="text-[12px] text-muted-foreground">to</span>
-              <Input
-                key={`max${state.maxSize ?? ''}`}
-                type="number"
-                min={0}
-                defaultValue={state.maxSize ?? ''}
-                placeholder="Max"
-                aria-label="Maximum size"
-                className="h-8 w-20 text-[12.5px]"
-                onBlur={(e) => commitSize('max', e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') e.currentTarget.blur()
-                }}
-              />
+              <SizeBound label="Maximum size" value={state.maxSize} onCommit={(v) => commitSize('max', v)} />
               <FilterSelect
                 value={String(state.sizeUnit)}
                 onChange={(v) => apply({ sizeUnit: Number(v) })}

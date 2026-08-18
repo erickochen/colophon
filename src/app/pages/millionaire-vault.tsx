@@ -12,8 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { NumberRoll } from '@/components/ui/number-roll'
 import { Progress } from '@/components/ui/progress'
 import { ShineBorder } from '@/components/ui/shine-border'
+import { AmountPicker } from '@/components/amount-picker'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Slider } from '@/components/ui/slider'
 import { toast } from '@/components/ui/toast'
 import { mamFetch } from '@/lib/mam-fetch'
 
@@ -376,36 +376,15 @@ export function VaultDonateView(props: PageProps) {
               <span className="text-[15px] text-muted-foreground">points</span>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              {quick.map((n) => (
-                <Button
-                  key={n}
-                  type="button"
-                  variant={n === amount ? 'default' : 'outline'}
-                  size="sm"
-                  className="h-8 text-[12.5px]"
-                  onClick={() => setAmount(n)}
-                >
-                  {n === max ? `Max ${fmtInt(n)}` : fmtInt(n)}
-                </Button>
-              ))}
-            </div>
-
-            <div className="grid gap-1.5">
-              <Slider
-                thumbLabel="Amount to give"
-                className="[&_[data-slot=slider-range]]:bg-brand-fill"
-                value={amount}
-                onValueChange={(v) => setAmount(Array.isArray(v) ? (v[0] ?? min) : v)}
-                min={min}
-                max={max}
-                step={step}
-              />
-              <div className="flex justify-between text-[12px] tabular-nums text-muted-foreground">
-                <span>{fmtInt(min)}</span>
-                <span>{fmtInt(max)}</span>
-              </div>
-            </div>
+            <AmountPicker
+              label="Amount to give"
+              value={amount}
+              onChange={setAmount}
+              min={min}
+              max={max}
+              step={step}
+              presets={quick}
+            />
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span className="text-[12.5px] text-muted-foreground">

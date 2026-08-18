@@ -8,6 +8,7 @@ import { closeGiftDialog, getGiftDialog, openGiftDialog, subscribeGiftDialog, ty
 import { readDefaultAmount, resolveAmount } from '@/lib/settings'
 import { initials } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { AmountPicker } from '@/components/amount-picker'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,10 +16,8 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Spinner } from '@/components/ui/spinner'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { toast } from '@/components/ui/toast'
 
@@ -180,11 +179,10 @@ function PointsDialog({ name, balance, state, onSend }: {
   onSend: (points: number) => void
 }) {
   // Own setting first, then the GiftMAM widget default, then the plain fallback.
-  const [amount, setAmount] = useState(() => {
+  const [points, setPoints] = useState(() => {
     const preset = resolveAmount(readDefaultAmount('gift'), MIN_GIFT, MAX_GIFT)
-    return String(preset ?? readDefaultGiftAmount())
+    return preset ?? readDefaultGiftAmount()
   })
-  const points = Number(amount)
   const valid = Number.isInteger(points) && points >= MIN_GIFT && points <= MAX_GIFT
   const short = valid && balance != null && points > balance
   const left = valid && balance != null ? balance - points : null
@@ -203,37 +201,16 @@ function PointsDialog({ name, balance, state, onSend }: {
         </DialogHeader>
         <Recipient name={name} />
         <div className="grid gap-2">
-          <Label htmlFor="gift-amount" className="text-[12.5px] text-muted-foreground">How many points</Label>
-          <ToggleGroup
-            type="single"
-            value={GIFT_PRESETS.includes(points) ? String(points) : ''}
-            onValueChange={(v) => v && setAmount(v)}
-            className="w-full"
-          >
-            {GIFT_PRESETS.map((p) => (
-              <ToggleGroupItem
-                key={p}
-                value={String(p)}
-                disabled={busy}
-                className="h-8 flex-1 text-[12.5px] font-medium text-muted-foreground data-pressed:bg-brand-soft data-pressed:text-accent-foreground"
-              >
-                {p.toLocaleString('en-US')}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-          <Input
-            id="gift-amount"
-            type="number"
-            inputMode="numeric"
+          <Label className="text-[12.5px] text-muted-foreground">How many points</Label>
+          <AmountPicker
+            label="Points to gift"
+            value={points}
+            onChange={setPoints}
             min={MIN_GIFT}
             max={MAX_GIFT}
-            value={amount}
+            presets={GIFT_PRESETS}
+            exact
             disabled={busy}
-            autoFocus
-            aria-invalid={amount !== '' && (!valid || short)}
-            onChange={(e) => setAmount(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && send()}
-            className="tabular-nums"
           />
           <p className={cn('text-[12px]', short ? 'text-warn' : 'text-muted-foreground')}>
             {state === 'waiting'
