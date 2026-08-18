@@ -138,7 +138,10 @@ export function FreeleechView(props: PageProps) {
     const byCat = new Map<string, Section>()
     for (const i of matches) {
       const list = i.cats.length > 0 ? i.cats : [{ id: 'none', name: 'No category' }]
-      for (const c of list) {
+      // With categories picked, a book only opens the sections it was picked
+      // for. Its other genres are not what the reader asked to see.
+      const shown = cats.length > 0 ? list.filter((c) => c.id && cats.includes(c.id)) : list
+      for (const c of shown) {
         const key = `cat-${c.id ?? c.name}`
         const hit = byCat.get(key)
         if (hit) hit.items.push(i)
@@ -148,7 +151,7 @@ export function FreeleechView(props: PageProps) {
     return [...byCat.values()]
       .map((s) => ({ ...s, items: [...s.items].sort((a, b) => a.title.localeCompare(b.title)) }))
       .sort((a, b) => a.label.localeCompare(b.label))
-  }, [groupBy, groups, matches])
+  }, [groupBy, groups, matches, cats])
 
   const isOpen = (key: string) => (filtering ? !tempClosed.includes(key) : fold.isOpen(key))
   const setOpen = (key: string, open: boolean) => {
@@ -208,6 +211,10 @@ export function FreeleechView(props: PageProps) {
 
   const total = allItems.length
   const period = data.periods.find((p) => p.selected)?.value ?? data.periods[0]?.value
+  // Grouping by genre files a book under each genre it carries, so the sections
+  // together can hold more rows than there are books. Only that grouping can,
+  // which is what the line below says out loud.
+  const placements = groupBy === 'category' ? sections.reduce((n, s) => n + s.items.length, 0) : matches.length
 
   return (
     <div className="grid gap-4">
@@ -283,11 +290,15 @@ export function FreeleechView(props: PageProps) {
       <Card className="gap-0 divide-y overflow-hidden py-0">
       {/* The count sits on the list it counts, the same head the other lists use. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-muted/25 px-6 py-2">
-        <span className="text-[12.5px] tabular-nums text-muted-foreground">
+        {/* Filtering never reloads, so the count is what reports the outcome. */}
+        <span role="status" className="text-[12.5px] tabular-nums text-muted-foreground">
           {filtering
             ? `${matches.length.toLocaleString()} of ${total.toLocaleString()} picks`
             : `${total.toLocaleString()} picks in ${sections.length} ${sections.length === 1 ? 'group' : 'groups'}`}
         </span>
+        {placements > matches.length && (
+          <span className="text-[12px] text-muted-foreground">A book with more than one genre sits under each of them.</span>
+        )}
       </div>
       {sections.map((s) => (
         <CollapsibleSection
