@@ -1,5 +1,5 @@
 // Single source for the userscript version. release.mjs rewrites this line.
-export const VERSION = '4.6.0'
+export const VERSION = '4.7.0'
 
 export const LOADER_FILE = 'colophon.user.js'
 export const META_FILE = 'colophon.meta.js'
@@ -20,8 +20,8 @@ export const INTERRUPT_EXIT = 130
 
 // Digest baked into this release as its one allowed fallback. It stays unchanged
 // after publishing, which makes a tagged release build byte-for-byte reproducible.
-export const FALLBACK_PAYLOAD_SHA256 = '54e23354a6c664291ca24f2ae9abd12491de8ac3e10eb80a9f06c172af0dea90'
+export const FALLBACK_PAYLOAD_SHA256 = '272e0acffbb924f8e018c25a211b8e41aab49c49c9ae3ad99f962b912592b35d'
 
 // Digest this release published. The next release copies it to the fallback
 // field before building, then records its own digest here after verification.
-export const PUBLISHED_PAYLOAD_SHA256 = '272e0acffbb924f8e018c25a211b8e41aab49c49c9ae3ad99f962b912592b35d'
+export const PUBLISHED_PAYLOAD_SHA256 = '268d7d00eb0ac2bb6135c4a036a51ee64f3d6b3ef81b5ebe0ff3ed33c548bda4'
