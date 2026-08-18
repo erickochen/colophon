@@ -11,6 +11,7 @@ import {
   HelpCircle,
   LayoutDashboard,
   LifeBuoy,
+  ListChecks,
   Mail,
   MessagesSquare,
   PackageCheck,
@@ -104,11 +105,12 @@ function groups(page: ShellData, counts: NotifCounts): { dashboard: NavItem; gro
           { title: 'Browse', href: '/tor/search.php', icon: Search },
           { title: 'Freeleech picks', href: '/freeleech.php', icon: Sparkles },
           { title: 'Top 10', href: '/stats/top10Tor.php', icon: TrendingUp },
-          { title: 'Requests', href: requestsUrl(), icon: Gift, fold: 1 },
-          { title: 'Book clubs', href: '/tor/bookclubs.php', icon: BookOpen, fold: 3 },
+          { title: 'Requests', href: requestsUrl(), icon: Gift, fold: 2 },
+          { title: 'Book clubs', href: '/tor/bookclubs.php', icon: BookOpen, fold: 4 },
         ],
         more: [
-          { title: 'Requests I voted for', href: NOTIF_TARGETS.requests.href, icon: PackageCheck, badge: counts.requests || null, accent: true },
+          { title: 'Request updates', href: NOTIF_TARGETS.requests.href, icon: PackageCheck, badge: counts.requests || null, accent: true },
+          { title: 'Requests I voted for', href: requestsUrl({ filled: 'either', requester: 'voted' }) },
           { title: 'Reseed requests', href: '/tor/search.php?s=%7B%22tor%22%3A%7B%22rr%22%3A%22reseed%22%7D%2C%22searchType%22%3A%22Torrents%22%7D' },
           { title: 'Recently deleted', href: '/tor/recentlyDeleted.php' },
           { title: 'RSS feeds', href: '/getrss.php' },
@@ -118,8 +120,9 @@ function groups(page: ShellData, counts: NotifCounts): { dashboard: NavItem; gro
         label: 'My library',
         items: [
           { title: 'Snatched', href: '/snatch_summary.php', icon: Download, badge: page.stats.unsats || null },
-          { title: 'Bookmarks', href: '/tor/search.php?s=%7B%22tor%22%3A%7B%22bookmarked%22%3A%22only%22%7D%2C%22searchType%22%3A%22Torrents%22%7D', icon: Bookmark, fold: 4 },
-          { title: 'My uploads', href: '/tor/search.php?s=%7B%22tor%22%3A%7B%22uploader%22%3A%22me%22%7D%2C%22searchType%22%3A%22Torrents%22%7D', icon: Upload, fold: 2 },
+          { title: 'Bookmarks', href: '/tor/search.php?s=%7B%22tor%22%3A%7B%22bookmarked%22%3A%22only%22%7D%2C%22searchType%22%3A%22Torrents%22%7D', icon: Bookmark, fold: 5 },
+          { title: 'My uploads', href: '/tor/search.php?s=%7B%22tor%22%3A%7B%22uploader%22%3A%22me%22%7D%2C%22searchType%22%3A%22Torrents%22%7D', icon: Upload, fold: 3 },
+          { title: 'My requests', href: requestsUrl({ filled: 'either', requester: 'me' }), icon: ListChecks, fold: 1 },
         ],
         more: [
           // MAM sends uploaders to the form and everyone else to the application
@@ -195,6 +198,11 @@ function groups(page: ShellData, counts: NotifCounts): { dashboard: NavItem; gro
   }
 }
 
+// Separates a real overflow from a fraction of a pixel between the two heights.
+const OVERFLOW_SLOP_PX = 2
+// Room enough for one more row before an item is allowed back out.
+const UNFOLD_SLACK_PX = 72
+
 /* Fold marked items into their flyout when the viewport cannot hold the
  * full list; the sidebar itself should never need a scrollbar. Steps one
  * item per render against measured overflow, with hysteresis on unfold. */
@@ -207,7 +215,13 @@ function useFoldCount(ref: RefObject<HTMLDivElement | null>, max: number): numbe
       const short = el.scrollHeight - el.clientHeight
       const last = el.lastElementChild?.getBoundingClientRect().bottom ?? 0
       const slack = el.getBoundingClientRect().bottom - last
-      setCount((c) => (short > 0 && c < max ? c + 1 : short <= 0 && slack > 72 && c > 0 ? c - 1 : c))
+      setCount((c) =>
+        short > OVERFLOW_SLOP_PX && c < max
+          ? c + 1
+          : short <= OVERFLOW_SLOP_PX && slack > UNFOLD_SLACK_PX && c > 0
+            ? c - 1
+            : c
+      )
     }
     step()
     const ro = new ResizeObserver(step)

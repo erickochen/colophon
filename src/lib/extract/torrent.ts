@@ -2,6 +2,8 @@
 // are conditional per torrent - we map known labels and keep the rest verbatim
 // so nothing on the page is lost.
 
+import { THANK_MAX, THANK_STEP } from '@/lib/mam-api'
+
 export interface LinkItem { name: string; href: string }
 export interface DetailTile { label: string; html: string; id: string | null }
 /** One node of MAM's MediaInfo tree: a heading with children or a key: value. */
@@ -56,6 +58,9 @@ export interface TorrentDetail {
   hasFilelist: boolean
   hasPeers: boolean
   descriptionHtml: string | null
+  // MAM's own thanks form. Absent on a torrent you cannot thank, such as your
+  // own upload. `points` is null where the uploader takes thanks but no points.
+  thanks: { tid: string; points: { max: number; step: number } | null } | null
   comments: TorrentComment[]
   commentCount: string | null
   addCommentHref: string | null
@@ -148,6 +153,27 @@ function clean(el: Element | null | undefined): string | null {
     }
   }
   return c.innerHTML.trim() || null
+}
+
+/** MAM's thanks form, with the bounds it puts on the points box. The form is
+ * only served where thanking is allowed, so its absence is the answer. An
+ * uploader who takes no points gets the same form without the points box.
+ * Missing attributes fall back to the numbers site.js hard-codes in its own
+ * check, which is the rule the store applies either way. */
+function readThanks(doc: Document): TorrentDetail['thanks'] {
+  const form = doc.querySelector<HTMLFormElement>('#thanksArea')
+  const tid = form?.querySelector<HTMLInputElement>('input[name="tid"]')?.value
+  if (!form || !tid || !form.querySelector('#giveThanks')) return null
+  const points = form.querySelector<HTMLInputElement>('input[name="points"]')
+  return {
+    tid,
+    points: points
+      ? {
+          max: Number(points.getAttribute('max')) || THANK_MAX,
+          step: Number(points.getAttribute('step')) || THANK_STEP,
+        }
+      : null,
+  }
 }
 
 export function extractTorrent(doc: Document): TorrentDetail | null {
@@ -329,6 +355,7 @@ export function extractTorrent(doc: Document): TorrentDetail | null {
     hasFilelist: !!doc.querySelector('[data-filelist]'),
     hasPeers: !!doc.querySelector('[data-tpeerslist]'),
     descriptionHtml: clean(doc.querySelector('#torDesc')),
+    thanks: readThanks(doc),
     comments: extractComments(doc),
     commentCount: commentArea?.textContent?.match(/(\d+)\s+comments?/i)?.[1] ?? null,
     addCommentHref: commentArea?.querySelector<HTMLAnchorElement>('a[href*="comment.php?action=add"]')?.getAttribute('href') ?? null,

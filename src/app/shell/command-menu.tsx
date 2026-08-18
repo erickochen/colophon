@@ -15,10 +15,11 @@ import { Badge } from '@/components/ui/badge'
 
 const NAV = [
   { title: 'Dashboard', href: '/' },
-  { title: 'Browse torrents', href: '/tor/browse.php' },
+  { title: 'Browse torrents', href: '/tor/search.php' },
   { title: 'Freeleech picks', href: '/freeleech.php' },
   { title: 'Top 10', href: '/stats/top10Tor.php' },
   { title: 'Requests', href: requestsUrl() },
+  { title: 'My requests', href: requestsUrl({ filled: 'either', requester: 'me' }) },
   { title: 'Forum', href: '/f' },
   { title: 'Messages', href: '/messages.php?action=viewmailbox' },
   { title: 'Store', href: '/store.php' },

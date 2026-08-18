@@ -1,7 +1,7 @@
 // Colophon's own preferences tab. Everything here is client-side: switches
 // write the settings store directly and apply immediately, so there is no form
 // and no save bar.
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { BookMarked, Check, ChevronsUpDown, Download, Moon, RotateCcw, Sun, SunMoon, Upload } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import type { Theme } from '@/lib/theme'
@@ -20,7 +20,7 @@ import {
   AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { MAX_GIFT, THANK_MAX } from '@/lib/mam-api'
+import { MAX_GIFT, THANK_MAX, THANK_STEP } from '@/lib/mam-api'
 import { PrefCard, SettingRow } from '@/app/pages/prefs-bits'
 import { RatioFloorInput } from '@/components/ratio-floor'
 import { Button } from '@/components/ui/button'
@@ -52,15 +52,29 @@ function FeatureRow({ feature, title, note, credit }: { feature: FeatureKey; tit
   )
 }
 
-function AmountRow({ kind, title, note, credit, max }: { kind: AmountKind; title: string; note: string; credit?: string; max: number }) {
+function AmountRow({
+  kind, title, note, credit, max, step,
+}: { kind: AmountKind; title: string; note: string; credit?: string; max: number; step?: number }) {
   const [value, setValue] = useDefaultAmount(kind)
   // Invalid text stays a local draft: the store only ever holds usable values,
   // so a typo cannot silently switch the prefill off.
   const [draft, setDraft] = useState<string | null>(null)
   const shown = draft ?? value
   const validOf = (v: string) =>
-    v === '' || /^max$/i.test(v.trim()) || (Number.isInteger(Number(v)) && Number(v) > 0 && Number(v) <= max)
+    v === '' ||
+    /^max$/i.test(v.trim()) ||
+    (Number.isInteger(Number(v)) && Number(v) > 0 && Number(v) <= max && (!step || Number(v) % step === 0))
   const valid = validOf(shown)
+  // A stored amount between two steps is spendable only as the step below, so
+  // the field shows that number rather than one the store would refuse.
+  useEffect(() => {
+    if (!step || draft !== null) return
+    const n = Number(value)
+    if (!value || /^max$/i.test(value.trim()) || !Number.isFinite(n) || n <= 0) return
+    if (n <= max && n % step === 0) return
+    const floored = Math.floor(Math.min(n, max) / step) * step
+    setValue(floored > 0 ? String(floored) : '')
+  }, [value, step, max, draft, setValue])
   const hintId = `${kind}-amount-hint`
   return (
     <SettingRow title={title} note={noteWithCredit(note, credit)}>
@@ -81,7 +95,7 @@ function AmountRow({ kind, title, note, credit, max }: { kind: AmountKind; title
         />
         {!valid && (
           <span id={hintId} className="text-[11.5px] text-destructive">
-            A whole number up to {max.toLocaleString('en-US')} or max
+            {step ? `Steps of ${step} up to ${max.toLocaleString('en-US')} or max` : `A whole number up to ${max.toLocaleString('en-US')} or max`}
           </span>
         )}
       </div>
@@ -541,8 +555,9 @@ export function ColophonPrefsView(_props: PageProps) {
         <AmountRow
           kind="thank"
           max={THANK_MAX}
+          step={THANK_STEP}
           title="Default thank amount"
-          note="Prefills the thank box on torrent pages. A number or max; empty starts at zero."
+          note={`Prefills the thank box on torrent pages. Points go in steps of ${THANK_STEP}; empty starts at zero.`}
           credit="MAM+ by GardenShade"
         />
         <AmountRow

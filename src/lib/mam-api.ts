@@ -190,6 +190,9 @@ export const REQUESTERS = [
   { value: 'notMe', label: 'From anyone but me' },
   { value: 'me', label: 'From me' },
   { value: 'voted', label: 'I voted for' },
+  // MAM calls this one "Outstanding Notifications": the requests behind the
+  // header count, so the notification badge has somewhere to land.
+  { value: 'notif', label: 'With updates for me' },
 ] as const
 
 // The endpoint answers to date, votes and fillDesc. Title, release and fillAsc
@@ -580,8 +583,10 @@ export async function bookmarkOne(id: number, action: 'add' | 'delete'): Promise
 // Server bounds for a single bonus-point gift; MAM refuses anything outside.
 export const MIN_GIFT = 5
 export const MAX_GIFT = 1000
-// The bound MAM's own thank box enforces on torrent pages.
+// The bounds MAM's own thank box enforces on torrent pages. The store refuses
+// an amount that is not a whole number of steps.
 export const THANK_MAX = 5000
+export const THANK_STEP = 50
 // Prefill when the GiftMAM widget offers no usable default.
 export const DEFAULT_GIFT = 100
 // Same ceiling site.js puts on its own store calls.
@@ -631,6 +636,14 @@ export function sendWedgeTo(uid: string): Promise<BonusBuyResult> {
  * off the download instead of letting it hit the ratio. */
 export function buyPersonalFreeleech(id: number): Promise<BonusBuyResult> {
   return bonusBuy(new URLSearchParams({ spendtype: 'personalFL', torrentid: String(id) }))
+}
+
+/** Thank an uploader, with bonus points when an amount rides along. Same call
+ * MAM's own thanks form makes, so the points land as a gift. */
+export function thankUploader(tid: string, points: number): Promise<BonusBuyResult> {
+  const params = new URLSearchParams({ spendtype: 'thanks', tid })
+  if (points > 0) params.set('points', String(points))
+  return bonusBuy(params)
 }
 
 // The ids ride along in the query string, so batches stay well inside the

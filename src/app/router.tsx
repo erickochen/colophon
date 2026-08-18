@@ -176,8 +176,9 @@ export function resolveRoute(loc: Location): Route {
 // the other as well.
 const SEARCH_PATHS = new Set(['/tor/browse.php', '/tor/search.php'])
 
-/** Which list a search URL opens: the plain library, bookmarks, own uploads or
- * reseed requests. Reads the old query param and the newer s blob alike. */
+/** Which list a search URL opens: the plain library, bookmarks, own uploads,
+ * reseed requests or one of the request lists. Reads the old query param and
+ * the newer s blob alike. */
 function searchSelector(loc: { search: string }): string {
   const p = new URLSearchParams(loc.search)
   const oldIn = p.get('tor[searchIn]')
@@ -186,10 +187,16 @@ function searchSelector(loc: { search: string }): string {
   const raw = p.get('s')
   if (!raw) return 'torrents'
   try {
-    const s = JSON.parse(raw) as { tor?: { bookmarked?: string; uploader?: string; rr?: string } }
+    const s = JSON.parse(raw) as {
+      tor?: { bookmarked?: string; uploader?: string; rr?: string }
+      req?: { requester?: string }
+    }
     if (s.tor?.bookmarked === 'only') return 'bookmarks'
     if (s.tor?.uploader === 'me') return 'mine'
     if (s.tor?.rr === 'reseed') return 'reseed'
+    // Requests share one pathname with everything else, so who the requester is
+    // separates the entries that link to them.
+    if (s.req?.requester) return `req-${s.req.requester}`
   } catch {
     // An unreadable blob is just the plain list.
   }

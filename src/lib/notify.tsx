@@ -103,9 +103,11 @@ export const NOTIF_TARGETS: Record<keyof NotifCounts, { href: string; label: str
     describe: (n) => (n === 1 ? 'A ticket got an update' : `${n} tickets got updates`),
   },
   requests: {
-    href: requestsUrl({ filled: 'either', requester: 'voted' }),
+    // The count covers requests with something new on them, which is what
+    // MAM's own "Outstanding Notifications" filter lists.
+    href: requestsUrl({ filled: 'either', requester: 'notif' }),
     label: 'View requests',
-    describe: (n) => (n === 1 ? 'A request you voted for was updated' : `${n} requests you voted for were updated`),
+    describe: (n) => (n === 1 ? 'A request you follow was updated' : `${n} requests you follow were updated`),
   },
 }
 

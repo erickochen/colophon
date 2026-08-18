@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ComponentProps, type RefObject } from 'react'
 import { MotionConfig, motion, useInView, useReducedMotion, type Variants } from 'motion/react'
-import { Bookmark, BookmarkCheck, Check, CircleSlash, Copy, Download, FilePenLine, Flag, Gift, History, Info, Lock, MessageSquarePlus, Minus, MoreHorizontal, Quote, Settings2, Sprout } from 'lucide-react'
+import { Bookmark, BookmarkCheck, Check, CircleSlash, Copy, Download, FilePenLine, Flag, Gift, Heart, History, Info, Lock, MessageSquarePlus, Minus, MoreHorizontal, Quote, Settings2, Sprout } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { extractTorrent, type MediaNode, type TorrentComment, type TorrentDetail } from '@/lib/extract/torrent'
 import { parseFileList, parsePeers, type FileListData, type PeerData, type PeerRow, type TorrentFile } from '@/lib/extract/torrent-panels'
@@ -9,7 +9,7 @@ import { RichHtml } from '@/app/shell/bits'
 import { mutedUserColor } from '@/lib/colors'
 import { fmtInt, fmtRatio, initials, plural, relTime, utcTitle } from '@/lib/format'
 import { mediaInfoGroupLabel, mediaInfoLabel } from '@/lib/media-info'
-import { bookmarkOne, searchTorrents, parsePeople, coverUrl, torrentUrl, THANK_MAX, type SearchTorrent } from '@/lib/mam-api'
+import { bookmarkOne, searchTorrents, parsePeople, coverUrl, torrentUrl, thankUploader, THANK_MAX, THANK_STEP, type SearchTorrent } from '@/lib/mam-api'
 import { coverShape, mediaTypeFromHref, type CoverShape } from '@/lib/cover-shape'
 import { seriesEntry } from '@/lib/series'
 import { readDefaultAmount, resolveAmount, useFeature } from '@/lib/settings'
@@ -234,13 +234,15 @@ function WedgeAction({ data, spent, onSpent, size }: { data: TorrentDetail; spen
  * untouched; a blocking ratio hit swaps the plain download for the FL routes.
  * The row ref lets the sticky strip know when the buttons scroll away. */
 function DownloadDock({
-  data, guard, spent, onSpent, rowRef,
+  data, guard, spent, onSpent, rowRef, buyButtons, thanksRef,
 }: {
   data: TorrentDetail
   guard: RatioGuard | null
   spent: boolean
   onSpent: () => void
   rowRef: RefObject<HTMLDivElement | null>
+  buyButtons: NonNullable<TorrentDetail['ratio']>['buttons']
+  thanksRef: RefObject<HTMLElement | null> | null
 }) {
   const level = guard?.impact.level ?? 'none'
   return (
@@ -249,7 +251,7 @@ function DownloadDock({
         <DownloadButton data={data} level={level} />
         <WedgeAction data={data} spent={spent} onSpent={onSpent} />
         <BookmarkButton />
-        <MoreActions data={data} />
+        <MoreActions data={data} buyButtons={buyButtons} thanksRef={thanksRef} />
       </div>
       {guard && !data.downloadBlocked && <RatioNote guard={guard} />}
       {data.downloadBlocked && (
@@ -263,18 +265,57 @@ function DownloadDock({
 }
 
 /** The rarer routes for this torrent, behind one trigger so the download row
- * keeps a single primary action. Every entry carries its own words. */
-function MoreActions({ data }: { data: TorrentDetail }) {
+ * keeps a single primary action: the freeleech purchases MAM keeps as buttons,
+ * thanks, plus the two copy helpers. */
+function MoreActions({
+  data, buyButtons, thanksRef,
+}: {
+  data: TorrentDetail
+  buyButtons: NonNullable<TorrentDetail['ratio']>['buttons']
+  thanksRef: RefObject<HTMLElement | null> | null
+}) {
   const copySnippet = useReadingSnippet(data)
-  if (!copySnippet && !data.clone) return null
+  // Where the focus lands once the menu closes. Menus hand it back to the
+  // trigger by default, which would scroll the thanks box straight back out.
+  const focusAfter = useRef<HTMLElement | null>(null)
+  if (!copySnippet && !data.clone && !thanksRef && buyButtons.length === 0) return null
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={(open) => open && (focusAfter.current = null)}>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="icon" aria-label="More actions for this torrent">
           <MoreHorizontal />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
+      <DropdownMenuContent
+        align="start"
+        finalFocus={() => {
+          // Opening the menu clears this again, so the answer stays the same
+          // however often the menu asks while it closes.
+          const el = focusAfter.current
+          // An open menu holds the page still, so the scroll waits for the frame
+          // after it lets go. The focus itself never scrolls.
+          if (el) requestAnimationFrame(() => scrollIntoView(el, { block: 'center' }))
+          return el ?? true
+        }}
+      >
+        {thanksRef && (
+          <DropdownMenuItem onClick={() => (focusAfter.current = thanksRef.current)}>
+            <Heart /> Thank the uploader
+          </DropdownMenuItem>
+        )}
+        {buyButtons.map((b) => (
+          <DropdownMenuItem
+            key={b.name ?? b.label}
+            onClick={() =>
+              proxyClick(
+                `input[data-freetor="${b.torId}"]${b.name ? `[name="${b.name}"]` : ''}`,
+                'This freeleech option is not available.',
+              )
+            }
+          >
+            <Gift /> {b.label}
+          </DropdownMenuItem>
+        ))}
         {copySnippet && (
           <DropdownMenuItem onClick={copySnippet}><Quote /> Quote for forum</DropdownMenuItem>
         )}
@@ -1137,9 +1178,16 @@ interface StatEntry {
 export function TorrentView(props: PageProps) {
   const data = useMemo(() => extractTorrent(document), [])
   const [points, setPoints] = useState(() => {
-    const preset = resolveAmount(readDefaultAmount('thank'), 0, THANK_MAX)
-    return preset != null ? String(preset) : ''
+    // The store takes whole steps only, so a saved default that sits between
+    // two of them starts on the step below rather than in an invalid state.
+    const bounds = data?.thanks?.points
+    if (!bounds) return ''
+    const preset = resolveAmount(readDefaultAmount('thank'), 0, bounds.max)
+    const rounded = preset != null ? Math.floor(preset / bounds.step) * bounds.step : 0
+    return rounded > 0 ? String(rounded) : ''
   })
+  const [thanking, setThanking] = useState(false)
+  const [thanked, setThanked] = useState<string | null>(null)
   // A wedge spent on this page turns the torrent free, which the server-rendered
   // ratio tile in the sidebar cannot know.
   const [spent, setSpent] = useState(false)
@@ -1153,15 +1201,39 @@ export function TorrentView(props: PageProps) {
 
   if (!data || !data.title) return <LegacyView {...props} />
 
+  const thankPoints = data.thanks?.points ?? null
+  const thankMax = thankPoints?.max ?? THANK_MAX
+  const thankStep = thankPoints?.step ?? THANK_STEP
+  const thankAmount = Number(points)
+  // The store refuses points that are not whole steps, so say that here rather
+  // than let the answer come back as an error box.
   const thankValid =
-    points === '' || (Number.isInteger(Number(points)) && Number(points) >= 0 && Number(points) <= THANK_MAX)
+    !thankPoints ||
+    points === '' ||
+    (Number.isInteger(thankAmount) && thankAmount >= 0 && thankAmount <= thankMax && thankAmount % thankStep === 0)
 
-  function thank() {
-    const amount = resolveAmount(points, 0, THANK_MAX) ?? 0
-    const input = document.querySelector<HTMLInputElement>('#thanksArea input[name="points"]')
-    if (input) input.value = String(amount)
-    if (!proxyClick('#giveThanks', 'Thanks are not available for this torrent.')) return
-    toast.success(amount > 0 ? `Sent ${amount.toLocaleString('en-US')} points to the uploader` : 'Thanked the uploader')
+  // Where thanking starts: the points box where there is one, otherwise the
+  // panel itself.
+  const thanksTarget = thankPoints ? thankInput : thankBox
+  const focusThanks = () => {
+    scrollIntoView(thankBox.current, { block: 'center' })
+    thanksTarget.current?.focus({ preventScroll: true })
+  }
+
+  const thanksForm = data.thanks
+  async function thank() {
+    if (!thanksForm || thanking) return
+    const amount = thanksForm.points ? resolveAmount(points, 0, thanksForm.points.max) ?? 0 : 0
+    setThanking(true)
+    try {
+      await thankUploader(thanksForm.tid, amount)
+      setThanked(amount > 0 ? `Thanks sent, along with ${amount.toLocaleString('en-US')} points.` : 'Thanks sent.')
+      toast.success(amount > 0 ? `Sent ${amount.toLocaleString('en-US')} points to the uploader` : 'Thanked the uploader')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Thanking the uploader failed.')
+    } finally {
+      setThanking(false)
+    }
   }
 
   // The series line is the one accent in the hero, so names carry their weight
@@ -1177,11 +1249,13 @@ export function TorrentView(props: PageProps) {
   const languages = data.categories.filter((c) => c.language)
   const genres = data.categories.filter((c) => !c.language)
 
-  // The dock's wedge button carries the confirm flow, so the sidebar drops its
-  // bare duplicate of that same spend and keeps only the other purchase routes.
-  const dockHasWedge =
-    !(data.freeleech || data.personalFreeleech || data.vip) && !data.downloadBlocked && !spent && data.id != null
-  const sideRatioButtons = data.ratio?.buttons.filter((b) => !(dockHasWedge && b.name === 'personalFL')) ?? []
+  // The dock's wedge button carries the confirm flow, so the menu drops its bare
+  // duplicate of that same spend. A wedge also buys nothing on a torrent that
+  // already costs nothing, even where MAM keeps offering the button.
+  const freeForMe = data.freeleech || data.personalFreeleech || data.vip || spent
+  const dockHasWedge = !freeForMe && !data.downloadBlocked && data.id != null
+  const buyButtons =
+    data.ratio?.buttons.filter((b) => !((dockHasWedge || freeForMe) && b.name === 'personalFL')) ?? []
 
   const count = (raw: string | null) => (raw ? countOf(raw) : undefined)
   const stats: StatEntry[] = [
@@ -1313,7 +1387,16 @@ export function TorrentView(props: PageProps) {
                   <p key="micro" className="mt-3 font-mono text-[11.5px] tracking-wide text-muted-foreground">{data.mediaInfoMicro}</p>
                 )}
 
-                <DownloadDock key="dock" data={data} guard={guard} spent={spent} onSpent={() => setSpent(true)} rowRef={dockRow} />
+                <DownloadDock
+                  key="dock"
+                  data={data}
+                  guard={guard}
+                  spent={spent}
+                  onSpent={() => setSpent(true)}
+                  rowRef={dockRow}
+                  buyButtons={buyButtons}
+                  thanksRef={data.thanks && !thanked ? thanksTarget : null}
+                />
               </AnimatedGroup>
             </div>
           </div>
@@ -1354,16 +1437,11 @@ export function TorrentView(props: PageProps) {
                     <a className="font-medium hover:underline" style={{ color: mutedUserColor(data.uploader.color) }} href={data.uploader.href}>
                       {data.uploader.name}
                     </a>
-                    <Button
-                      variant="link"
-                      className="mt-0.5 block h-auto p-0 text-[12px] text-brand"
-                      onClick={() => {
-                        scrollIntoView(thankBox.current, { block: 'center' })
-                        thankInput.current?.focus({ preventScroll: true })
-                      }}
-                    >
-                      Say thanks
-                    </Button>
+                    {data.thanks && !thanked && (
+                      <Button variant="link" className="mt-0.5 block h-auto p-0 text-[12px] text-brand" onClick={focusThanks}>
+                        Say thanks
+                      </Button>
+                    )}
                   </KV>
                 )}
 
@@ -1394,34 +1472,12 @@ export function TorrentView(props: PageProps) {
                   </KV>
                 )}
 
-                {/* The badges live in the hero now, so this row is what you can
-                    still do about the cost. A spent wedge makes both untrue. */}
-                {data.ratio && !spent && (sideRatioButtons.length > 0 || data.ratio.note) && (
+                {/* The badges live in the hero and the purchases sit with the
+                    other actions, so this row is left with MAM's own words
+                    about the cost. A spent wedge makes those untrue. */}
+                {data.ratio?.note && !spent && (
                   <KV label="Freeleech" full>
-                    <div className="grid gap-2 text-[13px]">
-                      {sideRatioButtons.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                          {sideRatioButtons.map((b) => (
-                            <Button
-                              key={b.name ?? b.label}
-                              size="sm"
-                              variant="outline"
-                              className="h-8 gap-1.5"
-                              title="Spend a wedge to make this a personal freeleech download."
-                              onClick={() =>
-                                proxyClick(
-                                  `input[data-freetor="${b.torId}"]${b.name ? `[name="${b.name}"]` : ''}`,
-                                  'This freeleech option is not available.',
-                                )
-                              }
-                            >
-                              <Gift className="size-3.5" /> {b.label}
-                            </Button>
-                          ))}
-                        </div>
-                      )}
-                      {data.ratio.note && <div className="text-[12px] text-muted-foreground">{data.ratio.note}</div>}
-                    </div>
+                    <div className="text-[12px] text-muted-foreground">{data.ratio.note}</div>
                   </KV>
                 )}
 
@@ -1510,31 +1566,49 @@ export function TorrentView(props: PageProps) {
             )}
           </CardHeader>
           <CardContent className="grid gap-4 px-6 py-5">
-            {/* Thank the uploader, inline */}
-            <div ref={thankBox} className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 px-4 py-3">
-              <Gift className="size-4 text-brand" />
-              <span className="text-[13px] font-medium">Thank the uploader</span>
-              <Input
-                ref={thankInput}
-                type="number"
-                min={0}
-                max={THANK_MAX}
-                step={50}
-                value={points}
-                onChange={(e) => setPoints(e.target.value)}
-                placeholder="0"
-                aria-invalid={!thankValid}
-                aria-describedby={thankValid ? undefined : 'thank-points-hint'}
-                className="ml-auto h-8 w-24"
-              />
-              <span className="text-[12.5px] text-muted-foreground">points</span>
-              <Button size="sm" className="h-8" onClick={thank} disabled={!thankValid}>Say thanks</Button>
-              {!thankValid && (
-                <span id="thank-points-hint" className="basis-full text-[11.5px] text-destructive">
-                  A whole number up to {THANK_MAX.toLocaleString('en-US')}. Empty sends plain thanks.
-                </span>
-              )}
-            </div>
+            {/* Thank the uploader, inline. MAM only serves the form where
+                thanking is allowed, so it leads what we show. */}
+            {data.thanks && (
+              <div ref={thankBox} tabIndex={-1} className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 px-4 py-3 outline-none focus-visible:ring-[3px] focus-visible:ring-ring">
+                <Gift className="size-4 text-brand" />
+                {thanked ? (
+                  <span className="text-[13px] font-medium text-ok">{thanked}</span>
+                ) : (
+                  <>
+                    <span className="text-[13px] font-medium">Thank the uploader</span>
+                    {thankPoints ? (
+                      <>
+                        <Input
+                          ref={thankInput}
+                          type="number"
+                          min={0}
+                          max={thankMax}
+                          step={thankStep}
+                          value={points}
+                          onChange={(e) => setPoints(e.target.value)}
+                          placeholder="0"
+                          aria-label="Bonus points to send along"
+                          aria-invalid={!thankValid}
+                          aria-describedby={thankValid ? undefined : 'thank-points-hint'}
+                          className="ml-auto h-8 w-24"
+                        />
+                        <span className="text-[12.5px] text-muted-foreground">points</span>
+                      </>
+                    ) : (
+                      <span className="ml-auto text-[12.5px] text-muted-foreground">This uploader takes no points</span>
+                    )}
+                    <Button size="sm" className="h-8" onClick={thank} disabled={!thankValid || thanking}>
+                      {thanking ? <Spinner className="size-3.5" /> : null} Say thanks
+                    </Button>
+                    {!thankValid && (
+                      <span id="thank-points-hint" className="basis-full text-[11.5px] text-destructive">
+                        Steps of {thankStep}, up to {thankMax.toLocaleString('en-US')}. Empty sends plain thanks.
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
             {data.comments.length > 0 ? (
               <div className="grid">
                 {data.comments.map((c) => <Comment key={c.id} c={c} />)}

@@ -189,7 +189,14 @@ function Field({
 
 /** MAM's two-factor block. The YubiKey field rides on Save like any other
  * mirrored input; the TOTP flow stays MAM's, framed by our card. */
-function TwoFactorCard({ tf, host }: { tf: TwoFactor; host: HTMLElement }) {
+function TwoFactorCard({
+  tf, host, password, onPassword,
+}: {
+  tf: TwoFactor
+  host: HTMLElement
+  password: string
+  onPassword: (v: string) => void
+}) {
   const [yubi, setYubi] = useState(tf.yubi?.value ?? '')
   const [current, setCurrent] = useState(tf.current?.value ?? '')
   const active = !!tf.state && !/^no\b/i.test(tf.state)
@@ -268,9 +275,21 @@ function TwoFactorCard({ tf, host }: { tf: TwoFactor; host: HTMLElement }) {
                   {tf.warning ?? 'You will need your authenticator every time you sign in.'}
                 </AlertDialogDescription>
               </AlertDialogHeader>
+              {/* The site hands out a setup code only against the password, so
+                  it is asked here instead of failing a step later. */}
+              <Field label="Current password" hint="The same one as at the top of this page.">
+                <Input
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => onPassword(e.target.value)}
+                />
+              </Field>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => tf.totpButton?.click()}>Continue setup</AlertDialogAction>
+                <AlertDialogAction disabled={!password} onClick={() => tf.totpButton?.click()}>
+                  Continue setup
+                </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -355,7 +374,14 @@ function AccountForm({ d, host }: { d: AccountData; host: HTMLElement }) {
         </Field>
       </PrefCard>
 
-      {d.twoFactor && <TwoFactorCard tf={d.twoFactor} host={host} />}
+      {d.twoFactor && (
+        <TwoFactorCard
+          tf={d.twoFactor}
+          host={host}
+          password={curpass}
+          onPassword={(v) => write(d.curpass, v, setCurpass)}
+        />
+      )}
 
       {(d.pass || d.pass2) && (
         <PrefCard title={<span className="flex items-center gap-2"><Lock className="size-4" /> Password</span>}>

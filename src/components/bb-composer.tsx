@@ -5,6 +5,11 @@ import {
 } from 'lucide-react'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -123,16 +128,29 @@ function stripDeadSpans(html: string): string {
 }
 
 /** A tool carries both its BBCode wrap (plain textarea mode) and its execCommand
- * mapping (WYSIWYG mode). `prompt` marks tools that ask for a URL first. */
+ * mapping (WYSIWYG mode). `ask` opens the insert dialog instead of wrapping. */
 interface ToolAction {
   icon: ComponentType<{ className?: string }>
   label: string
-  pre: string
-  post: string
+  pre?: string
+  post?: string
   block?: boolean
   cmd?: string
   arg?: string
-  prompt?: string
+  ask?: InsertKind
+}
+
+type InsertKind = 'link' | 'image'
+
+/** Accepts what people paste, refuses anything that is not a web address.
+ * A bare host gets https, so "example.com/page" lands as a working link. The
+ * host has to carry a dot, which keeps a stray word out of a post as a link
+ * that goes nowhere. Spaces are out for the same reason. */
+function webUrl(raw: string): string | null {
+  const s = raw.trim()
+  if (!s || /\s/.test(s)) return null
+  const full = /^[a-z][a-z0-9+.-]*:/i.test(s) ? s : `https://${s}`
+  return /^https?:\/\/[^\s/?#]+\.[^\s/?#]+/i.test(full) ? full : null
 }
 
 const MAIN_TOOLS: ToolAction[] = [
@@ -142,8 +160,8 @@ const MAIN_TOOLS: ToolAction[] = [
   { icon: Strikethrough, label: 'Strikethrough', pre: '[s]', post: '[/s]', cmd: 'strikeThrough' },
 ]
 const INSERT_TOOLS: ToolAction[] = [
-  { icon: Link2, label: 'Link', pre: '[url=https://]', post: '[/url]', cmd: 'createLink', prompt: 'Link URL' },
-  { icon: ImageIcon, label: 'Image', pre: '[img=https://', post: ']', cmd: 'insertImage', prompt: 'Image URL' },
+  { icon: Link2, label: 'Link', ask: 'link' },
+  { icon: ImageIcon, label: 'Image', ask: 'image' },
   { icon: Quote, label: 'Quote', pre: '[quote]', post: '[/quote]', block: true, cmd: 'formatBlock', arg: 'blockquote' },
   // "Code block", not "Code": the toolbar wraps a block, while the Code view in
   // the top right swaps the whole surface for its raw markup.
@@ -204,6 +222,19 @@ export function BBComposer({
   const barRef = useRef<HTMLDivElement>(null)
   const lastEmit = useRef<string | null>(null)
   const savedRange = useRef<Range | null>(null)
+  // Link and image both go through one dialog: a URL plus, for a link, the
+  // words to show. Opening it drops the selection, so both surfaces park theirs.
+  const [ask, setAsk] = useState<InsertKind | null>(null)
+  // The dialog stays mounted while it fades out, so its words come from the
+  // kind it was opened with rather than from the state that just cleared.
+  const askKind = useRef<InsertKind>('link')
+  const [askUrl, setAskUrl] = useState('')
+  const [askText, setAskText] = useState('')
+  const [askError, setAskError] = useState<string | null>(null)
+  const plainSel = useRef<[number, number]>([0, 0])
+  const askUrlId = useId()
+  const askTextId = useId()
+  const askErrorId = useId()
   // Which toolbar button the shortcut returns to.
   const barAt = useRef(0)
   // The visible hint only shows from md up, so the shortcut also travels to
@@ -367,13 +398,96 @@ export function BBComposer({
     })
   }
 
-  function apply(t: ToolAction) {
-    if (!wysiwyg) return insert(t.pre, t.post)
-    if (t.prompt) {
-      const url = window.prompt(t.prompt, 'https://')
-      if (url && t.cmd) exec(t.cmd, url)
-      return
+  /** Writes over the piece of plain text the dialog was opened on. */
+  function replacePlain(text: string) {
+    const [from, to] = plainSel.current
+    onChange(value.slice(0, from) + text + value.slice(to))
+    requestAnimationFrame(() => {
+      const ta = taRef.current
+      if (!ta) return
+      ta.focus()
+      const caret = from + text.length
+      ta.setSelectionRange(caret, caret)
+    })
+  }
+
+  /** Drops a node where the caret was. The saved range survives the dialog and
+   * the focus does not, so this leaves execCommand out of it. */
+  function insertRich(node: Node) {
+    const el = edRef.current
+    if (!el) return
+    const r = savedRange.current
+    if (r && el.contains(r.startContainer) && el.contains(r.endContainer)) {
+      r.deleteContents()
+      r.insertNode(node)
+    } else {
+      el.appendChild(node)
     }
+    const after = document.createRange()
+    after.setStartAfter(node)
+    after.collapse(true)
+    savedRange.current = after
+    emitWys()
+    requestAnimationFrame(() => {
+      el.focus()
+      const sel = document.getSelection()
+      sel?.removeAllRanges()
+      sel?.addRange(after)
+    })
+  }
+
+  /** Opens the insert dialog with whatever is selected as the starting text. */
+  function openInsert(kind: InsertKind) {
+    askKind.current = kind
+    if (wysiwyg) {
+      // Text comes from what is selected right now. An older range keeps its
+      // caret but loses its extent, so a selection the reader has left behind
+      // is written next to rather than over.
+      const live = liveRange()
+      if (live) savedRange.current = live.cloneRange()
+      else savedRange.current?.collapse(true)
+      setAskText(live?.toString() ?? '')
+    } else {
+      const ta = taRef.current
+      const from = ta?.selectionStart ?? value.length
+      const to = ta?.selectionEnd ?? from
+      plainSel.current = [from, to]
+      setAskText(value.slice(from, to))
+    }
+    setAskUrl('')
+    setAskError(null)
+    setAsk(kind)
+  }
+
+  function confirmInsert() {
+    const url = webUrl(askUrl)
+    if (!url) return setAskError('That is not a web address. It needs a host, like https://example.com/page.')
+    const kind = ask
+    setAsk(null)
+    if (kind === 'image') {
+      // An image joins the text rather than replacing it, so it lands behind
+      // whatever was selected.
+      if (!wysiwyg) {
+        plainSel.current = [plainSel.current[1], plainSel.current[1]]
+        return replacePlain(`[img=${url}]`)
+      }
+      savedRange.current?.collapse(false)
+      const img = document.createElement('img')
+      img.src = url
+      img.alt = ''
+      return insertRich(img)
+    }
+    const text = askText.trim() || url
+    if (!wysiwyg) return replacePlain(`[url=${url}]${text}[/url]`)
+    const a = document.createElement('a')
+    a.href = url
+    a.textContent = text
+    insertRich(a)
+  }
+
+  function apply(t: ToolAction) {
+    if (t.ask) return openInsert(t.ask)
+    if (!wysiwyg) return insert(t.pre ?? '', t.post ?? '')
     if (t.cmd) exec(t.cmd, t.arg)
   }
 
@@ -635,6 +749,63 @@ export function BBComposer({
           className={cn('block w-full resize-none overflow-y-auto bg-transparent px-3.5 py-2.5 text-[13.5px] outline-none placeholder:text-muted-foreground max-h-[70vh]', minHeightClass)}
         />
       )}
+
+      <Dialog open={ask !== null} onOpenChange={(open) => !open && setAsk(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{askKind.current === 'image' ? 'Insert an image' : 'Insert a link'}</DialogTitle>
+            <DialogDescription>
+              {askKind.current === 'image'
+                ? 'The address of an image that is already online.'
+                : 'Where it goes plus the words that carry it.'}
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              confirmInsert()
+            }}
+          >
+            <FieldGroup>
+              <Field data-invalid={askError ? true : undefined}>
+                <FieldLabel htmlFor={askUrlId} className="text-[13.5px]">
+                  {askKind.current === 'image' ? 'Image address' : 'Link address'}
+                </FieldLabel>
+                <Input
+                  id={askUrlId}
+                  autoFocus
+                  value={askUrl}
+                  placeholder="https://"
+                  className="text-[13px]"
+                  aria-invalid={askError ? true : undefined}
+                  aria-describedby={askError ? askErrorId : undefined}
+                  onChange={(e) => {
+                    setAskUrl(e.target.value)
+                    setAskError(null)
+                  }}
+                />
+                <FieldError id={askErrorId} className="text-[12px]">{askError}</FieldError>
+              </Field>
+              {askKind.current === 'link' && (
+                <Field>
+                  <FieldLabel htmlFor={askTextId} className="text-[13.5px]">Text to show</FieldLabel>
+                  <Input
+                    id={askTextId}
+                    value={askText}
+                    placeholder="Leave empty to show the address itself"
+                    className="text-[13px]"
+                    onChange={(e) => setAskText(e.target.value)}
+                  />
+                </Field>
+              )}
+            </FieldGroup>
+            <DialogFooter className="mt-5">
+              <DialogClose render={<Button type="button" variant="outline">Cancel</Button>} />
+              <Button type="submit">Insert</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
