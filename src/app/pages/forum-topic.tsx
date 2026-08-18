@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Bell, BellRing, Flag, Mail, Pencil, Quote, Send } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { extractTopic, type TopicPost } from '@/lib/extract/forum'
@@ -8,6 +8,8 @@ import { initials, localDateTime, utcTitle } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { BBComposer } from '@/components/bb-composer'
+import { SelectionQuote } from '@/components/quote-selection'
+import type { BubbleSelection } from '@/components/conversation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -28,7 +30,9 @@ function Post({ p, onQuote, myUid }: { p: TopicPost; onQuote: (p: TopicPost) => 
   const authorUid = uidFromHref(p.author?.href ?? null)
   const giftUid = authorUid && authorUid !== myUid ? authorUid : null
   return (
-    <Card id={`post-${p.pid}`} className="scroll-mt-18 gap-0 overflow-hidden py-0">
+    // data-bubble marks the post as one quotable block, the same way a message
+    // bubble does, so a highlight inside it can be quoted on its own.
+    <Card id={`post-${p.pid}`} data-bubble={p.pid} className="scroll-mt-18 gap-0 overflow-hidden py-0">
       <div className="flex items-center justify-between gap-3 bg-muted/40 px-6 py-2.5">
         <div className="flex min-w-0 items-baseline gap-2 text-[12.5px]">
           <a href={p.permalink} className="font-mono text-[11px] text-muted-foreground hover:underline">#{p.pid}</a>
@@ -182,6 +186,7 @@ export function ForumTopicView(props: PageProps) {
   const [reply, setReply] = useState('')
   const [subscribed, setSubscribed] = useState(readSubscribed)
   const [subBusy, setSubBusy] = useState(false)
+  const posts = useRef<HTMLDivElement>(null)
 
   // The URL's #<pid> points at an anchor in MAM's hidden page, which the
   // browser cannot scroll to. Jump to our card for that post instead.
@@ -203,10 +208,18 @@ export function ForumTopicView(props: PageProps) {
 
   if (!data) return <LegacyView {...props} />
 
-  // Quote via MAM's own getQuote endpoint (same format as its native button),
-  // but append into OUR composer state so it is visible and stacks for
-  // multi-quote. Bypasses MAM's addTextToEditor, which targets the removed
-  // TinyMCE and so dropped the quote entirely.
+  // Every quote lands in OUR composer state, so a reply can stack as many as it
+  // likes. MAM's own addTextToEditor targets the removed TinyMCE and dropped
+  // the quote entirely.
+  function addQuote(who: string, pid: string | number, text: string) {
+    const block = `[quote=${who}#p${pid}]\n${text}\n[/quote]\n\n`
+    setReply((prev) => (prev.trim() ? `${prev.replace(/\n+$/, '')}\n\n${block}` : block))
+    toast.success(`Quoted ${who}`)
+    scrollIntoView(props.host.shadowRoot?.getElementById('quick-reply'))
+  }
+
+  // A whole post comes from MAM's own getQuote endpoint, in the format its
+  // native button produces.
   async function quotePost(p: TopicPost) {
     try {
       const r = await mamFetch(`/forums/json/getQuote.php?pid=${p.pid}`, { credentials: 'include' })
@@ -215,14 +228,17 @@ export function ForumTopicView(props: PageProps) {
         toast.error(q?.msg || 'Quote is not available.')
         return
       }
-      const text = quoteBodyToText(String(q.body ?? ''))
-      const block = `[quote=${q.username}#p${q.pid}]\n${text}\n[/quote]\n\n`
-      setReply((prev) => (prev.trim() ? `${prev.replace(/\n+$/, '')}\n\n${block}` : block))
-      toast.success(`Quoted ${q.username}`)
-      scrollIntoView(props.host.shadowRoot?.getElementById('quick-reply'))
+      addQuote(String(q.username), q.pid, quoteBodyToText(String(q.body ?? '')))
     } catch {
       toast.error('Quote is not available.')
     }
+  }
+
+  // A highlight is already the text we want, so it needs no fetch. The author
+  // comes from the post the highlight sits in.
+  function quoteSelection(selection: BubbleSelection) {
+    const post = data?.posts.find((p) => String(p.pid) === selection.navKey)
+    addQuote(post?.author?.name ?? 'Anonymous', selection.navKey, selection.text)
   }
 
   function submitReply() {
@@ -280,9 +296,11 @@ export function ForumTopicView(props: PageProps) {
         </Button>
       </div>
       <Pager pages={data.pages} prevHref={data.prevHref} nextHref={data.nextHref} />
-      <div className="grid gap-3">
+      <div ref={posts} className="grid gap-3">
         {data.posts.map((p) => <Post key={p.pid} p={p} onQuote={quotePost} myUid={myUid} />)}
       </div>
+      {/* Only worth offering where a reply can be written at all. */}
+      <SelectionQuote scope={posts} onQuote={quoteSelection} disabled={!data.quickReply} />
       <Pager pages={data.pages} prevHref={data.prevHref} nextHref={data.nextHref} />
       {data.quickReply && (
         <Card id="quick-reply">
