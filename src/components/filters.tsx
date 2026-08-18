@@ -1,11 +1,11 @@
 // One filter language for every list page: a framed bar holding the search
 // field, segments and facet popovers, with a summary row of what is active.
 import * as React from 'react'
-import { Calendar as CalendarIcon, ChevronDown, Pin, Search, X } from 'lucide-react'
+import { Bookmark, Calendar as CalendarIcon, ChevronDown, Pin, Search, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { fmtInt } from '@/lib/format'
-import { PILL_LIMIT, sameState, useSavedFilters, type SavedSet } from '@/lib/saved-filters'
+import { PILL_LIMIT, sameState, shortName, useSavedFilters, type SavedSet } from '@/lib/saved-filters'
 import { toast } from '@/components/ui/toast'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,10 @@ import type { DateRange } from 'react-day-picker'
 import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -59,13 +63,6 @@ export function FilterRow({ children, className }: { children: React.ReactNode; 
   return <div className={cn('flex flex-wrap items-center gap-2', className)}>{children}</div>
 }
 
-/** Quiet lead-in word that finishes a sentence the search field started, as in
- * "search … in [Title] [Author]". Anything else carries its own label: a select
- * takes a prefix, a facet takes its name. */
-export function FilterHint({ children }: { children: React.ReactNode }) {
-  return <span className="pr-0.5 text-[12px] text-muted-foreground">{children}</span>
-}
-
 export function FilterSearch({
   value,
   onChange,
@@ -76,13 +73,11 @@ export function FilterSearch({
   className,
   inputRef,
   hint,
-  onFocus,
+  scope,
 }: {
   value: string
   onChange: (v: string) => void
   onSubmit?: () => void
-  /** Fires when the field takes focus, for rows that only matter while typing. */
-  onFocus?: () => void
   placeholder: string
   submitLabel?: string
   autoFocus?: boolean
@@ -90,6 +85,8 @@ export function FilterSearch({
   inputRef?: React.Ref<HTMLInputElement>
   /** Sits at the right of an empty field, for a shortcut key badge. */
   hint?: React.ReactNode
+  /** Which fields the search looks at, kept inside the frame it belongs to. */
+  scope?: React.ReactNode
 }) {
   const field = (
     <InputGroup className="h-10 flex-1">
@@ -99,7 +96,6 @@ export function FilterSearch({
       <InputGroupInput
         ref={inputRef}
         value={value}
-        onFocus={onFocus}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Escape' && value) {
@@ -110,37 +106,119 @@ export function FilterSearch({
         placeholder={placeholder}
         autoFocus={autoFocus}
       />
-      {!value && hint && <InputGroupAddon align="inline-end">{hint}</InputGroupAddon>}
-      {value && (
+      {(scope || value || hint) && (
         <InputGroupAddon align="inline-end">
-          <InputGroupButton size="icon-xs" aria-label="Clear search" onClick={() => onChange('')}>
-            <X />
-          </InputGroupButton>
+          {!value && hint}
+          {value && (
+            <InputGroupButton size="icon-xs" aria-label="Clear search" onClick={() => onChange('')}>
+              <X />
+            </InputGroupButton>
+          )}
+          {scope && (
+            <>
+              <Separator orientation="vertical" className="!h-5" />
+              {scope}
+            </>
+          )}
         </InputGroupAddon>
       )}
     </InputGroup>
   )
 
   if (!onSubmit) return <div className={cn('flex gap-2', className)}>{field}</div>
+  // On a narrow screen the button drops below the field: beside it, the field
+  // plus its scope leave too little room to read what you are typing.
   return (
     <form
-      className={cn('flex gap-2', className)}
+      className={cn('flex flex-col gap-2 sm:flex-row', className)}
       onSubmit={(e) => {
         e.preventDefault()
         onSubmit()
       }}
     >
       {field}
-      <Button type="submit" className="h-10 px-5">{submitLabel}</Button>
+      <Button type="submit" className="h-10 px-5 max-sm:w-full">{submitLabel}</Button>
     </form>
   )
 }
 
-/** Rounded shape shared by the category tabs and the saved sets, so neither
- * reads as one of the square filter controls under it. */
+/** How many field names the scope trigger spells out before it counts the rest. */
+const SCOPE_NAMES = 2
+
+/** Which fields a search looks at, living inside the field it belongs to. The
+ * trigger reads back the picks, so the scope needs no row plus no label of its
+ * own. Picks settle when the popover closes: one search per click earns a 403. */
+export function FilterScope({
+  options,
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  options: FacetOption[]
+  value: string[]
+  onChange: (v: string[]) => void
+  ariaLabel: string
+}) {
+  const [open, setOpen] = React.useState(false)
+  const [draft, setDraft] = React.useState<string[] | null>(null)
+  const shown = draft ?? value
+  const names = shown.map((v) => options.find((o) => o.value === v)?.label ?? v)
+  const label =
+    names.length === 0
+      ? 'Pick a field'
+      : names.length === options.length
+        ? 'All fields'
+        : names.length <= SCOPE_NAMES
+          ? names.join(', ')
+          : `${names.slice(0, SCOPE_NAMES).join(', ')} +${names.length - SCOPE_NAMES}`
+  const short =
+    names.length === 0
+      ? 'Fields'
+      : names.length === options.length
+        ? 'All fields'
+        : names.length === 1
+          ? names[0]
+          : `${names.length} fields`
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (next) return
+        const moved = draft && (draft.length !== value.length || draft.some((v) => !value.includes(v)))
+        if (moved) onChange(draft)
+        setDraft(null)
+      }}
+    >
+      <PopoverTrigger asChild>
+        {/* Narrow screens get the count instead of the names: the field itself
+            needs the room more than the list of fields does. */}
+        <InputGroupButton size="sm" aria-label={ariaLabel} className="font-medium text-muted-foreground">
+          <span className="hidden sm:inline">{label}</span>
+          <span className="sm:hidden">{short}</span>
+          <ChevronDown className="size-3.5" />
+        </InputGroupButton>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-56 p-0">
+        <FacetOptions
+          options={options}
+          selected={shown}
+          onToggle={(v) => {
+            // The search needs somewhere to look, so the last field stays on.
+            if (shown.length === 1 && shown[0] === v) return
+            setDraft(toggleValue(shown, v))
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/** Rounded shape for the category tabs, which switch which list you are in
+ * rather than narrowing one. */
 const PILL =
   'h-auto flex-none justify-between gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] text-muted-foreground shadow-none transition-colors'
-const PILL_ON = 'border-brand/40 bg-brand-soft font-medium text-accent-foreground'
 
 /** Wrapping pill row for category tabs; pair with FilterPill inside a Tabs root. */
 export function FilterPillList({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -247,7 +325,7 @@ export function FilterFacet({
   width = 'w-72',
   align = 'start',
   icon,
-  triggerClassName,
+  ariaLabel,
   children,
 }: {
   label: string
@@ -255,14 +333,14 @@ export function FilterFacet({
   width?: string
   align?: 'start' | 'center' | 'end'
   icon?: React.ReactNode
-  /** For a facet standing in a row of its own shape, such as the saved pills. */
-  triggerClassName?: string
+  /** For a trigger whose visible label is a count rather than a name. */
+  ariaLabel?: string
   children: React.ReactNode
 }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className={cn(TRIGGER, triggerClassName)}>
+        <Button variant="outline" size="sm" aria-label={ariaLabel} className={TRIGGER}>
           {icon}
           {label}
           {count > 0 && (
@@ -675,6 +753,10 @@ export interface SavedViews {
   loaded: SavedSet | null
   dirty: boolean
   canSave: boolean
+  /** The set whose name is open for typing, right after it was saved. */
+  renaming: SavedSet | null
+  closeRename: () => void
+  rename: (name: string) => void
   /** Whether there is anything to switch off. A set holding the state the page
    * opens with has nothing to clear, so its pill only ever applies. */
   clearable: boolean
@@ -713,6 +795,7 @@ export function useSavedViews({
 }): SavedViews {
   const store = useSavedFilters(page)
   const [loadedId, setLoadedId] = React.useState<string | null>(null)
+  const [renamingId, setRenamingId] = React.useState<string | null>(null)
   // Only a repeat of the same pill counts as too soon: picking another set is a
   // choice, however fast it follows.
   const lastPick = React.useRef({ id: '', at: 0 })
@@ -747,14 +830,25 @@ export function useSavedViews({
       setLoadedId(null)
       onClear()
     },
+    renaming: renamingId ? (store.sets.find((s) => s.id === renamingId) ?? null) : null,
+    closeRename: () => setRenamingId(null),
+    rename: (next) => {
+      if (renamingId && !store.rename(renamingId, next)) {
+        toast.error('Could not rename this set', { description: STORAGE_REFUSED })
+      }
+      setRenamingId(null)
+    },
     saveNew: () => {
-      const { ok, set } = store.save(name, state, name)
+      const { ok, set } = store.save(shortName(name), state, name)
       if (!ok) {
         toast.error('Could not save these filters', { description: STORAGE_REFUSED })
         return
       }
       setLoadedId(set.id)
-      toast.success(`Saved as "${set.name}"`)
+      // The name was made up for you, so the one moment to change it is now.
+      toast.success(`Saved as "${set.name}"`, {
+        action: { label: 'Rename', onClick: () => setRenamingId(set.id) },
+      })
     },
     updateLoaded: () => {
       if (!loaded) return
@@ -775,43 +869,63 @@ export function useSavedViews({
 
 const savedLabel = (set: SavedSet) => (set.pinned ? `${set.name}, opens by default` : set.name)
 
+/** The mark every saved set wears, on its control plus on the link that makes
+ * one. A set rewrites the whole bar where the controls beside it flip one
+ * thing, so it needs a sign of its own once no word says so. */
+const SavedMark = () => <Bookmark aria-hidden className="size-3.5 text-brand" />
+
 /** One saved set. Clicking the name applies it, clicking it again empties the
  * bar. A set holding the state the page opens with has nothing to empty, so
- * there the second click rests. The pin only becomes a button on the set that
- * is on, since that is the one the choice is about. */
+ * there the name is plain text rather than a switch that would not answer. */
 function SavedPill({ set, active, views }: { set: SavedSet; active: boolean; views: SavedViews }) {
+  const full = set.summary ?? set.name
   if (!active) {
     return (
       <Button
-        variant="ghost"
+        variant="outline"
+        size="sm"
         aria-pressed={false}
         aria-label={savedLabel(set)}
+        title={full}
         onClick={() => views.apply(set)}
-        className={cn(PILL, 'hover:bg-accent/50')}
+        className={cn(TRIGGER, 'shadow-none')}
       >
-        {set.pinned && <Pin aria-hidden className="size-3 opacity-70" />}
+        <SavedMark />
         <span className="max-w-48 truncate">{set.name}</span>
+        {set.pinned && <Pin aria-hidden className="size-3 text-muted-foreground" />}
       </Button>
     )
   }
   return (
-    <div className={cn(PILL, PILL_ON, 'flex items-center gap-0 p-0')}>
-      <Button
-        variant="ghost"
-        aria-pressed
-        aria-label={savedLabel(set)}
-        title={views.clearable ? 'Turn these filters off' : undefined}
-        onClick={() => views.clearable && views.clear()}
-        className="h-auto rounded-full px-3 pr-1.5 py-1.5 text-[12.5px] font-medium text-accent-foreground hover:bg-accent/40"
-      >
-        <span className="max-w-48 truncate">{set.name}</span>
-      </Button>
+    <div className="flex h-8 items-center rounded-md bg-brand-soft text-[12.5px] font-medium text-accent-foreground">
+      {views.clearable ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-pressed
+          aria-label={`Turn off ${set.name}`}
+          title={full}
+          onClick={views.clear}
+          className="h-full rounded-l-md rounded-r-none px-2.5 text-[12.5px] font-medium text-accent-foreground hover:bg-accent/40 focus-visible:relative focus-visible:z-10 dark:hover:bg-accent/40"
+        >
+          <SavedMark />
+          <span className="max-w-48 truncate">{set.name}</span>
+        </Button>
+      ) : (
+        // Nothing to turn off here, so the name is not a switch. It still says
+        // out loud that this is the set the page is on.
+        <span aria-current="true" title={full} className="flex h-full items-center gap-1.5 px-2.5">
+          <SavedMark />
+          <span className="max-w-48 truncate">{set.name}</span>
+        </span>
+      )}
+      <Separator orientation="vertical" className="!h-4 bg-brand/25" />
       <Toggle
         pressed={set.pinned === true}
         onPressedChange={() => views.togglePin()}
         aria-label={set.pinned ? `${set.name} opens this page, switch off` : `Open this page with ${set.name}`}
         title="Open this page with these filters"
-        className="h-auto min-w-0 rounded-full px-2 py-1.5 hover:bg-accent/40 data-pressed:bg-transparent"
+        className="h-full min-w-0 rounded-l-none rounded-r-md px-2 hover:bg-accent/40 focus-visible:relative focus-visible:z-10 data-pressed:bg-transparent dark:hover:bg-accent/40"
       >
         <Pin className={cn('size-3.5', set.pinned ? 'text-brand' : 'text-muted-foreground/70')} />
       </Toggle>
@@ -819,8 +933,46 @@ function SavedPill({ set, active, views }: { set: SavedSet; active: boolean; vie
   )
 }
 
-/** The saved sets of a page, as one row of pills above the filters they set.
- * The row is absent until the page holds a set. */
+/** The name of a set, offered the moment it was saved under a made-up one. */
+function RenameDialog({ views }: { views: SavedViews }) {
+  const set = views.renaming
+  if (!set) return null
+  // Keyed on the set, so the field starts out holding the name instead of
+  // filling in a frame later, which would swallow the first keystroke.
+  return <RenameForm key={set.id} set={set} views={views} />
+}
+
+function RenameForm({ set, views }: { set: SavedSet; views: SavedViews }) {
+  const [name, setName] = React.useState(set.name)
+  return (
+    <Dialog open onOpenChange={(open) => !open && views.closeRename()}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="font-display">Name this set</DialogTitle>
+          <DialogDescription>{set.summary ?? 'What these filters hold.'}</DialogDescription>
+        </DialogHeader>
+        <form
+          className="grid gap-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            const next = name.trim()
+            if (next) views.rename(next)
+            else views.closeRename()
+          }}
+        >
+          <Input value={name} autoFocus aria-label="Name of this set" onChange={(e) => setName(e.target.value)} />
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={views.closeRename}>Cancel</Button>
+            <Button type="submit">Save name</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** The saved sets of a page, as one shelf above the filters they set. The shelf
+ * is absent until the page holds a set. */
 export function FilterSaved({ views, className }: { views: SavedViews; className?: string }) {
   if (views.sets.length === 0) return null
   const first = views.sets.slice(0, PILL_LIMIT)
@@ -834,21 +986,32 @@ export function FilterSaved({ views, className }: { views: SavedViews; className
     <div
       role="group"
       aria-label="Saved filters"
-      className={cn('-mx-6 flex flex-wrap items-center gap-2 border-b px-6 pb-3', className)}
+      // A shelf rather than a row: the tint plus the border say this band is
+      // chrome, which is what the removed word used to say.
+      className={cn('-mx-6 flex flex-wrap items-center gap-2 border-b bg-muted/25 px-6 py-2.5', className)}
     >
-      <FilterHint>Saved</FilterHint>
       {shown.map((s) => (
         <SavedPill key={s.id} set={s} active={views.active?.id === s.id} views={views} />
       ))}
       {rest.length > 0 && (
-        <FilterFacet label="More" width="w-64" triggerClassName="rounded-full">
-          <Command>
+        <FilterFacet
+          label={`+${rest.length}`}
+          icon={<SavedMark />}
+          ariaLabel={`${rest.length} more saved ${rest.length === 1 ? 'filter' : 'filters'}`}
+          width="w-64"
+        >
+          {/* Rows are told apart by id, while typing scores against the name:
+              an id in the searchable value would match almost any letters. */}
+          <Command filter={(_value, search, keywords) => {
+            const name = (keywords?.[0] ?? '').toLowerCase()
+            return name.includes(search.toLowerCase()) ? 1 : 0
+          }}>
             <CommandInput placeholder="Filter saved…" />
             <CommandList className="max-h-64">
               <CommandEmpty>Nothing by that name.</CommandEmpty>
               <CommandGroup>
                 {rest.map((s) => (
-                  <CommandItem key={s.id} value={s.name} onSelect={() => views.apply(s)}>
+                  <CommandItem key={s.id} value={s.id} keywords={[s.name]} onSelect={() => views.apply(s)}>
                     {s.pinned && <Pin aria-hidden className="size-3 text-muted-foreground" />}
                     <span className="truncate">{s.name}</span>
                   </CommandItem>
@@ -858,6 +1021,7 @@ export function FilterSaved({ views, className }: { views: SavedViews; className
           </Command>
         </FilterFacet>
       )}
+      <RenameDialog views={views} />
     </div>
   )
 }

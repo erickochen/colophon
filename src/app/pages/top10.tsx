@@ -172,7 +172,7 @@ export function Top10View(_props: PageProps) {
       <FilterBar>
         <FilterSaved views={views} />
         <FilterRow>
-          <FilterSegments options={METRICS} value={metric} onChange={(v) => apply({ metric: v })} />
+          <FilterSegments ariaLabel="Ranked by" options={METRICS} value={metric} onChange={(v) => apply({ metric: v })} />
           <FilterSelect
             value={year}
             onChange={(v) => apply({ year: v })}
@@ -191,6 +191,7 @@ export function Top10View(_props: PageProps) {
         <FilterRow>
           <FilterSegments
             type="multiple"
+            ariaLabel="Media type"
             options={MAIN_CATS.map((m) => ({ value: String(m.id), label: m.name }))}
             value={mainCat.map(String)}
             onChange={(v) => apply({ mainCat: v.map(Number), cat: [] })}

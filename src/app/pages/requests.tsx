@@ -161,6 +161,7 @@ export function RequestsView(_props: PageProps) {
         <FilterSearch value={text} onChange={setText} onSubmit={() => apply({})} placeholder="Search requests…" />
         <FilterRow>
           <FilterSegments
+            ariaLabel="Which requests to show"
             options={[...REQUEST_FILL_STATES]}
             value={state.filled}
             onChange={(v) => apply({ filled: v })}

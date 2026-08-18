@@ -34,7 +34,8 @@ import { Toggle } from '@/components/ui/toggle'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { toast } from '@/components/ui/toast'
 import {
-  SAVED_PAGES, cleanName, useAllSavedFilters, useSavedFilters, type SavedFilters, type SavedSet,
+  NAME_PARTS, SAVED_PAGES, cleanName, summaryParts, useAllSavedFilters, useSavedFilters,
+  type SavedFilters, type SavedSet,
 } from '@/lib/saved-filters'
 
 const EXPORT_FILENAME = 'colophon-settings.json'
@@ -342,14 +343,14 @@ const SUMMARY_SHOWN = 4
 /** What a set filters, in the chips the bar uses. The counter says how much is
  * left instead of cutting a word in half. A set still carrying the name it was
  * saved under says the same thing twice, so it shows the row once. */
-function SummaryChips({ summary, name }: { summary?: string; name: string }) {
+function SummaryChips({ summary, auto }: { summary?: string; auto?: boolean }) {
   const [all, setAll] = useState(false)
   // Split on the joiner with its spaces: a bare middle dot can sit inside a
   // search term and would break that one chip in two.
-  const parts = (summary ?? '').split(' · ').map((p) => p.trim()).filter(Boolean)
-  // A fresh set is named after its own summary. The name is the shorter cut of
-  // the two, so the comparison runs on that same cut.
-  if (parts.length === 0 || cleanName(summary ?? '') === name) return null
+  const parts = summaryParts(summary ?? '')
+  // A short made-up name already reads as its own summary, so the chips would
+  // only say it twice.
+  if (parts.length === 0 || (auto && parts.length <= NAME_PARTS)) return null
   const shown = all ? parts : parts.slice(0, SUMMARY_SHOWN)
   const rest = parts.length - shown.length
   return (
@@ -474,7 +475,7 @@ function SavedFilterRow({ set, store }: { set: SavedSet; store: SavedFilters }) 
           Delete
         </Button>
       </div>
-      <SummaryChips summary={set.summary} name={set.name} />
+      <SummaryChips summary={set.summary} auto={set.auto} />
     </div>
   )
 }

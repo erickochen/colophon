@@ -511,6 +511,7 @@ export function MessagesView(props: PageProps) {
         <FilterRow>
           {/* Totals live in the header sub, so a number here always means unread. */}
           <FilterSegments
+            ariaLabel="Mailbox"
             value={tab}
             onChange={setTab}
             options={[

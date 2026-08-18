@@ -232,7 +232,7 @@ export function FreeleechView(props: PageProps) {
         <FilterSaved views={views} />
         <FilterSearch value={q} onChange={setQ} placeholder={`Filter ${total.toLocaleString()} picks by title, author or category…`} />
         <FilterRow>
-          <FilterSegments options={mainCatOptions} value={mainCat} onChange={setMainCat} />
+          <FilterSegments ariaLabel="Fiction or non-fiction" options={mainCatOptions} value={mainCat} onChange={setMainCat} />
           <FilterFacet label="Media types" count={media.length}>
             <FacetOptions
               options={mediaOptions}

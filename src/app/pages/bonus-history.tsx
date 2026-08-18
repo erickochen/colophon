@@ -345,6 +345,7 @@ export function BonusHistoryView({ page }: PageProps) {
         sub="Seeding, points and ratio over time, from the tracker"
         action={
           <FilterSegments
+            ariaLabel="Period"
             options={RANGES.map((r) => ({ value: r.k, label: r.label }))}
             value={range}
             onChange={(v) => setRange(v as RangeKey)}

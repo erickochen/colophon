@@ -9,7 +9,7 @@ export const NAME_MAX = 60
  * rather than the length a pill can carry. */
 export const SUMMARY_MAX = 240
 /** Beyond this the extra sets move into the More facet on the bar. */
-export const PILL_LIMIT = 5
+export const PILL_LIMIT = 6
 export const SCHEMA = 1
 
 export interface SavedSet {
@@ -21,6 +21,9 @@ export interface SavedSet {
   summary?: string
   /** The set this page opens with. At most one per page. */
   pinned?: boolean
+  /** The name was made up rather than typed, so it follows the filters. Typing
+   * one clears the flag plus keeps the name from then on. */
+  auto?: boolean
   created: number
 }
 
@@ -46,7 +49,7 @@ function isPlain(v: unknown): v is Record<string, unknown> {
 
 function asSet(raw: unknown): SavedSet | null {
   if (!isPlain(raw)) return null
-  const { id, name, state, summary, pinned, created } = raw
+  const { id, name, state, summary, pinned, auto, created } = raw
   if (typeof id !== 'string' || !id) return null
   if (typeof name !== 'string') return null
   if (!isPlain(state)) return null
@@ -56,6 +59,7 @@ function asSet(raw: unknown): SavedSet | null {
     state,
     ...(typeof summary === 'string' && summary ? { summary: cleanSummary(summary) } : {}),
     ...(pinned === true ? { pinned: true as const } : {}),
+    ...(auto === true ? { auto: true as const } : {}),
     created: typeof created === 'number' && Number.isFinite(created) ? created : 0,
   }
 }
@@ -133,6 +137,40 @@ export function cleanSummary(raw: string): string {
   return flatten(raw, SUMMARY_MAX)
 }
 
+/** How the joined parts of a summary read: the separator the pages build with
+ * plus the number of parts a name keeps. */
+export const PART_SEP = ' · '
+export const NAME_PARTS = 2
+
+export function summaryParts(summary: string): string[] {
+  return summary.split(PART_SEP).map((p) => p.trim()).filter(Boolean)
+}
+
+/** A name that fits a control: the first filters plus a count for the rest.
+ * The whole thing stays as the summary, so nothing is lost. */
+export function shortName(summary: string): string {
+  const parts = summaryParts(summary)
+  if (parts.length === 0) return 'Saved set'
+  if (parts.length <= NAME_PARTS) return cleanName(parts.join(PART_SEP))
+  // The count is reserved first: two long parts would otherwise fill the whole
+  // name plus push the count off the end, which reads as a different set.
+  const more = ` +${parts.length - NAME_PARTS}`
+  return `${flatten(parts.slice(0, NAME_PARTS).join(PART_SEP), NAME_MAX - more.length)}${more}`
+}
+
+/** Names stay apart per page, so two sets never read as one control. The count
+ * is reserved inside the cap, since a name cut back to its first 60 characters
+ * on the next read would collide all over again. */
+function freeName(page: string, wanted: string, exceptId?: string): string {
+  const taken = new Set(readSets(page).filter((s) => s.id !== exceptId).map((s) => s.name))
+  if (!taken.has(wanted)) return wanted
+  for (let n = 2; ; n += 1) {
+    const tail = ` (${n})`
+    const next = `${flatten(wanted, NAME_MAX - tail.length)}${tail}`
+    if (!taken.has(next)) return next
+  }
+}
+
 /** Key order and array order both vary between renders, so both are settled
  * before two states are compared. */
 function canonical(value: unknown): unknown {
@@ -201,9 +239,10 @@ export function saveSet(
 ): SaveResult {
   const set: SavedSet = {
     id: newId(),
-    name: cleanName(name),
+    name: freeName(page, cleanName(name)),
     state,
     ...(summary ? { summary: cleanSummary(summary) } : {}),
+    auto: true,
     created: Date.now(),
   }
   return { ok: put(page, [...readSets(page), set]), set }
@@ -217,14 +256,29 @@ export function updateSet(
 ): boolean {
   return put(
     page,
-    readSets(page).map((s) => (s.id === id ? { ...s, state, ...(summary ? { summary: cleanSummary(summary) } : {}) } : s))
+    readSets(page).map((s) => {
+      if (s.id !== id) return s
+      const next = summary ? cleanSummary(summary) : s.summary
+      // A made-up name follows the filters it describes; a name someone typed
+      // themselves stays put.
+      return {
+        ...s,
+        state,
+        ...(next ? { summary: next } : {}),
+        ...(s.auto && next ? { name: freeName(page, shortName(next), s.id) } : {}),
+      }
+    })
   )
 }
 
+/** A typed name keeps itself: the auto flag goes, so later updates leave it
+ * alone. It still steps aside for a name this page already holds. */
 export function renameSet(page: string, id: string, name: string): boolean {
   return put(
     page,
-    readSets(page).map((s) => (s.id === id ? { ...s, name: cleanName(name) } : s))
+    readSets(page).map((s) =>
+      s.id === id ? { ...s, name: freeName(page, cleanName(name), id), auto: undefined } : s
+    )
   )
 }
 

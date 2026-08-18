@@ -13,8 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/components/ui/toast'
 import { submitNative } from '@/lib/form-submit'
 import {
-  FacetMode, FacetOptions, FacetSection, FilterDateRange, FilterFacet, FilterHint, FilterRow,
-  FilterSearch, FilterSegments, FilterSelect, toggleValue,
+  FacetMode, FacetOptions, FacetSection, FilterDateRange, FilterFacet, FilterRow,
+  FilterScope, FilterSearch, FilterSegments, FilterSelect, toggleValue,
 } from '@/components/filters'
 
 const SRCH_FIELDS = [
@@ -92,16 +92,20 @@ export function RssView(props: PageProps) {
         <CardContent className="grid gap-4">
           <div className="grid gap-1.5">
             <Label className="text-[13px]">Search text (optional)</Label>
-            <FilterSearch value={text} onChange={setText} placeholder="e.g. an author or series you follow" className="max-w-md" />
-            <FilterRow className="gap-1.5 pt-1">
-              <FilterHint>in</FilterHint>
-              <FilterSegments
-                type="multiple"
-                options={SRCH_FIELDS.map(([value, label]) => ({ value, label }))}
-                value={fields}
-                onChange={setFields}
-              />
-            </FilterRow>
+            <FilterSearch
+              value={text}
+              onChange={setText}
+              placeholder="e.g. an author or series you follow"
+              className="max-w-md"
+              scope={
+                <FilterScope
+                  ariaLabel="Search in"
+                  options={SRCH_FIELDS.map(([value, label]) => ({ value, label }))}
+                  value={fields}
+                  onChange={setFields}
+                />
+              }
+            />
           </div>
 
           <FilterRow>

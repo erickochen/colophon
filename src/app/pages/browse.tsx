@@ -34,8 +34,8 @@ import { NumberField } from '@/components/ui/number-field'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
-  FacetMode, FacetOptions, FilterBar, FilterDateRange, FilterFacet, FilterHint,
-  FilterRow, FilterSaved, FilterSavedActions, FilterSearch, FilterSegments, FilterSelect,
+  FacetMode, FacetOptions, FilterBar, FilterDateRange, FilterFacet,
+  FilterRow, FilterSaved, FilterSavedActions, FilterScope, FilterSearch, FilterSegments, FilterSelect,
   FilterSummary, FilterToggle, TRIGGER, toggleValue, useSavedViews,
 } from '@/components/filters'
 import { pinnedSet } from '@/lib/saved-filters'
@@ -54,6 +54,22 @@ const SRCH_FIELDS = [
   ['title', 'Title'], ['author', 'Author'], ['narrator', 'Narrator'], ['series', 'Series'],
   ['description', 'Description'], ['tags', 'Tags'], ['fileTypes', 'Filetype'], ['filenames', 'Filenames'],
 ] as const
+
+/** What a search reads when nobody picked anything else. */
+const DEFAULT_SRCH_IN = ['title', 'author'] as const
+
+/** How the scope reads in the name of a set, left out while it is the usual
+ * pair: a set that searches somewhere else says so, since two sets can hold the
+ * same filters plus look in different fields. */
+function scopePart(fields: readonly string[]): string {
+  const usual = fields.length === DEFAULT_SRCH_IN.length && DEFAULT_SRCH_IN.every((f) => fields.includes(f))
+  if (usual || fields.length === 0) return ''
+  if (fields.length === SRCH_FIELDS.length) return 'in all fields'
+  // Counted rather than listed past two: a name already carries a +N of its own
+  // for the parts it leaves out, so a second one would read as one number.
+  if (fields.length > 2) return `in ${fields.length} fields`
+  return `in ${fields.map((f) => SRCH_FIELDS.find(([v]) => v === f)?.[1] ?? f).join(', ')}`
+}
 
 const SEARCH_TYPES = [
   ['all', 'All torrents'], ['active', 'Active only'], ['inactive', 'Inactive only'],
@@ -455,7 +471,7 @@ function stateFromUrl(myUid: string | null = null): BrowseState {
   const rawIn = p.get('tor[searchIn]')
   return {
     text: p.get('tor[text]') ?? '',
-    srchIn: srchIn.length ? srchIn : ['title', 'author'],
+    srchIn: srchIn.length ? srchIn : [...DEFAULT_SRCH_IN],
     // fl-VIP was an or over two slots the endpoint keeps separate; freeleech
     // is the nearest single slot. Flagged new filtered nothing and drops out.
     searchType:
@@ -529,7 +545,7 @@ const savedOf = (s: BrowseState): Record<string, unknown> => ({
  * the set never carried stays as it is. */
 const SAVED_DEFAULTS: Partial<BrowseState> = {
   text: '',
-  srchIn: ['title', 'author'],
+  srchIn: [...DEFAULT_SRCH_IN],
   searchType: 'all',
   mainCat: [],
   categories: [],
@@ -562,7 +578,12 @@ function patchFromSaved(raw: Record<string, unknown>): Partial<BrowseState> {
   const out: Partial<BrowseState> = { start: 0 }
   const text = asText(raw.text)
   if (text !== undefined) out.text = text
-  if (Array.isArray(raw.srchIn)) out.srchIn = raw.srchIn.filter((v): v is SrchField => typeof v === 'string' && SRCH_FIELDS.some(([f]) => f === v))
+  // A stored list holding nothing this build knows would leave the search with
+  // nowhere to look, so it keeps whatever is on screen instead.
+  const srchIn = Array.isArray(raw.srchIn)
+    ? raw.srchIn.filter((v): v is SrchField => typeof v === 'string' && SRCH_FIELDS.some(([f]) => f === v))
+    : []
+  if (srchIn.length > 0) out.srchIn = srchIn
   if (SEARCH_TYPES.some(([v]) => v === raw.searchType)) out.searchType = raw.searchType as BrowseSearchType
   const mainCat = asIds(raw.mainCat)
   if (mainCat) out.mainCat = mainCat.filter((m) => MAIN_CATS.some((x) => x.id === m))
@@ -1316,6 +1337,7 @@ function ViewToggle({ view, onChange }: { view: ViewMode; onChange: (v: ViewMode
 
 export function BrowseView(props: PageProps) {
   const [state, setState] = useState<BrowseState>(() => initialState(props.page.user.uid != null ? String(props.page.user.uid) : null))
+  const stateRef = useRef(state)
   const [queriedText, setQueriedText] = useState('')
   const [items, setItems] = useState<SearchTorrent[]>([])
   const [found, setFound] = useState(0)
@@ -1332,6 +1354,8 @@ export function BrowseView(props: PageProps) {
   })
   const [cols, setCols] = useState<ColKey[]>(readCols)
   const seq = useRef(0)
+  /** The search on the wire right now, so the same one is not sent twice. */
+  const inFlight = useRef<string | null>(null)
   // The rows on screen plus where they start, readable from inside a search
   // that was created once and never sees fresh state.
   const shownRef = useRef<SearchTorrent[]>([])
@@ -1399,6 +1423,12 @@ export function BrowseView(props: PageProps) {
 
   const run = useCallback(async (s: BrowseState, opts: { append?: boolean; push?: boolean; take?: number } = {}) => {
     const { append = false, push = true, take } = opts
+    // One click can land on two controls at once, such as a settling popover
+    // plus the Search button under it. Asking the endpoint the same thing twice
+    // in a row earns a 403, so a search already in the air is not repeated.
+    const key = JSON.stringify(toQuery2(s))
+    if (!append && inFlight.current === key) return
+    if (!append) inFlight.current = key
     // Typing moves the field long before a search runs, so saved sets compare
     // against the text this list was actually built from.
     setQueriedText(s.text)
@@ -1458,12 +1488,17 @@ export function BrowseView(props: PageProps) {
     } catch (e) {
       if (seq.current === mine) setError(e instanceof Error ? e.message : 'Search failed')
     } finally {
+      if (!append && inFlight.current === key) inFlight.current = null
       if (seq.current === mine) {
         setLoading(false)
         setLoadingMore(false)
       }
     }
   }, [])
+
+  useEffect(() => {
+    stateRef.current = state
+  }, [state])
 
   useEffect(() => {
     shownRef.current = items
@@ -1494,7 +1529,11 @@ export function BrowseView(props: PageProps) {
   }, [props.page.user.uid, run])
 
   const apply = (patch: Partial<BrowseState>) => {
-    const next = { ...state, ...patch, start: 0 }
+    // Built on the ref rather than on state: two patches inside one tick would
+    // otherwise both start from the render before them, so the first would be
+    // thrown away by the second.
+    const next = { ...stateRef.current, ...patch, start: 0 }
+    stateRef.current = next
     setState(next)
     // A pin decides what the page opens with, so the quiet remembering keeps
     // running underneath it and has the last stand ready once the pin goes.
@@ -1575,8 +1614,6 @@ export function BrowseView(props: PageProps) {
   }
 
   const [rolling, setRolling] = useState(false)
-  // The search-in fields appear once someone is actually searching.
-  const [searchFocus, setSearchFocus] = useState(false)
 
   /** Opens a random torrent inside the active filters. */
   async function randomBook() {
@@ -1780,6 +1817,7 @@ export function BrowseView(props: PageProps) {
   const searched = { ...state, text: queriedText }
   const savedName = [
     queriedText.trim(),
+    scopePart(state.srchIn),
     ...state.mainCat.map((m) => MAIN_CATS.find((x) => x.id === m)?.name).filter(Boolean),
     ...chips.filter((c) => !['uploader', 'author', 'narrator', 'series'].includes(c.key)).map((c) => c.label),
   ]
@@ -1829,24 +1867,22 @@ export function BrowseView(props: PageProps) {
             className="flex-1"
             value={state.text}
             onChange={(v) => setState((s) => ({ ...s, text: v }))}
-            onFocus={() => setSearchFocus(true)}
             onSubmit={() => apply({})}
-            placeholder={uploaderMode ? 'Search titles and authors in these uploads…' : 'Search titles, authors, narrators, series…'}
+            placeholder={uploaderMode ? 'Search these uploads…' : 'Search the library…'}
+            // Which fields the search reads lives in the field itself, so its
+            // stand is always on screen instead of in a row of its own.
+            scope={
+              uploaderMode ? undefined : (
+                <FilterScope
+                  ariaLabel="Search in"
+                  options={SRCH_FIELDS.map(([value, label]) => ({ value, label }))}
+                  value={state.srchIn}
+                  onChange={(v) => apply({ srchIn: v as SrchField[] })}
+                />
+              )
+            }
           />
         </FilterRow>
-
-        {!uploaderMode && (state.text.length > 0 || searchFocus) && (
-        <FilterRow className="gap-1.5">
-          <FilterHint>in</FilterHint>
-          <FilterSegments
-            type="multiple"
-            ariaLabel="Search in"
-            options={SRCH_FIELDS.map(([value, label]) => ({ value, label }))}
-            value={state.srchIn}
-            onChange={(v) => apply({ srchIn: v as SrchField[] })}
-          />
-        </FilterRow>
-        )}
 
         {uploaderMode ? null : (
         <>
