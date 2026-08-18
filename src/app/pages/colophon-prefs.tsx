@@ -2,7 +2,7 @@
 // write the settings store directly and apply immediately, so there is no form
 // and no save bar.
 import { useEffect, useRef, useState } from 'react'
-import { BookMarked, Check, ChevronsUpDown, Download, Moon, Pin, RotateCcw, Sun, SunMoon, Upload } from 'lucide-react'
+import { BookMarked, Check, ChevronsUpDown, Download, Moon, Pencil, Pin, RotateCcw, Sun, SunMoon, Upload } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import type { Theme } from '@/lib/theme'
 import {
@@ -22,10 +22,13 @@ import {
 } from '@/components/ui/alert-dialog'
 import { MAX_GIFT, THANK_MAX, THANK_STEP } from '@/lib/mam-api'
 import { PrefCard, SettingRow } from '@/app/pages/prefs-bits'
+import { QUIET_LINK } from '@/components/filters'
 import { RatioFloorInput } from '@/components/ratio-floor'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 import { Switch } from '@/components/ui/switch'
 import { Toggle } from '@/components/ui/toggle'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -332,15 +335,63 @@ const STORAGE_REFUSED = 'Your browser is blocking storage, so nothing was kept.'
  * since reading the name plus reaching for Undo takes a moment. */
 const UNDO_MS = 12000
 
-/** One saved set: its name to edit, what it filters, the pin plus the way out.
- * The name commits on blur or Enter, so renaming costs no extra click. */
+/** How many parts of a summary a row shows before the rest moves behind a
+ * counter. Four is about one line at the width of this card. */
+const SUMMARY_SHOWN = 4
+
+/** What a set filters, in the chips the bar uses. The counter says how much is
+ * left instead of cutting a word in half. A set still carrying the name it was
+ * saved under says the same thing twice, so it shows the row once. */
+function SummaryChips({ summary, name }: { summary?: string; name: string }) {
+  const [all, setAll] = useState(false)
+  // Split on the joiner with its spaces: a bare middle dot can sit inside a
+  // search term and would break that one chip in two.
+  const parts = (summary ?? '').split(' · ').map((p) => p.trim()).filter(Boolean)
+  // A fresh set is named after its own summary. The name is the shorter cut of
+  // the two, so the comparison runs on that same cut.
+  if (parts.length === 0 || cleanName(summary ?? '') === name) return null
+  const shown = all ? parts : parts.slice(0, SUMMARY_SHOWN)
+  const rest = parts.length - shown.length
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {shown.map((p, i) => (
+        <Badge
+          key={`${i}-${p}`}
+          variant="outline"
+          className="max-w-full shrink-0 rounded-full px-2.5 py-[3px] text-[12px] font-normal text-muted-foreground"
+        >
+          <span className="truncate">{p}</span>
+        </Badge>
+      ))}
+      {rest > 0 && (
+        <Button variant="link" onClick={() => setAll(true)} className={QUIET_LINK}>
+          +{rest}
+        </Button>
+      )}
+      {all && parts.length > SUMMARY_SHOWN && (
+        <Button variant="link" onClick={() => setAll(false)} className={QUIET_LINK}>
+          Less
+        </Button>
+      )}
+    </div>
+  )
+}
+
+/** One saved set: its name, what it filters, the pin plus the way out. The name
+ * is text until the pencil turns it into a field, so the list reads as a list
+ * rather than as a form. */
 function SavedFilterRow({ set, store }: { set: SavedSet; store: SavedFilters }) {
+  const [editing, setEditing] = useState(false)
   const [name, setName] = useState(set.name)
   useEffect(() => setName(set.name), [set.name])
+  // Escape leaves the field. Blur is what commits, so a call-off has to say so.
+  const called = useRef(false)
 
   const commit = () => {
+    setEditing(false)
     const next = cleanName(name)
-    if (!next || next === set.name) {
+    if (called.current || !next || next === set.name) {
+      called.current = false
       setName(set.name)
       return
     }
@@ -373,36 +424,57 @@ function SavedFilterRow({ set, store }: { set: SavedSet; store: SavedFilters }) 
   }
 
   return (
-    <div className={REVIEW_ROW}>
-      <Input
-        value={name}
-        aria-label="Name of this set"
-        onChange={(e) => setName(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') e.currentTarget.blur()
-          if (e.key === 'Escape') setName(set.name)
-        }}
-        className="h-7 w-44 shrink-0 text-[13px]"
-      />
-      <span className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground" title={set.summary}>
-        {set.summary}
-      </span>
-      <Toggle
-        size="sm"
-        pressed={set.pinned === true}
-        onPressedChange={(on) => {
-          if (!store.pin(set.id, on)) toast.error('Could not change the default', { description: STORAGE_REFUSED })
-        }}
-        aria-label={set.pinned ? `${set.name} opens this page, switch off` : `Open this page with ${set.name}`}
-        title="Open this page with these filters"
-        className="shrink-0 data-pressed:bg-brand-soft data-pressed:text-accent-foreground"
-      >
-        <Pin className="size-3.5" />
-      </Toggle>
-      <Button variant="ghost" size="sm" className={REVIEW_BTN} onClick={drop}>
-        Delete
-      </Button>
+    <div className="grid gap-1.5 py-2">
+      <div className="flex items-center gap-2">
+        {editing ? (
+          <Input
+            value={name}
+            autoFocus
+            aria-label="Name of this set"
+            onChange={(e) => setName(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur()
+              if (e.key === 'Escape') {
+                called.current = true
+                e.currentTarget.blur()
+              }
+            }}
+            className="h-7 min-w-0 flex-1 text-[13px]"
+          />
+        ) : (
+          <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{set.name}</span>
+        )}
+        {/* The pencil keeps its place while the field is open: a button that
+            appears on blur would shift the pin plus Delete out from under a
+            pointer already on its way down. */}
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label={editing ? `Keep this name for ${set.name}` : `Rename ${set.name}`}
+          title={editing ? 'Keep this name' : 'Rename'}
+          onClick={() => (editing ? commit() : setEditing(true))}
+          className={cn(REVIEW_BTN, 'px-1.5')}
+        >
+          {editing ? <Check className="size-3.5" /> : <Pencil className="size-3.5" />}
+        </Button>
+        <Toggle
+          size="sm"
+          pressed={set.pinned === true}
+          onPressedChange={(on) => {
+            if (!store.pin(set.id, on)) toast.error('Could not change the default', { description: STORAGE_REFUSED })
+          }}
+          aria-label={set.pinned ? `${set.name} opens this page, switch off` : `Open this page with ${set.name}`}
+          title="Open this page with these filters"
+          className="shrink-0 data-pressed:bg-brand-soft data-pressed:text-accent-foreground"
+        >
+          <Pin className="size-3.5" />
+        </Toggle>
+        <Button variant="ghost" size="sm" className={REVIEW_BTN} onClick={drop}>
+          Delete
+        </Button>
+      </div>
+      <SummaryChips summary={set.summary} name={set.name} />
     </div>
   )
 }
@@ -419,7 +491,7 @@ function SavedFilterGroup({ page }: { page: string }) {
   )
 }
 
-function SavedFilterRows() {
+function SavedFiltersCard() {
   const pages = useAllSavedFilters()
   const held = Object.keys(pages).filter((p) => pages[p].length > 0)
   // Known pages in their own order, then anything else that holds a set.
@@ -429,17 +501,23 @@ function SavedFilterRows() {
   ]
   if (order.length === 0) {
     return (
-      <p className="text-[12.5px] text-muted-foreground">
-        Nothing saved yet. Filter a list, then use Save these filters under the bar.
-      </p>
+      <PrefCard
+        title="Saved filters"
+        note="Nothing saved yet. Filter a list, then use Save these filters under the bar."
+      />
     )
   }
   return (
-    <div className="grid gap-3">
-      {order.map((page) => (
-        <SavedFilterGroup key={page} page={page} />
-      ))}
-    </div>
+    <PrefCard
+      title="Saved filters"
+      note="Sets you saved from a filter bar. The one with a pin opens that page for you."
+    >
+      <div className="grid gap-3">
+        {order.map((page) => (
+          <SavedFilterGroup key={page} page={page} />
+        ))}
+      </div>
+    </PrefCard>
   )
 }
 
@@ -612,12 +690,7 @@ export function ColophonPrefsView(_props: PageProps) {
         <IgnoredTorrentRows />
       </PrefCard>
 
-      <PrefCard
-        title="Saved filters"
-        note="Sets you saved from a filter bar. The one with a pin opens that page for you."
-      >
-        <SavedFilterRows />
-      </PrefCard>
+      <SavedFiltersCard />
 
       <PrefCard title="Series">
         <FeatureRow

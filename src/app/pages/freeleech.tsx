@@ -61,7 +61,7 @@ export function FreeleechView(props: PageProps) {
   const [mainCat, setMainCat] = useState('all')
   const [media, setMedia] = useState<string[]>([])
   const [cats, setCats] = useState<string[]>([])
-  const [groupBy, setGroupBy] = useState('media')
+  const [groupBy, setGroupBy] = useState(GROUP_BY[0].value)
   const fold = useCollapsed('freeleech')
   // While a filter runs, every matching section opens: folds made now are
   // temporary so the reader's own layout returns once the filter clears.
@@ -197,6 +197,11 @@ export function FreeleechView(props: PageProps) {
       if (Array.isArray(saved.cats)) setCats(saved.cats.filter((v): v is string => typeof v === 'string'))
       if (GROUP_BY.some((o) => o.value === saved.groupBy)) setGroupBy(saved.groupBy as string)
     },
+    // The grouping rides along in a set, so it comes back with the rest.
+    onClear: () => {
+      clearAll()
+      setGroupBy(GROUP_BY[0].value)
+    },
   })
 
   if (!data) return <LegacyView {...props} />
@@ -224,8 +229,8 @@ export function FreeleechView(props: PageProps) {
       {data.seedNote && <p className="text-[12.5px] text-muted-foreground">{data.seedNote}</p>}
 
       <FilterBar>
-        <FilterSearch value={q} onChange={setQ} placeholder={`Filter ${total.toLocaleString()} picks by title, author or category…`} />
         <FilterSaved views={views} />
+        <FilterSearch value={q} onChange={setQ} placeholder={`Filter ${total.toLocaleString()} picks by title, author or category…`} />
         <FilterRow>
           <FilterSegments options={mainCatOptions} value={mainCat} onChange={setMainCat} />
           <FilterFacet label="Media types" count={media.length}>

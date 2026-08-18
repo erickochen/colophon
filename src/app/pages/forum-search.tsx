@@ -159,6 +159,22 @@ export function ForumSearchView(props: PageProps) {
       setForums(nextForums)
       void run(0, { text: nextText, searchIn: nextIn, order: nextOrder, forums: nextForums })
     },
+    // A set here stands for a search, so switching it off empties the form and
+    // the results it produced. The id moves on as well: a request still in the
+    // air would otherwise land on the empty page and fill it again.
+    onClear: () => {
+      reqId.current += 1
+      setLoading(false)
+      setError(false)
+      setText('')
+      setSearchIn('1')
+      setOrder('default')
+      setForums([])
+      setQueried(null)
+      setRows(null)
+      setTotal(null)
+      setStart(0)
+    },
   })
 
   if (!form) return <LegacyView {...props} />
@@ -209,6 +225,7 @@ export function ForumSearchView(props: PageProps) {
       <PageHeader title="Search the forums" sub="Find topics across every board." />
 
       <FilterBar>
+        <FilterSaved views={views} />
         <FilterSearch
           value={text}
           onChange={setText}
@@ -216,7 +233,6 @@ export function ForumSearchView(props: PageProps) {
           placeholder="Search topics and posts…"
           autoFocus
         />
-        <FilterSaved views={views} />
         <FilterRow>
           <FilterSelect value={searchIn} onChange={setSearchIn} options={form.searchIn} ariaLabel="What to search" />
           <FilterSelect value={order} onChange={setOrder} options={form.order} ariaLabel="Sort order" />

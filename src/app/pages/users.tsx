@@ -80,6 +80,11 @@ export function UsersView(props: PageProps) {
       setCls(nextCls)
       void run(nextText, nextCls)
     },
+    onClear: () => {
+      setText('')
+      setCls('-')
+      void run('', '-')
+    },
   })
 
   if (!usable) return <LegacyView {...props} />
@@ -89,8 +94,8 @@ export function UsersView(props: PageProps) {
       <PageHeader title="Find members" sub="Search the membership by name, class or country." />
 
       <FilterBar>
-        <FilterSearch value={text} onChange={setText} onSubmit={() => run()} placeholder="Member name…" autoFocus />
         <FilterSaved views={views} />
+        <FilterSearch value={text} onChange={setText} onSubmit={() => run()} placeholder="Member name…" autoFocus />
         <FilterRow>
           <FilterSelect
             value={cls}

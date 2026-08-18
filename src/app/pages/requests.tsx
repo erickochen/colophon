@@ -45,6 +45,8 @@ const FILL_IN_NAME: Record<string, string> = {
   either: 'Filled and unfilled',
 }
 
+const EMPTY_EXTRA: RequestQuery['extra'] = { com: {}, req: {} }
+
 /** What a saved set holds here: the query without the page it stopped on. */
 const savedOf = (q: Required<RequestQuery>) => ({
   text: q.text,
@@ -134,6 +136,12 @@ export function RequestsView(_props: PageProps) {
       setText(patch.text ?? '')
       apply(patch)
     },
+    // The blob fields go too: no control on this bar names them, so leaving
+    // them behind would keep narrowing the list from nowhere.
+    onClear: () => {
+      setText('')
+      apply({ text: '', ...REQUEST_DEFAULTS, extra: EMPTY_EXTRA })
+    },
   })
 
   return (
@@ -149,8 +157,8 @@ export function RequestsView(_props: PageProps) {
       />
 
       <FilterBar>
-        <FilterSearch value={text} onChange={setText} onSubmit={() => apply({})} placeholder="Search requests…" />
         <FilterSaved views={views} />
+        <FilterSearch value={text} onChange={setText} onSubmit={() => apply({})} placeholder="Search requests…" />
         <FilterRow>
           <FilterSegments
             options={[...REQUEST_FILL_STATES]}

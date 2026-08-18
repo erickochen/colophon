@@ -49,7 +49,7 @@ export function Top10View(_props: PageProps) {
   const [avail, setAvail] = useState<Available | null>(null)
   const [year, setYear] = useState<string>('all')
   const [week, setWeek] = useState<string>('all')
-  const [metric, setMetric] = useState('snatchedDesc')
+  const [metric, setMetric] = useState(METRICS[0].value)
   const [mainCat, setMainCat] = useState<number[]>([])
   const [cat, setCat] = useState<number[]>([])
   const [rows, setRows] = useState<SearchTorrent[] | null>(null)
@@ -99,7 +99,7 @@ export function Top10View(_props: PageProps) {
       .then((r) => r.json())
       .then((j: Available) => setAvail(j))
       .catch(() => setAvail(null))
-    void load({ year: 'all', week: 'all', metric: 'snatchedDesc', mainCat: [], cat: [] }, null)
+    void load({ year: 'all', week: 'all', metric: METRICS[0].value, mainCat: [], cat: [] }, null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -134,7 +134,10 @@ export function Top10View(_props: PageProps) {
     page: TOP10_PAGE,
     state: { year, week, metric, mainCat, cat },
     name: savedName,
-    filtered: true,
+    // A set at the opening values would light up again the moment it is switched
+    // off, so Save waits until something here is actually picked.
+    filtered:
+      year !== 'all' || week !== 'all' || metric !== METRICS[0].value || mainCat.length > 0 || cat.length > 0,
     onApply: (saved) => {
       const ids = (v: unknown) => (Array.isArray(v) ? v.map(Number).filter((n) => Number.isFinite(n)) : [])
       apply({
@@ -145,6 +148,9 @@ export function Top10View(_props: PageProps) {
         cat: ids(saved.cat),
       })
     },
+    // Nothing here is ever unfiltered, so switching a set off means the list
+    // this page opens with.
+    onClear: () => apply({ year: 'all', week: 'all', metric: METRICS[0].value, mainCat: [], cat: [] }),
   })
 
   const years = avail ? Object.keys(avail).sort((a, b) => Number(b) - Number(a)) : []

@@ -524,6 +524,31 @@ const savedOf = (s: BrowseState): Record<string, unknown> => ({
   extra: s.extra,
 })
 
+/** Every field a set can hold, at the value the page opens with. Switching a set
+ * off puts back exactly these, so a list, an entity link or a stored preference
+ * the set never carried stays as it is. */
+const SAVED_DEFAULTS: Partial<BrowseState> = {
+  text: '',
+  srchIn: ['title', 'author'],
+  searchType: 'all',
+  mainCat: [],
+  categories: [],
+  langs: [],
+  langsMode: 'has',
+  flagsMode: 0,
+  flags: [],
+  minSize: null,
+  maxSize: null,
+  sizeUnit: DEFAULT_SIZE_UNIT,
+  dateRange: '',
+  startDate: '',
+  endDate: '',
+  sort: 'default',
+  extra: EMPTY_EXTRA,
+  // Page size stays out: it reads as a preference of its own and the sticky
+  // filters would carry a reset of it into every later visit.
+}
+
 const asIds = (v: unknown): number[] | undefined =>
   Array.isArray(v) ? v.map(Number).filter((n) => Number.isFinite(n) && n > 0) : undefined
 const asText = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined)
@@ -1761,12 +1786,26 @@ export function BrowseView(props: PageProps) {
     .filter(Boolean)
     .join(' · ')
 
+  /** Everything with a chip goes, the hide-snatched toggle included. Wider than
+   * a set: this one also lets go of the list you are in plus the author,
+   * narrator or series a link pinned. */
+  const clearFilters = () => {
+    setHideSnatched(false)
+    apply({
+      mainCat: [], categories: [], langs: [], langsMode: 'has', flags: [],
+      minSize: null, maxSize: null, dateRange: '', startDate: '', endDate: '',
+      searchType: 'all', searchIn: 'torrents',
+      authorID: null, narratorID: null, seriesID: null, uploader: null, extra: EMPTY_EXTRA,
+    })
+  }
+
   const views = useSavedViews({
     page: BROWSE_PAGE,
     state: savedOf(searched),
     name: savedName,
     filtered: savedName.length > 0,
     onApply: (saved) => apply(patchFromSaved(saved)),
+    onClear: () => apply(SAVED_DEFAULTS),
   })
 
   return (
@@ -1779,6 +1818,10 @@ export function BrowseView(props: PageProps) {
       />
 
       <FilterBar>
+        {/* Sets sit above everything they fill in, so the bar reads as which
+            view, then what you look for, then how you narrow it. */}
+        {!uploaderMode && <FilterSaved views={views} />}
+
         {/* Rolling a random book is a way of searching, so it sits with the
             search field rather than beside the page title. */}
         <FilterRow className="gap-2">
@@ -1807,8 +1850,6 @@ export function BrowseView(props: PageProps) {
 
         {uploaderMode ? null : (
         <>
-        <FilterSaved views={views} />
-
         <FilterRow>
           <FilterSegments
             type="multiple"
@@ -1943,16 +1984,7 @@ export function BrowseView(props: PageProps) {
       <FilterSummary
         chips={chips}
         actions={uploaderMode || !views.hasActions ? undefined : <FilterSavedActions views={views} />}
-        onClearAll={() => {
-          // Everything with a chip goes, the hide-snatched toggle included.
-          setHideSnatched(false)
-          apply({
-            mainCat: [], categories: [], langs: [], langsMode: 'has', flags: [],
-            minSize: null, maxSize: null, dateRange: '', startDate: '', endDate: '',
-            searchType: 'all', searchIn: 'torrents',
-            authorID: null, narratorID: null, seriesID: null, uploader: null, extra: EMPTY_EXTRA,
-          })
-        }}
+        onClearAll={clearFilters}
       />
 
       {state.seriesID != null && seriesGroups.length > 0 && (

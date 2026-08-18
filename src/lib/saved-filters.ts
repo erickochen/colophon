@@ -5,6 +5,9 @@ import { useCallback, useSyncExternalStore } from 'react'
 export const SAVED_FILTERS_KEY = 'colophon:saved-filters'
 /** Long enough for a chip summary, short enough to fit a pill. */
 export const NAME_MAX = 60
+/** What a set filters can run to a dozen parts, so it gets its own headroom
+ * rather than the length a pill can carry. */
+export const SUMMARY_MAX = 240
 /** Beyond this the extra sets move into the More facet on the bar. */
 export const PILL_LIMIT = 5
 export const SCHEMA = 1
@@ -51,7 +54,7 @@ function asSet(raw: unknown): SavedSet | null {
     id,
     name: cleanName(name),
     state,
-    ...(typeof summary === 'string' && summary ? { summary: cleanName(summary) } : {}),
+    ...(typeof summary === 'string' && summary ? { summary: cleanSummary(summary) } : {}),
     ...(pinned === true ? { pinned: true as const } : {}),
     created: typeof created === 'number' && Number.isFinite(created) ? created : 0,
   }
@@ -117,9 +120,17 @@ export function reloadSavedFilters(): void {
   listeners.forEach((l) => l())
 }
 
-export function cleanName(raw: string): string {
+function flatten(raw: string, max: number): string {
   const flat = raw.replace(/\s+/g, ' ').trim()
-  return flat.length > NAME_MAX ? flat.slice(0, NAME_MAX).trimEnd() : flat
+  return flat.length > max ? flat.slice(0, max).trimEnd() : flat
+}
+
+export function cleanName(raw: string): string {
+  return flatten(raw, NAME_MAX)
+}
+
+export function cleanSummary(raw: string): string {
+  return flatten(raw, SUMMARY_MAX)
 }
 
 /** Key order and array order both vary between renders, so both are settled
@@ -192,7 +203,7 @@ export function saveSet(
     id: newId(),
     name: cleanName(name),
     state,
-    ...(summary ? { summary: cleanName(summary) } : {}),
+    ...(summary ? { summary: cleanSummary(summary) } : {}),
     created: Date.now(),
   }
   return { ok: put(page, [...readSets(page), set]), set }
@@ -206,7 +217,7 @@ export function updateSet(
 ): boolean {
   return put(
     page,
-    readSets(page).map((s) => (s.id === id ? { ...s, state, ...(summary ? { summary: cleanName(summary) } : {}) } : s))
+    readSets(page).map((s) => (s.id === id ? { ...s, state, ...(summary ? { summary: cleanSummary(summary) } : {}) } : s))
   )
 }
 

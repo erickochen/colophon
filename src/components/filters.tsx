@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Toggle } from '@/components/ui/toggle'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 export interface FacetOption {
@@ -135,6 +136,12 @@ export function FilterSearch({
   )
 }
 
+/** Rounded shape shared by the category tabs and the saved sets, so neither
+ * reads as one of the square filter controls under it. */
+const PILL =
+  'h-auto flex-none justify-between gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] text-muted-foreground shadow-none transition-colors'
+const PILL_ON = 'border-brand/40 bg-brand-soft font-medium text-accent-foreground'
+
 /** Wrapping pill row for category tabs; pair with FilterPill inside a Tabs root. */
 export function FilterPillList({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
@@ -158,7 +165,8 @@ export function FilterPill({
       value={value}
       title={title}
       className={cn(
-        'h-auto flex-none justify-between gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] text-muted-foreground shadow-none transition-colors hover:bg-accent/50 data-active:border-brand/40 data-active:bg-brand-soft data-active:font-medium data-active:text-accent-foreground data-active:shadow-none',
+        PILL,
+        'hover:bg-accent/50 data-active:border-brand/40 data-active:bg-brand-soft data-active:font-medium data-active:text-accent-foreground data-active:shadow-none',
         className
       )}
     >
@@ -239,6 +247,7 @@ export function FilterFacet({
   width = 'w-72',
   align = 'start',
   icon,
+  triggerClassName,
   children,
 }: {
   label: string
@@ -246,12 +255,14 @@ export function FilterFacet({
   width?: string
   align?: 'start' | 'center' | 'end'
   icon?: React.ReactNode
+  /** For a facet standing in a row of its own shape, such as the saved pills. */
+  triggerClassName?: string
   children: React.ReactNode
 }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className={TRIGGER}>
+        <Button variant="outline" size="sm" className={cn(TRIGGER, triggerClassName)}>
           {icon}
           {label}
           {count > 0 && (
@@ -651,6 +662,11 @@ export function toggleValue<T>(list: T[], v: T): T[] {
 
 const STORAGE_REFUSED = 'Your browser is blocking storage, so nothing was kept.'
 
+/** A pill drops a second click inside this window. Applying and clearing both
+ * search, so a double click would put two of them back to back, which the
+ * search endpoint answers with a 403. */
+const PILL_GUARD_MS = 350
+
 export interface SavedViews {
   sets: SavedSet[]
   /** The set holding exactly what is on screen, so its pill reads as active. */
@@ -659,10 +675,16 @@ export interface SavedViews {
   loaded: SavedSet | null
   dirty: boolean
   canSave: boolean
+  /** Whether there is anything to switch off. A set holding the state the page
+   * opens with has nothing to clear, so its pill only ever applies. */
+  clearable: boolean
   /** Whether the summary actions render anything, so a page can leave the row
    * out instead of spacing an empty one. */
   hasActions: boolean
   apply: (set: SavedSet) => void
+  /** Turns the active set off by emptying the bar, which is what a second click
+   * on its pill does. */
+  clear: () => void
   saveNew: () => void
   updateLoaded: () => void
   togglePin: () => void
@@ -677,6 +699,7 @@ export function useSavedViews({
   name,
   filtered,
   onApply,
+  onClear,
 }: {
   page: string
   state: Record<string, unknown>
@@ -685,9 +708,20 @@ export function useSavedViews({
   /** Whether anything is filtered right now, which is what Save asks about. */
   filtered: boolean
   onApply: (state: Record<string, unknown>) => void
+  /** Puts the page back the way it opens, for a set switched off again. */
+  onClear: () => void
 }): SavedViews {
   const store = useSavedFilters(page)
   const [loadedId, setLoadedId] = React.useState<string | null>(null)
+  // Only a repeat of the same pill counts as too soon: picking another set is a
+  // choice, however fast it follows.
+  const lastPick = React.useRef({ id: '', at: 0 })
+  const tooSoon = (id: string) => {
+    const now = Date.now()
+    if (lastPick.current.id === id && now - lastPick.current.at < PILL_GUARD_MS) return true
+    lastPick.current = { id, at: now }
+    return false
+  }
   const active = store.sets.find((s) => sameState(s.state, state)) ?? null
   const activeId = active?.id ?? null
   React.useEffect(() => {
@@ -701,10 +735,17 @@ export function useSavedViews({
     loaded,
     dirty: !active && loaded != null,
     canSave: filtered,
+    clearable: filtered,
     hasActions: filtered && !active,
     apply: (set) => {
+      if (tooSoon(set.id)) return
       setLoadedId(set.id)
       onApply(set.state)
+    },
+    clear: () => {
+      if (tooSoon(active?.id ?? '')) return
+      setLoadedId(null)
+      onClear()
     },
     saveNew: () => {
       const { ok, set } = store.save(name, state, name)
@@ -734,45 +775,73 @@ export function useSavedViews({
 
 const savedLabel = (set: SavedSet) => (set.pinned ? `${set.name}, opens by default` : set.name)
 
-/** The saved sets of a page, as one row of pills plus the default toggle. The
- * row is absent until the page holds a set. */
+/** One saved set. Clicking the name applies it, clicking it again empties the
+ * bar. A set holding the state the page opens with has nothing to empty, so
+ * there the second click rests. The pin only becomes a button on the set that
+ * is on, since that is the one the choice is about. */
+function SavedPill({ set, active, views }: { set: SavedSet; active: boolean; views: SavedViews }) {
+  if (!active) {
+    return (
+      <Button
+        variant="ghost"
+        aria-pressed={false}
+        aria-label={savedLabel(set)}
+        onClick={() => views.apply(set)}
+        className={cn(PILL, 'hover:bg-accent/50')}
+      >
+        {set.pinned && <Pin aria-hidden className="size-3 opacity-70" />}
+        <span className="max-w-48 truncate">{set.name}</span>
+      </Button>
+    )
+  }
+  return (
+    <div className={cn(PILL, PILL_ON, 'flex items-center gap-0 p-0')}>
+      <Button
+        variant="ghost"
+        aria-pressed
+        aria-label={savedLabel(set)}
+        title={views.clearable ? 'Turn these filters off' : undefined}
+        onClick={() => views.clearable && views.clear()}
+        className="h-auto rounded-full px-3 pr-1.5 py-1.5 text-[12.5px] font-medium text-accent-foreground hover:bg-accent/40"
+      >
+        <span className="max-w-48 truncate">{set.name}</span>
+      </Button>
+      <Toggle
+        pressed={set.pinned === true}
+        onPressedChange={() => views.togglePin()}
+        aria-label={set.pinned ? `${set.name} opens this page, switch off` : `Open this page with ${set.name}`}
+        title="Open this page with these filters"
+        className="h-auto min-w-0 rounded-full px-2 py-1.5 hover:bg-accent/40 data-pressed:bg-transparent"
+      >
+        <Pin className={cn('size-3.5', set.pinned ? 'text-brand' : 'text-muted-foreground/70')} />
+      </Toggle>
+    </div>
+  )
+}
+
+/** The saved sets of a page, as one row of pills above the filters they set.
+ * The row is absent until the page holds a set. */
 export function FilterSaved({ views, className }: { views: SavedViews; className?: string }) {
   if (views.sets.length === 0) return null
-  const shown = views.sets.slice(0, PILL_LIMIT)
-  const rest = views.sets.slice(PILL_LIMIT)
-  const restActive = rest.some((s) => s.id === views.active?.id)
+  const first = views.sets.slice(0, PILL_LIMIT)
+  // The set that is on always keeps a pill of its own: its pin plus its off
+  // switch live there, while the More list can only apply one.
+  const hidden = views.sets.slice(PILL_LIMIT).find((s) => s.id === views.active?.id)
+  const shown = hidden ? [...first.slice(0, PILL_LIMIT - 1), hidden] : first
+  const rest = views.sets.filter((s) => !shown.includes(s))
 
   return (
-    <FilterRow className={className}>
+    <div
+      role="group"
+      aria-label="Saved filters"
+      className={cn('-mx-6 flex flex-wrap items-center gap-2 border-b px-6 pb-3', className)}
+    >
       <FilterHint>Saved</FilterHint>
-      <ToggleGroup
-        type="single"
-        variant="outline"
-        aria-label="Saved filters"
-        value={views.active?.id ?? ''}
-        onValueChange={(v) => {
-          const hit = views.sets.find((s) => s.id === v)
-          if (hit) views.apply(hit)
-        }}
-        className="flex-wrap"
-      >
-        {shown.map((s) => (
-          <ToggleGroupItem
-            key={s.id}
-            value={s.id}
-            aria-label={savedLabel(s)}
-            className={cn(
-              'h-8 px-3 text-[12.5px] font-medium text-muted-foreground',
-              'data-pressed:bg-brand-soft data-pressed:text-accent-foreground'
-            )}
-          >
-            {s.pinned && <Pin aria-hidden className="size-3 text-muted-foreground" />}
-            <span className="max-w-48 truncate">{s.name}</span>
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
+      {shown.map((s) => (
+        <SavedPill key={s.id} set={s} active={views.active?.id === s.id} views={views} />
+      ))}
       {rest.length > 0 && (
-        <FilterFacet label="More" count={restActive ? 1 : 0} width="w-64">
+        <FilterFacet label="More" width="w-64" triggerClassName="rounded-full">
           <Command>
             <CommandInput placeholder="Filter saved…" />
             <CommandList className="max-h-64">
@@ -789,16 +858,7 @@ export function FilterSaved({ views, className }: { views: SavedViews; className
           </Command>
         </FilterFacet>
       )}
-      {views.active && (
-        <FilterToggle
-          pressed={views.active.pinned === true}
-          onPressedChange={views.togglePin}
-          label="Default"
-          note="Open this page with these filters"
-          icon={<Pin className="size-3.5" />}
-        />
-      )}
-    </FilterRow>
+    </div>
   )
 }
 

@@ -37,10 +37,12 @@ export function SaveBar({
   )
 }
 
-/** Card shell with the shared header geometry used across prefs cards. */
+/** Card shell with the shared header geometry used across prefs cards. Without
+ * children the header is the whole card, which is how an empty list says so
+ * without a second line repeating the first. */
 export function PrefCard({
   title, note, children, className, contentClassName,
-}: { title?: ReactNode; note?: ReactNode; children: ReactNode; className?: string; contentClassName?: string }) {
+}: { title?: ReactNode; note?: ReactNode; children?: ReactNode; className?: string; contentClassName?: string }) {
   return (
     <Card className={cn('gap-0 py-0', className)}>
       {(title || note) && (
@@ -49,7 +51,7 @@ export function PrefCard({
           {note && <p className="pt-0.5 text-[12px] leading-normal text-muted-foreground">{note}</p>}
         </CardHeader>
       )}
-      <CardContent className={cn('grid gap-4 px-6 py-5', contentClassName)}>{children}</CardContent>
+      {children ? <CardContent className={cn('grid gap-4 px-6 py-5', contentClassName)}>{children}</CardContent> : null}
     </Card>
   )
 }
