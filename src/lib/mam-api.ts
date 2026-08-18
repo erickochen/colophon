@@ -638,6 +638,33 @@ export function buyPersonalFreeleech(id: number): Promise<BonusBuyResult> {
   return bonusBuy(new URLSearchParams({ spendtype: 'personalFL', torrentid: String(id) }))
 }
 
+/** Bonus points into upload credit. The amount is one of the store's own steps,
+ * "Max Affordable " included, since the server prices per step. */
+export function buyUploadCredit(amount: string): Promise<BonusBuyResult> {
+  return bonusBuy(new URLSearchParams({ spendtype: 'upload', amount }))
+}
+
+/** VIP time in weeks. "max" takes whatever the balance reaches. */
+export function buyVip(duration: string): Promise<BonusBuyResult> {
+  return bonusBuy(new URLSearchParams({ spendtype: 'VIP', duration }))
+}
+
+/** One freeleech wedge, paid in cheese or in points. */
+export function buyWedge(source: string): Promise<BonusBuyResult> {
+  return bonusBuy(new URLSearchParams({ spendtype: 'wedges', source }))
+}
+
+/** Another 72 hours of seed time on one torrent. */
+export function buySeedtime(tid: string): Promise<BonusBuyResult> {
+  return bonusBuy(new URLSearchParams({ spendtype: 'seedtime', tid }))
+}
+
+/** Ask staff for a custom title. Nothing is charged until they approve it. The
+ * timestamp is MAM's own cache buster on this one call. */
+export function buyTitle(title: string, timestamp: number): Promise<BonusBuyResult> {
+  return bonusBuy(new URLSearchParams({ spendtype: 'title', title, timestamp: String(timestamp) }))
+}
+
 /** Thank an uploader, with bonus points when an amount rides along. Same call
  * MAM's own thanks form makes, so the points land as a gift. */
 export function thankUploader(tid: string, points: number): Promise<BonusBuyResult> {
