@@ -35,9 +35,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   FacetMode, FacetOptions, FilterBar, FilterDateRange, FilterFacet, FilterHint,
-  FilterRow, FilterSearch, FilterSegments, FilterSelect, FilterSummary, FilterToggle, TRIGGER,
-  toggleValue,
+  FilterRow, FilterSaved, FilterSavedActions, FilterSearch, FilterSegments, FilterSelect,
+  FilterSummary, FilterToggle, TRIGGER, toggleValue, useSavedViews,
 } from '@/components/filters'
+import { pinnedSet } from '@/lib/saved-filters'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -498,19 +499,118 @@ const stickyOf = (s: BrowseState): StickyFilters => ({
   perpage: s.perpage,
 })
 
+export const BROWSE_PAGE = 'browse'
+
+/** What a saved set holds. The entity a link pins stays out: a set that drags
+ * one author along would narrow every list it is applied to. */
+const savedOf = (s: BrowseState): Record<string, unknown> => ({
+  text: s.text,
+  srchIn: s.srchIn,
+  searchType: s.searchType,
+  mainCat: s.mainCat,
+  categories: s.categories,
+  langs: s.langs,
+  langsMode: s.langsMode,
+  flagsMode: s.flagsMode,
+  flags: s.flags,
+  minSize: s.minSize,
+  maxSize: s.maxSize,
+  sizeUnit: s.sizeUnit,
+  dateRange: s.dateRange,
+  startDate: s.startDate,
+  endDate: s.endDate,
+  sort: s.sort,
+  perpage: s.perpage,
+  extra: s.extra,
+})
+
+const asIds = (v: unknown): number[] | undefined =>
+  Array.isArray(v) ? v.map(Number).filter((n) => Number.isFinite(n) && n > 0) : undefined
+const asText = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined)
+const asCount = (v: unknown): number | null | undefined =>
+  v === null ? null : typeof v === 'number' && Number.isFinite(v) ? v : undefined
+
+/** A stored set read back over the current state. A field the set does not
+ * carry keeps its value, so an older set still applies after a filter is
+ * added here. */
+function patchFromSaved(raw: Record<string, unknown>): Partial<BrowseState> {
+  const out: Partial<BrowseState> = { start: 0 }
+  const text = asText(raw.text)
+  if (text !== undefined) out.text = text
+  if (Array.isArray(raw.srchIn)) out.srchIn = raw.srchIn.filter((v): v is SrchField => typeof v === 'string' && SRCH_FIELDS.some(([f]) => f === v))
+  if (SEARCH_TYPES.some(([v]) => v === raw.searchType)) out.searchType = raw.searchType as BrowseSearchType
+  const mainCat = asIds(raw.mainCat)
+  if (mainCat) out.mainCat = mainCat.filter((m) => MAIN_CATS.some((x) => x.id === m))
+  const categories = asIds(raw.categories)
+  if (categories) out.categories = categories
+  const langs = asIds(raw.langs)
+  if (langs) out.langs = langs.filter((l) => LANGUAGES.some((x) => x.id === l))
+  if (raw.langsMode === 'has' || raw.langsMode === 'not') out.langsMode = raw.langsMode
+  if (raw.flagsMode === 0 || raw.flagsMode === 1) out.flagsMode = raw.flagsMode
+  const flags = asIds(raw.flags)
+  if (flags) out.flags = flags.filter((f) => CONTENT_FLAGS.some((x) => x.bit === f))
+  const minSize = asCount(raw.minSize)
+  if (minSize !== undefined) out.minSize = minSize
+  const maxSize = asCount(raw.maxSize)
+  if (maxSize !== undefined) out.maxSize = maxSize
+  if (SIZE_UNITS.some((u) => u.value === raw.sizeUnit)) out.sizeUnit = raw.sizeUnit as number
+  if (['', 'day', 'week', 'month', 'custom'].includes(String(raw.dateRange))) {
+    out.dateRange = raw.dateRange as BrowseState['dateRange']
+  }
+  const startDate = asText(raw.startDate)
+  if (startDate !== undefined) out.startDate = startDate
+  const endDate = asText(raw.endDate)
+  if (endDate !== undefined) out.endDate = endDate
+  if (BROWSE_SORTS.some((o) => o.value === raw.sort)) out.sort = raw.sort as string
+  if (PERPAGE_OPTIONS.includes(Number(raw.perpage))) out.perpage = Number(raw.perpage)
+  const extra = raw.extra as BrowseState['extra'] | undefined
+  if (extra && typeof extra === 'object' && extra.com && extra.tor) out.extra = extra
+  return out
+}
+
+/** Whether a blob narrows the list rather than only carrying page size. */
+function namesFilters(b: Partial<BrowseState>): boolean {
+  return (
+    !!b.text ||
+    !!b.mainCat?.length ||
+    !!b.categories?.length ||
+    !!b.langs?.length ||
+    !!b.flags?.length ||
+    b.minSize != null ||
+    b.maxSize != null ||
+    !!b.dateRange ||
+    // MAM's own scripts write sortType=default into the blob, which is the
+    // absence of a choice rather than one.
+    (b.sort != null && b.sort !== 'default') ||
+    (b.searchType != null && b.searchType !== 'all') ||
+    (b.searchIn != null && b.searchIn !== 'torrents') ||
+    (b.extra != null && hasExtra(b.extra))
+  )
+}
+
 /** The URL wins per field, then the filters last used here, then whatever MAM
  * has saved as its own browse defaults. Only the plain torrent list gets them:
- * opening your bookmarks or your uploads should show that list whole. */
+ * opening your bookmarks or your uploads should show that list whole. A pinned
+ * set stands above all of it plus steps aside only for a link naming filters. */
 function initialState(myUid: string | null): BrowseState {
   const s = stateFromUrl(myUid)
   // An entity link pins one author, narrator or series; saved filters would
   // narrow that list to confusion.
   if (s.searchIn !== 'torrents' || s.uploader || s.authorID || s.narratorID || s.seriesID) return s
-  const saved: Partial<StickyFilters> = readSticky() ?? mamBrowseDefaults() ?? {}
   const p = new URLSearchParams(location.search)
   // A filter the link itself names is a choice, whether it rides in as a
   // tor[...] param or inside the s= blob of the newer search page.
   const blob = p.get('s') ? stateFromSearchJson(p.get('s')!, myUid) : null
+  const pin = pinnedSet(BROWSE_PAGE)
+  if (pin) {
+    const urlSortPicked = p.get('tor[sortType]') && p.get('tor[sortType]') !== 'default'
+    const urlPicked = ['tor[main_cat][]', 'tor[cat][]', 'tor[browse_lang][]', 'tor[browseFlags][]'].some((k) =>
+      p.getAll(k).some((v) => Number(v) > 0)
+    )
+    const linkChose = (blob != null && namesFilters(blob)) || !!p.get('tor[text]') || urlPicked || !!urlSortPicked
+    if (!linkChose) return { ...s, ...patchFromSaved(pin.state) }
+  }
+  const saved: Partial<StickyFilters> = readSticky() ?? mamBrowseDefaults() ?? {}
   // MAM's own scripts rewrite the URL once their search returns, leaving neutral
   // values behind: tor[cat][]=0 for every category and tor[sortType]=default.
   // Those are not a choice, so they must not shut the saved filters out.
@@ -1191,6 +1291,7 @@ function ViewToggle({ view, onChange }: { view: ViewMode; onChange: (v: ViewMode
 
 export function BrowseView(props: PageProps) {
   const [state, setState] = useState<BrowseState>(() => initialState(props.page.user.uid != null ? String(props.page.user.uid) : null))
+  const [queriedText, setQueriedText] = useState('')
   const [items, setItems] = useState<SearchTorrent[]>([])
   const [found, setFound] = useState(0)
   const [baseStart, setBaseStart] = useState(state.start)
@@ -1273,6 +1374,9 @@ export function BrowseView(props: PageProps) {
 
   const run = useCallback(async (s: BrowseState, opts: { append?: boolean; push?: boolean; take?: number } = {}) => {
     const { append = false, push = true, take } = opts
+    // Typing moves the field long before a search runs, so saved sets compare
+    // against the text this list was actually built from.
+    setQueriedText(s.text)
     // A series loads whole from row 0, so an offset riding in on the URL must
     // not skew the shown count.
     const q = s.seriesID && s.start !== 0 ? { ...s, start: 0 } : s
@@ -1367,6 +1471,8 @@ export function BrowseView(props: PageProps) {
   const apply = (patch: Partial<BrowseState>) => {
     const next = { ...state, ...patch, start: 0 }
     setState(next)
+    // A pin decides what the page opens with, so the quiet remembering keeps
+    // running underneath it and has the last stand ready once the pin goes.
     if (next.searchIn === 'torrents' && !next.uploader) writeSticky(stickyOf(next))
     void run(next)
   }
@@ -1644,6 +1750,25 @@ export function BrowseView(props: PageProps) {
       : []),
   ]
 
+  // The name of a set reads like the chips it stands for, with the media type
+  // in front since its tabs sit outside the chip row.
+  const searched = { ...state, text: queriedText }
+  const savedName = [
+    queriedText.trim(),
+    ...state.mainCat.map((m) => MAIN_CATS.find((x) => x.id === m)?.name).filter(Boolean),
+    ...chips.filter((c) => !['uploader', 'author', 'narrator', 'series'].includes(c.key)).map((c) => c.label),
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
+  const views = useSavedViews({
+    page: BROWSE_PAGE,
+    state: savedOf(searched),
+    name: savedName,
+    filtered: savedName.length > 0,
+    onApply: (saved) => apply(patchFromSaved(saved)),
+  })
+
   return (
     <div className="grid gap-4">
       {/* The count lives on the list itself, so the subtitle only says what this
@@ -1682,6 +1807,8 @@ export function BrowseView(props: PageProps) {
 
         {uploaderMode ? null : (
         <>
+        <FilterSaved views={views} />
+
         <FilterRow>
           <FilterSegments
             type="multiple"
@@ -1815,6 +1942,7 @@ export function BrowseView(props: PageProps) {
 
       <FilterSummary
         chips={chips}
+        actions={uploaderMode || !views.hasActions ? undefined : <FilterSavedActions views={views} />}
         onClearAll={() => {
           // Everything with a chip goes, the hide-snatched toggle included.
           setHideSnatched(false)

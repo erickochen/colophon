@@ -2,7 +2,7 @@
 // write the settings store directly and apply immediately, so there is no form
 // and no save bar.
 import { useEffect, useRef, useState } from 'react'
-import { BookMarked, Check, ChevronsUpDown, Download, Moon, RotateCcw, Sun, SunMoon, Upload } from 'lucide-react'
+import { BookMarked, Check, ChevronsUpDown, Download, Moon, Pin, RotateCcw, Sun, SunMoon, Upload } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import type { Theme } from '@/lib/theme'
 import {
@@ -27,8 +27,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { Toggle } from '@/components/ui/toggle'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { toast } from '@/components/ui/toast'
+import {
+  SAVED_PAGES, cleanName, useAllSavedFilters, useSavedFilters, type SavedFilters, type SavedSet,
+} from '@/lib/saved-filters'
 
 const EXPORT_FILENAME = 'colophon-settings.json'
 
@@ -322,6 +326,123 @@ function NoteRows() {
   )
 }
 
+const STORAGE_REFUSED = 'Your browser is blocking storage, so nothing was kept.'
+
+/** A deleted set can be taken back for this long. Longer than the usual toast,
+ * since reading the name plus reaching for Undo takes a moment. */
+const UNDO_MS = 12000
+
+/** One saved set: its name to edit, what it filters, the pin plus the way out.
+ * The name commits on blur or Enter, so renaming costs no extra click. */
+function SavedFilterRow({ set, store }: { set: SavedSet; store: SavedFilters }) {
+  const [name, setName] = useState(set.name)
+  useEffect(() => setName(set.name), [set.name])
+
+  const commit = () => {
+    const next = cleanName(name)
+    if (!next || next === set.name) {
+      setName(set.name)
+      return
+    }
+    if (!store.rename(set.id, next)) {
+      setName(set.name)
+      toast.error('Could not rename this set', { description: STORAGE_REFUSED })
+    }
+  }
+
+  const drop = () => {
+    const gone = store.remove(set.id)
+    if (!gone.ok) {
+      toast.error('Could not delete this set', { description: STORAGE_REFUSED })
+      return
+    }
+    // A second click on the same row finds nothing left to take away.
+    if (!gone.set) return
+    const back = gone.set
+    toast.success(`Deleted "${back.name}"`, {
+      duration: UNDO_MS,
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          if (!store.restore(back, gone.at)) {
+            toast.error('Could not bring it back', { description: STORAGE_REFUSED })
+          }
+        },
+      },
+    })
+  }
+
+  return (
+    <div className={REVIEW_ROW}>
+      <Input
+        value={name}
+        aria-label="Name of this set"
+        onChange={(e) => setName(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur()
+          if (e.key === 'Escape') setName(set.name)
+        }}
+        className="h-7 w-44 shrink-0 text-[13px]"
+      />
+      <span className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground" title={set.summary}>
+        {set.summary}
+      </span>
+      <Toggle
+        size="sm"
+        pressed={set.pinned === true}
+        onPressedChange={(on) => {
+          if (!store.pin(set.id, on)) toast.error('Could not change the default', { description: STORAGE_REFUSED })
+        }}
+        aria-label={set.pinned ? `${set.name} opens this page, switch off` : `Open this page with ${set.name}`}
+        title="Open this page with these filters"
+        className="shrink-0 data-pressed:bg-brand-soft data-pressed:text-accent-foreground"
+      >
+        <Pin className="size-3.5" />
+      </Toggle>
+      <Button variant="ghost" size="sm" className={REVIEW_BTN} onClick={drop}>
+        Delete
+      </Button>
+    </div>
+  )
+}
+
+function SavedFilterGroup({ page }: { page: string }) {
+  const store = useSavedFilters(page)
+  if (store.sets.length === 0) return null
+  return (
+    <ReviewList title={SAVED_PAGES[page] ?? page} empty="">
+      {store.sets.map((set) => (
+        <SavedFilterRow key={set.id} set={set} store={store} />
+      ))}
+    </ReviewList>
+  )
+}
+
+function SavedFilterRows() {
+  const pages = useAllSavedFilters()
+  const held = Object.keys(pages).filter((p) => pages[p].length > 0)
+  // Known pages in their own order, then anything else that holds a set.
+  const order = [
+    ...Object.keys(SAVED_PAGES).filter((p) => held.includes(p)),
+    ...held.filter((p) => !(p in SAVED_PAGES)),
+  ]
+  if (order.length === 0) {
+    return (
+      <p className="text-[12.5px] text-muted-foreground">
+        Nothing saved yet. Filter a list, then use Save these filters under the bar.
+      </p>
+    )
+  }
+  return (
+    <div className="grid gap-3">
+      {order.map((page) => (
+        <SavedFilterGroup key={page} page={page} />
+      ))}
+    </div>
+  )
+}
+
 function IntroCard() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [resetOpen, setResetOpen] = useState(false)
@@ -489,6 +610,13 @@ export function ColophonPrefsView(_props: PageProps) {
           credit="MAM+ by GardenShade"
         />
         <IgnoredTorrentRows />
+      </PrefCard>
+
+      <PrefCard
+        title="Saved filters"
+        note="Sets you saved from a filter bar. The one with a pin opens that page for you."
+      >
+        <SavedFilterRows />
       </PrefCard>
 
       <PrefCard title="Series">

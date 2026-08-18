@@ -9,6 +9,7 @@ import { getPortalContainer } from '@/lib/portals'
 import { BROWSE_COLS_KEY, BROWSE_FILTERS_KEY, BROWSE_VIEW_KEY } from '@/lib/browse-sticky'
 import { COLLAPSED_PREFIX, reloadCollapsed } from '@/lib/collapsed'
 import { HIDDEN_SECTIONS_KEY, reloadHiddenSections } from '@/lib/hidden-sections'
+import { SAVED_FILTERS_KEY, SCHEMA as SAVED_FILTERS_SCHEMA, reloadSavedFilters } from '@/lib/saved-filters'
 
 export type FeatureKey =
   | 'ratioProtect'
@@ -446,6 +447,14 @@ function validPlainObject(raw: unknown): Record<string, unknown> | null {
   return raw as Record<string, unknown>
 }
 
+/** Saved filter sets travel as one envelope, so the shape is checked here plus
+ * the sets themselves are checked again when the store reads them. */
+function validSavedFilters(raw: unknown): Record<string, unknown> | null {
+  const o = validPlainObject(raw)
+  if (!o || o.v !== SAVED_FILTERS_SCHEMA) return null
+  return validPlainObject(o.pages) ? o : null
+}
+
 // Every key export and import cover, with the validator that guards an import.
 const VALUE_KEYS: Record<string, (raw: string) => boolean> = {
   [RATIO_FLOOR_KEY]: (raw) => raw === RATIO_FLOOR_OFF || (Number.isFinite(Number(raw)) && Number(raw) > 0),
@@ -465,6 +474,7 @@ const VALUE_KEYS: Record<string, (raw: string) => boolean> = {
   [BROWSE_COLS_KEY]: (raw) => parses(raw, validStringList),
   [BROWSE_FILTERS_KEY]: (raw) => parses(raw, validPlainObject),
   [HIDDEN_SECTIONS_KEY]: (raw) => parses(raw, validStringList),
+  [SAVED_FILTERS_KEY]: (raw) => parses(raw, validSavedFilters),
 }
 
 // Theme writes need a repaint on top of the store notify.
@@ -518,6 +528,7 @@ export function importSettings(json: string): { applied: number; skipped: number
   let themeTouched = false
   let collapsedTouched = false
   let hiddenTouched = false
+  let savedTouched = false
   for (const [key, value] of Object.entries(o.values as Record<string, unknown>)) {
     if (typeof value !== 'string') {
       skipped += 1
@@ -544,12 +555,14 @@ export function importSettings(json: string): { applied: number; skipped: number
       applied += 1
       if (THEME_KEYS.has(key)) themeTouched = true
       if (key === HIDDEN_SECTIONS_KEY) hiddenTouched = true
+      if (key === SAVED_FILTERS_KEY) savedTouched = true
     } else skipped += 1
   }
   if (themeTouched) applyTheme(getPortalContainer())
-  // Both modules cache reads, so an import has to push the new state through.
+  // These modules cache reads, so an import has to push the new state through.
   if (collapsedTouched) reloadCollapsed()
   if (hiddenTouched) reloadHiddenSections()
+  if (savedTouched) reloadSavedFilters()
   return { applied, skipped }
 }
 
@@ -568,6 +581,7 @@ export function clearAllSettings(): void {
   applyTheme(getPortalContainer())
   reloadCollapsed()
   reloadHiddenSections()
+  reloadSavedFilters()
 }
 
 /** Puts a snapshot from exportSettings back, defaults first, so keys the

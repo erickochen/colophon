@@ -14,7 +14,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  FacetSection, FilterBar, FilterFacet, FilterRow, FilterSegments, FilterSelect, FilterSummary, toggleValue,
+  FacetSection, FilterBar, FilterFacet, FilterRow, FilterSaved, FilterSavedActions, FilterSegments,
+  FilterSelect, FilterSummary, toggleValue, useSavedViews,
 } from '@/components/filters'
 import { mamFetch } from '@/lib/mam-fetch'
 
@@ -30,6 +31,8 @@ interface Top10Query {
   mainCat: number[]
   cat: number[]
 }
+
+const TOP10_PAGE = 'top10'
 
 const METRICS = [
   { value: 'snatchedDesc', label: 'Most snatched' },
@@ -118,6 +121,32 @@ export function Top10View(_props: PageProps) {
   }
 
 
+  const savedName = [
+    METRICS.find((m) => m.value === metric)?.label,
+    year === 'all' ? '' : week === 'all' ? year : `${year} week ${week}`,
+    ...mainCat.map((m) => MAIN_CATS.find((x) => x.id === m)?.name),
+    ...cat.map(catName),
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
+  const views = useSavedViews({
+    page: TOP10_PAGE,
+    state: { year, week, metric, mainCat, cat },
+    name: savedName,
+    filtered: true,
+    onApply: (saved) => {
+      const ids = (v: unknown) => (Array.isArray(v) ? v.map(Number).filter((n) => Number.isFinite(n)) : [])
+      apply({
+        year: typeof saved.year === 'string' ? saved.year : 'all',
+        week: typeof saved.week === 'string' ? saved.week : 'all',
+        metric: METRICS.some((m) => m.value === saved.metric) ? (saved.metric as string) : metric,
+        mainCat: ids(saved.mainCat),
+        cat: ids(saved.cat),
+      })
+    },
+  })
+
   const years = avail ? Object.keys(avail).sort((a, b) => Number(b) - Number(a)) : []
   const weeks: string[] = []
   if (avail && year !== 'all' && avail[year]) {
@@ -135,6 +164,7 @@ export function Top10View(_props: PageProps) {
       />
 
       <FilterBar>
+        <FilterSaved views={views} />
         <FilterRow>
           <FilterSegments options={METRICS} value={metric} onChange={(v) => apply({ metric: v })} />
           <FilterSelect
@@ -185,6 +215,7 @@ export function Top10View(_props: PageProps) {
       <FilterSummary
         chips={cat.map((c) => ({ key: `c${c}`, label: catName(c), onRemove: () => apply({ cat: toggleValue(cat, c) }) }))}
         onClearAll={() => apply({ cat: [], mainCat: [] })}
+        actions={views.hasActions ? <FilterSavedActions views={views} /> : undefined}
       />
 
       <div className="grid gap-2.5">

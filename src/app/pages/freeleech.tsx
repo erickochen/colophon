@@ -18,14 +18,19 @@ import {
   FilterBar,
   FilterFacet,
   FilterRow,
+  FilterSaved,
+  FilterSavedActions,
   FilterSearch,
   FilterSegments,
   FilterSelect,
   FilterSummary,
   toggleValue,
+  useSavedViews,
   type FacetOption,
   type FilterChip,
 } from '@/components/filters'
+
+const FREELEECH_PAGE = 'freeleech'
 
 const MEDIA_ICONS: Record<string, ReactNode> = {
   '1': <Headphones className="size-4" />,
@@ -179,6 +184,21 @@ export function FreeleechView(props: PageProps) {
     setQ('')
   }
 
+  const savedName = [q.trim(), ...chips.map((c) => c.label)].filter(Boolean).join(' · ')
+  const views = useSavedViews({
+    page: FREELEECH_PAGE,
+    state: { q, mainCat, media, cats, groupBy },
+    name: savedName,
+    filtered: savedName.length > 0,
+    onApply: (saved) => {
+      if (typeof saved.q === 'string') setQ(saved.q)
+      if (typeof saved.mainCat === 'string') setMainCat(saved.mainCat)
+      if (Array.isArray(saved.media)) setMedia(saved.media.filter((v): v is string => typeof v === 'string'))
+      if (Array.isArray(saved.cats)) setCats(saved.cats.filter((v): v is string => typeof v === 'string'))
+      if (GROUP_BY.some((o) => o.value === saved.groupBy)) setGroupBy(saved.groupBy as string)
+    },
+  })
+
   if (!data) return <LegacyView {...props} />
 
   const total = allItems.length
@@ -205,6 +225,7 @@ export function FreeleechView(props: PageProps) {
 
       <FilterBar>
         <FilterSearch value={q} onChange={setQ} placeholder={`Filter ${total.toLocaleString()} picks by title, author or category…`} />
+        <FilterSaved views={views} />
         <FilterRow>
           <FilterSegments options={mainCatOptions} value={mainCat} onChange={setMainCat} />
           <FilterFacet label="Media types" count={media.length}>
@@ -241,7 +262,7 @@ export function FreeleechView(props: PageProps) {
         </FilterRow>
       </FilterBar>
 
-      <FilterSummary chips={chips} onClearAll={clearAll} />
+      <FilterSummary chips={chips} onClearAll={clearAll} actions={views.hasActions ? <FilterSavedActions views={views} /> : undefined} />
 
       {sections.length === 0 && (
         <p className="py-12 text-center text-sm text-muted-foreground">

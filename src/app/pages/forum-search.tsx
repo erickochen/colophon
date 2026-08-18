@@ -11,7 +11,19 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Spinner } from '@/components/ui/spinner'
-import { FacetOptions, FilterBar, FilterFacet, FilterRow, FilterSearch, FilterSelect } from '@/components/filters'
+import {
+  FacetOptions, FilterBar, FilterFacet, FilterRow, FilterSaved, FilterSavedActions, FilterSearch,
+  FilterSelect, FilterSummary, useSavedViews,
+} from '@/components/filters'
+
+const FORUM_SEARCH_PAGE = 'forum-search'
+
+interface RunOver {
+  text: string
+  searchIn: string
+  order: string
+  forums: string[]
+}
 import { mutedUserColor } from '@/lib/colors'
 import { mamFetch } from '@/lib/mam-fetch'
 
@@ -108,26 +120,66 @@ export function ForumSearchView(props: PageProps) {
   const [forums, setForums] = useState<string[]>([]) // empty = all
   const [start, setStart] = useState(0)
   const [rows, setRows] = useState<Row[] | null>(null)
+  // What the shown results were asked for, which is what a set stands for.
+  const [queried, setQueried] = useState<RunOver | null>(null)
   const [total, setTotal] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
   const reqId = useRef(0)
 
+  // A set stands for a search that ran, so the name plus the comparison both
+  // read from the last query rather than from the box.
+  const asked = queried ?? { text: '', searchIn, order, forums: [] as string[] }
+  const savedName = [
+    asked.text.trim(),
+    form?.searchIn.find((o) => o.value === asked.searchIn)?.label,
+    asked.order === 'default' ? '' : form?.order.find((o) => o.value === asked.order)?.label,
+    asked.forums.length === 1
+      ? form?.forums.find((f) => f.value === asked.forums[0])?.label
+      : asked.forums.length
+        ? `${asked.forums.length} forums`
+        : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
+  const views = useSavedViews({
+    page: FORUM_SEARCH_PAGE,
+    state: { ...asked },
+    name: savedName,
+    filtered: asked.text.trim().length > 0,
+    onApply: (saved) => {
+      const nextText = typeof saved.text === 'string' ? saved.text : ''
+      const nextIn = typeof saved.searchIn === 'string' ? saved.searchIn : '1'
+      const nextOrder = typeof saved.order === 'string' ? saved.order : 'default'
+      const nextForums = Array.isArray(saved.forums) ? saved.forums.filter((v): v is string => typeof v === 'string') : []
+      setText(nextText)
+      setSearchIn(nextIn)
+      setOrder(nextOrder)
+      setForums(nextForums)
+      void run(0, { text: nextText, searchIn: nextIn, order: nextOrder, forums: nextForums })
+    },
+  })
+
   if (!form) return <LegacyView {...props} />
 
-  async function run(startAt: number) {
-    const q = text.trim()
+  /** A set applies its values straight away, so the search takes them as
+   * arguments rather than waiting for the state to settle. */
+  async function run(startAt: number, over?: RunOver) {
+    const now = over ?? { text, searchIn, order, forums }
+    const q = now.text.trim()
     if (!q) return
+    setQueried(now)
     const id = ++reqId.current
     setLoading(true)
     setError(false)
     setStart(startAt)
     const params = new URLSearchParams()
     params.set('text', q)
-    params.set('searchIn', searchIn)
-    params.set('order', order)
+    params.set('searchIn', now.searchIn)
+    params.set('order', now.order)
     params.set('start', String(startAt))
-    for (const v of forums.length ? forums : ['-1']) params.append('FtS[]', v)
+    for (const v of now.forums.length ? now.forums : ['-1']) params.append('FtS[]', v)
     try {
       const res = await mamFetch(SEARCH_URL, {
         method: 'POST',
@@ -164,6 +216,7 @@ export function ForumSearchView(props: PageProps) {
           placeholder="Search topics and posts…"
           autoFocus
         />
+        <FilterSaved views={views} />
         <FilterRow>
           <FilterSelect value={searchIn} onChange={setSearchIn} options={form.searchIn} ariaLabel="What to search" />
           <FilterSelect value={order} onChange={setOrder} options={form.order} ariaLabel="Sort order" />
@@ -179,6 +232,8 @@ export function ForumSearchView(props: PageProps) {
           </FilterFacet>
         </FilterRow>
       </FilterBar>
+
+      {views.hasActions && <FilterSummary actions={<FilterSavedActions views={views} />} />}
 
       {/* Results */}
       {loading && (

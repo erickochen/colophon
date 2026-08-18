@@ -9,7 +9,12 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Spinner } from '@/components/ui/spinner'
-import { FilterBar, FilterRow, FilterSearch, FilterSelect } from '@/components/filters'
+import {
+  FilterBar, FilterRow, FilterSaved, FilterSavedActions, FilterSearch, FilterSelect, FilterSummary,
+  useSavedViews,
+} from '@/components/filters'
+
+const USERS_PAGE = 'users'
 
 const clean = (s: string | null | undefined) => s?.replace(/\s+/g, ' ').trim() ?? ''
 
@@ -32,16 +37,19 @@ export function UsersView(props: PageProps) {
   const [text, setText] = useState('')
   const [cls, setCls] = useState('-')
   const [rows, setRows] = useState<UserRow[] | null>(null)
+  // What the shown list was asked for, which is what a set stands for.
+  const [asked, setAsked] = useState({ text: '', cls: '-' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
   const reqId = useRef(0)
 
-  async function run() {
+  async function run(nextText: string = text, nextCls: string = cls) {
     const id = ++reqId.current
+    setAsked({ text: nextText, cls: nextCls })
     setLoading(true)
     setError(false)
     try {
-      const parsed = await searchMembers(text, cls === '-' ? '' : cls)
+      const parsed = await searchMembers(nextText, nextCls === '-' ? '' : nextCls)
       if (id !== reqId.current) return
       setRows(parsed)
     } catch {
@@ -56,6 +64,24 @@ export function UsersView(props: PageProps) {
     if (usable) void run()
   }, [usable]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const savedName = [asked.text.trim(), asked.cls === '-' ? '' : classes.find((c) => c.value === asked.cls)?.label]
+    .filter(Boolean)
+    .join(' · ')
+
+  const views = useSavedViews({
+    page: USERS_PAGE,
+    state: { ...asked },
+    name: savedName,
+    filtered: savedName.length > 0,
+    onApply: (saved) => {
+      const nextText = typeof saved.text === 'string' ? saved.text : ''
+      const nextCls = typeof saved.cls === 'string' ? saved.cls : '-'
+      setText(nextText)
+      setCls(nextCls)
+      void run(nextText, nextCls)
+    },
+  })
+
   if (!usable) return <LegacyView {...props} />
 
   return (
@@ -63,16 +89,22 @@ export function UsersView(props: PageProps) {
       <PageHeader title="Find members" sub="Search the membership by name, class or country." />
 
       <FilterBar>
-        <FilterSearch value={text} onChange={setText} onSubmit={run} placeholder="Member name…" autoFocus />
+        <FilterSearch value={text} onChange={setText} onSubmit={() => run()} placeholder="Member name…" autoFocus />
+        <FilterSaved views={views} />
         <FilterRow>
           <FilterSelect
             value={cls}
-            onChange={setCls}
+            onChange={(v) => {
+              setCls(v)
+              void run(text, v)
+            }}
             options={classes.map((c) => ({ value: c.value || '-', label: c.label }))}
             ariaLabel="Member class"
           />
         </FilterRow>
       </FilterBar>
+
+      {views.hasActions && <FilterSummary actions={<FilterSavedActions views={views} />} />}
 
       {loading && (
         <div className="flex items-center justify-center gap-2 py-12 text-[13px] text-muted-foreground"><Spinner className="size-4" /> Searching…</div>

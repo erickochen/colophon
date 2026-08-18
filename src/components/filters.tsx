@@ -1,10 +1,12 @@
 // One filter language for every list page: a framed bar holding the search
 // field, segments and facet popovers, with a summary row of what is active.
 import * as React from 'react'
-import { Calendar as CalendarIcon, ChevronDown, Search, X } from 'lucide-react'
+import { Calendar as CalendarIcon, ChevronDown, Pin, Search, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { fmtInt } from '@/lib/format'
+import { PILL_LIMIT, sameState, useSavedFilters, type SavedSet } from '@/lib/saved-filters'
+import { toast } from '@/components/ui/toast'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
@@ -36,6 +38,9 @@ export interface FacetOption {
 
 /** Shared control height, so every trigger on a bar lines up. */
 export const TRIGGER = 'h-8 gap-1.5 text-[12.5px] font-medium'
+
+/** The quiet action next to a list of chips, as used by Clear all. */
+export const QUIET_LINK = 'h-auto p-0 text-[12px] text-brand'
 
 // A glyph this small still needs a finger-sized target. The pseudo-element
 // grows the tap area to the 24px minimum without moving anything on screen.
@@ -593,18 +598,21 @@ export interface FilterChip {
 export function FilterSummary({
   chips,
   onClearAll,
+  actions,
   meta,
   children,
   className,
 }: {
   chips?: FilterChip[]
   onClearAll?: () => void
+  /** Quiet links that act on the filters shown here, beside Clear all. */
+  actions?: React.ReactNode
   meta?: React.ReactNode
   children?: React.ReactNode
   className?: string
 }) {
   const list = chips ?? []
-  if (list.length === 0 && !meta && !children) return null
+  if (list.length === 0 && !meta && !children && !actions) return null
   return (
     <div className={cn('flex flex-wrap items-center gap-2 px-6', className)}>
       {list.map((c) => (
@@ -622,10 +630,11 @@ export function FilterSummary({
         </Badge>
       ))}
       {list.length > 0 && onClearAll && (
-        <Button variant="link" onClick={onClearAll} className="h-auto p-0 text-[12px] text-brand">
+        <Button variant="link" onClick={onClearAll} className={QUIET_LINK}>
           Clear all
         </Button>
       )}
+      {actions}
       {(meta || children) && (
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {meta && <span className="text-[12px] tabular-nums text-muted-foreground">{meta}</span>}
@@ -638,4 +647,179 @@ export function FilterSummary({
 
 export function toggleValue<T>(list: T[], v: T): T[] {
   return list.includes(v) ? list.filter((x) => x !== v) : [...list, v]
+}
+
+const STORAGE_REFUSED = 'Your browser is blocking storage, so nothing was kept.'
+
+export interface SavedViews {
+  sets: SavedSet[]
+  /** The set holding exactly what is on screen, so its pill reads as active. */
+  active: SavedSet | null
+  /** The set last applied, kept for the update action once filters move on. */
+  loaded: SavedSet | null
+  dirty: boolean
+  canSave: boolean
+  /** Whether the summary actions render anything, so a page can leave the row
+   * out instead of spacing an empty one. */
+  hasActions: boolean
+  apply: (set: SavedSet) => void
+  saveNew: () => void
+  updateLoaded: () => void
+  togglePin: () => void
+}
+
+/** Saved filter sets for one page. The active pill follows the filters
+ * themselves, so applying a set, clearing the bar or landing on a pinned set
+ * all read the same way. */
+export function useSavedViews({
+  page,
+  state,
+  name,
+  filtered,
+  onApply,
+}: {
+  page: string
+  state: Record<string, unknown>
+  /** Suggested name, normally the chips joined together. */
+  name: string
+  /** Whether anything is filtered right now, which is what Save asks about. */
+  filtered: boolean
+  onApply: (state: Record<string, unknown>) => void
+}): SavedViews {
+  const store = useSavedFilters(page)
+  const [loadedId, setLoadedId] = React.useState<string | null>(null)
+  const active = store.sets.find((s) => sameState(s.state, state)) ?? null
+  const activeId = active?.id ?? null
+  React.useEffect(() => {
+    if (activeId) setLoadedId(activeId)
+  }, [activeId])
+  const loaded = loadedId ? (store.sets.find((s) => s.id === loadedId) ?? null) : null
+
+  return {
+    sets: store.sets,
+    active,
+    loaded,
+    dirty: !active && loaded != null,
+    canSave: filtered,
+    hasActions: filtered && !active,
+    apply: (set) => {
+      setLoadedId(set.id)
+      onApply(set.state)
+    },
+    saveNew: () => {
+      const { ok, set } = store.save(name, state, name)
+      if (!ok) {
+        toast.error('Could not save these filters', { description: STORAGE_REFUSED })
+        return
+      }
+      setLoadedId(set.id)
+      toast.success(`Saved as "${set.name}"`)
+    },
+    updateLoaded: () => {
+      if (!loaded) return
+      if (!store.update(loaded.id, state, name)) {
+        toast.error('Could not update this set', { description: STORAGE_REFUSED })
+        return
+      }
+      toast.success(`Updated "${loaded.name}"`)
+    },
+    togglePin: () => {
+      if (!active) return
+      if (!store.pin(active.id, !active.pinned)) {
+        toast.error('Could not change the default', { description: STORAGE_REFUSED })
+      }
+    },
+  }
+}
+
+const savedLabel = (set: SavedSet) => (set.pinned ? `${set.name}, opens by default` : set.name)
+
+/** The saved sets of a page, as one row of pills plus the default toggle. The
+ * row is absent until the page holds a set. */
+export function FilterSaved({ views, className }: { views: SavedViews; className?: string }) {
+  if (views.sets.length === 0) return null
+  const shown = views.sets.slice(0, PILL_LIMIT)
+  const rest = views.sets.slice(PILL_LIMIT)
+  const restActive = rest.some((s) => s.id === views.active?.id)
+
+  return (
+    <FilterRow className={className}>
+      <FilterHint>Saved</FilterHint>
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        aria-label="Saved filters"
+        value={views.active?.id ?? ''}
+        onValueChange={(v) => {
+          const hit = views.sets.find((s) => s.id === v)
+          if (hit) views.apply(hit)
+        }}
+        className="flex-wrap"
+      >
+        {shown.map((s) => (
+          <ToggleGroupItem
+            key={s.id}
+            value={s.id}
+            aria-label={savedLabel(s)}
+            className={cn(
+              'h-8 px-3 text-[12.5px] font-medium text-muted-foreground',
+              'data-pressed:bg-brand-soft data-pressed:text-accent-foreground'
+            )}
+          >
+            {s.pinned && <Pin aria-hidden className="size-3 text-muted-foreground" />}
+            <span className="max-w-48 truncate">{s.name}</span>
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+      {rest.length > 0 && (
+        <FilterFacet label="More" count={restActive ? 1 : 0} width="w-64">
+          <Command>
+            <CommandInput placeholder="Filter saved…" />
+            <CommandList className="max-h-64">
+              <CommandEmpty>Nothing by that name.</CommandEmpty>
+              <CommandGroup>
+                {rest.map((s) => (
+                  <CommandItem key={s.id} value={s.name} onSelect={() => views.apply(s)}>
+                    {s.pinned && <Pin aria-hidden className="size-3 text-muted-foreground" />}
+                    <span className="truncate">{s.name}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </FilterFacet>
+      )}
+      {views.active && (
+        <FilterToggle
+          pressed={views.active.pinned === true}
+          onPressedChange={views.togglePin}
+          label="Default"
+          note="Open this page with these filters"
+          icon={<Pin className="size-3.5" />}
+        />
+      )}
+    </FilterRow>
+  )
+}
+
+/** Save plus update, for the summary row next to Clear all. */
+export function FilterSavedActions({ views }: { views: SavedViews }) {
+  if (!views.canSave || views.active) return null
+  if (views.dirty && views.loaded) {
+    return (
+      <>
+        <Button variant="link" onClick={views.updateLoaded} className={QUIET_LINK}>
+          Update "{views.loaded.name}"
+        </Button>
+        <Button variant="link" onClick={views.saveNew} className={QUIET_LINK}>
+          Save as new
+        </Button>
+      </>
+    )
+  }
+  return (
+    <Button variant="link" onClick={views.saveNew} className={QUIET_LINK}>
+      Save these filters
+    </Button>
+  )
 }

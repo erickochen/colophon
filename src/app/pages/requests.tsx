@@ -5,6 +5,7 @@ import type { RequestQuery, RequestRow } from '@/lib/mam-api'
 import {
   REQUESTERS,
   REQUESTS_PER_PAGE,
+  REQUEST_DEFAULTS,
   REQUEST_FILL_STATES,
   REQUEST_SORTS,
   parsePeople,
@@ -26,10 +27,43 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { CopyResultsButton } from '@/components/copy-results'
 import {
-  FacetSection, FilterBar, FilterFacet, FilterRow, FilterSearch, FilterSegments, FilterSelect, FilterSummary,
+  FacetSection, FilterBar, FilterFacet, FilterRow, FilterSaved, FilterSavedActions, FilterSearch,
+  FilterSegments, FilterSelect, FilterSummary, useSavedViews,
 } from '@/components/filters'
 
 const SKELETON_ROWS = 8
+
+const REQUESTS_PAGE = 'requests'
+
+const label = (options: readonly { value: string; label: string }[], v: string) =>
+  options.find((o) => o.value === v)?.label ?? v
+
+/** A set sits right above the segments it stands for, so its name says what it
+ * covers rather than repeating a button. */
+const FILL_IN_NAME: Record<string, string> = {
+  filled: 'Filled requests',
+  either: 'Filled and unfilled',
+}
+
+/** What a saved set holds here: the query without the page it stopped on. */
+const savedOf = (q: Required<RequestQuery>) => ({
+  text: q.text,
+  filled: q.filled,
+  requester: q.requester,
+  sortType: q.sortType,
+  extra: q.extra,
+})
+
+/** A stored set read back, keeping anything it does not carry. */
+function patchFromSaved(raw: Record<string, unknown>): Partial<RequestQuery> {
+  const out: Partial<RequestQuery> = { start: 0 }
+  if (typeof raw.text === 'string') out.text = raw.text
+  if (REQUEST_FILL_STATES.some((o) => o.value === raw.filled)) out.filled = raw.filled as string
+  if (REQUESTERS.some((o) => o.value === raw.requester)) out.requester = raw.requester as string
+  if (REQUEST_SORTS.some((o) => o.value === raw.sortType)) out.sortType = raw.sortType as string
+  if (raw.extra && typeof raw.extra === 'object') out.extra = raw.extra as RequestQuery['extra']
+  return out
+}
 
 /** A request without a release date carries MAM's zero stamp. */
 function released(value: string | null): string | null {
@@ -79,6 +113,29 @@ export function RequestsView(_props: PageProps) {
   /** Paging stays on the query that produced this page, typing or not. */
   const goTo = (start: number) => run({ ...state, start })
 
+  const savedName = [
+    state.text.trim(),
+    state.filled === REQUEST_DEFAULTS.filled ? '' : FILL_IN_NAME[state.filled] ?? label(REQUEST_FILL_STATES, state.filled),
+    state.requester === REQUEST_DEFAULTS.requester ? '' : label(REQUESTERS, state.requester),
+    state.sortType === REQUEST_DEFAULTS.sortType ? '' : label(REQUEST_SORTS, state.sortType),
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
+  const views = useSavedViews({
+    page: REQUESTS_PAGE,
+    state: savedOf(state),
+    name: savedName,
+    filtered: savedName.length > 0,
+    onApply: (saved) => {
+      const patch = patchFromSaved(saved)
+      // The box holds its own value, so a set has to land there too. Without
+      // it the next filter click would send the old text along.
+      setText(patch.text ?? '')
+      apply(patch)
+    },
+  })
+
   return (
     <div className="grid gap-4">
       <PageHeader
@@ -93,6 +150,7 @@ export function RequestsView(_props: PageProps) {
 
       <FilterBar>
         <FilterSearch value={text} onChange={setText} onSubmit={() => apply({})} placeholder="Search requests…" />
+        <FilterSaved views={views} />
         <FilterRow>
           <FilterSegments
             options={[...REQUEST_FILL_STATES]}
@@ -126,6 +184,7 @@ export function RequestsView(_props: PageProps) {
 
       <FilterSummary
         chips={hideHidden ? [{ key: 'hideHidden', label: 'Hide hidden requesters', onRemove: () => setHideHidden(false) }] : []}
+        actions={views.hasActions ? <FilterSavedActions views={views} /> : undefined}
       />
 
       <Card className="overflow-hidden py-0">
