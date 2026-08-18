@@ -804,14 +804,22 @@ function groupFiles(files: TorrentFile[]): FileFolder[] {
 
 function FilesPanel({ state, url }: { state: Remote<FileListData>; url: string }) {
   if (!state.data) return <PanelStatus state={state} url={url} />
-  const { hash, files } = state.data
+  const { hash, name, files } = state.data
   if (files.length === 0) {
     return <p className="text-[13px] text-muted-foreground">This torrent lists no files.</p>
   }
+  // One file carrying the torrent's own name lands loose. Anything else arrives
+  // inside a folder of that name, which the rows themselves never show.
+  const folder = name != null && (files.length > 1 || name !== files[0].name) ? name : null
   return (
     <div className="grid grid-cols-1 gap-1">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <p className="text-[12.5px] text-muted-foreground">{plural(files.length, 'file')}</p>
+        <p className="text-[12.5px] text-muted-foreground">
+          {plural(files.length, 'file')}
+          {name != null && (folder
+            ? <> · in folder <span className="font-mono [overflow-wrap:anywhere]">{folder}</span></>
+            : <> · no folder around it</>)}
+        </p>
         {hash && <InfoHash hash={hash} />}
       </div>
       <Table className="text-[12.5px]">

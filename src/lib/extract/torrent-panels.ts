@@ -11,6 +11,9 @@ export interface TorrentFile {
 
 export interface FileListData {
   hash: string | null
+  /** Name the torrent carries. It is the folder a client makes, except on a
+   * single-file torrent that brings no folder, where it is the file itself. */
+  name: string | null
   files: TorrentFile[]
 }
 
@@ -43,6 +46,21 @@ const text = (el: Element | null | undefined) => el?.textContent?.replace(/\s+/g
 // the anchor rather than a word boundary.
 const HASH_PATTERN = /hash:\s*([0-9a-f]{40})/i
 
+// The torrent name sits in a bare text node between the hash heading and the
+// table, so it is read from the nodes before that table rather than from the
+// whole body text, which would drag the rows in with it.
+const NAME_PATTERN = /torrent\s*title:\s*(.+)/i
+
+function readName(doc: Document, table: Element): string | null {
+  for (const node of doc.body?.childNodes ?? []) {
+    if (node === table || (node instanceof Element && node.contains(table))) break
+    if (node.nodeType !== Node.TEXT_NODE) continue
+    const found = NAME_PATTERN.exec(node.textContent ?? '')
+    if (found) return found[1].replace(/\s+/g, ' ').trim() || null
+  }
+  return null
+}
+
 /** A served error page or a login wall answers 200 with its own tables, so the
  * fragment has to name itself before its rows are read as files. */
 export function parseFileList(doc: Document): FileListData {
@@ -57,7 +75,7 @@ export function parseFileList(doc: Document): FileListData {
     files.push({ path: text(cells[0]), name, size: text(cells[2]) })
   }
   const hash = doc.body?.textContent?.match(HASH_PATTERN)?.[1] ?? null
-  return { hash: hash?.toUpperCase() ?? null, files }
+  return { hash: hash?.toUpperCase() ?? null, name: readName(doc, table), files }
 }
 
 const REACH: Reachability[] = ['connectable', 'unconnectable', 'offline']
