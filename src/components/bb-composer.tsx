@@ -53,6 +53,34 @@ function wysiwygEnabled(): boolean {
   return cached ? cached === 'on' : true
 }
 
+/** Class the write surface styles a picture with once it turns out not to load.
+ * It is stripped on the way out, so it never travels into a post. The style
+ * rules spell the name out, since Tailwind reads static text only: rename this
+ * and the rules go with it. */
+const MISSING_IMG_CLASS = 'bb-img-missing'
+
+/** Says out loud what the dashed box means, for the pointer and for a reader
+ * who only hears the picture's name. Kept out of the post like the class. */
+const MISSING_IMG_TITLE = 'Only the name shows here. Preview shows the picture.'
+
+/** File name out of an image address, for the alt text. A picture on a host
+ * MAM's image policy blocks shows nothing at all in the editor, so that name is
+ * what marks the spot it sits in. Unlike the marker, this alt is part of the
+ * post: a reader whose picture fails gets the name instead of a blank. */
+export function imageLabel(url: string): string {
+  try {
+    const u = new URL(url)
+    const last = u.pathname.split('/').filter(Boolean).at(-1)
+    return decodeURIComponent(last || u.hostname)
+  } catch {
+    return 'image'
+  }
+}
+
+const attrText = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+const imgTag = (url: string) => `<img src="${url}" alt="${attrText(imageLabel(url))}"/>`
+
 /** MAM post source (HTML with BBCode mixed in) -> HTML for the local preview.
  * Converts the BBCode tags, keeps any real HTML the body already has (edited
  * posts, quoted bodies), then sanitizes, so the preview matches what MAM will
@@ -81,8 +109,8 @@ export function bbToHtml(src: string): string {
         const items = body.split(/\[\*\]|\[li\]/).map((x) => x.replace(/\[\/li\]/gi, '').trim()).filter(Boolean)
         return `<${k}l>${items.map((x) => `<li>${x}</li>`).join('')}</${k}l>`
       })
-      .replace(/\[img=(https?:\/\/[^\]\s"']+?\.(?:gif|jpe?g|png)[^\]\s"']*)\]/gi, '<img src="$1" alt=""/>')
-      .replace(/\[img\](https?:\/\/[^\]\s"']+?\.(?:gif|jpe?g|png)[^\]\s"']*)\[\/img\]/gi, '<img src="$1" alt=""/>')
+      .replace(/\[img=(https?:\/\/[^\]\s"']+?\.(?:gif|jpe?g|png)[^\]\s"']*)\]/gi, (_, url: string) => imgTag(url))
+      .replace(/\[img\](https?:\/\/[^\]\s"']+?\.(?:gif|jpe?g|png)[^\]\s"']*)\[\/img\]/gi, (_, url: string) => imgTag(url))
       .replace(/\[url=(https?:\/\/[^\]\s"']{1,500})\]([\s\S]*?)\[\/url\]/gi, '<a href="$1" target="_blank" rel="noopener noreferrer">$2</a>')
       .replace(/\[url\](https?:\/\/[^\]\s"']{1,500})\[\/url\]/gi, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
       .replace(/\[email\]([^\]\s"']{1,200})\[\/email\]/gi, '<a href="mailto:$1">$1</a>')
@@ -111,18 +139,24 @@ function isBlankSource(src: string): boolean {
   return !src.replace(/<br\s*\/?>/gi, '').replace(/<\/?(?:div|p)>/gi, '').replace(/&nbsp;/gi, ' ').trim()
 }
 
-/** Chrome wraps text it lifts out of a list in a span holding nothing but a
- * transparent background. Unwrap those so the source stays readable. The parse runs
- * in an inert document, so nothing in the fragment loads. */
+/** Editor HTML on its way out: Chrome's leftover transparent spans go, plus our
+ * own marker on a picture that failed to load. The parse is inert, so nothing in
+ * the fragment loads. */
 const TRANSPARENT_BG = 'rgba(0, 0, 0, 0)'
 
-function stripDeadSpans(html: string): string {
-  if (!html.includes(TRANSPARENT_BG)) return html
+function cleanOutgoing(html: string): string {
+  if (!html.includes(TRANSPARENT_BG) && !html.includes(MISSING_IMG_CLASS)) return html
   const body = new DOMParser().parseFromString(html, 'text/html').body
   for (const span of [...body.querySelectorAll<HTMLElement>('span[style]')]) {
     if (span.style.length === 1 && span.style.backgroundColor === TRANSPARENT_BG) {
       span.replaceWith(...span.childNodes)
     }
+  }
+  for (const img of body.querySelectorAll<HTMLElement>(`img.${MISSING_IMG_CLASS}`)) {
+    img.classList.remove(MISSING_IMG_CLASS)
+    if (!img.getAttribute('class')) img.removeAttribute('class')
+    // Only ours goes: a title the author wrote themselves stays put.
+    if (img.getAttribute('title') === MISSING_IMG_TITLE) img.removeAttribute('title')
   }
   return body.innerHTML
 }
@@ -313,6 +347,31 @@ export function BBComposer({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reads refs only
   }, [wysiwyg, tab])
 
+  // An <img> that failed to load takes no room at all, so mark those instead.
+  // The error event does not bubble, hence the capture phase plus a sweep for
+  // pictures that were done loading before this ran.
+  useEffect(() => {
+    if (!wysiwyg || tab !== 'write') return
+    const el = edRef.current
+    if (!el) return
+    const mark = (img: HTMLImageElement) => {
+      img.classList.add(MISSING_IMG_CLASS)
+      if (!img.title) img.title = MISSING_IMG_TITLE
+    }
+    const onError = (e: Event) => {
+      if (e.target instanceof HTMLImageElement) mark(e.target)
+    }
+    el.addEventListener('error', onError, true)
+    for (const img of el.querySelectorAll('img')) {
+      if (img.complete && img.naturalWidth === 0) mark(img)
+    }
+    return () => el.removeEventListener('error', onError, true)
+    // The sweep only has to run where the surface was just filled from value;
+    // after that the listener has it. Keeping value out of this list spares a
+    // walk over every picture per keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wysiwyg, tab])
+
   // Fetch on every switch into Preview: the source only changes in the other
   // views, so a switch is the only moment a refresh is needed. The cleanup
   // aborts the request when the view moves on before the answer is in.
@@ -370,7 +429,7 @@ export function BBComposer({
     const el = edRef.current
     if (!el) return
     // Cleaned on the way out only, so the nodes the caret sits in stay untouched.
-    const html = stripDeadSpans(el.innerHTML)
+    const html = cleanOutgoing(el.innerHTML)
     lastEmit.current = html
     onChange(html)
     syncEmpty()
@@ -474,7 +533,7 @@ export function BBComposer({
       savedRange.current?.collapse(false)
       const img = document.createElement('img')
       img.src = url
-      img.alt = ''
+      img.alt = imageLabel(url)
       return insertRich(img)
     }
     const text = askText.trim() || url
@@ -729,6 +788,14 @@ export function BBComposer({
             className={cn(
               'block w-full overflow-y-auto bg-transparent px-3.5 py-2.5 text-[13.5px] leading-normal outline-none max-h-[70vh]',
               '[&_a]:font-medium [&_a]:text-brand [&_a]:underline [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-5',
+              '[&_img]:max-w-full [&_img]:rounded-sm',
+              // A picture that cannot load reads as its file name in a dashed
+              // box. The base layer puts every picture on its own block, which a
+              // box the size of its own name has no use for.
+              '[&_.bb-img-missing]:inline-block [&_.bb-img-missing]:w-auto',
+              '[&_.bb-img-missing]:rounded [&_.bb-img-missing]:border [&_.bb-img-missing]:border-dashed [&_.bb-img-missing]:border-muted-foreground/35',
+              '[&_.bb-img-missing]:bg-muted/40 [&_.bb-img-missing]:px-2 [&_.bb-img-missing]:py-1 [&_.bb-img-missing]:align-middle',
+              '[&_.bb-img-missing]:text-[11.5px] [&_.bb-img-missing]:text-muted-foreground',
               '[&_blockquote]:my-1 [&_blockquote]:rounded-md [&_blockquote]:bg-muted [&_blockquote]:px-3 [&_blockquote]:py-1.5 [&_blockquote]:text-muted-foreground',
               QUOTE_CLASSES,
               '[&_pre]:my-1 [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:font-mono [&_pre]:text-[12.5px]',
@@ -756,7 +823,7 @@ export function BBComposer({
             <DialogTitle>{askKind.current === 'image' ? 'Insert an image' : 'Insert a link'}</DialogTitle>
             <DialogDescription>
               {askKind.current === 'image'
-                ? 'The address of an image that is already online.'
+                ? 'The address of an image that is already online. Preview shows how it lands in the post.'
                 : 'Where it goes plus the words that carry it.'}
             </DialogDescription>
           </DialogHeader>
