@@ -39,8 +39,8 @@ const MEDIA_ICONS: Record<string, ReactNode> = {
 }
 
 const GROUP_BY: FacetOption[] = [
-  { value: 'media', label: 'Media type' },
-  { value: 'category', label: 'Category' },
+  { value: 'media', label: 'By media type' },
+  { value: 'category', label: 'By category' },
 ]
 
 interface Section {
@@ -227,7 +227,7 @@ export function FreeleechView(props: PageProps) {
               emptyText="No category found."
             />
           </FilterFacet>
-          <FilterSelect value={groupBy} onChange={setGroupBy} options={GROUP_BY} prefix="Group by" ariaLabel="Group picks by" />
+          <FilterSelect value={groupBy} onChange={setGroupBy} options={GROUP_BY} ariaLabel="Group picks by" />
           <div className="ml-auto flex items-center gap-1">
             <Button variant="ghost" size="sm" className="h-8 text-[12.5px]" onClick={toggleAll}>
               {allOpen ? 'Collapse all' : 'Expand all'}

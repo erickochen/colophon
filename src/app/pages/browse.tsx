@@ -1705,7 +1705,6 @@ export function BrowseView(props: PageProps) {
             value={state.dateRange || 'any'}
             onChange={(v) => (v === 'any' ? apply({ dateRange: '', startDate: '', endDate: '' }) : apply({ dateRange: v as BrowseState['dateRange'] }))}
             options={DATE_RANGES.map((d) => ({ value: d.value || 'any', label: d.label }))}
-            prefix="Added"
             ariaLabel="Added within"
           />
           {state.dateRange === 'custom' && (

@@ -15,10 +15,13 @@ const clean = (s: string | null | undefined) => s?.replace(/\s+/g, ' ').trim() ?
 
 interface ClassOpt { value: string; label: string }
 
-/** Class dropdown options live in the original (hidden) search form. */
+/** Class dropdown options live in the original (hidden) search form. MAM writes
+ * its catch-all as "(any class)"; on a bar of plain controls it reads as a
+ * value like the rest. */
 function readClasses(doc: Document): ClassOpt[] {
   const opts = [...doc.querySelectorAll<HTMLOptionElement>('#mainBody select option')]
-  return opts.length ? opts.map((o) => ({ value: o.value, label: clean(o.textContent) })) : [{ value: '-', label: '(any class)' }]
+  const label = (o: HTMLOptionElement) => (o.value === '-' ? 'Any class' : clean(o.textContent))
+  return opts.length ? opts.map((o) => ({ value: o.value, label: label(o) })) : [{ value: '-', label: 'Any class' }]
 }
 
 export function UsersView(props: PageProps) {
@@ -66,7 +69,6 @@ export function UsersView(props: PageProps) {
             value={cls}
             onChange={setCls}
             options={classes.map((c) => ({ value: c.value || '-', label: c.label }))}
-            prefix="Class"
             ariaLabel="Member class"
           />
         </FilterRow>

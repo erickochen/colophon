@@ -446,20 +446,19 @@ export function FilterSelect({
   align = 'start',
   ariaLabel,
   className,
-  prefix,
 }: {
   value: string
   onChange: (v: string) => void
+  /** Each label says what it does on its own; the control carries no lead-in
+   * word of its own. The name for a screen reader goes in ariaLabel. */
   options: FacetOption[]
   align?: 'start' | 'center' | 'end'
   ariaLabel?: string
   className?: string
-  prefix?: string
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger size="sm" aria-label={ariaLabel} className={cn('h-8 w-auto text-[12.5px]', className)}>
-        {prefix && <span className="text-muted-foreground">{prefix}</span>}
         <SelectValue />
       </SelectTrigger>
       <SelectContent align={align} className="max-h-72">
