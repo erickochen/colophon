@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type ComponentProps, type RefObject } from 'react'
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type ComponentProps, type RefObject } from 'react'
 import { MotionConfig, motion, useInView, useReducedMotion, type Variants } from 'motion/react'
 import { Bookmark, BookmarkCheck, Check, CircleSlash, Copy, Download, FilePenLine, Flag, Gift, Heart, History, Info, Lock, MessageSquarePlus, Minus, MoreHorizontal, Quote, Settings2, Sprout } from 'lucide-react'
 import type { PageProps } from '@/app/router'
@@ -9,12 +9,13 @@ import { RichHtml } from '@/app/shell/bits'
 import { mutedUserColor } from '@/lib/colors'
 import { fmtInt, fmtRatio, initials, plural, relTime, utcTitle } from '@/lib/format'
 import { mediaInfoGroupLabel, mediaInfoLabel } from '@/lib/media-info'
-import { bookmarkOne, searchTorrents, parsePeople, coverUrl, torrentUrl, thankUploader, THANK_MAX, THANK_STEP, type SearchTorrent } from '@/lib/mam-api'
+import { bookmarkOne, searchTorrents, parsePeople, coverUrl, torrentUrl, thankUploader, THANK_STEP, type SearchTorrent } from '@/lib/mam-api'
 import { coverShape, mediaTypeFromHref, type CoverShape } from '@/lib/cover-shape'
 import { seriesEntry } from '@/lib/series'
 import { readDefaultAmount, resolveAmount, useFeature } from '@/lib/settings'
 import { useRatioGuard, worthNoting, type RatioGuard, type RatioLevel } from '@/lib/ratio-protect'
 import { cn } from '@/lib/utils'
+import { AmountPicker } from '@/components/amount-picker'
 import { Book, Book3D, BookAmbilight } from '@/components/book'
 import { RatioFloorInput } from '@/components/ratio-floor'
 import { TagLinks } from '@/components/tag-links'
@@ -29,7 +30,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppleCardsCarousel } from '@/components/ui/apple-cards-carousel'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ProgressiveBlur } from '@/components/ui/progressive-blur'
 import { Spinner } from '@/components/ui/spinner'
@@ -37,12 +37,21 @@ import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TextEffect } from '@/components/ui/text-effect'
+import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/toast'
-import { scrollIntoView } from '@/lib/motion'
+import { useLiveBonus } from '@/lib/bonus'
+import { postComment } from '@/lib/comment-send'
 import { mamFetch } from '@/lib/mam-fetch'
 
 // The statline counts up over the same beat as the words arrive.
 const STAT_COUNT_SPRING = { bounce: 0, duration: 900 }
+
+// Shortcuts in the thanks panel: nothing, a token amount, then the two rounder
+// figures people reach for. The slider covers everything else.
+const THANK_PRESETS = [0, 50, 100, 500]
+
+// A posted comment takes the browser off this page. Past this, it did not.
+const SUBMIT_GIVE_UP_MS = 15_000
 
 /** A stat figure that starts at zero on the first paint and counts up. */
 function CountUp({ value }: { value: number }) {
@@ -234,7 +243,7 @@ function WedgeAction({ data, spent, onSpent, size }: { data: TorrentDetail; spen
  * untouched; a blocking ratio hit swaps the plain download for the FL routes.
  * The row ref lets the sticky strip know when the buttons scroll away. */
 function DownloadDock({
-  data, guard, spent, onSpent, rowRef, buyButtons, thanksRef,
+  data, guard, spent, onSpent, rowRef, buyButtons,
 }: {
   data: TorrentDetail
   guard: RatioGuard | null
@@ -242,7 +251,6 @@ function DownloadDock({
   onSpent: () => void
   rowRef: RefObject<HTMLDivElement | null>
   buyButtons: NonNullable<TorrentDetail['ratio']>['buttons']
-  thanksRef: RefObject<HTMLElement | null> | null
 }) {
   const level = guard?.impact.level ?? 'none'
   return (
@@ -251,7 +259,7 @@ function DownloadDock({
         <DownloadButton data={data} level={level} />
         <WedgeAction data={data} spent={spent} onSpent={onSpent} />
         <BookmarkButton />
-        <MoreActions data={data} buyButtons={buyButtons} thanksRef={thanksRef} />
+        <MoreActions data={data} buyButtons={buyButtons} />
       </div>
       {guard && !data.downloadBlocked && <RatioNote guard={guard} />}
       {data.downloadBlocked && (
@@ -266,43 +274,23 @@ function DownloadDock({
 
 /** The rarer routes for this torrent, behind one trigger so the download row
  * keeps a single primary action: the freeleech purchases MAM keeps as buttons,
- * thanks, plus the two copy helpers. */
+ * plus the two copy helpers. */
 function MoreActions({
-  data, buyButtons, thanksRef,
+  data, buyButtons,
 }: {
   data: TorrentDetail
   buyButtons: NonNullable<TorrentDetail['ratio']>['buttons']
-  thanksRef: RefObject<HTMLElement | null> | null
 }) {
   const copySnippet = useReadingSnippet(data)
-  // Where the focus lands once the menu closes. Menus hand it back to the
-  // trigger by default, which would scroll the thanks box straight back out.
-  const focusAfter = useRef<HTMLElement | null>(null)
-  if (!copySnippet && !data.clone && !thanksRef && buyButtons.length === 0) return null
+  if (!copySnippet && !data.clone && buyButtons.length === 0) return null
   return (
-    <DropdownMenu onOpenChange={(open) => open && (focusAfter.current = null)}>
+    <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="icon" aria-label="More actions for this torrent">
           <MoreHorizontal />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        finalFocus={() => {
-          // Opening the menu clears this again, so the answer stays the same
-          // however often the menu asks while it closes.
-          const el = focusAfter.current
-          // An open menu holds the page still, so the scroll waits for the frame
-          // after it lets go. The focus itself never scrolls.
-          if (el) requestAnimationFrame(() => scrollIntoView(el, { block: 'center' }))
-          return el ?? true
-        }}
-      >
-        {thanksRef && (
-          <DropdownMenuItem onClick={() => (focusAfter.current = thanksRef.current)}>
-            <Heart /> Thank the uploader
-          </DropdownMenuItem>
-        )}
+      <DropdownMenuContent align="start">
         {buyButtons.map((b) => (
           <DropdownMenuItem
             key={b.name ?? b.label}
@@ -430,6 +418,149 @@ function BookmarkButton() {
     <Button variant="outline" disabled={busy} onClick={() => void toggle()}>
       <Bookmark /> Bookmark
     </Button>
+  )
+}
+
+/** Thanking sits with the uploader's name, where MAM puts it too. The amount
+ * rides on the button, so nobody hands over points by reflex. An uploader who
+ * takes none gets the same panel without the picker. */
+function ThankUploader({
+  thanks, name, balance,
+}: {
+  thanks: NonNullable<TorrentDetail['thanks']>
+  name: string
+  balance: number | null
+}) {
+  const step = thanks.points?.step ?? THANK_STEP
+  // Whole steps only, never more than the balance covers. The store refuses
+  // both of those, at the cost of a round trip.
+  const ceiling = thanks.points
+    ? balance != null
+      ? Math.min(thanks.points.max, Math.floor(balance / step) * step)
+      : thanks.points.max
+    : 0
+  const capped = thanks.points != null && balance != null && ceiling < thanks.points.max
+
+  const [picked, setAmount] = useState(() => {
+    const preset = resolveAmount(readDefaultAmount('thank'), 0, ceiling)
+    return preset != null ? Math.floor(preset / step) * step : 0
+  })
+  // The balance moves under this panel whenever something else on the page
+  // spends, so the amount follows the ceiling down rather than being refused
+  // by the store on send.
+  const amount = Math.min(picked, ceiling)
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState(false)
+
+  async function send() {
+    if (busy) return
+    setBusy(true)
+    try {
+      await thankUploader(thanks.tid, amount)
+      setDone(true)
+      setOpen(false)
+      toast.success(amount > 0 ? `Sent ${fmtInt(amount)} points to ${name}` : `Thanked ${name}`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Thanking the uploader failed.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (done) {
+    return (
+      <span className="mt-1 flex items-center gap-1.5 text-[12px] font-medium text-ok">
+        <Heart className="size-3.5 fill-current" /> Thanked
+      </span>
+    )
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="link" className="mt-0.5 h-auto gap-1.5 p-0 text-[12px] text-brand">
+          <Heart className="size-3.5" /> Thank
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72">
+        <p className="text-[13px] font-semibold">Thank {name}</p>
+        <p className="mt-1 text-[12px] leading-snug text-muted-foreground">
+          {ceiling > 0
+            ? 'Points come out of your balance. None is fine too.'
+            : thanks.points
+              ? 'You have no points to send along, so this goes out as a plain thank you.'
+              : 'This uploader takes thanks but no points.'}
+        </p>
+        {ceiling > 0 && (
+          <AmountPicker
+            className="mt-3"
+            label="Points to send"
+            value={amount}
+            onChange={setAmount}
+            max={ceiling}
+            step={step}
+            presets={THANK_PRESETS}
+            note={capped ? 'your balance' : undefined}
+          />
+        )}
+        <Button className="mt-4 w-full" onClick={send} disabled={busy}>
+          {busy ? <Spinner className="size-3.5" /> : <Heart />}
+          {amount > 0 ? `Send ${fmtInt(amount)} points` : 'Say thanks'}
+        </Button>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/** Writing a comment stays on the page MAM sends you away from. The text goes
+ * out through MAM's own form, so a plain textarea matches what that page
+ * offers: it loads no editor of its own. */
+function CommentComposer({ tid, fallbackHref }: { tid: number; fallbackHref: string }) {
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const fieldId = useId()
+  const stuck = useRef(0)
+  useEffect(() => () => window.clearTimeout(stuck.current), [])
+
+  async function post() {
+    const body = text.trim()
+    if (!body || busy) return
+    setBusy(true)
+    const result = await postComment(tid, body)
+    if (result.ok) {
+      // The browser leaves this page from here. If it has not by now, something
+      // held the submit back, so the controls come back rather than spin on.
+      stuck.current = window.setTimeout(() => setBusy(false), SUBMIT_GIVE_UP_MS)
+      return
+    }
+    setBusy(false)
+    toast.error('Posting the comment did not go through.', {
+      description: 'The comment page still takes it.',
+      action: { label: 'Open it', onClick: () => location.assign(fallbackHref) },
+    })
+  }
+
+  return (
+    <div className="grid gap-2.5 border-t pt-5">
+      <label htmlFor={fieldId} className="text-[13px] font-semibold">Leave a comment</label>
+      <Textarea
+        id={fieldId}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="A word of thanks, what you thought of it, a note for the next reader…"
+        className="min-h-24"
+      />
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <p className="mr-auto text-[11.5px] text-muted-foreground">
+          Thanks, opinions plus recommendations. A reseed has its own request in the details.
+        </p>
+        <Button onClick={post} disabled={!text.trim() || busy}>
+          {busy ? <Spinner className="size-3.5" /> : <MessageSquarePlus />}
+          Post comment
+        </Button>
+      </div>
+    </div>
   )
 }
 
@@ -1177,64 +1308,17 @@ interface StatEntry {
 
 export function TorrentView(props: PageProps) {
   const data = useMemo(() => extractTorrent(document), [])
-  const [points, setPoints] = useState(() => {
-    // The store takes whole steps only, so a saved default that sits between
-    // two of them starts on the step below rather than in an invalid state.
-    const bounds = data?.thanks?.points
-    if (!bounds) return ''
-    const preset = resolveAmount(readDefaultAmount('thank'), 0, bounds.max)
-    const rounded = preset != null ? Math.floor(preset / bounds.step) * bounds.step : 0
-    return rounded > 0 ? String(rounded) : ''
-  })
-  const [thanking, setThanking] = useState(false)
-  const [thanked, setThanked] = useState<string | null>(null)
   // A wedge spent on this page turns the torrent free, which the server-rendered
   // ratio tile in the sidebar cannot know.
   const [spent, setSpent] = useState(false)
-  const thankBox = useRef<HTMLDivElement>(null)
-  const thankInput = useRef<HTMLInputElement>(null)
   const dockRow = useRef<HTMLDivElement>(null)
+  const bonusRaw = useLiveBonus(props.page.stats.bonus)
   // History quiets the guard but not the wedge: MAM keeps its own FL link on
   // torrents you seed. A fresh download of an old snatch costs ratio again.
   const guardFree = !data || !data.title || data.freeleech || data.personalFreeleech || data.vip || !!data.dlHistory || !!data.downloadBlocked || spent
   const guard = useRatioGuard(guardFree ? null : data.size)
 
   if (!data || !data.title) return <LegacyView {...props} />
-
-  const thankPoints = data.thanks?.points ?? null
-  const thankMax = thankPoints?.max ?? THANK_MAX
-  const thankStep = thankPoints?.step ?? THANK_STEP
-  const thankAmount = Number(points)
-  // The store refuses points that are not whole steps, so say that here rather
-  // than let the answer come back as an error box.
-  const thankValid =
-    !thankPoints ||
-    points === '' ||
-    (Number.isInteger(thankAmount) && thankAmount >= 0 && thankAmount <= thankMax && thankAmount % thankStep === 0)
-
-  // Where thanking starts: the points box where there is one, otherwise the
-  // panel itself.
-  const thanksTarget = thankPoints ? thankInput : thankBox
-  const focusThanks = () => {
-    scrollIntoView(thankBox.current, { block: 'center' })
-    thanksTarget.current?.focus({ preventScroll: true })
-  }
-
-  const thanksForm = data.thanks
-  async function thank() {
-    if (!thanksForm || thanking) return
-    const amount = thanksForm.points ? resolveAmount(points, 0, thanksForm.points.max) ?? 0 : 0
-    setThanking(true)
-    try {
-      await thankUploader(thanksForm.tid, amount)
-      setThanked(amount > 0 ? `Thanks sent, along with ${amount.toLocaleString('en-US')} points.` : 'Thanks sent.')
-      toast.success(amount > 0 ? `Sent ${amount.toLocaleString('en-US')} points to the uploader` : 'Thanked the uploader')
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Thanking the uploader failed.')
-    } finally {
-      setThanking(false)
-    }
-  }
 
   // The series line is the one accent in the hero, so names carry their weight
   // in the text color instead of a second one.
@@ -1248,6 +1332,8 @@ export function TorrentView(props: PageProps) {
 
   const languages = data.categories.filter((c) => c.language)
   const genres = data.categories.filter((c) => !c.language)
+  // An unknown balance leaves the thanks ceiling to MAM's own maximum.
+  const balance = bonusRaw ? countOf(bonusRaw) : null
 
   // The dock's wedge button carries the confirm flow, so the menu drops its bare
   // duplicate of that same spend. A wedge also buys nothing on a torrent that
@@ -1395,7 +1481,6 @@ export function TorrentView(props: PageProps) {
                   onSpent={() => setSpent(true)}
                   rowRef={dockRow}
                   buyButtons={buyButtons}
-                  thanksRef={data.thanks && !thanked ? thanksTarget : null}
                 />
               </AnimatedGroup>
             </div>
@@ -1437,10 +1522,8 @@ export function TorrentView(props: PageProps) {
                     <a className="font-medium hover:underline" style={{ color: mutedUserColor(data.uploader.color) }} href={data.uploader.href}>
                       {data.uploader.name}
                     </a>
-                    {data.thanks && !thanked && (
-                      <Button variant="link" className="mt-0.5 block h-auto p-0 text-[12px] text-brand" onClick={focusThanks}>
-                        Say thanks
-                      </Button>
+                    {data.thanks && (
+                      <ThankUploader thanks={data.thanks} name={data.uploader.name} balance={balance} />
                     )}
                   </KV>
                 )}
@@ -1555,66 +1638,21 @@ export function TorrentView(props: PageProps) {
 
         {/* COMMENTS: full width, real conversation */}
         <Card className="gap-0 py-0">
-          <CardHeader className="flex flex-row items-center justify-between !py-3.5">
+          <CardHeader className="!py-3.5">
             <CardTitle>
               Comments{data.commentCount ? ` (${data.commentCount})` : data.comments.length ? ` (${data.comments.length})` : ''}
             </CardTitle>
-            {data.addCommentHref && (
-              <Button asChild size="sm" variant="outline" className="h-8">
-                <a href={data.addCommentHref}><MessageSquarePlus /> Add comment</a>
-              </Button>
-            )}
           </CardHeader>
           <CardContent className="grid gap-4 px-6 py-5">
-            {/* Thank the uploader, inline. MAM only serves the form where
-                thanking is allowed, so it leads what we show. */}
-            {data.thanks && (
-              <div ref={thankBox} tabIndex={-1} className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 px-4 py-3 outline-none focus-visible:ring-[3px] focus-visible:ring-ring">
-                <Gift className="size-4 text-brand" />
-                {thanked ? (
-                  <span className="text-[13px] font-medium text-ok">{thanked}</span>
-                ) : (
-                  <>
-                    <span className="text-[13px] font-medium">Thank the uploader</span>
-                    {thankPoints ? (
-                      <>
-                        <Input
-                          ref={thankInput}
-                          type="number"
-                          min={0}
-                          max={thankMax}
-                          step={thankStep}
-                          value={points}
-                          onChange={(e) => setPoints(e.target.value)}
-                          placeholder="0"
-                          aria-label="Bonus points to send along"
-                          aria-invalid={!thankValid}
-                          aria-describedby={thankValid ? undefined : 'thank-points-hint'}
-                          className="ml-auto h-8 w-24"
-                        />
-                        <span className="text-[12.5px] text-muted-foreground">points</span>
-                      </>
-                    ) : (
-                      <span className="ml-auto text-[12.5px] text-muted-foreground">This uploader takes no points</span>
-                    )}
-                    <Button size="sm" className="h-8" onClick={thank} disabled={!thankValid || thanking}>
-                      {thanking ? <Spinner className="size-3.5" /> : null} Say thanks
-                    </Button>
-                    {!thankValid && (
-                      <span id="thank-points-hint" className="basis-full text-[11.5px] text-destructive">
-                        Steps of {thankStep}, up to {thankMax.toLocaleString('en-US')}. Empty sends plain thanks.
-                      </span>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
             {data.comments.length > 0 ? (
               <div className="grid">
                 {data.comments.map((c) => <Comment key={c.id} c={c} />)}
               </div>
             ) : (
               <p className="py-6 text-center text-sm text-muted-foreground">No comments yet. Be the first to leave one.</p>
+            )}
+            {data.addCommentHref && data.id != null && (
+              <CommentComposer tid={data.id} fallbackHref={data.addCommentHref} />
             )}
           </CardContent>
         </Card>
