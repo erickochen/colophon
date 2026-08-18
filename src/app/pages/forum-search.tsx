@@ -92,7 +92,7 @@ function ResultCard({ r }: { r: Row }) {
         </div>
       )}
       {r.truncated && (
-        <Button variant="link" onClick={() => setExpanded(!expanded)} className="h-auto w-fit gap-1 p-0 text-[12px] text-brand">
+        <Button variant="link" onClick={() => setExpanded(!expanded)} className="h-auto w-fit gap-1 p-0 text-[12px] text-brand has-[>svg]:px-0">
           <ChevronsUpDown className="size-3.5" /> {expanded ? 'Show less' : 'Show more'}
         </Button>
       )}

@@ -470,7 +470,7 @@ function ThankUploader({
 
   if (done) {
     return (
-      <span className="mt-1 flex items-center gap-1.5 text-[12px] font-medium text-ok">
+      <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ok">
         <Heart className="size-3.5 fill-current" /> Thanked
       </span>
     )
@@ -479,7 +479,9 @@ function ThankUploader({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="link" className="mt-0.5 h-auto gap-1.5 p-0 text-[12px] text-brand">
+        {/* p-0 leaves the size variant's has-[>svg] padding in place, so that
+            one is reset alongside it. */}
+        <Button variant="link" className="h-auto gap-1.5 p-0 text-[12px] text-brand has-[>svg]:px-0">
           <Heart className="size-3.5" /> Thank
         </Button>
       </PopoverTrigger>
@@ -1519,12 +1521,14 @@ export function TorrentView(props: PageProps) {
               <dl className="divide-y divide-border/50">
                 {data.uploader && (
                   <KV label="Uploaded by">
-                    <a className="font-medium hover:underline" style={{ color: mutedUserColor(data.uploader.color) }} href={data.uploader.href}>
-                      {data.uploader.name}
-                    </a>
-                    {data.thanks && (
-                      <ThankUploader thanks={data.thanks} name={data.uploader.name} balance={balance} />
-                    )}
+                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                      <a className="min-w-0 font-medium break-words hover:underline" style={{ color: mutedUserColor(data.uploader.color) }} href={data.uploader.href}>
+                        {data.uploader.name}
+                      </a>
+                      {data.thanks && (
+                        <ThankUploader thanks={data.thanks} name={data.uploader.name} balance={balance} />
+                      )}
+                    </div>
                   </KV>
                 )}
 
@@ -1583,7 +1587,7 @@ export function TorrentView(props: PageProps) {
                       {data.reseed.reason && (
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Button variant="link" className="h-auto gap-1 p-0 text-[12.5px] text-brand">
+                            <Button variant="link" className="h-auto gap-1 p-0 text-[12.5px] text-brand has-[>svg]:px-0">
                               <Info className="size-3.5" /> Find out why
                             </Button>
                           </PopoverTrigger>
