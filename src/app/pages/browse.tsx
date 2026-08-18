@@ -4,7 +4,7 @@ import type { PageProps } from '@/app/router'
 import { PageHeader } from '@/app/shell/bits'
 import {
   bookmarkCleanup, bookmarkMass, BookmarkMassError, bookmarkOne, downloadZipOf, searchAllTorrents2, searchTorrents2,
-  search2Url, parsePeople, downloadUrl, coverUrl, torrentUrl, BOOKMARKS_ZIP_URL, ZIP_BATCH_MAX,
+  search2Url, parsePeople, downloadUrl, coverUrl, hideReseedUrl, requestedAt, torrentUrl, BOOKMARKS_ZIP_URL, ZIP_BATCH_MAX,
   type BookmarkCleanup, type Search2Query, type SearchTorrent,
 } from '@/lib/mam-api'
 import { useCategories2 } from '@/lib/categories2'
@@ -931,6 +931,44 @@ function ListHeader({ cols, lane, selectable, sort, onSort }: {
   )
 }
 
+/** The reseed request standing on a torrent, plus the way out of it for one you
+ * have had before. MAM only offers that where your own snatch is on record, so
+ * the row says when the request came in either way. A gallery tile is a third of
+ * a phone screen wide, so there the words shrink and the date moves to the
+ * tooltip. */
+function ReseedNote({ t, compact }: { t: SearchTorrent; compact?: boolean }) {
+  if (!t.radded) return null
+  const at = requestedAt(t.radded)
+  // Both halves ride on your own snatch, the way the site renders them: without
+  // one there is nothing to hide plus nothing that could be hidden already.
+  const mine = t.my_snatched === 1
+  const hidden = mine && 'rri' in t
+  return (
+    <p className={cn('text-[11px] text-muted-foreground', compact ? 'mt-1 leading-snug' : 'mt-1.5')}>
+      <span title={compact ? `Reseed requested ${relTime(at)}, ${utcTitle(at)}` : utcTitle(at)}>
+        Reseed requested{!compact && ` ${relTime(at)}`}
+      </span>
+      {hidden && (compact ? ' · hidden' : ' · hidden from your lists')}
+      {mine && !hidden && (
+        <>
+          {' · '}
+          {/* Named after the torrent it belongs to: a list of these all reading
+              the same is no help to anyone running down the links. */}
+          <Button asChild variant="link" className="h-auto p-0 py-1 text-[11px] font-normal text-muted-foreground underline hover:text-foreground">
+            <a
+              href={hideReseedUrl(t.id)}
+              aria-label={`Hide the reseed request for ${t.title}`}
+              title="Takes this request off your own reseed lists."
+            >
+              {compact ? 'Hide request' : 'Hide this request'}
+            </a>
+          </Button>
+        </>
+      )}
+    </p>
+  )
+}
+
 function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onUnignore, hiddenReason, selectable, checked, onCheck }: { t: SearchTorrent; cols: ColKey[]; onBookmark: BookmarkSetter; onRemoved?: RowDropper; onFreeleech?: (id: number) => void; onIgnore?: (t: SearchTorrent) => void; onUnignore?: (id: number) => void; hiddenReason?: HiddenReason | null; selectable?: boolean; checked?: boolean; onCheck?: (id: number, on: boolean) => void }) {
   const authors = parsePeople(t.author_info)
   const narrators = cols.includes('narrators') ? parsePeople(t.narrator_info) : []
@@ -989,6 +1027,7 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onU
             {t.lang_code && t.lang_code !== 'ENG' && <Badge variant="outline">{t.lang_code}</Badge>}
           </span>
         </a>
+        <ReseedNote t={t} />
         <TagLinks raw={t.tags} limit={ROW_TAG_LIMIT} className="mt-1.5 text-[11px] text-muted-foreground" />
       </div>
       {stats.length > 0 && (
@@ -1120,6 +1159,10 @@ function GalleryItem({ t, hiddenReason, onUnignore }: { t: SearchTorrent; hidden
         <span className="font-display mt-2.5 line-clamp-2 min-h-[2.7em] text-[13px] font-medium leading-[1.35]">{t.title}</span>
         {authorsText && <span className="mt-0.5 line-clamp-1 text-[11.5px] text-muted-foreground">{authorsText}</span>}
       </a>
+      {/* Outside the tile link, since it carries a link of its own. The reader
+          keeps whichever view they last used, so the reseed lists have to say
+          the same thing in both. */}
+      <ReseedNote t={t} compact />
       {hiddenReason === 'ignored' && onUnignore && (
         <Button
           variant="secondary"

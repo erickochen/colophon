@@ -63,6 +63,12 @@ export interface SearchTorrent {
   my_snatched: 0 | 1
   poster_type?: string | null
   bookmarked: number | null
+  /** Unix seconds of the reseed request standing on this torrent, absent where
+   * none does. */
+  radded?: number
+  /** Only present once this member hid that reseed request. The value carries
+   * no meaning, its presence is the flag. */
+  rri?: unknown
   owner: number
   owner_name: string | null
   /** Free text, except a digits-only field arrives as a JSON number. */
@@ -788,6 +794,12 @@ export function requestedAt(requesttime: number): string {
 
 export function downloadUrl(id: number, useWedge = false) {
   return `/tor/download.php?tid=${id}${useWedge ? '&fl' : ''}`
+}
+
+/** Takes a reseed request off your own lists. MAM hands this out as a page, so
+ * it stays a link rather than a fetch. */
+export function hideReseedUrl(id: number) {
+  return `/tor/hide_reseed.php?tid=${id}`
 }
 
 /** Poster mime types MAM serves, mapped to the extension the large path wants. */
