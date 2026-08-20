@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Gift, History, Coins, Gauge, Ticket, TrendingDown, TrendingUp } from 'lucide-react'
+import { Gift, HandHeart, History, Coins, Gauge, Ticket, TrendingDown, TrendingUp, Vault } from 'lucide-react'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import type { PageProps } from '@/app/router'
 import { fmtInt, relTime } from '@/lib/format'
@@ -189,14 +189,28 @@ function stamp(label: ReactNode): ReactNode {
   return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
+/** The two halves of the event history. They are fetched apart because the
+ * endpoint hands back 50 rows per request, so a busy gift feed pushes every
+ * wedge event out of a shared list. */
+const POINT_TYPES = ['giftPoints', 'torrentThanks', 'millionaires']
+const WEDGE_TYPES = ['giftWedge', 'wedgePF', 'wedgeGFL']
+
+/** A vault donation arrives as a positive number while the points leave your
+ * balance, so its sign comes from the type instead of from MAM. */
+const SPENT_TYPES = ['millionaires']
+const eventAmount = (e: BonusEvent) => (SPENT_TYPES.includes(e.type) ? -Math.abs(e.amount) : e.amount)
+
 /** MAM files a gift under one type whichever way it went, so the sign is what
- * says who gave. */
+ * says who gave. Thanks carries no direction we can trust, so it stays plain. */
 function eventLabel(e: BonusEvent): string {
   const sent = e.amount < 0
   switch (e.type) {
     case 'giftPoints': return sent ? 'Gift sent' : 'Gift received'
     case 'giftWedge': return sent ? 'Wedge sent' : 'Wedge received'
+    case 'torrentThanks': return 'Thanks'
     case 'wedgePF': return 'Wedge spent'
+    case 'wedgeGFL': return 'Global freeleech'
+    case 'millionaires': return 'Vault donation'
     default: return e.type.replace(/([A-Z])/g, ' $1').replace(/^\w/, (c) => c.toUpperCase()).trim()
   }
 }
@@ -204,9 +218,70 @@ function eventLabel(e: BonusEvent): string {
 /** A gift moved between two members, a wedge landed on a torrent plus anything
  * else is the balance itself. */
 function eventIcon(type: string) {
+  if (type === 'millionaires') return Vault
+  if (type === 'torrentThanks') return HandHeart
   if (type.startsWith('gift')) return Gift
   if (/wedge/i.test(type)) return Ticket
   return Coins
+}
+
+function EventRow({ event }: { event: BonusEvent }) {
+  const Icon = eventIcon(event.type)
+  const amount = eventAmount(event)
+  return (
+    <div className="flex items-center justify-between gap-4 px-6 py-2.5 text-[13px]">
+      <span className="flex min-w-0 items-center gap-2">
+        <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="shrink-0 font-medium">{eventLabel(event)}</span>
+        {event.other_name && <> · <UserLink className="truncate" name={event.other_name} href={event.other_userid ? `/u/${event.other_userid}` : null} /></>}
+        {event.title && <span className="truncate text-muted-foreground"> · {event.title}</span>}
+      </span>
+      <span className="flex shrink-0 items-center gap-3">
+        <span className={'font-mono tabular-nums ' + (amount >= 0 ? 'text-ok' : 'text-destructive')}>{amount >= 0 ? '+' : ''}{fmtInt(amount)}</span>
+        {/* The column is only fixed where there is room for it: on a phone those
+            20 pixels are the difference between a name and an ellipsis. */}
+        <span className="shrink-0 whitespace-nowrap text-right text-[11.5px] text-muted-foreground sm:w-20">{relTime(new Date(event.timestamp * 1000).toISOString())}</span>
+      </span>
+    </div>
+  )
+}
+
+function EventCard({ title, note, events, empty }: {
+  title: string; note: string; events: EventList; empty: string
+}) {
+  const rows = Array.isArray(events) ? events : null
+  return (
+    <Card className="gap-0 py-0">
+      <CardHeader className="!py-3.5">
+        <CardTitle className="flex items-center gap-2"><History className="size-4" /> {title}</CardTitle>
+        <CardDescription>{note}</CardDescription>
+      </CardHeader>
+      <CardContent className="grid grid-cols-1 px-0 py-1">
+        {events === null && <div className="grid gap-2 px-6 py-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-5 w-full" />)}</div>}
+        {events === 'failed' && <p className="px-6 py-8 text-center text-sm text-muted-foreground">Could not load these events.</p>}
+        {rows?.length === 0 && <p className="px-6 py-8 text-center text-sm text-muted-foreground">{empty}</p>}
+        {rows?.map((e, i) => <EventRow key={i} event={e} />)}
+      </CardContent>
+      {rows?.length === EVENT_CAP && (
+        <CardFooter className="px-6 pb-3.5 text-[11.5px] text-muted-foreground">Only the newest {EVENT_CAP} events come back from the site.</CardFooter>
+      )}
+    </Card>
+  )
+}
+
+// What MAM hands back per request, whichever types you ask for.
+const EVENT_CAP = 50
+
+/** null while the request is out, 'failed' when it did not answer with a list.
+ * An empty history and a dead request must not read the same. */
+type EventList = BonusEvent[] | 'failed' | null
+
+function fetchEvents(types: string[]): Promise<BonusEvent[] | 'failed'> {
+  const query = types.map((t) => `type[]=${t}`).join('&')
+  return mamFetch(`/json/userBonusHistory.php?${query}`, { credentials: 'include' })
+    .then((r) => r.json())
+    .then((j: BonusEvent[]) => (Array.isArray(j) ? j : 'failed' as const))
+    .catch(() => 'failed' as const)
 }
 
 function Stat({ icon, label, value, hint }: { icon: ReactNode; label: string; value: ReactNode; hint?: string }) {
@@ -225,7 +300,8 @@ function Stat({ icon, label, value, hint }: { icon: ReactNode; label: string; va
 
 export function BonusHistoryView({ page }: PageProps) {
   const [trends, setTrends] = useState<Trend[] | null>(null)
-  const [events, setEvents] = useState<BonusEvent[] | null>(null)
+  const [pointEvents, setPointEvents] = useState<EventList>(null)
+  const [wedgeEvents, setWedgeEvents] = useState<EventList>(null)
   const [range, setRange] = useState<RangeKey>('all')
 
   useEffect(() => {
@@ -249,10 +325,8 @@ export function BonusHistoryView({ page }: PageProps) {
   }, [page.user.uid])
 
   useEffect(() => {
-    mamFetch('/json/userBonusHistory.php', { credentials: 'include' })
-      .then((r) => r.json())
-      .then((j: BonusEvent[]) => setEvents(Array.isArray(j) ? j : []))
-      .catch(() => setEvents([]))
+    fetchEvents(POINT_TYPES).then(setPointEvents)
+    fetchEvents(WEDGE_TYPES).then(setWedgeEvents)
   }, [])
 
   const fullView = useMemo(() => {
@@ -339,7 +413,7 @@ export function BonusHistoryView({ page }: PageProps) {
 
 
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 gap-4">
       <PageHeader
         title="Bonus history"
         sub="Seeding, points and ratio over time, from the tracker"
@@ -353,7 +427,7 @@ export function BonusHistoryView({ page }: PageProps) {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Stat icon={<Coins className="size-5" />} label="bonus points" value={loading ? '–' : <NumberRoll value={Math.round(last?.bonus ?? 0)} />} />
         <Stat icon={<TrendingUp className="size-5" />} label="avg points / hour" hint={`peak ${stats.pph.max.toFixed(1)}`} value={loading ? '–' : stats.pph.avg.toFixed(2)} />
         <Stat icon={<Gauge className="size-5" />} label="ratio" value={loading ? '–' : fmtInt(Math.round(last?.ratio ?? 0))} />
@@ -426,7 +500,7 @@ export function BonusHistoryView({ page }: PageProps) {
         </CardFooter>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {([
           ['pph', 'Points per hour', 'The rate you earn bonus points.'],
           ['ratio', 'Ratio', 'Share ratio over time.'],
@@ -501,32 +575,20 @@ export function BonusHistoryView({ page }: PageProps) {
         </CardContent>
       </Card>
 
-      <Card className="gap-0 py-0">
-        <CardHeader className="!py-3.5">
-          <CardTitle className="flex items-center gap-2"><History className="size-4" /> Recent point events</CardTitle>
-        </CardHeader>
-        <CardContent className="grid px-0 py-1">
-          {events?.length === 0 && <p className="px-6 py-8 text-center text-sm text-muted-foreground">No recent point events.</p>}
-          {events?.map((e, i) => {
-            const Icon = eventIcon(e.type)
-            return (
-            <div key={i} className="flex items-center justify-between gap-4 px-6 py-2.5 text-[13px]">
-              <span className="flex min-w-0 items-center gap-2">
-                <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-                <span className="font-medium">{eventLabel(e)}</span>
-                {e.other_name && <> · <UserLink name={e.other_name} href={e.other_userid ? `/u/${e.other_userid}` : null} /></>}
-                {e.title && <span className="truncate text-muted-foreground"> · {e.title}</span>}
-              </span>
-              <span className="flex shrink-0 items-center gap-3">
-                <span className={'font-mono tabular-nums ' + (e.amount >= 0 ? 'text-ok' : 'text-destructive')}>{e.amount >= 0 ? '+' : ''}{fmtInt(e.amount)}</span>
-                <span className="w-16 text-right text-[11.5px] text-muted-foreground">{relTime(new Date(e.timestamp * 1000).toISOString())}</span>
-              </span>
-            </div>
-            )
-          })}
-          {events === null && <div className="grid gap-2 px-6 py-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-5 w-full" />)}</div>}
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <EventCard
+          title="Recent point events"
+          note="Gifts, thanks and vault donations."
+          events={pointEvents}
+          empty="No recent point events."
+        />
+        <EventCard
+          title="Recent wedge events"
+          note="Wedges given, received and spent."
+          events={wedgeEvents}
+          empty="No recent wedge events."
+        />
+      </div>
     </div>
   )
 }
