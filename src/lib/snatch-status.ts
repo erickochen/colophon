@@ -8,6 +8,9 @@ export type BucketGroup = 'quota' | 'attention' | 'running' | 'settled' | 'other
 export type BadgeTone = 'ok' | 'warn' | 'muted'
 
 export interface PileFlags {
+  /** Whether the name talks about seed rules at all. Without that word no
+   * sentence about them is true, so the reading stays neutral. */
+  rules: boolean
   /** The pile MAM names "Unsatisfied", which owes seed time either way. */
   unsatisfied: boolean
   leeching: boolean
@@ -34,6 +37,7 @@ export function readPile(label: string): PileFlags {
   // the number. A scope carrying it is that number rather than a range.
   const cap = /\blimit\b/.test(s)
   return {
+    rules: s.includes('satisfied'),
     unsatisfied: s.includes('unsatisfied'),
     leeching: s.includes('leeching'),
     // Read from the whole name: a scope can hold the only word that names the
@@ -85,6 +89,9 @@ function groupOf(f: PileFlags, label: string): { group: BucketGroup; text: strin
 export function pileBadge(f: PileFlags): { text: string; tone: BadgeTone } {
   if (f.leeching) return { text: 'Downloading', tone: 'muted' }
   if (f.upload) return f.seeding ? { text: 'Seeding', tone: 'ok' } : { text: 'Your upload', tone: 'muted' }
+  // A name that never mentions the rules cannot claim anything about them. What
+  // it does say is that this torrent is on the account.
+  if (!f.rules) return { text: f.seeding ? 'Seeding' : 'Have it', tone: f.seeding ? 'ok' : 'muted' }
   if (!f.satisfied) return { text: 'Seed more', tone: 'warn' }
   return f.seeding ? { text: 'Seeding', tone: 'ok' } : { text: 'Satisfied', tone: 'muted' }
 }

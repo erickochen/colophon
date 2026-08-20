@@ -791,18 +791,30 @@ export function requestedAt(requesttime: number): string {
   return new Date(requesttime * MS_PER_SECOND).toISOString().replace('T', ' ').slice(0, STAMP_LENGTH)
 }
 
+/** The timeout MAM's own handler for this GET carries. */
+const CLEAR_TAG_TIMEOUT_MS = 20000
+
 /** Clears MAM's own NEW tag for this account. Its browse page does the same GET
  * from its "Clear NEW tag" button, then drops every new.gif on the page. */
 export async function clearNewFlag(): Promise<void> {
-  const res = await mamFetch('/tor/json/resetNewFlag.php', { credentials: 'include' })
+  const res = await mamFetch('/tor/json/resetNewFlag.php', {
+    credentials: 'include',
+    signal: AbortSignal.timeout(CLEAR_TAG_TIMEOUT_MS),
+  })
   if (!res.ok) throw new Error(`Could not clear the tag (${res.status})`)
-  // A dead session answers 200 with a login page, so the type is what separates
-  // an answer from a redirect. An empty JSON body is a fine answer: MAM's own
-  // handler reads no field off it either.
-  if (!(res.headers.get('content-type') ?? '').includes('json')) {
-    throw new Error('Could not clear the tag')
+  // The body is what tells an answer from a page: a dead session answers 200
+  // with the login page. The content type says nothing here, since MAM's own
+  // caller asks for json plus never reads the header back.
+  const text = (await res.text()).trim()
+  if (text.startsWith('<')) throw new Error('Could not clear the tag')
+  if (!text) return
+  let body: { success?: unknown; error?: unknown } | null = null
+  try {
+    body = JSON.parse(text) as { success?: unknown; error?: unknown }
+  } catch {
+    // Not JSON plus not a page. MAM's own handler reads no field off it either.
+    return
   }
-  const body = (await res.json().catch(() => null)) as { success?: unknown; error?: unknown } | null
   if (body?.success === false) throw new Error(String(body.error ?? 'Could not clear the tag'))
 }
 

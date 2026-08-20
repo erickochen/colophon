@@ -14,6 +14,9 @@ const PILE_MAX = PILE_PAGES_MAX * PILE_PAGE
 /** The pile counts catch a changed list on their own. This is the backstop for
  * the case where two changes land a count back on its old number. */
 const INDEX_TTL_MS = 60 * 60 * 1000
+/** Past a week the stored map describes a library that has moved on, so it is
+ * not worth painting badges from while a refresh is failing. */
+const INDEX_STALE_MS = 7 * 24 * 60 * 60 * 1000
 const INDEX_KEY = 'colophon:snatch-index'
 const PILES_URL = '/snatch_summary.php'
 const ROWS_URL = 'https://cdn.myanonamouse.net/json/loadUserDetailsTorrents.php'
@@ -92,10 +95,10 @@ async function readPileRows(p: Pile): Promise<{ ids: number[]; partial: boolean 
       break
     }
   }
-  // A pile the summary counts cannot answer with nothing. That is a shape this
-  // reader does not understand, so it throws rather than caching an empty map
-  // that would read as "you have none of these" for the whole TTL.
-  if (p.count > 0 && ids.length === 0) throw new Error('Snatch list came back unreadable')
+  // A pile the summary counts that answers with nothing is a gap, not a
+  // complete pile: a torrent can move pile between the two calls. It rides
+  // along as partial rather than throwing away every pile that did answer.
+  if (p.count > 0 && ids.length === 0) return { ids, partial: true }
   // Complete means the pile ran out on its own. Handing over every id its count
   // promised counts too. Short of that, a ceiling stopped it with a tail behind.
   return { ids, partial: !whole && ids.length < p.count }
@@ -122,10 +125,12 @@ function toIndex(o: Stored): SnatchIndex {
   return { have, at: o.at, partial: !!o.partial }
 }
 
-/** The stored index without touching the network. Null when there is none. */
+/** The stored index without touching the network, as long as it is recent
+ * enough to describe today. Null when there is none. */
 export function cachedSnatchIndex(): SnatchIndex | null {
   const stored = readStored()
-  return stored ? toIndex(stored) : null
+  if (!stored || Date.now() - stored.at > INDEX_STALE_MS) return null
+  return toIndex(stored)
 }
 
 let inflight: Promise<SnatchIndex> | null = null
@@ -152,11 +157,18 @@ async function run(): Promise<SnatchIndex> {
   }
 
   const next: Stored = { fingerprint, at: Date.now(), partial: false, piles: [] }
+  let counted = 0
   for (const p of piles) {
     const { ids, partial } = await readPileRows(p)
     next.piles.push({ name: p.name, ids })
+    counted += p.count
     if (partial) next.partial = true
   }
+  // Every pile empty while the summary counted torrents is a shape this reader
+  // does not understand. Caching that would read as "you hold none of these"
+  // for a whole TTL, so it throws plus the next visit tries again.
+  const total = next.piles.reduce((n, pile) => n + pile.ids.length, 0)
+  if (counted > 0 && total === 0) throw new Error('Snatch lists came back unreadable')
   // A throw above leaves the old cache in place, so the next visit tries again.
   try {
     localStorage.setItem(INDEX_KEY, JSON.stringify(next))

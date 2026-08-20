@@ -73,6 +73,15 @@ test('the badge says one of four things', () => {
   assert.deepEqual(pileBadge(readPile('Not Seeding - Uploads')), { text: 'Your upload', tone: 'muted' })
 })
 
+test('a name that never mentions the rules claims nothing about them', () => {
+  // The scoped family MAM writes on some piles, which says nothing about seed
+  // time either way.
+  assert.deepEqual(pileBadge(readPile('Seeding with 5 or fewer seeders')), { text: 'Seeding', tone: 'ok' })
+  assert.deepEqual(pileBadge(readPile('Not Seeding')), { text: 'Have it', tone: 'muted' })
+  assert.equal(readPile('Seeding with 5 or fewer seeders').rules, false)
+  assert.equal(readPile('Seeding - Satisfied').rules, true)
+})
+
 test('groups sort the piles by what they ask of you', () => {
   const group = (name) => pileGroup(readPile(name), name).group
   assert.equal(group('Not Seeding - H&R - Not Yet Satisfied'), 'attention')

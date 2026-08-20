@@ -19,7 +19,10 @@ export interface PostSource {
   form: HTMLFormElement
 }
 
-export async function fetchPostSource(pid: string | number): Promise<PostSource> {
+/** `wanted` lets a caller that has moved on keep the page clean: the fetch can
+ * land after its editor closed, plus the form it inserts would then stay for the
+ * life of the page. */
+export async function fetchPostSource(pid: string | number, wanted: () => boolean = () => true): Promise<PostSource> {
   const page = postEditUrl(pid)
   const res = await mamFetch(page, { credentials: 'same-origin' })
   if (!res.ok) throw new Error(`Edit form unavailable (${res.status})`)
@@ -30,6 +33,8 @@ export async function fetchPostSource(pid: string | number): Promise<PostSource>
   // Never edit whatever post the served form happens to name.
   const served = source.getAttribute('action')?.match(/postid=(\d+)/)?.[1]
   if (served !== String(pid)) throw new Error('Edit form names another post')
+
+  if (!wanted()) throw new Error('Edit was closed before the form arrived')
 
   const form = document.importNode(source, true)
   // Imported nodes run their scripts once inserted, so drop any that came along.

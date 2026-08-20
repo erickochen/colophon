@@ -2182,15 +2182,14 @@ export function BrowseView(props: PageProps) {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {/* What the mark is doing right now, in the line that reports the
-              search. On a fresh mark nothing can carry a dot yet, so it says so
-              rather than showing a zero. */}
-          {newOn && !loading && (
-            marks.since === 0 || newCount === 0 ? (
-              <span className="text-[12.5px] text-muted-foreground">Marking new arrivals from now on</span>
-            ) : (
-              <span className="text-[12.5px] tabular-nums text-muted-foreground">{fmtInt(newCount)} new here</span>
-            )
+          {/* What the mark is doing, in the line that reports the search. A mark
+              that starts here says so once; past that only a count is true, so a
+              page without new rows says nothing at all. */}
+          {newOn && !loading && marks.since === 0 && (
+            <span className="text-[12.5px] text-muted-foreground">Marking new arrivals from now on</span>
+          )}
+          {newOn && !loading && marks.since > 0 && newCount > 0 && (
+            <span className="text-[12.5px] tabular-nums text-muted-foreground">{fmtInt(newCount)} new here</span>
           )}
           <span className="ml-auto flex flex-wrap items-center gap-1.5">
             {newOn && newCount > 0 && (

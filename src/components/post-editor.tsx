@@ -44,6 +44,7 @@ export function PostEditor({
   ref?: React.Ref<PostEditorHandle>
 }) {
   const [source, setSource] = useState<PostSource | null>(null)
+  const [failed, setFailed] = useState(false)
   const [text, setText] = useState('')
   const original = useRef('')
   const draft = useRef(store(pid))
@@ -54,7 +55,7 @@ export function PostEditor({
 
   useEffect(() => {
     let live = true
-    void fetchPostSource(pid).then(
+    void fetchPostSource(pid, () => live).then(
       (s) => {
         if (!live) return
         original.current = s.body
@@ -68,8 +69,9 @@ export function PostEditor({
       },
       () => {
         if (!live) return
-        toast.error('Could not load the editor here. Opening MAM’s edit page.')
-        location.assign(postEditUrl(pid))
+        // Not a redirect: one in the same tick means nobody reads the message.
+        // The way out stays a link the reader takes when they want it.
+        setFailed(true)
       }
     )
     return () => {
@@ -116,16 +118,31 @@ export function PostEditor({
       toast.warning('The post would be empty.')
       return
     }
-    // The kept text goes only once the form has taken it. A detached form is a
-    // silent no-op, so clearing first would drop the text with it.
     try {
       sendPostEdit(source, text)
     } catch {
       toast.error('Could not send the edit. Your text is still here.')
       return
     }
+    // The guard stands down, but the kept text stays: requestSubmit only starts
+    // the navigation, so a post MAM refuses would land on its error page with
+    // nothing left to paste back. The draft TTL takes it from here. On a landed
+    // edit that text equals the source anyway.
     dirtyRef.current = false
-    draft.current.clear()
+  }
+
+  if (failed) {
+    return (
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 py-6 text-[12.5px] text-muted-foreground">
+        <span>The editor did not load.</span>
+        <Button variant="link" size="sm" asChild className="h-auto p-0 text-[12.5px]">
+          <a href={postEditUrl(pid)}>Edit on MAM instead</a>
+        </Button>
+        <Button variant="link" size="sm" className="h-auto p-0 text-[12.5px]" onClick={onClose}>
+          Back to the post
+        </Button>
+      </div>
+    )
   }
 
   if (!source) {
