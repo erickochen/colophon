@@ -13,7 +13,7 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/componen
 import { CollapsibleSection } from '@/components/section'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
-import { mamFetch } from '@/lib/mam-fetch'
+import { BONUS_EVENT_CAP, fetchBonusEvents } from '@/lib/bonus-events'
 
 const GROUPS: { title: string; match: RegExp }[] = [
   { title: 'Transfer', match: /^(uploaded|downloaded|share ratio|real uploaded|real downloaded|real share ratio)/i },
@@ -137,7 +137,7 @@ function NotesCard({ uid }: { uid: string }) {
   )
 }
 
-const GIFT_TYPES = new Set(['giftPoints', 'giftWedge'])
+const GIFT_TYPES = ['giftPoints', 'giftWedge']
 
 interface GiftRow {
   at: string
@@ -145,30 +145,27 @@ interface GiftRow {
   what: string
 }
 
-/** Gifts between the reader and this profile, from the recent bonus log. */
+/** Gifts between the reader and this profile. The bonus log narrows by member
+ * on the server, so the request asks for this pair alone. */
 function GiftHistoryCard({ uid, name }: { uid: string; name: string }) {
   const [rows, setRows] = useState<GiftRow[] | null>(null)
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
+    // The uid lands in a query, so anything but digits never goes out.
+    if (!/^\d+$/.test(uid)) return
     let live = true
-    mamFetch('/json/userBonusHistory.php', { credentials: 'include' })
-      .then((r) => r.json())
-      .then((j: { timestamp: number; amount: number; type: string; other_userid: number | null }[]) => {
-        if (!live || !Array.isArray(j)) return
-        setRows(
-          j
-            .filter((e) => GIFT_TYPES.has(e.type) && e.other_userid != null && String(e.other_userid) === uid)
-            .map((e) => ({
-              at: new Date(e.timestamp * 1000).toISOString().slice(0, 19).replace('T', ' '),
-              sent: e.amount < 0,
-              what: e.type === 'giftWedge' ? (Math.abs(e.amount) === 1 ? 'FL wedge' : `${fmtInt(Math.abs(e.amount))} FL wedges`) : `${fmtInt(Math.abs(e.amount))} points`,
-            }))
-        )
-      })
-      .catch(() => {
-        // no data, no card
-      })
+    fetchBonusEvents({ otherUserId: uid, types: GIFT_TYPES }).then((events) => {
+      // No data, no card.
+      if (!live || events === 'failed') return
+      setRows(
+        events.map((e) => ({
+          at: new Date(e.timestamp * 1000).toISOString().slice(0, 19).replace('T', ' '),
+          sent: e.amount < 0,
+          what: e.type === 'giftWedge' ? (Math.abs(e.amount) === 1 ? 'FL wedge' : `${fmtInt(Math.abs(e.amount))} FL wedges`) : `${fmtInt(Math.abs(e.amount))} points`,
+        }))
+      )
+    })
     return () => {
       live = false
     }
@@ -205,6 +202,9 @@ function GiftHistoryCard({ uid, name }: { uid: string; name: string }) {
           </Table>
         ) : (
           <p className="px-4 py-6 text-center text-[13px] text-muted-foreground">No gifts between you two yet.</p>
+        )}
+        {rows.length === BONUS_EVENT_CAP && (
+          <p className="px-4 pb-3 pt-2 text-[11.5px] text-muted-foreground">Only the newest {BONUS_EVENT_CAP} gifts come back from the site.</p>
         )}
       </CollapsibleSection>
     </Card>

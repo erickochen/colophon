@@ -12,6 +12,7 @@ import { FilterSegments } from '@/components/filters'
 import { NumberRoll } from '@/components/ui/number-roll'
 import { Skeleton } from '@/components/ui/skeleton'
 import { mamFetch } from '@/lib/mam-fetch'
+import { BONUS_EVENT_CAP, fetchBonusEvents, type BonusEvent } from '@/lib/bonus-events'
 
 // The tracker's own graph (userBonusPointHistoryJSON.php): a multi-series time
 // series of seeding, bonus points, ratio and transfer, 15 min apart. We split
@@ -21,11 +22,6 @@ interface Trend {
   leeching: number; unsat: number; sat: number
   wedges: number; pph: number; bonus: number
   up: number; down: number; ratio: number
-}
-interface BonusEvent {
-  timestamp: number; amount: number; type: string
-  tid: number | null; title: string | null
-  other_userid: number | null; other_name: string | null
 }
 
 type MetricKey = 'sat' | 'unsat' | 'leeching' | 'bonus' | 'pph' | 'ratio' | 'wedges' | 'up' | 'down'
@@ -262,27 +258,16 @@ function EventCard({ title, note, events, empty }: {
         {rows?.length === 0 && <p className="px-6 py-8 text-center text-sm text-muted-foreground">{empty}</p>}
         {rows?.map((e, i) => <EventRow key={i} event={e} />)}
       </CardContent>
-      {rows?.length === EVENT_CAP && (
-        <CardFooter className="px-6 pb-3.5 text-[11.5px] text-muted-foreground">Only the newest {EVENT_CAP} events come back from the site.</CardFooter>
+      {rows?.length === BONUS_EVENT_CAP && (
+        <CardFooter className="px-6 pb-3.5 text-[11.5px] text-muted-foreground">Only the newest {BONUS_EVENT_CAP} events come back from the site.</CardFooter>
       )}
     </Card>
   )
 }
 
-// What MAM hands back per request, whichever types you ask for.
-const EVENT_CAP = 50
-
 /** null while the request is out, 'failed' when it did not answer with a list.
  * An empty history and a dead request must not read the same. */
 type EventList = BonusEvent[] | 'failed' | null
-
-function fetchEvents(types: string[]): Promise<BonusEvent[] | 'failed'> {
-  const query = types.map((t) => `type[]=${t}`).join('&')
-  return mamFetch(`/json/userBonusHistory.php?${query}`, { credentials: 'include' })
-    .then((r) => r.json())
-    .then((j: BonusEvent[]) => (Array.isArray(j) ? j : 'failed' as const))
-    .catch(() => 'failed' as const)
-}
 
 function Stat({ icon, label, value, hint }: { icon: ReactNode; label: string; value: ReactNode; hint?: string }) {
   return (
@@ -325,8 +310,8 @@ export function BonusHistoryView({ page }: PageProps) {
   }, [page.user.uid])
 
   useEffect(() => {
-    fetchEvents(POINT_TYPES).then(setPointEvents)
-    fetchEvents(WEDGE_TYPES).then(setWedgeEvents)
+    fetchBonusEvents({ types: POINT_TYPES }).then(setPointEvents)
+    fetchBonusEvents({ types: WEDGE_TYPES }).then(setWedgeEvents)
   }, [])
 
   const fullView = useMemo(() => {
