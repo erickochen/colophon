@@ -48,8 +48,14 @@ function Post({
   const giftUid = authorUid && authorUid !== myUid ? authorUid : null
   return (
     // data-bubble marks the post as one quotable block, the same way a message
-    // bubble does, so a highlight inside it can be quoted on its own.
-    <Card id={`post-${p.pid}`} data-bubble={p.pid} className="scroll-mt-18 gap-0 overflow-hidden py-0">
+    // bubble does, so a highlight inside it can be quoted on its own. The post
+    // being edited drops the mark: quoting your own draft into itself is not an
+    // offer worth making.
+    <Card
+      id={`post-${p.pid}`}
+      data-bubble={editing ? undefined : p.pid}
+      className="scroll-mt-18 gap-0 overflow-hidden py-0"
+    >
       <div className="flex items-center justify-between gap-3 bg-muted/40 px-6 py-2.5">
         <div className="flex min-w-0 items-baseline gap-2 text-[12.5px]">
           <a href={p.permalink} className="font-mono text-[11px] text-muted-foreground hover:underline">#{p.pid}</a>
