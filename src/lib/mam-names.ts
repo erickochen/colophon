@@ -1,4 +1,4 @@
-import { mamFetch } from '@/lib/mam-fetch'
+import { mamFetch, sessionToken } from '@/lib/mam-fetch'
 
 // MAM's name lookup behind the author, narrator and series boxes on the upload
 // and request forms. It answers from the cdn host, where the session cookie
@@ -13,17 +13,6 @@ export type NameKind = 'author' | 'narrator' | 'series'
 export interface NameHit {
   id: number
   name: string
-}
-
-/** The cookie sits percent-encoded in document.cookie; the endpoint answers
- * "invalid cookie" unless it arrives decoded. */
-function sessionToken(): string {
-  const raw = document.cookie.split('; ').find((c) => c.startsWith('mbsc='))?.slice('mbsc='.length) ?? ''
-  try {
-    return decodeURIComponent(raw)
-  } catch {
-    return raw
-  }
 }
 
 export async function searchNames(kind: NameKind, term: string, signal?: AbortSignal): Promise<NameHit[]> {

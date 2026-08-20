@@ -6,9 +6,15 @@ import { LegacyView } from '@/app/pages/legacy'
 import { Crumbs, Pager, POST_SPACING, RichHtml } from '@/app/shell/bits'
 import { initials, localDateTime, utcTitle } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { BBComposer } from '@/components/bb-composer'
+import { PostEditor, type PostEditorHandle } from '@/components/post-editor'
 import { SelectionQuote } from '@/components/quote-selection'
+import { useFeature } from '@/lib/settings'
 import type { BubbleSelection } from '@/components/conversation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -25,7 +31,18 @@ import { submitNative } from '@/lib/form-submit'
  * down, so the anchor jump runs once more after this pause. */
 const ANCHOR_SETTLE_MS = 400
 
-function Post({ p, onQuote, myUid }: { p: TopicPost; onQuote: (p: TopicPost) => void; myUid: string | null }) {
+function Post({
+  p, onQuote, myUid, editing, inlineEdit, onEdit, dirtyRef, editorRef,
+}: {
+  p: TopicPost
+  onQuote: (p: TopicPost) => void
+  myUid: string | null
+  editing: boolean
+  inlineEdit: boolean
+  onEdit: (pid: string | null) => void
+  dirtyRef: React.RefObject<boolean>
+  editorRef: React.Ref<PostEditorHandle>
+}) {
   // Your own posts sit in the same list. Gifting yourself goes nowhere.
   const authorUid = uidFromHref(p.author?.href ?? null)
   const giftUid = authorUid && authorUid !== myUid ? authorUid : null
@@ -58,21 +75,37 @@ function Post({ p, onQuote, myUid }: { p: TopicPost; onQuote: (p: TopicPost) => 
           </div>
         </div>
         <div className="min-w-0">
-          <RichHtml html={p.bodyHtml} className={POST_SPACING} />
-          {p.edited && <p className="mt-3 text-[11px] italic text-muted-foreground">{p.edited}</p>}
-          {p.sigHtml && (
+          {editing ? (
+            <PostEditor pid={p.pid} onClose={() => onEdit(null)} dirtyRef={dirtyRef} ref={editorRef} />
+          ) : (
+            <RichHtml html={p.bodyHtml} className={POST_SPACING} />
+          )}
+          {!editing && p.edited && <p className="mt-3 text-[11px] italic text-muted-foreground">{p.edited}</p>}
+          {!editing && p.sigHtml && (
             <RichHtml
               html={p.sigHtml}
               className={cn(POST_SPACING, 'mt-5 border-t pt-3 text-[12px] text-muted-foreground [&_img]:max-h-28')}
             />
           )}
-          <div className="mt-3 flex justify-end gap-1">
+          <div className={cn('mt-3 flex justify-end gap-1', editing && 'hidden')}>
             {p.editHref && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button asChild variant="ghost" size="icon" className="size-7 text-muted-foreground">
-                    <a href={p.editHref}><Pencil className="size-3.5" /></a>
-                  </Button>
+                  {inlineEdit ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 text-muted-foreground"
+                      aria-label="Edit this post"
+                      onClick={() => onEdit(String(p.pid))}
+                    >
+                      <Pencil className="size-3.5" />
+                    </Button>
+                  ) : (
+                    <Button asChild variant="ghost" size="icon" className="size-7 text-muted-foreground">
+                      <a href={p.editHref}><Pencil className="size-3.5" /></a>
+                    </Button>
+                  )}
                 </TooltipTrigger>
                 <TooltipContent>Edit this post</TooltipContent>
               </Tooltip>
@@ -187,6 +220,13 @@ export function ForumTopicView(props: PageProps) {
   const [subscribed, setSubscribed] = useState(readSubscribed)
   const [subBusy, setSubBusy] = useState(false)
   const posts = useRef<HTMLDivElement>(null)
+  const [inlineEdit] = useFeature('inlineEdit')
+  const [editingPid, setEditingPid] = useState<string | null>(null)
+  // A ref rather than state: the topic asks about unsaved text without a render,
+  // which would replace every post body plus drop a reader's selection.
+  const dirty = useRef(false)
+  const [ask, setAsk] = useState<{ next: string | null } | null>(null)
+  const editor = useRef<PostEditorHandle | null>(null)
 
   // The URL's #<pid> points at an anchor in MAM's hidden page, which the
   // browser cannot scroll to. Jump to our card for that post instead.
@@ -213,6 +253,15 @@ export function ForumTopicView(props: PageProps) {
   // the quote entirely.
   function addQuote(who: string, pid: string | number, text: string) {
     const block = `[quote=${who}#p${pid}]\n${text}\n[/quote]\n\n`
+    // An open editor is where the writing is happening, so the quote goes there
+    // rather than into the reply box at the foot of the topic.
+    if (editingPid && editor.current) {
+      const landed = editor.current.append(block)
+      if (landed === 'added') toast.success(`Quoted ${who}`)
+      else toast.info(`Quoting ${who}`, { description: 'It goes in as soon as the editor is ready.' })
+      scrollIntoView(props.host.shadowRoot?.getElementById(`post-${editingPid}`))
+      return
+    }
     setReply((prev) => (prev.trim() ? `${prev.replace(/\n+$/, '')}\n\n${block}` : block))
     toast.success(`Quoted ${who}`)
     scrollIntoView(props.host.shadowRoot?.getElementById('quick-reply'))
@@ -239,6 +288,16 @@ export function ForumTopicView(props: PageProps) {
   function quoteSelection(selection: BubbleSelection) {
     const post = data?.posts.find((p) => String(p.pid) === selection.navKey)
     addQuote(post?.author?.name ?? 'Anonymous', selection.navKey, selection.text)
+  }
+
+  /** Opening an editor, moving it plus closing it all pass through here, so
+   * unsaved text is asked about once whichever way it goes. */
+  function wantEdit(next: string | null) {
+    if (dirty.current) {
+      setAsk({ next })
+      return
+    }
+    setEditingPid(next)
   }
 
   function submitReply() {
@@ -297,10 +356,46 @@ export function ForumTopicView(props: PageProps) {
       </div>
       <Pager pages={data.pages} prevHref={data.prevHref} nextHref={data.nextHref} />
       <div ref={posts} className="grid gap-3">
-        {data.posts.map((p) => <Post key={p.pid} p={p} onQuote={quotePost} myUid={myUid} />)}
+        {data.posts.map((p) => (
+          <Post
+            key={p.pid}
+            p={p}
+            onQuote={quotePost}
+            myUid={myUid}
+            editing={editingPid === String(p.pid)}
+            inlineEdit={inlineEdit}
+            onEdit={wantEdit}
+            dirtyRef={dirty}
+            editorRef={editor}
+          />
+        ))}
       </div>
-      {/* Only worth offering where a reply can be written at all. */}
-      <SelectionQuote scope={posts} onQuote={quoteSelection} disabled={!data.quickReply} />
+      <AlertDialog open={!!ask} onOpenChange={(open) => !open && setAsk(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Throw away your changes?</AlertDialogTitle>
+            <AlertDialogDescription>This post has edits you have not saved yet.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                // The editor is still mounted here, so this reaches the kept
+                // text before the component goes.
+                editor.current?.discard()
+                dirty.current = false
+                setEditingPid(ask?.next ?? null)
+                setAsk(null)
+              }}
+            >
+              Throw away
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* Only worth offering where the quote has somewhere to land: the reply
+          box plus any editor open on one of these posts. */}
+      <SelectionQuote scope={posts} onQuote={quoteSelection} disabled={!data.quickReply && !editingPid} />
       <Pager pages={data.pages} prevHref={data.prevHref} nextHref={data.nextHref} />
       {data.quickReply && (
         <Card id="quick-reply">

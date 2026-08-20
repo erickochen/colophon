@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Archive, ArrowDown, ArrowRight, ArrowUp, ArrowUpDown, CheckCircle2, ChevronDown, Download, Sprout, Users } from 'lucide-react'
+import { Archive, ArrowDown, ArrowRight, ArrowUp, ArrowUpDown, CheckCircle2, ChevronDown, Download, Users } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
 import { FilterSelect } from '@/components/filters'
+import { SnatchBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
+import { pileHeading, type BadgeTone, type BucketGroup } from '@/lib/snatch-status'
 import { toast } from '@/components/ui/toast'
 
 interface Bucket {
@@ -24,54 +26,6 @@ interface Bucket {
 }
 
 interface ZipGroup { label: string; links: { label: string; href: string }[] }
-
-/** MAM names its buckets by stacking states: "Not Seeding - H&R - Not Yet
- * Satisfied". Read those states back out so the page can group by what the
- * reader has to do about them and say it in a sentence. */
-type BucketGroup = 'quota' | 'attention' | 'running' | 'settled' | 'other'
-
-/** Some pile names carry a scope on the end: "(active in the last 7 days)",
- * "with 5 or fewer seeders". It rides along behind the states so two piles
- * never land on one wording. The account cap ("150 limit") is not a scope: its
- * own row states the number. */
-const SCOPE = /\s*(?:\(([^)]*)\)|with\s+(.+?))\s*$/i
-
-function scopeOf(label: string): string | null {
-  const found = SCOPE.exec(label)
-  const scope = found ? (found[1] ?? found[2]).trim() : null
-  return scope && !/\blimit\b/i.test(scope) ? scope : null
-}
-
-function readBucket(label: string): { group: BucketGroup; text: string } {
-  // The states are read from the whole name: a scope can hold the only word
-  // that names one ("Seeding with 5 or fewer seeders").
-  const read = readStates(label)
-  const scope = scopeOf(label)
-  // A name we could not read keeps MAM's own wording, scope included.
-  return scope && read.group !== 'other' ? { ...read, text: `${read.text} (${scope})` } : read
-}
-
-function readStates(label: string): { group: BucketGroup; text: string } {
-  const s = label.toLowerCase().replace(/&amp;/g, '&').replace(/\s+/g, ' ')
-  if (s.includes('leeching')) return { group: 'running', text: 'Downloading now' }
-  const seeding = !s.includes('not seeding') && !s.includes('inactive')
-  const where = seeding ? 'Seeding' : 'Stopped'
-  if (s.includes('upload')) return { group: 'settled', text: `Your uploads, ${seeding ? 'seeding' : 'stopped'}` }
-  if (s.includes('h&r')) return { group: 'attention', text: `${where}, hit and run risk` }
-  // "Unsatisfied" on its own is the whole pile that still owes seed time; the
-  // one carrying a limit is the account cap rather than a pile.
-  if (s.includes('unsatisfied')) {
-    if (s.includes('limit')) return { group: 'quota', text: 'Unsatisfied' }
-    return { group: 'attention', text: seeding ? 'Not satisfied yet' : 'Stopped, not satisfied' }
-  }
-  if (s.includes('not yet satisfied')) {
-    return seeding
-      ? { group: 'running', text: 'Seeding, rules not met yet' }
-      : { group: 'attention', text: 'Stopped before the rules were met' }
-  }
-  if (s.includes('satisfied')) return { group: 'settled', text: `${where}, rules met` }
-  return { group: 'other', text: label }
-}
 
 /** How long a pile may stay empty before the panel offers a way out. */
 const LIST_TIMEOUT_MS = 30000
@@ -246,10 +200,17 @@ const SORT_OPTIONS: { value: string; label: string }[] = [
   { value: 'seeders:asc', label: 'Seeders, fewest first' },
 ]
 
+/** The same three states the pile names carry, read from one parsed row. */
+function itemBadge(s: SnatchItem): { text: string; tone: BadgeTone } | null {
+  if (s.seeding) return { text: 'Seeding', tone: 'ok' }
+  if (s.seedtime) return s.seedUnder ? { text: 'Seed more', tone: 'warn' } : { text: 'Satisfied', tone: 'muted' }
+  return null
+}
+
 function StatusBadge({ s }: { s: SnatchItem }) {
-  if (s.seeding) return <Badge className="h-5 gap-1 bg-ok/15 px-2 text-[11px] font-medium text-ok"><Sprout className="size-3" /> Seeding</Badge>
-  if (s.seedtime) return <Badge variant="outline" className={cn('h-5 px-2 text-[11px] font-medium', s.seedUnder && 'border-warn/40 text-warn')}>{s.seedUnder ? 'Seed more' : 'Satisfied'}</Badge>
-  return <span className="text-[11px] text-muted-foreground/50">-</span>
+  const read = itemBadge(s)
+  if (!read) return <span className="text-[11px] text-muted-foreground/50">-</span>
+  return <SnatchBadge text={read.text} tone={read.tone} />
 }
 
 function SnatchHeader({ sort, onSort }: { sort: SortState | null; onSort: (key: SortKey) => void }) {
@@ -427,7 +388,7 @@ function BucketRow({ b }: { b: Bucket }) {
       <span className={cn('w-10 shrink-0 text-right font-display text-[16px] font-semibold tabular-nums', !b.count && 'text-muted-foreground/45')}>
         {b.count.toLocaleString('en-US')}
       </span>
-      <span className={cn('text-[13px]', !b.count && 'text-muted-foreground/60')}>{readBucket(b.label).text}</span>
+      <span className={cn('text-[13px]', !b.count && 'text-muted-foreground/60')}>{pileHeading(b.label).text}</span>
       {openable && (
         <ChevronDown className={cn('ml-auto size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
       )}
@@ -529,7 +490,7 @@ function QuotaCard({ used, limit, attention }: { used: number; limit: number | n
 function ZipMatrix({ groups }: { groups: ZipGroup[] }) {
   const cols = [...new Set(groups.flatMap((g) => g.links.map((l) => l.label)))]
   const onPage = (g: ZipGroup) => g.label.replace(/^download\s+/i, '').replace(/:\s*$/, '').trim()
-  const read = groups.map((g) => readBucket(onPage(g)).text)
+  const read = groups.map((g) => pileHeading(onPage(g)).text)
   // Two rows reading the same is worse than MAM's own wording, so a clash keeps
   // the name from the page.
   const names = read.map((n, i) => (read.some((other, j) => j !== i && other === n) ? onPage(groups[i]) : n))
@@ -590,16 +551,16 @@ export function SnatchedView(props: PageProps) {
   const data = useMemo(() => extract(document), [])
   if (!data) return <LegacyView {...props} />
 
-  const quota = data.buckets.find((b) => readBucket(b.label).group === 'quota') ?? null
+  const quota = data.buckets.find((b) => pileHeading(b.label).group === 'quota') ?? null
   const limit = Number(quota?.label.match(/(\d[\d,]*)\s*limit/i)?.[1]?.replace(/,/g, '')) || null
   const attentionCount = data.buckets
-    .filter((b) => readBucket(b.label).group === 'attention')
+    .filter((b) => pileHeading(b.label).group === 'attention')
     .reduce((n, b) => n + b.count, 0)
   // An empty pile says nothing, so only the piles holding something get a row.
   // Attention keeps its heading either way, since an empty one is worth reading.
   const sections = GROUP_TITLES.map((g) => ({
     ...g,
-    items: data.buckets.filter((b) => readBucket(b.label).group === g.key && b.count > 0),
+    items: data.buckets.filter((b) => pileHeading(b.label).group === g.key && b.count > 0),
   })).filter((s) => s.items.length > 0 || s.key === 'attention')
 
   return (

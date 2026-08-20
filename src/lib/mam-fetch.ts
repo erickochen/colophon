@@ -8,3 +8,15 @@ export const mamUrl = (path: string) => new URL(path, location.href).href
 
 /** fetch with the URL resolved against the page, so it works from any realm. */
 export const mamFetch = (path: string, init?: RequestInit) => fetch(mamUrl(path), init)
+
+/** The signed session token MAM's cdn endpoints ask for. It sits
+ * percent-encoded in document.cookie. Those endpoints answer "invalid cookie"
+ * unless it arrives decoded. */
+export function sessionToken(): string {
+  const raw = document.cookie.split('; ').find((c) => c.startsWith('mbsc='))?.slice('mbsc='.length) ?? ''
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    return raw
+  }
+}

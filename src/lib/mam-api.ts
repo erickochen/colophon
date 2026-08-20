@@ -1,6 +1,6 @@
 // MAM's officially automatable JSON endpoints (see /api/list.php).
 // Same-origin fetch with session cookie; CSP allows 'self' only.
-import { decodeEntities } from '@/lib/format'
+import { decodeEntities, MS_PER_SECOND } from '@/lib/format'
 import { mamFetch } from '@/lib/mam-fetch'
 import { submitNative } from '@/lib/form-submit'
 
@@ -783,13 +783,27 @@ export function requestUrl(requesttime: number) {
   return `/t/r/${requesttime}`
 }
 
-const MS_PER_SECOND = 1000
 const STAMP_LENGTH = 'YYYY-MM-DD HH:MM:SS'.length
 
 /** Request time read back as the UTC stamp it encodes. */
 export function requestedAt(requesttime: number): string {
   if (!Number.isFinite(requesttime)) return ''
   return new Date(requesttime * MS_PER_SECOND).toISOString().replace('T', ' ').slice(0, STAMP_LENGTH)
+}
+
+/** Clears MAM's own NEW tag for this account. Its browse page does the same GET
+ * from its "Clear NEW tag" button, then drops every new.gif on the page. */
+export async function clearNewFlag(): Promise<void> {
+  const res = await mamFetch('/tor/json/resetNewFlag.php', { credentials: 'include' })
+  if (!res.ok) throw new Error(`Could not clear the tag (${res.status})`)
+  // A dead session answers 200 with a login page, so the type is what separates
+  // an answer from a redirect. An empty JSON body is a fine answer: MAM's own
+  // handler reads no field off it either.
+  if (!(res.headers.get('content-type') ?? '').includes('json')) {
+    throw new Error('Could not clear the tag')
+  }
+  const body = (await res.json().catch(() => null)) as { success?: unknown; error?: unknown } | null
+  if (body?.success === false) throw new Error(String(body.error ?? 'Could not clear the tag'))
 }
 
 export function downloadUrl(id: number, useWedge = false) {

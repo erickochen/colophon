@@ -1,7 +1,7 @@
 // Central store for every Colophon client setting. One localStorage key per
 // setting, an absent key means the default. Writes notify subscribers so the
 // preferences tab and in-place controls stay in sync.
-import { useCallback, useSyncExternalStore } from 'react'
+import { useCallback, useMemo, useSyncExternalStore } from 'react'
 import {
   applyTheme, DARK_SCHEMES, LIGHT_SCHEMES, SCHEME_DARK_KEY, SCHEME_LIGHT_KEY, THEME_KEY,
 } from '@/lib/theme'
@@ -35,6 +35,9 @@ export type FeatureKey =
   | 'plainCopy'
   | 'hideHiddenRequesters'
   | 'giftNewest'
+  | 'inlineEdit'
+  | 'newTorrents'
+  | 'snatchCheck'
 
 interface FeatureDef {
   key: string
@@ -65,6 +68,9 @@ export const FEATURES: Record<FeatureKey, FeatureDef> = {
   plainCopy: { key: 'colophon:plain-copy', enabledByDefault: true },
   hideHiddenRequesters: { key: 'colophon:hide-hidden-requesters', enabledByDefault: false },
   giftNewest: { key: 'colophon:gift-newest', enabledByDefault: false },
+  inlineEdit: { key: 'colophon:inline-edit', enabledByDefault: true },
+  newTorrents: { key: 'colophon:new-torrents', enabledByDefault: true },
+  snatchCheck: { key: 'colophon:snatch-check', enabledByDefault: true },
 }
 
 const RATIO_FLOOR_KEY = 'colophon:ratio-floor'
@@ -76,6 +82,8 @@ const QUICK_SHOUTS_KEY = 'colophon:quick-shouts'
 const DEFAULT_THANK_KEY = 'colophon:default-thank'
 const DEFAULT_GIFT_KEY = 'colophon:default-gift'
 const GIFTED_MEMBERS_KEY = 'colophon:gifted-members'
+const NEW_SINCE_KEY = 'colophon:new-since'
+const SEEN_KEY = 'colophon:seen-torrents'
 
 const listeners = new Set<() => void>()
 let revision = 0
@@ -207,6 +215,58 @@ export function useIgnoredTorrents(): {
   }, [])
   const has = useCallback((id: number) => list.some((x) => x.id === id), [list])
   return { list, has, add, remove }
+}
+
+/** When "new" starts, in milliseconds, the unit `Date.now()` plus the parsed
+ * added stamp both speak. Zero means the mark is not set, so nothing is new. */
+export function readNewSince(): number {
+  const v = Number(rawRead(NEW_SINCE_KEY))
+  return Number.isFinite(v) && v > 0 ? v : 0
+}
+
+function validIdList(raw: unknown): number[] | null {
+  if (!Array.isArray(raw)) return null
+  return raw.filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+}
+
+/** Torrents opened since the threshold. Only those can be in here, so the list
+ * stays as short as what one member reads between two clears. */
+export function readSeenTorrents(): number[] {
+  return readJson(SEEN_KEY, validIdList, [])
+}
+
+export function markSeenTorrent(id: number): void {
+  if (!readNewSince()) return
+  const now = readSeenTorrents()
+  if (now.includes(id)) return
+  rawWrite(SEEN_KEY, JSON.stringify([...now, id]))
+}
+
+/** Moves the threshold plus empties the seen list, because everything before
+ * the new threshold counts as seen anyway. */
+export function resetNewMarks(atMs: number): void {
+  rawWrite(SEEN_KEY, null)
+  rawWrite(NEW_SINCE_KEY, String(Math.floor(atMs)))
+}
+
+export function useNewMarks(): {
+  since: number
+  seen: Set<number>
+  /** Takes the added stamp in milliseconds, which the caller parses. */
+  isNew(addedMs: number | null, id: number): boolean
+  reset(atMs: number): void
+} {
+  useSyncExternalStore(subscribe, getRevision)
+  const since = readNewSince()
+  // Keyed on the stored text: a fresh Set every render would give every caller
+  // downstream a new identity, so their memos would never hold.
+  const stored = rawRead(SEEN_KEY) ?? ''
+  const seen = useMemo(() => new Set(readSeenTorrents()), [stored])
+  const isNew = useCallback(
+    (addedMs: number | null, id: number) => since > 0 && addedMs != null && addedMs > since && !seen.has(id),
+    [since, seen]
+  )
+  return { since, seen, isNew, reset: resetNewMarks }
 }
 
 export interface ListedUser {
@@ -467,6 +527,8 @@ const VALUE_KEYS: Record<string, (raw: string) => boolean> = {
   [DEFAULT_THANK_KEY]: (raw) => /^max$/i.test(raw.trim()) || (Number.isInteger(Number(raw)) && Number(raw) > 0),
   [DEFAULT_GIFT_KEY]: (raw) => /^max$/i.test(raw.trim()) || (Number.isInteger(Number(raw)) && Number(raw) > 0),
   [GIFTED_MEMBERS_KEY]: (raw) => parses(raw, validGiftedMembers),
+  [NEW_SINCE_KEY]: (raw) => Number.isFinite(Number(raw)) && Number(raw) > 0,
+  [SEEN_KEY]: (raw) => parses(raw, validIdList),
   [THEME_KEY]: (raw) => raw === 'light' || raw === 'dark' || raw === 'auto',
   [SCHEME_LIGHT_KEY]: (raw) => (LIGHT_SCHEMES as readonly string[]).includes(raw),
   [SCHEME_DARK_KEY]: (raw) => (DARK_SCHEMES as readonly string[]).includes(raw),

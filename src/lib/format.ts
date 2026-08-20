@@ -12,12 +12,22 @@ export function compact(n: number | null | undefined): string {
   return Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(n)
 }
 
+export const MS_PER_SECOND = 1000
+
+/** MAM's stamps are UTC without a zone ("2026-08-20 04:41:32"). Without the Z
+ * a browser reads them as local time, which shifts them by hours. */
+export function stampMs(iso: string | null | undefined): number | null {
+  if (!iso) return null
+  const t = Date.parse(iso.replace(' ', 'T') + (iso.includes('+') || iso.endsWith('Z') ? '' : 'Z'))
+  return Number.isNaN(t) ? null : t
+}
+
 /** Server timestamp (UTC) -> relative label like "3h ago". */
 export function relTime(iso: string | null | undefined): string {
   if (!iso) return ''
-  const t = Date.parse(iso.replace(' ', 'T') + (iso.includes('+') || iso.endsWith('Z') ? '' : 'Z'))
-  if (Number.isNaN(t)) return iso
-  const s = Math.max(0, (Date.now() - t) / 1000)
+  const t = stampMs(iso)
+  if (t == null) return iso
+  const s = Math.max(0, (Date.now() - t) / MS_PER_SECOND)
   if (s < 60) return 'just now'
   if (s < 3600) return `${Math.floor(s / 60)}m ago`
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`
@@ -34,11 +44,6 @@ export function dateOnly(s: string | null | undefined): string {
   return s?.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? s ?? ''
 }
 
-function parseUtcMs(iso: string): number | null {
-  const t = Date.parse(iso.replace(' ', 'T') + (iso.includes('+') || iso.endsWith('Z') ? '' : 'Z'))
-  return Number.isNaN(t) ? null : t
-}
-
 const pad2 = (n: number) => String(n).padStart(2, '0')
 
 /** Server timestamp (UTC) rendered in the reader's timezone, same shape as the
@@ -46,7 +51,7 @@ const pad2 = (n: number) => String(n).padStart(2, '0')
 export function localDateTime(iso: string | null | undefined): string {
   if (!iso) return ''
   if (!readFeature('localTime')) return iso
-  const t = parseUtcMs(iso)
+  const t = stampMs(iso)
   if (t == null) return iso
   const d = new Date(t)
   const date = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
@@ -58,7 +63,7 @@ export function localDateTime(iso: string | null | undefined): string {
 export function localDate(iso: string | null | undefined): string {
   if (!iso) return ''
   if (!readFeature('localTime')) return dateOnly(iso)
-  const t = parseUtcMs(iso)
+  const t = stampMs(iso)
   if (t == null) return dateOnly(iso)
   const d = new Date(t)
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
@@ -68,7 +73,7 @@ export function localDate(iso: string | null | undefined): string {
 export function localHm(iso: string | null | undefined): string {
   if (!iso) return ''
   if (!readFeature('localTime')) return iso.slice(11, 16)
-  const t = parseUtcMs(iso)
+  const t = stampMs(iso)
   if (t == null) return iso.slice(11, 16)
   const d = new Date(t)
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`

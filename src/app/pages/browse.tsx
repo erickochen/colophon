@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { AlignJustify, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, BookmarkCheck, BookmarkX, ChevronDown, Dice5, Download, EyeOff, FileArchive, LayoutGrid, Loader2, Minus, Trash2, Undo2 } from 'lucide-react'
+import { AlignJustify, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, BookmarkCheck, BookmarkX, CheckCheck, ChevronDown, Dice5, Download, EyeOff, FileArchive, LayoutGrid, Loader2, Minus, Sparkles, Trash2, Undo2 } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { PageHeader } from '@/app/shell/bits'
 import {
-  bookmarkCleanup, bookmarkMass, BookmarkMassError, bookmarkOne, downloadZipOf, searchAllTorrents2, searchTorrents2,
+  bookmarkCleanup, bookmarkMass, BookmarkMassError, bookmarkOne, clearNewFlag, downloadZipOf, searchAllTorrents2, searchTorrents2,
   search2Url, parsePeople, downloadUrl, coverUrl, hideReseedUrl, requestedAt, torrentUrl, BOOKMARKS_ZIP_URL, ZIP_BATCH_MAX,
   type BookmarkCleanup, type Search2Query, type SearchTorrent,
 } from '@/lib/mam-api'
@@ -15,8 +15,8 @@ import { wedgeHelps } from '@/lib/wedge'
 import {
   BROWSE_COLS_KEY, BROWSE_VIEW_KEY, mamBrowseDefaults, readSticky, writeSticky, type StickyFilters,
 } from '@/lib/browse-sticky'
-import { useFeature, useIgnoredTorrents } from '@/lib/settings'
-import { fmtInt, plural, relTime, utcTitle } from '@/lib/format'
+import { useFeature, useIgnoredTorrents, useNewMarks } from '@/lib/settings'
+import { fmtInt, plural, relTime, stampMs, utcTitle } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Book } from '@/components/book'
 import { CopyResultsButton } from '@/components/copy-results'
@@ -162,9 +162,22 @@ const actionLane = (slots: number) => `${slots * ROW_ACTION_SIZE + (slots - 1) *
 const GALLERY_GRID =
   'grid grid-cols-3 gap-x-[22px] gap-y-7 p-6 [--shelf:150px] sm:grid-cols-4 sm:[--shelf:180px] lg:grid-cols-6 lg:[--shelf:210px]'
 
-/** Why a row is not shown: on the personal ignore list or snatched while the
- * hide-snatched filter is on. */
-type HiddenReason = 'ignored' | 'snatched'
+/** Why a row is not shown: on the personal ignore list, snatched while the
+ * hide-snatched filter is on, already seen while Only new is on. */
+type HiddenReason = 'ignored' | 'snatched' | 'seen'
+
+/** The mark on a row that arrived since the last clear, the same span the forum
+ * lists plus the mailbox use for something unread. */
+function NewDot() {
+  return (
+    <span
+      role="img"
+      aria-label="New since you last cleared"
+      title="New since you last cleared"
+      className="mr-1.5 inline-block size-2 shrink-0 rounded-full bg-brand-fill align-middle"
+    />
+  )
+}
 
 type SrchField = (typeof SRCH_FIELDS)[number][0]
 
@@ -969,7 +982,7 @@ function ReseedNote({ t, compact }: { t: SearchTorrent; compact?: boolean }) {
   )
 }
 
-function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onUnignore, hiddenReason, selectable, checked, onCheck }: { t: SearchTorrent; cols: ColKey[]; onBookmark: BookmarkSetter; onRemoved?: RowDropper; onFreeleech?: (id: number) => void; onIgnore?: (t: SearchTorrent) => void; onUnignore?: (id: number) => void; hiddenReason?: HiddenReason | null; selectable?: boolean; checked?: boolean; onCheck?: (id: number, on: boolean) => void }) {
+function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onUnignore, hiddenReason, selectable, checked, onCheck, isNew }: { t: SearchTorrent; cols: ColKey[]; onBookmark: BookmarkSetter; onRemoved?: RowDropper; onFreeleech?: (id: number) => void; onIgnore?: (t: SearchTorrent) => void; onUnignore?: (id: number) => void; hiddenReason?: HiddenReason | null; selectable?: boolean; checked?: boolean; onCheck?: (id: number, on: boolean) => void; isNew?: boolean }) {
   const authors = parsePeople(t.author_info)
   const narrators = cols.includes('narrators') ? parsePeople(t.narrator_info) : []
   const series = cols.includes('series') ? parsePeople(t.series_info) : []
@@ -1002,7 +1015,10 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onU
       {/* Tags sit outside the row link: a link inside a link is invalid. */}
       <div className="min-w-0">
         <a href={torrentUrl(t.id)} className="block min-w-0">
-          <h3 className="font-display text-[15px] font-medium leading-[1.3] transition-colors group-hover:text-brand">{t.title}</h3>
+          <h3 className="font-display text-[15px] font-medium leading-[1.3] transition-colors group-hover:text-brand">
+            {isNew && <NewDot />}
+            {t.title}
+          </h3>
           {(authors.length > 0 || narrators.length > 0 || series.length > 0) && (
             <p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">
               {authors.map((a) => a.name).join(', ')}
@@ -1125,7 +1141,7 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onU
   )
 }
 
-function GalleryItem({ t, hiddenReason, onUnignore }: { t: SearchTorrent; hiddenReason?: HiddenReason | null; onUnignore?: (id: number) => void }) {
+function GalleryItem({ t, hiddenReason, onUnignore, isNew }: { t: SearchTorrent; hiddenReason?: HiddenReason | null; onUnignore?: (id: number) => void; isNew?: boolean }) {
   const authors = parsePeople(t.author_info)
   const authorsText = authors.map((a) => a.name).join(', ')
   return (
@@ -1156,7 +1172,10 @@ function GalleryItem({ t, hiddenReason, onUnignore }: { t: SearchTorrent; hidden
             )}
           </Book>
         </span>
-        <span className="font-display mt-2.5 line-clamp-2 min-h-[2.7em] text-[13px] font-medium leading-[1.35]">{t.title}</span>
+        <span className="font-display mt-2.5 line-clamp-2 min-h-[2.7em] text-[13px] font-medium leading-[1.35]">
+          {isNew && <NewDot />}
+          {t.title}
+        </span>
         {authorsText && <span className="mt-0.5 line-clamp-1 text-[11.5px] text-muted-foreground">{authorsText}</span>}
       </a>
       {/* Outside the tile link, since it carries a link of its own. The reader
@@ -1407,6 +1426,12 @@ export function BrowseView(props: PageProps) {
   // answering with them.
   const dropped = useRef<Set<number>>(new Set())
   const [hideSnatched, setHideSnatched] = useFeature('hideSnatched')
+  const [newOn] = useFeature('newTorrents')
+  const marks = useNewMarks()
+  // Not a stored setting: a list held to Only new would open empty the next day,
+  // once everything on it has been seen.
+  const [onlyNew, setOnlyNew] = useState(false)
+  const [clearing, setClearing] = useState(false)
   const [ignoreOn] = useFeature('ignoreAction')
   const [seriesViewOn] = useFeature('seriesView')
   const [seriesBulkOn] = useFeature('seriesBulk')
@@ -1422,6 +1447,40 @@ export function BrowseView(props: PageProps) {
   useEffect(() => {
     if (!seriesBulkOn) setSelected(new Set())
   }, [seriesBulkOn])
+
+  // First run: the mark starts here rather than at some guess about the past.
+  // MAM hands out no threshold of its own, so this is the honest start. The ref
+  // holds it to one attempt, since a refused write would notify plus land here
+  // again on every render.
+  const marked = useRef(false)
+  useEffect(() => {
+    if (!newOn || marks.since !== 0 || marked.current) return
+    marked.current = true
+    marks.reset(Date.now())
+  }, [newOn, marks.since, marks.reset])
+
+  /** A row is new when it arrived after the mark plus was never opened here. */
+  const isNewRow = useCallback(
+    (t: SearchTorrent) => newOn && marks.isNew(stampMs(t.added), t.id),
+    [newOn, marks.isNew]
+  )
+
+  async function markAllSeen() {
+    setClearing(true)
+    // The dots are ours: they read the local mark, not MAM's tag. So the mark
+    // moves either way, plus the toast says whether MAM's own tag came along.
+    let siteCleared = true
+    try {
+      await clearNewFlag()
+    } catch {
+      siteCleared = false
+    }
+    marks.reset(Date.now())
+    setOnlyNew(false)
+    setClearing(false)
+    if (siteCleared) toast.success('Marked everything as seen.')
+    else toast.warning('Marked everything as seen here.', { description: "MAM's own NEW tag is still standing." })
+  }
 
   const toggleSelect = useCallback((id: number, on: boolean) => {
     setSelected((prev) => {
@@ -1682,11 +1741,17 @@ export function BrowseView(props: PageProps) {
 
   const dropOnUnbookmark = state.searchIn === 'bookmarks' ? dropRows : undefined
 
-  /** Ignore wins over hide-snatched, so a row is counted once. */
+  /** Ignore wins, then hide-snatched, then Only new, so a row is counted once. */
   const hiddenReason = useCallback(
     (t: SearchTorrent): HiddenReason | null =>
-      ignored.has(t.id) ? 'ignored' : hideSnatched && t.my_snatched === 1 ? 'snatched' : null,
-    [ignored, hideSnatched]
+      ignored.has(t.id)
+        ? 'ignored'
+        : hideSnatched && t.my_snatched === 1
+          ? 'snatched'
+          : onlyNew && !isNewRow(t)
+            ? 'seen'
+            : null,
+    [ignored, hideSnatched, onlyNew, isNewRow]
   )
   const shownItems = useMemo(
     () => (showHidden ? items : items.filter((t) => !hiddenReason(t))),
@@ -1694,11 +1759,14 @@ export function BrowseView(props: PageProps) {
   )
   const hiddenIgnored = items.filter((t) => hiddenReason(t) === 'ignored').length
   const hiddenSnatched = items.filter((t) => hiddenReason(t) === 'snatched').length
-  const hiddenCount = hiddenIgnored + hiddenSnatched
+  const hiddenSeen = items.filter((t) => hiddenReason(t) === 'seen').length
+  const hiddenCount = hiddenIgnored + hiddenSnatched + hiddenSeen
   const hiddenParts = [
     hiddenSnatched > 0 ? `${fmtInt(hiddenSnatched)} snatched` : null,
     hiddenIgnored > 0 ? `${fmtInt(hiddenIgnored)} ignored` : null,
+    hiddenSeen > 0 ? `${fmtInt(hiddenSeen)} already seen` : null,
   ].filter(Boolean).join(', ')
+  const newCount = items.filter((t) => isNewRow(t)).length
 
   const ignoreTorrent = (t: SearchTorrent) => {
     ignored.add({ id: t.id, title: t.title ?? null })
@@ -2055,6 +2123,15 @@ export function BrowseView(props: PageProps) {
             note="only in this browser"
             icon={<EyeOff className="size-3.5" />}
           />
+          {newOn && (
+            <FilterToggle
+              pressed={onlyNew}
+              onPressedChange={setOnlyNew}
+              label="Only new"
+              note="added since you last cleared the mark"
+              icon={<Sparkles className="size-3.5" />}
+            />
+          )}
         </FilterRow>
         </>
         )}
@@ -2105,7 +2182,34 @@ export function BrowseView(props: PageProps) {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          {/* What the mark is doing right now, in the line that reports the
+              search. On a fresh mark nothing can carry a dot yet, so it says so
+              rather than showing a zero. */}
+          {newOn && !loading && (
+            marks.since === 0 || newCount === 0 ? (
+              <span className="text-[12.5px] text-muted-foreground">Marking new arrivals from now on</span>
+            ) : (
+              <span className="text-[12.5px] tabular-nums text-muted-foreground">{fmtInt(newCount)} new here</span>
+            )
+          )}
           <span className="ml-auto flex flex-wrap items-center gap-1.5">
+            {newOn && newCount > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={clearing}
+                    onClick={() => void markAllSeen()}
+                    className="h-8 text-[12.5px]"
+                  >
+                    {clearing ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCheck className="size-3.5" />}
+                    Mark all as seen
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Clears the dots here plus MAM's own NEW tag</TooltipContent>
+              </Tooltip>
+            )}
             {!uploaderMode && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -2201,6 +2305,7 @@ export function BrowseView(props: PageProps) {
                 onIgnore={ignoreOn ? ignoreTorrent : undefined}
                 onUnignore={ignored.remove}
                 hiddenReason={showHidden ? hiddenReason(t) : null}
+                isNew={isNewRow(t)}
               />
             ))}
           </div>
@@ -2208,7 +2313,7 @@ export function BrowseView(props: PageProps) {
         {!loading && shownItems.length > 0 && (!state.seriesID || !seriesViewOn) && view === 'grid' && (
           <div className={cn(GALLERY_GRID)}>
             {shownItems.map((t) => (
-              <GalleryItem key={t.id} t={t} hiddenReason={showHidden ? hiddenReason(t) : null} onUnignore={ignored.remove} />
+              <GalleryItem key={t.id} t={t} hiddenReason={showHidden ? hiddenReason(t) : null} onUnignore={ignored.remove} isNew={isNewRow(t)} />
             ))}
           </div>
         )}
@@ -2232,6 +2337,7 @@ export function BrowseView(props: PageProps) {
                       onIgnore={ignoreOn ? ignoreTorrent : undefined}
                       onUnignore={ignored.remove}
                       hiddenReason={showHidden ? hiddenReason(t) : null}
+                      isNew={isNewRow(t)}
                       selectable={seriesBulkOn}
                       checked={selected.has(t.id)}
                       onCheck={toggleSelect}
@@ -2241,7 +2347,7 @@ export function BrowseView(props: PageProps) {
               ) : (
                 <div className={cn(GALLERY_GRID)}>
                   {rows.map((t) => (
-                    <GalleryItem key={t.id} t={t} hiddenReason={showHidden ? hiddenReason(t) : null} onUnignore={ignored.remove} />
+                    <GalleryItem key={t.id} t={t} hiddenReason={showHidden ? hiddenReason(t) : null} onUnignore={ignored.remove} isNew={isNewRow(t)} />
                   ))}
                 </div>
               )

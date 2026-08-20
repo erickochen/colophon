@@ -7,12 +7,12 @@ import { parseFileList, parsePeers, type FileListData, type PeerData, type PeerR
 import { LegacyView } from '@/app/pages/legacy'
 import { RichHtml } from '@/app/shell/bits'
 import { mutedUserColor } from '@/lib/colors'
-import { fmtInt, fmtRatio, initials, plural, relTime, utcTitle } from '@/lib/format'
+import { fmtInt, fmtRatio, initials, plural, relTime, stampMs, utcTitle } from '@/lib/format'
 import { mediaInfoGroupLabel, mediaInfoLabel } from '@/lib/media-info'
 import { bookmarkOne, searchTorrents, parsePeople, coverUrl, torrentUrl, thankUploader, THANK_STEP, type SearchTorrent } from '@/lib/mam-api'
 import { coverShape, mediaTypeFromHref, type CoverShape } from '@/lib/cover-shape'
 import { seriesEntry } from '@/lib/series'
-import { readDefaultAmount, resolveAmount, useFeature } from '@/lib/settings'
+import { markSeenTorrent, readDefaultAmount, readFeature, readNewSince, resolveAmount, useFeature } from '@/lib/settings'
 import { useRatioGuard, worthNoting, type RatioGuard, type RatioLevel } from '@/lib/ratio-protect'
 import { cn } from '@/lib/utils'
 import { AmountPicker } from '@/components/amount-picker'
@@ -1327,6 +1327,17 @@ export function TorrentView(props: PageProps) {
   // torrents you seed. A fresh download of an old snatch costs ratio again.
   const guardFree = !data || !data.title || data.freeleech || data.personalFreeleech || data.vip || !!data.dlHistory || !!data.downloadBlocked || spent
   const guard = useRatioGuard(guardFree ? null : data.size)
+
+  // Opening a torrent is what takes its new dot away in the lists. Only one
+  // added after the mark can carry a dot, so only that one is worth recording.
+  const seenId = data?.id ?? null
+  const seenAdded = data?.added ?? null
+  useEffect(() => {
+    if (seenId == null || !readFeature('newTorrents')) return
+    const since = readNewSince()
+    const at = stampMs(seenAdded)
+    if (since > 0 && at != null && at > since) markSeenTorrent(Number(seenId))
+  }, [seenId, seenAdded])
 
   if (!data || !data.title) return <LegacyView {...props} />
 

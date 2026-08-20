@@ -688,6 +688,16 @@ export function ColophonPrefsView(_props: PageProps) {
           note="Hides requests from members who keep their name hidden. The same toggle lives in the request filters."
           credit="MAM+ by GardenShade"
         />
+        <FeatureRow
+          feature="newTorrents"
+          title="Mark new torrents"
+          note="Puts a dot on torrents added since you last cleared the mark. Opening one drops its dot. Clearing here also clears MAM's own NEW tag."
+        />
+        <FeatureRow
+          feature="snatchCheck"
+          title="Check freeleech against your snatches"
+          note="Marks the freeleech picks you already have plus lets you filter them out. Reads your snatch summary, so the first visit costs a few requests."
+        />
         <IgnoredTorrentRows />
       </PrefCard>
 
@@ -720,6 +730,14 @@ export function ColophonPrefsView(_props: PageProps) {
           feature="forumSnippet"
           title="Forum snippet"
           note="Adds a button that copies a currently-reading snippet for forum posts."
+        />
+      </PrefCard>
+
+      <PrefCard title="Forums">
+        <FeatureRow
+          feature="inlineEdit"
+          title="Edit posts in the topic"
+          note="Opens the editor in the post itself, so the posts around it stay quotable. Off opens MAM's own edit page."
         />
       </PrefCard>
 
