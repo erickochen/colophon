@@ -1132,7 +1132,9 @@ function SeriesStrip({ data }: { data: TorrentDetail }) {
           stagger={SERIES_STAGGER_SECONDS}
           prevLabel="Earlier books in this series"
           nextLabel="Later books in this series"
-          viewportClassName="items-end pb-1"
+          // A box that scrolls sideways clips the other axis too, so the room a
+          // hovered cover rises into has to be inside it.
+          viewportClassName="items-end pt-2 pb-1"
           rowClassName="items-end gap-5"
           itemClassName="shrink-0"
           arrowsClassName="mt-3"

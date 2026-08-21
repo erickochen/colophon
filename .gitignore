@@ -11,3 +11,8 @@ dist/
 tsconfig.tsbuildinfo
 .DS_Store
 *.log
+
+# Editor workspace settings
+.nova/
+.vscode/
+.idea/

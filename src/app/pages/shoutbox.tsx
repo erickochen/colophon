@@ -512,7 +512,7 @@ export function ShoutboxView(props: PageProps) {
                 </Button>
               </div>
             )}
-            <div className="flex h-11 items-center gap-1 rounded-lg border border-input bg-background pl-1 pr-1.5 transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring">
+            <div className="flex h-11 items-center gap-1 rounded-lg border border-input bg-background pl-1 pr-1.5 transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
               <EmojiPicker onPick={(code) => appendDraft(code)} />
               <QuickShouts draft={draft} onInsert={insertAtCaret} />
               <input

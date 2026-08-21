@@ -11,7 +11,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { BBComposer } from '@/components/bb-composer'
+import { BBComposer, type ComposerHandle } from '@/components/bb-composer'
 import { PostEditor, type PostEditorHandle } from '@/components/post-editor'
 import { SelectionQuote } from '@/components/quote-selection'
 import { useFeature } from '@/lib/settings'
@@ -35,7 +35,8 @@ function Post({
   p, onQuote, myUid, editing, inlineEdit, onEdit, dirtyRef, editorRef,
 }: {
   p: TopicPost
-  onQuote: (p: TopicPost) => void
+  /** null where a quote has nowhere to land, which takes the button away. */
+  onQuote: ((p: TopicPost) => void) | null
   myUid: string | null
   editing: boolean
   inlineEdit: boolean
@@ -109,7 +110,7 @@ function Post({
                     </Button>
                   ) : (
                     <Button asChild variant="ghost" size="icon" className="size-7 text-muted-foreground">
-                      <a href={p.editHref}><Pencil className="size-3.5" /></a>
+                      <a href={p.editHref} aria-label="Edit this post"><Pencil className="size-3.5" /></a>
                     </Button>
                   )}
                 </TooltipTrigger>
@@ -120,29 +121,32 @@ function Post({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button asChild variant="ghost" size="icon" className="size-7 text-muted-foreground">
-                    <a href={p.pmHref}><Mail className="size-3.5" /></a>
+                    <a href={p.pmHref} aria-label={`Send ${p.author?.name ?? 'this member'} a PM`}><Mail className="size-3.5" /></a>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Send a PM</TooltipContent>
               </Tooltip>
             )}
             {giftUid && <GiftActions uid={giftUid} name={p.author?.name ?? 'this member'} surface="forum" />}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost" size="icon" className="size-7 text-muted-foreground"
-                  onClick={() => onQuote(p)}
-                >
-                  <Quote className="size-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Quote this post</TooltipContent>
-            </Tooltip>
+            {onQuote && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost" size="icon" className="size-7 text-muted-foreground"
+                    aria-label={`Quote ${p.author?.name ?? 'this post'}`}
+                    onClick={() => onQuote(p)}
+                  >
+                    <Quote className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Quote this post</TooltipContent>
+              </Tooltip>
+            )}
             {p.reportHref && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button asChild variant="ghost" size="icon" className="size-7 text-muted-foreground">
-                    <a href={p.reportHref}><Flag className="size-3.5" /></a>
+                    <a href={p.reportHref} aria-label="Report this post to staff"><Flag className="size-3.5" /></a>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Report to staff</TooltipContent>
@@ -233,6 +237,7 @@ export function ForumTopicView(props: PageProps) {
   const dirty = useRef(false)
   const [ask, setAsk] = useState<{ next: string | null } | null>(null)
   const editor = useRef<PostEditorHandle | null>(null)
+  const replyBox = useRef<ComposerHandle>(null)
 
   // The URL's #<pid> points at an anchor in MAM's hidden page, which the
   // browser cannot scroll to. Jump to our card for that post instead.
@@ -258,17 +263,27 @@ export function ForumTopicView(props: PageProps) {
   // likes. MAM's own addTextToEditor targets the removed TinyMCE and dropped
   // the quote entirely.
   function addQuote(who: string, pid: string | number, text: string) {
-    const block = `[quote=${who}#p${pid}]\n${text}\n[/quote]\n\n`
+    const block = `[quote=${who}#p${pid}]\n${text}\n[/quote]`
     // An open editor is where the writing is happening, so the quote goes there
-    // rather than into the reply box at the foot of the topic.
+    // rather than into the reply box at the foot of the topic. An editor that
+    // never loaded hands it back to the reply box below.
     if (editingPid && editor.current) {
-      const landed = editor.current.append(block)
-      if (landed === 'added') toast.success(`Quoted ${who}`)
-      else toast.info(`Quoting ${who}`, { description: 'It goes in as soon as the editor is ready.' })
-      scrollIntoView(props.host.shadowRoot?.getElementById(`post-${editingPid}`))
+      const landed = editor.current.insert(block)
+      if (landed !== 'unavailable') {
+        if (landed === 'added') toast.success(`Quoted ${who}`)
+        else toast.info(`Quoting ${who}`, { description: 'It goes in as soon as the editor is ready.' })
+        scrollIntoView(props.host.shadowRoot?.getElementById(`post-${editingPid}`))
+        return
+      }
+    }
+    if (!replyBox.current) {
+      // Only reachable on a topic without a reply box, where the open editor is
+      // the one that did not load.
+      toast.error('The editor did not load, so the quote has nowhere to go.')
       return
     }
-    setReply((prev) => (prev.trim() ? `${prev.replace(/\n+$/, '')}\n\n${block}` : block))
+    // The reply box places it at its own caret.
+    replyBox.current.insert(block)
     toast.success(`Quoted ${who}`)
     scrollIntoView(props.host.shadowRoot?.getElementById('quick-reply'))
   }
@@ -366,7 +381,7 @@ export function ForumTopicView(props: PageProps) {
           <Post
             key={p.pid}
             p={p}
-            onQuote={quotePost}
+            onQuote={data.quickReply || editingPid ? quotePost : null}
             myUid={myUid}
             editing={editingPid === String(p.pid)}
             inlineEdit={inlineEdit}
@@ -407,7 +422,7 @@ export function ForumTopicView(props: PageProps) {
         <Card id="quick-reply">
           <CardContent className="grid gap-2.5">
             <h2 className="font-display text-[15px] font-semibold">Write a reply</h2>
-            <BBComposer value={reply} onChange={setReply} placeholder="Join the conversation…" />
+            <BBComposer ref={replyBox} value={reply} onChange={setReply} placeholder="Join the conversation…" />
             <div className="flex justify-end">
               <Button onClick={submitReply}><Send /> Post reply</Button>
             </div>

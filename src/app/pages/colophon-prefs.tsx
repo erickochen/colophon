@@ -17,8 +17,8 @@ import {
   type AmountKind, type FeatureKey, type UserListKind,
 } from '@/lib/settings'
 import {
-  AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
-  AlertDialogHeader, AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { MAX_GIFT, THANK_MAX, THANK_STEP } from '@/lib/mam-api'
 import { PrefCard, SettingRow } from '@/app/pages/prefs-bits'
@@ -613,7 +613,7 @@ function IntroCard() {
         </div>
       </CardContent>
       <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
-        <AlertDialogContent size="sm">
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="font-display">Reset all Colophon settings?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -622,17 +622,16 @@ function IntroCard() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <Button variant="ghost" onClick={() => setResetOpen(false)}>Cancel</Button>
-            <Button
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
               variant="destructive"
               onClick={() => {
                 clearAllSettings()
-                setResetOpen(false)
                 toast.success('Colophon settings reset to defaults')
               }}
             >
               <RotateCcw /> Reset everything
-            </Button>
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

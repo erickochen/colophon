@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { NumberRoll } from '@/components/ui/number-roll'
+import { ShineBorder } from '@/components/ui/shine-border'
 import { Slider } from '@/components/ui/slider'
 import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
@@ -476,7 +477,8 @@ export function StoreView(props: PageProps) {
         }
       />
 
-      <Card>
+      <Card className="relative overflow-hidden">
+        <ShineBorder shineColor={['var(--gifted)', 'var(--brand)']} duration={12} />
         <CardContent className="grid gap-2">
           {/* The balance as a sentence: the figures are the point, the words
               around them keep it readable at a glance. */}

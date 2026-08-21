@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { POST_SPACING, QUOTE_CLASSES, RichHtml } from '@/app/shell/bits'
 import { postPreview } from '@/lib/mam-api'
 import { cleanHtml } from '@/lib/sanitize'
+import { spliceBlock } from '@/lib/insert-block'
 import { cn } from '@/lib/utils'
 
 /* BBCode set from /tags.php - the toolbar inserts exactly these tags, so the
@@ -218,6 +219,10 @@ const MORE_TOOLS: { label: string; pre: string; post: string; cmd?: string; arg?
  * picking the message to answer. */
 export interface ComposerHandle {
   focus: () => void
+  /** Drops post source in where the caret was left, so a quote lands at the
+   * spot the reader picked. A box that has not been written in yet takes it at
+   * the end. */
+  insert: (source: string) => void
 }
 
 type PreviewState =
@@ -266,6 +271,12 @@ export function BBComposer({
   const [askText, setAskText] = useState('')
   const [askError, setAskError] = useState<string | null>(null)
   const plainSel = useRef<[number, number]>([0, 0])
+  // A textarea keeps its caret through a blur, but a box nobody has typed in
+  // reports 0, which would put an arriving quote in front of the text.
+  const plainTouched = useRef(false)
+  // Quotes that arrived while Preview or Code was open. A list, so a second one
+  // does not quietly take the place of the first.
+  const pending = useRef<string[]>([])
   const askUrlId = useId()
   const askTextId = useId()
   const askErrorId = useId()
@@ -290,7 +301,30 @@ export function BBComposer({
       setTab('write')
       requestAnimationFrame(() => (edRef.current ?? taRef.current)?.focus())
     },
+    insert: (source: string) => {
+      if (tab === 'write') return insertSource(source)
+      // The write surface is not mounted in the other views, so the block waits
+      // for the switch. Coming back rebuilds the surface, which drops the saved
+      // caret, so it joins at the end there.
+      pending.current.push(source)
+      setTab('write')
+    },
   }))
+
+  // Whatever arrived while another view was open, once the surface is back.
+  useEffect(() => {
+    if (tab !== 'write') return
+    // A freshly mounted textarea holds the whole draft but reports a caret at 0,
+    // so the box counts as unwritten-in again until someone puts one there.
+    plainTouched.current = false
+    if (!pending.current.length) return
+    const waiting = pending.current
+    pending.current = []
+    // One insert for the lot: each call reads the same `value` prop, so a second
+    // one would write over the first.
+    insertSource(waiting.join('\n\n'))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on the switch only
+  }, [tab])
 
   // Plain textarea auto-grow so a long post never edits through a tiny window;
   // minHeightClass sets the floor, max-height the ceiling.
@@ -475,6 +509,10 @@ export function BBComposer({
   function insertRich(node: Node) {
     const el = edRef.current
     if (!el) return
+    // A fragment is emptied by the insert, so the node the caret goes behind is
+    // read while it still has one.
+    const tail = node.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? node.lastChild : node
+    if (!tail) return
     const r = savedRange.current
     if (r && el.contains(r.startContainer) && el.contains(r.endContainer)) {
       r.deleteContents()
@@ -483,7 +521,7 @@ export function BBComposer({
       el.appendChild(node)
     }
     const after = document.createRange()
-    after.setStartAfter(node)
+    after.setStartAfter(tail)
     after.collapse(true)
     savedRange.current = after
     emitWys()
@@ -493,6 +531,39 @@ export function BBComposer({
       sel?.removeAllRanges()
       sel?.addRange(after)
     })
+  }
+
+  /** Post source (a quote) into the plain textarea, at the caret it was left
+   * at. */
+  function insertPlainSource(source: string) {
+    const ta = taRef.current
+    // The end of whatever is selected, never the span of it: a quote joins the
+    // draft rather than taking the place of a selection left lying around.
+    const at = ta && plainTouched.current ? ta.selectionEnd : value.length
+    const { text, caret } = spliceBlock(value, at, source)
+    onChange(text)
+    requestAnimationFrame(() => {
+      const el = taRef.current
+      if (!el) return
+      el.focus()
+      el.setSelectionRange(caret, caret)
+    })
+  }
+
+  /** Same for the rich surface: the source becomes real nodes and lands on the
+   * saved caret. */
+  function insertSource(source: string) {
+    if (!wysiwyg) return insertPlainSource(source)
+    // Behind the selection rather than over it. insertRich deletes what the
+    // range covers, which is right for the link dialog plus wrong for a quote.
+    savedRange.current?.collapse(false)
+    const holder = document.createElement('div')
+    holder.innerHTML = bbToHtml(source)
+    // A block sitting against the next one leaves nowhere to type between them.
+    holder.appendChild(document.createElement('br'))
+    const frag = document.createDocumentFragment()
+    frag.append(...holder.childNodes)
+    insertRich(frag)
   }
 
   /** Opens the insert dialog with whatever is selected as the starting text. */
@@ -612,7 +683,7 @@ export function BBComposer({
   )
 
   return (
-    <div className={cn('group overflow-hidden rounded-lg border border-input bg-background transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring', className)}>
+    <div className={cn('group overflow-hidden rounded-lg border border-input bg-background transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50', className)}>
       <div
         ref={barRef}
         role="toolbar"
@@ -813,6 +884,7 @@ export function BBComposer({
           aria-describedby={describe}
           aria-keyshortcuts="Alt+F10"
           onKeyDown={onSurfaceKeyDown}
+          onFocus={() => (plainTouched.current = true)}
           className={cn('block w-full resize-none overflow-y-auto bg-transparent px-3.5 py-2.5 text-[13.5px] outline-none placeholder:text-muted-foreground max-h-[70vh]', minHeightClass)}
         />
       )}

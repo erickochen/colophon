@@ -13,6 +13,7 @@ import { preventLegacyAutoSearch } from '@/lib/quiet-search'
 import { applyTheme, watchSystemTheme } from '@/lib/theme'
 import { applyMobileViewport, removeMobileViewport } from '@/lib/viewport'
 import { migrateLegacyKeys } from '@/lib/settings'
+import { registerSheetProps, registerShadowProps } from '@/lib/tw-props'
 
 const HOST_ID = 'colophon-host'
 
@@ -31,7 +32,7 @@ preventLegacyAutoSearch()
 migrateLegacyKeys()
 
 /* MAM's dialog body stays a light-DOM node, so these rules live in document.head
- * while the colours come from the shadow tree: a slotted element inherits custom
+ * while the colors come from the shadow tree: a slotted element inherits custom
  * properties from the slot's parent, so the tokens follow the active scheme. */
 const DIALOG_BODY_CSS = `
 #dialog-message{display:none}
@@ -181,9 +182,13 @@ function boot() {
       const st = document.createElement('style')
       st.textContent = code
       shadow.appendChild(st)
+      // A late sheet brings its own @property rules, which need the same pass.
+      registerSheetProps(st.sheet)
     }
     collected.forEach(addDepCss)
     ;(globalThis as { __mamCollectedCSS?: unknown }).__mamCollectedCSS = { push: addDepCss, forEach: () => {}, length: collected.length }
+
+    registerShadowProps(shadow)
 
     const rootEl = document.createElement('div')
     rootEl.id = 'mam-root'

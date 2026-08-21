@@ -4,10 +4,11 @@
 // selection while they are quoting.
 import { useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Loader2, Save, X } from 'lucide-react'
-import { BBComposer } from '@/components/bb-composer'
+import { BBComposer, type ComposerHandle } from '@/components/bb-composer'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/toast'
 import { draftStore } from '@/lib/draft'
+import { spliceBlock } from '@/lib/insert-block'
 import { dropPostSource, fetchPostSource, postEditUrl, sendPostEdit, type PostSource } from '@/lib/post-edit'
 
 /** Long enough to survive a closed tab, short enough that an old revision does
@@ -19,17 +20,16 @@ const store = (pid: string | number) =>
   draftStore<{ body: string }>(`colophon:post-edit:${pid}`, DRAFT_TTL_MS, (d) => typeof d.body === 'string' && d.body.trim().length > 0)
 
 export interface PostEditorHandle {
-  /** Adds a block to the end of the text, the way a quote arrives. Answers
-   * 'queued' while the source is still on the wire, so the caller can say so
-   * rather than reporting a landing that has not happened. */
-  append: (block: string) => 'added' | 'queued'
+  /** Puts a block in where the caret was left, the way a quote arrives. Answers
+   * 'queued' while the source is still on the wire plus 'unavailable' once that
+   * load has failed, so the caller never reports a landing that cannot happen. */
+  insert: (block: string) => 'added' | 'queued' | 'unavailable'
   /** Throws the kept text away, so reopening the post starts from its source. */
   discard: () => void
 }
 
-/** One block after another, with a blank line between them. */
-const joined = (prev: string, block: string) =>
-  prev.trim() ? `${prev.replace(/\n+$/, '')}\n\n${block}` : block
+/** One block after another, spaced the way an insert at the caret spaces them. */
+const joined = (prev: string, block: string) => spliceBlock(prev, prev.length, block).text
 
 export function PostEditor({
   pid,
@@ -52,6 +52,7 @@ export function PostEditor({
   // the text now would make them the whole post, since the source is not there
   // yet to hold them.
   const queued = useRef<string[]>([])
+  const composer = useRef<ComposerHandle>(null)
 
   useEffect(() => {
     let live = true
@@ -91,18 +92,20 @@ export function PostEditor({
   // reply box at the foot of the topic. Discarding has to reach the kept text,
   // or the next open offers back what was just thrown away.
   useImperativeHandle(ref, () => ({
-    append: (block: string) => {
+    insert: (block: string) => {
+      // Nothing drains the queue once the load has failed, so say so instead.
+      if (failed) return 'unavailable'
       // The source decides where a quote goes. Until it lands, the block waits.
       if (!source) {
         queued.current.push(block)
         return 'queued'
       }
-      setText((prev) => {
-        const next = joined(prev, block)
-        dirtyRef.current = next !== original.current
-        draft.current.write({ body: next })
-        return next
-      })
+      // The queue is drained by the load alone, so past that point a missing
+      // composer has nothing left to wait for.
+      if (!composer.current) return 'unavailable'
+      // The composer knows where the caret is; its change handler writes the
+      // result back through here.
+      composer.current.insert(block)
       return 'added'
     },
     discard: () => {
@@ -162,7 +165,7 @@ export function PostEditor({
 
   return (
     <div className="grid gap-2.5">
-      <BBComposer value={text} onChange={change} placeholder="Revise your post…" />
+      <BBComposer ref={composer} value={text} onChange={change} placeholder="Revise your post…" />
       <div className="flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={onClose}>
           <X /> Cancel
