@@ -3,6 +3,7 @@ import { CornerDownLeft, MessagesSquare, Send, Smile, Tag } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { parseForm } from '@/lib/form-mirror'
 import { SimpleFormView } from '@/app/pages/simple-form'
+import { bottomDockRef } from '@/lib/bottom-dock'
 import { FormMirrorView } from '@/app/shell/form-mirror-view'
 import { BBComposer } from '@/components/bb-composer'
 import { Crumbs, PageHeader } from '@/app/shell/bits'
@@ -49,7 +50,6 @@ export function ForumComposeView(props: PageProps) {
 
   const [subject, setSubject] = useState(() => model?.subjectEl.value ?? '')
   const [body, setBody] = useState(() => model?.bodyEl.value ?? '')
-
   if (!model) return <SimpleFormView {...props} />
 
   function setSubjectSynced(v: string) {
@@ -122,7 +122,10 @@ export function ForumComposeView(props: PageProps) {
         </Card>
       </BlurFade>
 
-      <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-background/95 px-4 py-2.5 shadow-lg backdrop-blur">
+      <div
+        ref={bottomDockRef}
+        className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-background/95 px-4 py-2.5 shadow-lg backdrop-blur"
+      >
         {model.jumpOptions.length > 0 ? (
           <Select onValueChange={(v) => { if (v) location.href = `/f/b/${v}` }}>
             <SelectTrigger size="sm" className="w-fit min-w-52 max-w-full text-[12.5px]">

@@ -2,6 +2,7 @@ import { useMemo, useState, type ComponentType, type ReactNode } from 'react'
 import { Bug, Link2, ListChecks, Monitor, ShieldCheck, Target, TriangleAlert } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
+import { bottomDockRef } from '@/lib/bottom-dock'
 import { PageHeader } from '@/app/shell/bits'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -161,7 +162,10 @@ export function BugReportView(props: PageProps) {
         </Label>
       )}
 
-      <div className="sticky bottom-4 z-10 flex items-center justify-end gap-3 rounded-xl bg-background/95 px-4 py-2.5 shadow-lg backdrop-blur">
+      <div
+        ref={bottomDockRef}
+        className="sticky bottom-4 z-10 flex items-center justify-end gap-3 rounded-xl bg-background/95 px-4 py-2.5 shadow-lg backdrop-blur"
+      >
         <Button size="sm" onClick={submit}><Bug /> Submit bug report</Button>
       </div>
     </div>

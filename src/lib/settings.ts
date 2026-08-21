@@ -38,6 +38,7 @@ export type FeatureKey =
   | 'inlineEdit'
   | 'newTorrents'
   | 'snatchCheck'
+  | 'coverBlurb'
 
 interface FeatureDef {
   key: string
@@ -71,6 +72,7 @@ export const FEATURES: Record<FeatureKey, FeatureDef> = {
   inlineEdit: { key: 'colophon:inline-edit', enabledByDefault: true },
   newTorrents: { key: 'colophon:new-torrents', enabledByDefault: true },
   snatchCheck: { key: 'colophon:snatch-check', enabledByDefault: true },
+  coverBlurb: { key: 'colophon:cover-blurb', enabledByDefault: true },
 }
 
 const RATIO_FLOOR_KEY = 'colophon:ratio-floor'

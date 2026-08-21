@@ -698,6 +698,11 @@ export function ColophonPrefsView(_props: PageProps) {
           title="Check freeleech against your snatches"
           note="Marks the freeleech picks you already have plus lets you filter them out. Reads your snatch summary, so the first visit costs a few requests."
         />
+        <FeatureRow
+          feature="coverBlurb"
+          title="Book on hover"
+          note="Hovering a cover in the results shows the book large with what it is about. The text is fetched when the card opens, so nothing is read until you ask."
+        />
         <IgnoredTorrentRows />
       </PrefCard>
 

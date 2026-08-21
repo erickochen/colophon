@@ -1,6 +1,7 @@
 import { createContext, Fragment, useContext, useEffect, useId, useReducer, useRef, useState, type ReactNode } from 'react'
 import { Paperclip, RotateCcw, Save } from 'lucide-react'
 import { asBooleanRadio, asBooleanSelect, cleanLabel, type MirrorControl, type MirrorForm, type MirrorRow } from '@/lib/form-mirror'
+import { bottomDockRef } from '@/lib/bottom-dock'
 import { registerInvalidAnchor } from '@/lib/invalid-anchor'
 import { rewriteFor, STATIC_LABELS } from '@/lib/pref-labels'
 import { submitGuarded } from '@/lib/form-submit'
@@ -516,12 +517,14 @@ export function FormMirrorView({
   // Revert remounts the cards, so every uncontrolled widget re-reads the
   // freshly reset originals.
   const [rev, bumpRev] = useReducer((x: number) => x + 1, 0)
-
   return (
     <div className="grid gap-4">
       <MirrorCards key={rev} rows={form.rows} layout={layout} />
       {tail}
-      <div className="sticky bottom-4 z-10 mt-1 flex items-center justify-end gap-2 rounded-xl bg-background/95 px-3 py-2.5 shadow-lg backdrop-blur">
+      <div
+        ref={bottomDockRef}
+        className="sticky bottom-4 z-10 mt-1 flex items-center justify-end gap-2 rounded-xl bg-background/95 px-3 py-2.5 shadow-lg backdrop-blur"
+      >
         <Button
           variant="ghost"
           size="sm"

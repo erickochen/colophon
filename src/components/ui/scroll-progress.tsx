@@ -1,45 +1,20 @@
-import { useEffect, useState } from 'react'
-import { cn } from '@/lib/utils'
+import { useDocScroll } from "@/lib/scroll"
+import { cn } from "@/lib/utils"
 
-/** Reading progress for long pages, hidden on short ones. The document scrolls
- * rather than our shell, so this reads window scroll despite rendering inside
- * the shadow root. */
+/** Reading progress for long pages, hidden on short ones. */
 export function ScrollProgress({ className }: { className?: string }) {
-  const [pct, setPct] = useState(0)
-  const [show, setShow] = useState(false)
+  const { progress, tall } = useDocScroll()
 
-  useEffect(() => {
-    let raf = 0
-    const measure = () => {
-      raf = 0
-      const doc = document.documentElement
-      const max = doc.scrollHeight - window.innerHeight
-      setShow(doc.scrollHeight > window.innerHeight * 1.8)
-      setPct(max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0)
-    }
-    const schedule = () => {
-      if (!raf) raf = requestAnimationFrame(measure)
-    }
-    measure()
-    window.addEventListener('scroll', schedule, { passive: true })
-    window.addEventListener('resize', schedule)
-    const obs = new ResizeObserver(schedule)
-    obs.observe(document.documentElement)
-    return () => {
-      window.removeEventListener('scroll', schedule)
-      window.removeEventListener('resize', schedule)
-      obs.disconnect()
-      if (raf) cancelAnimationFrame(raf)
-    }
-  }, [])
-
-  if (!show) return null
+  if (!tall) return null
 
   return (
     <div aria-hidden className={cn('pointer-events-none fixed inset-x-0 top-0 z-50 h-[2px]', className)}>
+      {/* Scaled rather than widened: this runs on every scroll frame, so it
+          stays off the layout. An inline transform sidesteps the Tailwind
+          translate variables, which the shadow root does not carry. */}
       <div
-        className="h-full bg-brand/80"
-        style={{ width: `${pct * 100}%`, transition: 'width 90ms linear' }}
+        className="h-full w-full origin-left bg-brand/80"
+        style={{ transform: `scaleX(${progress})`, transition: 'transform 90ms linear' }}
       />
     </div>
   )

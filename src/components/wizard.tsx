@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Check, ChevronLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { bottomDockRef } from '@/lib/bottom-dock'
 import { cn } from '@/lib/utils'
 
 /** The bar keeps the step names up to this many steps and shows numbers above it. */
@@ -80,7 +81,10 @@ export function WizardNav({
   children: ReactNode
 }) {
   return (
-    <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-background/95 px-3 py-2.5 shadow-lg backdrop-blur">
+    <div
+      ref={bottomDockRef}
+      className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-background/95 px-3 py-2.5 shadow-lg backdrop-blur"
+    >
       <Button variant="ghost" size="sm" disabled={step === 0} onClick={onBack}>
         <ChevronLeft /> Back
       </Button>

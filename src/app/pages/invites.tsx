@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, type ComponentType, type ReactNode } from 'r
 import { AtSign, CircleCheck, Inbox, MessageSquare, Send, TriangleAlert, UserPlus } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
+import { bottomDockRef } from '@/lib/bottom-dock'
 import { extractInvites, extractSendForm, type SendForm } from '@/lib/extract/invites'
 import { localDate, plural, utcTitle } from '@/lib/format'
 import { cleanHtml } from '@/lib/sanitize'
@@ -298,7 +299,10 @@ export function SendInviteView(props: PageProps) {
           </Card>
         )}
 
-        <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-background/95 px-4 py-2.5 shadow-lg backdrop-blur">
+        <div
+          ref={bottomDockRef}
+          className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-background/95 px-4 py-2.5 shadow-lg backdrop-blur"
+        >
           <span className="text-[12px] text-muted-foreground">You confirm before anything is sent</span>
           <Button type="submit" size="sm" disabled={!valid}><Send /> Send invite</Button>
         </div>

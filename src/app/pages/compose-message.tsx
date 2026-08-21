@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { CornerUpLeft, Mail, Send } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { SimpleFormView } from '@/app/pages/simple-form'
+import { bottomDockRef } from '@/lib/bottom-dock'
 import { BBComposer } from '@/components/bb-composer'
 import { PageHeader, UserLink } from '@/app/shell/bits'
 import { Button } from '@/components/ui/button'
@@ -112,7 +113,10 @@ export function ComposeMessageView(props: PageProps) {
         </CardContent>
       </Card>
 
-      <div className="sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-xl bg-background/95 px-4 py-2.5 shadow-lg backdrop-blur">
+      <div
+        ref={bottomDockRef}
+        className="sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-xl bg-background/95 px-4 py-2.5 shadow-lg backdrop-blur"
+      >
         <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
           <Mail className="size-3.5" /> A copy stays in your Sentbox
         </span>

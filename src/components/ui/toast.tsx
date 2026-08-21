@@ -9,6 +9,7 @@ import {
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { useFloatClearance } from "@/lib/bottom-dock"
 import { getPortalContainer } from "@/lib/portals"
 
 const manager = ToastPrimitive.createToastManager()
@@ -93,11 +94,19 @@ function ToastList() {
   )
 }
 
+// How far the lane itself sits from the bottom, which its padding builds on.
+const LANE_BOTTOM_PX = 16
+
 export function Toaster(_props: { position?: string }) {
+  // A control floating in this corner gets its room, only while it is there.
+  const floating = useFloatClearance()
   return (
     <ToastPrimitive.Provider toastManager={manager}>
       <ToastPrimitive.Portal container={getPortalContainer()}>
-        <ToastPrimitive.Viewport className="pointer-events-none fixed right-4 bottom-4 z-60 flex flex-col items-end gap-2">
+        <ToastPrimitive.Viewport
+          style={{ paddingBottom: `${Math.max(0, floating - LANE_BOTTOM_PX)}px` }}
+          className="pointer-events-none fixed right-4 bottom-4 z-60 flex flex-col items-end gap-2"
+        >
           <ToastList />
         </ToastPrimitive.Viewport>
       </ToastPrimitive.Portal>

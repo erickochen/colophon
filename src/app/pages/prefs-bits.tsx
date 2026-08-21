@@ -6,6 +6,7 @@ import { RotateCcw, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { bottomDockRef } from '@/lib/bottom-dock'
 import { submitGuarded } from '@/lib/form-submit'
 import { toast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
@@ -17,7 +18,10 @@ export function SaveBar({
   form, onAfterRevert, submitLabel = 'Save changes', extra,
 }: { form: HTMLFormElement; onAfterRevert?: () => void; submitLabel?: string; extra?: ReactNode }) {
   return (
-    <div className="sticky bottom-4 z-10 mt-1 flex items-center justify-end gap-2 rounded-xl bg-background/95 px-3 py-2.5 shadow-lg backdrop-blur">
+    <div
+      ref={bottomDockRef}
+      className="sticky bottom-4 z-10 mt-1 flex items-center justify-end gap-2 rounded-xl bg-background/95 px-3 py-2.5 shadow-lg backdrop-blur"
+    >
       <Button
         variant="ghost"
         size="sm"

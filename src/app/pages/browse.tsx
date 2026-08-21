@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { AlignJustify, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, BookmarkCheck, BookmarkX, CheckCheck, ChevronDown, Dice5, Download, EyeOff, FileArchive, LayoutGrid, Loader2, Minus, Sparkles, Trash2, Undo2 } from 'lucide-react'
+import { AlignJustify, AlignLeft, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, BookmarkCheck, BookmarkX, CheckCheck, ChevronDown, Dice5, Download, EyeOff, FileArchive, LayoutGrid, Loader2, Minus, Sparkles, Trash2, Undo2 } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { PageHeader } from '@/app/shell/bits'
 import {
@@ -10,6 +10,7 @@ import {
 import { useCategories2 } from '@/lib/categories2'
 import { groupBySeries, type SeriesGroup } from '@/lib/series'
 import { CONTENT_FLAGS, LANGUAGES, MAIN_CATS, SORT_OPTIONS } from '@/lib/mam-facets'
+import { bottomDockRef } from '@/lib/bottom-dock'
 import { coverShape } from '@/lib/cover-shape'
 import { wedgeHelps } from '@/lib/wedge'
 import {
@@ -28,7 +29,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
+import { CoverPreview } from '@/components/cover-preview'
 import { Input } from '@/components/ui/input'
 import { NumberField } from '@/components/ui/number-field'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -755,40 +756,39 @@ function catName(id: number): string {
   return `cat ${id}`
 }
 
-/** Row cover in a fixed slot, with a large peek beside it while hovered. The
- * slot is square, so a cover of any shape fits without losing an edge. */
-function RowCover({ t }: { t: SearchTorrent }) {
+/** Row cover in a fixed slot, with the book and its blurb beside it while
+ * hovered. The slot is square, so a cover of any shape fits without losing an
+ * edge. */
+function RowCover({ t, blurb }: { t: SearchTorrent; blurb: boolean }) {
   const poster = t.poster_type ? coverUrl(t.id, t.poster_type) : null
   const shape = coverShape({ mediatype: t.mediatype, mainCat: t.main_cat })
-  const cover = (
-    <a
-      href={torrentUrl(t.id)}
-      tabIndex={-1}
-      aria-hidden
-      className="flex h-[var(--cover-h)] items-center justify-center self-center text-[9px] md:h-[var(--cover-h-lg)]"
-      style={{ '--cover-h': `${ROW_COVER_H_SM}px`, '--cover-h-lg': `${ROW_COVER_H}px` } as CSSProperties}
-    >
-      <Book
-        poster={poster}
-        title={t.title}
-        shape={shape}
-        frame="square"
-        frameClassName="h-full items-center"
-        plain
-        className="transition-shadow group-hover:shadow-book-lift"
-      />
-    </a>
-  )
-  if (!poster) return cover
   return (
-    <HoverCard>
-      <HoverCardTrigger asChild delay={250} closeDelay={100}>{cover}</HoverCardTrigger>
-      <HoverCardContent side="right" sideOffset={16} className="w-[230px] rounded-none border-0 bg-transparent p-0 shadow-none">
-        <span className="block rounded-[6px_10px_10px_6px] shadow-book-lift">
-          <Book poster={poster} title={t.title} shape={shape} size="hero" className="rounded-[6px_10px_10px_6px]" />
-        </span>
-      </HoverCardContent>
-    </HoverCard>
+    <CoverPreview t={t} poster={poster} enabled={blurb}>
+      <a
+        href={torrentUrl(t.id)}
+        tabIndex={-1}
+        aria-hidden
+        className="flex h-[var(--cover-h)] items-center justify-center self-center text-[9px] md:h-[var(--cover-h-lg)]"
+        style={{ '--cover-h': `${ROW_COVER_H_SM}px`, '--cover-h-lg': `${ROW_COVER_H}px` } as CSSProperties}
+      >
+        <Book
+          poster={poster}
+          title={t.title}
+          shape={shape}
+          frame="square"
+          frameClassName="h-full items-center"
+          plain
+          className="transition-shadow group-hover:shadow-book-lift"
+        >
+          {/* Says the cover holds more than art, right as the pointer arrives. */}
+          {blurb && (
+            <span className="absolute right-1 top-1 z-3 grid size-[17px] place-items-center rounded-full bg-card/90 text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 motion-reduce:transition-none">
+              <AlignLeft className="size-[10px]" />
+            </span>
+          )}
+        </Book>
+      </a>
+    </CoverPreview>
   )
 }
 
@@ -982,7 +982,7 @@ function ReseedNote({ t, compact }: { t: SearchTorrent; compact?: boolean }) {
   )
 }
 
-function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onUnignore, hiddenReason, selectable, checked, onCheck, isNew }: { t: SearchTorrent; cols: ColKey[]; onBookmark: BookmarkSetter; onRemoved?: RowDropper; onFreeleech?: (id: number) => void; onIgnore?: (t: SearchTorrent) => void; onUnignore?: (id: number) => void; hiddenReason?: HiddenReason | null; selectable?: boolean; checked?: boolean; onCheck?: (id: number, on: boolean) => void; isNew?: boolean }) {
+function TorrentRow({ t, cols, blurb, onBookmark, onRemoved, onFreeleech, onIgnore, onUnignore, hiddenReason, selectable, checked, onCheck, isNew }: { t: SearchTorrent; cols: ColKey[]; blurb: boolean; onBookmark: BookmarkSetter; onRemoved?: RowDropper; onFreeleech?: (id: number) => void; onIgnore?: (t: SearchTorrent) => void; onUnignore?: (id: number) => void; hiddenReason?: HiddenReason | null; selectable?: boolean; checked?: boolean; onCheck?: (id: number, on: boolean) => void; isNew?: boolean }) {
   const authors = parsePeople(t.author_info)
   const narrators = cols.includes('narrators') ? parsePeople(t.narrator_info) : []
   const series = cols.includes('series') ? parsePeople(t.series_info) : []
@@ -1011,7 +1011,7 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onU
           className="justify-self-center"
         />
       )}
-      <RowCover t={t} />
+      <RowCover t={t} blurb={blurb} />
       {/* Tags sit outside the row link: a link inside a link is invalid. */}
       <div className="min-w-0">
         <a href={torrentUrl(t.id)} className="block min-w-0">
@@ -1141,7 +1141,7 @@ function TorrentRow({ t, cols, onBookmark, onRemoved, onFreeleech, onIgnore, onU
   )
 }
 
-function GalleryItem({ t, hiddenReason, onUnignore, isNew }: { t: SearchTorrent; hiddenReason?: HiddenReason | null; onUnignore?: (id: number) => void; isNew?: boolean }) {
+function GalleryItem({ t, blurb, hiddenReason, onUnignore, isNew }: { t: SearchTorrent; blurb: boolean; hiddenReason?: HiddenReason | null; onUnignore?: (id: number) => void; isNew?: boolean }) {
   const authors = parsePeople(t.author_info)
   const authorsText = authors.map((a) => a.name).join(', ')
   return (
@@ -1150,6 +1150,7 @@ function GalleryItem({ t, hiddenReason, onUnignore, isNew }: { t: SearchTorrent;
         {/* One shelf line: every frame is the same book shape, so the covers
             rest on one floor and every title starts level. Whatever shape a
             cover turns out to be, it keeps it and takes the room it needs. */}
+        <CoverPreview t={t} poster={t.poster_type ? coverUrl(t.id, t.poster_type) : null} withCover={false} enabled={blurb}>
         <span className="flex justify-center text-[11px] transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1.5 motion-reduce:transition-none">
           <Book
             poster={t.poster_type ? coverUrl(t.id, t.poster_type) : null}
@@ -1172,6 +1173,7 @@ function GalleryItem({ t, hiddenReason, onUnignore, isNew }: { t: SearchTorrent;
             )}
           </Book>
         </span>
+        </CoverPreview>
         <span className="font-display mt-2.5 line-clamp-2 min-h-[2.7em] text-[13px] font-medium leading-[1.35]">
           {isNew && <NewDot />}
           {t.title}
@@ -1433,6 +1435,7 @@ export function BrowseView(props: PageProps) {
   const [onlyNew, setOnlyNew] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [ignoreOn] = useFeature('ignoreAction')
+  const [blurbOn] = useFeature('coverBlurb')
   const [seriesViewOn] = useFeature('seriesView')
   const [seriesBulkOn] = useFeature('seriesBulk')
   const ignored = useIgnoredTorrents()
@@ -2298,6 +2301,7 @@ export function BrowseView(props: PageProps) {
                 key={t.id}
                 t={t}
                 cols={cols}
+                blurb={blurbOn}
                 onBookmark={setBookmarked}
                 onRemoved={dropOnUnbookmark}
                 onFreeleech={setPersonalFreeleech}
@@ -2312,7 +2316,7 @@ export function BrowseView(props: PageProps) {
         {!loading && shownItems.length > 0 && (!state.seriesID || !seriesViewOn) && view === 'grid' && (
           <div className={cn(GALLERY_GRID)}>
             {shownItems.map((t) => (
-              <GalleryItem key={t.id} t={t} hiddenReason={showHidden ? hiddenReason(t) : null} onUnignore={ignored.remove} isNew={isNewRow(t)} />
+              <GalleryItem key={t.id} t={t} blurb={blurbOn} hiddenReason={showHidden ? hiddenReason(t) : null} onUnignore={ignored.remove} isNew={isNewRow(t)} />
             ))}
           </div>
         )}
@@ -2330,6 +2334,7 @@ export function BrowseView(props: PageProps) {
                       key={t.id}
                       t={t}
                       cols={cols}
+                      blurb={blurbOn}
                       onBookmark={setBookmarked}
                       onRemoved={dropOnUnbookmark}
                       onFreeleech={setPersonalFreeleech}
@@ -2346,7 +2351,7 @@ export function BrowseView(props: PageProps) {
               ) : (
                 <div className={cn(GALLERY_GRID)}>
                   {rows.map((t) => (
-                    <GalleryItem key={t.id} t={t} hiddenReason={showHidden ? hiddenReason(t) : null} onUnignore={ignored.remove} isNew={isNewRow(t)} />
+                    <GalleryItem key={t.id} t={t} blurb={blurbOn} hiddenReason={showHidden ? hiddenReason(t) : null} onUnignore={ignored.remove} isNew={isNewRow(t)} />
                   ))}
                 </div>
               )
@@ -2403,6 +2408,7 @@ export function BrowseView(props: PageProps) {
 
       {state.seriesID != null && seriesViewOn && seriesBulkOn && selected.size > 0 && (
         <div
+          ref={bottomDockRef}
           aria-live="polite"
           className="fixed inset-x-0 bottom-4 z-40 mx-auto flex w-fit max-w-[calc(100%-2rem)] flex-wrap items-center justify-center gap-2 rounded-xl border bg-card px-6 py-2.5 shadow-lg"
         >

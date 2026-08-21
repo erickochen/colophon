@@ -12,6 +12,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from '@/components/ui/toast'
 import { useNotifCounts } from '@/lib/notify'
 import { ScrollProgress } from '@/components/ui/scroll-progress'
+import { BackToTop } from '@/components/back-to-top'
 import { getPortalContainer } from '@/lib/portals'
 import { detachWysiwyg } from '@/lib/wysiwyg'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -76,6 +77,7 @@ export function App({ page, host }: { page: ShellData; host: HTMLElement }) {
             © {new Date().getFullYear()} MyAnonaMouse
           </footer>
         </SidebarInset>
+        <BackToTop host={host} />
         <CommandMenu open={cmdOpen} onOpenChange={setCmdOpen} />
         <LegacyDialogHost host={host} />
         <GiftDialogHost page={page} />
