@@ -1,10 +1,11 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronsUpDown, MessagesSquare, Search } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader, RichHtml } from '@/app/shell/bits'
 import { cleanHtml } from '@/lib/sanitize'
 import { relTime, utcTitle } from '@/lib/format'
+import { pinnedSet } from '@/lib/saved-filters'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -57,6 +58,23 @@ function readForm(doc: Document) {
     .filter((o) => o.value !== '-1')
     .map((o) => ({ value: o.value, label: clean(o.textContent), category: /^o\d+/.test(o.value) }))
   return { searchIn: opts('searchIn'), order: opts('order'), forums }
+}
+
+/** A stored set read back. What to search plus the sort fall back to their
+ * defaults where the hidden form does not offer the stored value. Forum ids ride
+ * along untouched: an empty list means every forum, so dropping one unknown id
+ * would turn a set covering two boards into a search across the whole site. */
+function filtersFrom(raw: Record<string, unknown> | undefined, form: ReturnType<typeof readForm>): RunOver {
+  const pick = (v: unknown, opts: Opt[] | undefined, fallback: string) =>
+    typeof v === 'string' && (!opts || opts.some((o) => o.value === v)) ? v : fallback
+  const stored = raw?.forums
+  const forums = Array.isArray(stored) ? stored.filter((v): v is string => typeof v === 'string') : []
+  return {
+    text: typeof raw?.text === 'string' ? raw.text : '',
+    searchIn: pick(raw?.searchIn, form?.searchIn, '1'),
+    order: pick(raw?.order, form?.order, 'default'),
+    forums,
+  }
 }
 
 function parseResults(html: string): { rows: Row[]; total: number | null } {
@@ -114,10 +132,16 @@ function ResultCard({ r }: { r: Row }) {
 
 export function ForumSearchView(props: PageProps) {
   const form = useMemo(() => readForm(document), [])
-  const [text, setText] = useState('')
-  const [searchIn, setSearchIn] = useState('1')
-  const [order, setOrder] = useState('default')
-  const [forums, setForums] = useState<string[]>([]) // empty = all
+  // The pinned set is the search this page opens with. Null where nothing is
+  // pinned, which is what keeps an unpinned page from searching on arrival.
+  const opening = useMemo(() => {
+    const pin = pinnedSet(FORUM_SEARCH_PAGE)?.state
+    return pin ? filtersFrom(pin, form) : null
+  }, [form])
+  const [text, setText] = useState(opening?.text ?? '')
+  const [searchIn, setSearchIn] = useState(opening?.searchIn ?? '1')
+  const [order, setOrder] = useState(opening?.order ?? 'default')
+  const [forums, setForums] = useState<string[]>(opening?.forums ?? []) // empty = all
   const [start, setStart] = useState(0)
   const [rows, setRows] = useState<Row[] | null>(null)
   // What the shown results were asked for, which is what a set stands for.
@@ -149,15 +173,12 @@ export function ForumSearchView(props: PageProps) {
     name: savedName,
     filtered: asked.text.trim().length > 0,
     onApply: (saved) => {
-      const nextText = typeof saved.text === 'string' ? saved.text : ''
-      const nextIn = typeof saved.searchIn === 'string' ? saved.searchIn : '1'
-      const nextOrder = typeof saved.order === 'string' ? saved.order : 'default'
-      const nextForums = Array.isArray(saved.forums) ? saved.forums.filter((v): v is string => typeof v === 'string') : []
-      setText(nextText)
-      setSearchIn(nextIn)
-      setOrder(nextOrder)
-      setForums(nextForums)
-      void run(0, { text: nextText, searchIn: nextIn, order: nextOrder, forums: nextForums })
+      const next = filtersFrom(saved, form)
+      setText(next.text)
+      setSearchIn(next.searchIn)
+      setOrder(next.order)
+      setForums(next.forums)
+      void run(0, next)
     },
     // A set here stands for a search, so switching it off empties the form and
     // the results it produced. The id moves on as well: a request still in the
@@ -176,6 +197,13 @@ export function ForumSearchView(props: PageProps) {
       setStart(0)
     },
   })
+
+  // The pinned search runs once, on the values it was stored with rather than
+  // on state that has yet to settle.
+  useEffect(() => {
+    if (form && opening) void run(0, opening)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   if (!form) return <LegacyView {...props} />
 

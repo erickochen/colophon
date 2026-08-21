@@ -5,6 +5,7 @@ import { MEMBER_PAGE_SIZE, searchMembers, type UserRow } from '@/lib/extract/use
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
 import { localDate, plural, relTime, utcTitle } from '@/lib/format'
+import { pinnedSet } from '@/lib/saved-filters'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -29,16 +30,34 @@ function readClasses(doc: Document): ClassOpt[] {
   return opts.length ? opts.map((o) => ({ value: o.value, label: label(o) })) : [{ value: '-', label: 'Any class' }]
 }
 
+/** A stored set read back. A class the select does not offer reads as any class,
+ * so a set only ever searches on a value this page can show. */
+function filtersFrom(raw: Record<string, unknown> | undefined, classes: ClassOpt[]) {
+  const cls = typeof raw?.cls === 'string' && classes.some((c) => (c.value || '-') === raw.cls) ? raw.cls : '-'
+  return { text: typeof raw?.text === 'string' ? raw.text : '', cls }
+}
+
 export function UsersView(props: PageProps) {
   // Decided once, before the effects: a page without MAM's body falls through to
   // the legacy view, so nothing should be fetched for it.
   const usable = useMemo(() => !!document.querySelector('#mainBody'), [])
   const classes = useMemo(() => readClasses(document), [])
-  const [text, setText] = useState('')
-  const [cls, setCls] = useState('-')
+  // What this page opens with, so the first search takes it along instead of
+  // running twice. A link that names a search stands above a pinned set, the
+  // same order the other lists keep.
+  const opening = useMemo(() => {
+    const p = new URLSearchParams(location.search)
+    // Read through the same validation first: a link naming a class this select
+    // cannot show names nothing, so the pinned set still stands.
+    const link = filtersFrom({ text: p.get('search') ?? '', cls: p.get('class') || '-' }, classes)
+    if (link.text !== '' || link.cls !== '-') return link
+    return filtersFrom(pinnedSet(USERS_PAGE)?.state, classes)
+  }, [classes])
+  const [text, setText] = useState(opening.text)
+  const [cls, setCls] = useState(opening.cls)
   const [rows, setRows] = useState<UserRow[] | null>(null)
   // What the shown list was asked for, which is what a set stands for.
-  const [asked, setAsked] = useState({ text: '', cls: '-' })
+  const [asked, setAsked] = useState(opening)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
   const reqId = useRef(0)
@@ -74,11 +93,10 @@ export function UsersView(props: PageProps) {
     name: savedName,
     filtered: savedName.length > 0,
     onApply: (saved) => {
-      const nextText = typeof saved.text === 'string' ? saved.text : ''
-      const nextCls = typeof saved.cls === 'string' ? saved.cls : '-'
-      setText(nextText)
-      setCls(nextCls)
-      void run(nextText, nextCls)
+      const next = filtersFrom(saved, classes)
+      setText(next.text)
+      setCls(next.cls)
+      void run(next.text, next.cls)
     },
     onClear: () => {
       setText('')

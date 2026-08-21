@@ -6,6 +6,7 @@ import { extractFreeleech, type FlItem } from '@/lib/extract/freeleech'
 import { coverShape } from '@/lib/cover-shape'
 import { coverThumbUrl } from '@/lib/mam-api'
 import { useCollapsed } from '@/lib/collapsed'
+import { pinnedSet, sameState } from '@/lib/saved-filters'
 import { useFeature } from '@/lib/settings'
 import { cachedSnatchIndex, loadSnatchIndex, type SnatchIndex } from '@/lib/snatch-index'
 import { pileBadge, readPile } from '@/lib/snatch-status'
@@ -56,6 +57,32 @@ const GROUP_BY: FacetOption[] = [
 /** Which picks to show, measured against your own snatches. */
 type Owned = 'all' | 'new' | 'have'
 
+interface Filters {
+  q: string
+  mainCat: string
+  media: string[]
+  cats: string[]
+  groupBy: string
+  owned: Owned
+}
+
+const OPEN_WITH: Filters = { q: '', mainCat: 'all', media: [], cats: [], groupBy: GROUP_BY[0].value, owned: 'all' }
+
+/** A stored set read back. Anything the set does not carry returns to the value
+ * the page opens with, so applying one never leaves an older filter behind. */
+function filtersFrom(raw: Record<string, unknown> | undefined): Filters {
+  if (!raw) return OPEN_WITH
+  const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
+  return {
+    q: typeof raw.q === 'string' ? raw.q : OPEN_WITH.q,
+    mainCat: typeof raw.mainCat === 'string' ? raw.mainCat : OPEN_WITH.mainCat,
+    media: strings(raw.media),
+    cats: strings(raw.cats),
+    groupBy: GROUP_BY.some((o) => o.value === raw.groupBy) ? (raw.groupBy as string) : OPEN_WITH.groupBy,
+    owned: raw.owned === 'new' || raw.owned === 'have' ? raw.owned : OPEN_WITH.owned,
+  }
+}
+
 interface Section {
   key: string
   label: string
@@ -65,13 +92,16 @@ interface Section {
 
 export function FreeleechView(props: PageProps) {
   const data = useMemo(() => extractFreeleech(document), [])
-  const [q, setQ] = useState('')
-  const [mainCat, setMainCat] = useState('all')
-  const [media, setMedia] = useState<string[]>([])
-  const [cats, setCats] = useState<string[]>([])
-  const [groupBy, setGroupBy] = useState(GROUP_BY[0].value)
-  const [owned, setOwned] = useState<Owned>('all')
   const [checkOn] = useFeature('snatchCheck')
+  // The pinned set is what this page opens with. Read once, so pinning another
+  // set later does not move the filters under the reader.
+  const opening = useMemo(() => filtersFrom(pinnedSet(FREELEECH_PAGE)?.state), [])
+  const [q, setQ] = useState(opening.q)
+  const [mainCat, setMainCat] = useState(opening.mainCat)
+  const [media, setMedia] = useState<string[]>(opening.media)
+  const [cats, setCats] = useState<string[]>(opening.cats)
+  const [groupBy, setGroupBy] = useState(opening.groupBy)
+  const [owned, setOwned] = useState<Owned>(opening.owned)
   // A warm cache paints the badges in the first frame; a cold one arrives while
   // the list is already readable.
   const [index, setIndex] = useState<SnatchIndex | null>(() => (checkOn ? cachedSnatchIndex() : null))
@@ -130,10 +160,15 @@ export function FreeleechView(props: PageProps) {
   // narrows nothing leaves the reader's own folds alone.
   const filtering =
     needle.length > 0 || mainCat !== 'all' || media.length > 0 || cats.length > 0 || (owned !== 'all' && !!have)
+  const current = { q, mainCat, media, cats, groupBy, owned }
+  // Reaching for a control is what opens every matching section, where folds made
+  // then are temporary. A pinned set is not that: it is where the page starts, so
+  // there the folds stored for this page still hold.
+  const tempFolds = filtering && !sameState(current, opening)
 
   useEffect(() => {
-    if (!filtering && tempClosed.length > 0) setTempClosed([])
-  }, [filtering, tempClosed.length])
+    if (!tempFolds && tempClosed.length > 0) setTempClosed([])
+  }, [tempFolds, tempClosed.length])
 
   useEffect(() => {
     if (!checkOn) return
@@ -205,33 +240,37 @@ export function FreeleechView(props: PageProps) {
       .sort((a, b) => a.label.localeCompare(b.label))
   }, [groupBy, groups, matches, cats])
 
-  const isOpen = (key: string) => (filtering ? !tempClosed.includes(key) : fold.isOpen(key))
+  const isOpen = (key: string) => (tempFolds ? !tempClosed.includes(key) : fold.isOpen(key))
   const setOpen = (key: string, open: boolean) => {
-    if (filtering) setTempClosed((prev) => (open ? prev.filter((k) => k !== key) : [...prev, key]))
+    if (tempFolds) setTempClosed((prev) => (open ? prev.filter((k) => k !== key) : [...prev, key]))
     else fold.setOpen(key, open)
   }
   const allOpen = sections.every((s) => isOpen(s.key))
   const toggleAll = () => {
-    if (filtering) setTempClosed(allOpen ? sections.map((s) => s.key) : [])
+    if (tempFolds) setTempClosed(allOpen ? sections.map((s) => s.key) : [])
     else if (allOpen) fold.closeAll(sections.map((s) => s.key))
-    else fold.openAll()
+    else fold.openAll(sections.map((s) => s.key))
   }
 
   const chips: FilterChip[] = [
     ...(mainCat !== 'all'
-      ? [{ key: 'main', label: mainCatOptions.find((m) => m.value === mainCat)?.label ?? mainCat, onRemove: () => setMainCat('all') }]
+      ? [{ key: 'main', label: mainCatOptions.find((m) => m.value === mainCat)?.label ?? `Main category ${mainCat}`, onRemove: () => setMainCat('all') }]
       : []),
     ...media.map((m) => ({
       key: `m${m}`,
-      label: mediaOptions.find((o) => o.value === m)?.label ?? m,
+      // A period without this media type carries no name for it, so the chip
+      // says what kind of filter it is rather than showing a bare number.
+      label: mediaOptions.find((o) => o.value === m)?.label ?? `Media type ${m}`,
       onRemove: () => setMedia((prev) => toggleValue(prev, m)),
     })),
     ...cats.map((c) => ({
       key: `c${c}`,
-      label: catOptions.find((o) => o.value === c)?.label ?? c,
+      label: catOptions.find((o) => o.value === c)?.label ?? `Category ${c}`,
       onRemove: () => setCats((prev) => toggleValue(prev, c)),
     })),
-    ...(owned !== 'all'
+    // Only while the snatch list can answer it. The stored choice stays in state
+    // either way, so the set it came from still reads as the one that is on.
+    ...(owned !== 'all' && have
       ? [{ key: 'owned', label: owned === 'have' ? 'Already have' : 'New to me', onRemove: () => setOwned('all') }]
       : []),
   ]
@@ -246,16 +285,17 @@ export function FreeleechView(props: PageProps) {
   const savedName = [q.trim(), ...chips.map((c) => c.label)].filter(Boolean).join(' · ')
   const views = useSavedViews({
     page: FREELEECH_PAGE,
-    state: { q, mainCat, media, cats, groupBy, owned },
+    state: current,
     name: savedName,
     filtered: savedName.length > 0,
     onApply: (saved) => {
-      if (typeof saved.q === 'string') setQ(saved.q)
-      if (typeof saved.mainCat === 'string') setMainCat(saved.mainCat)
-      if (Array.isArray(saved.media)) setMedia(saved.media.filter((v): v is string => typeof v === 'string'))
-      if (Array.isArray(saved.cats)) setCats(saved.cats.filter((v): v is string => typeof v === 'string'))
-      if (GROUP_BY.some((o) => o.value === saved.groupBy)) setGroupBy(saved.groupBy as string)
-      if (saved.owned === 'all' || saved.owned === 'new' || saved.owned === 'have') setOwned(saved.owned)
+      const next = filtersFrom(saved)
+      setQ(next.q)
+      setMainCat(next.mainCat)
+      setMedia(next.media)
+      setCats(next.cats)
+      setGroupBy(next.groupBy)
+      setOwned(next.owned)
     },
     // The grouping rides along in a set, so it comes back with the rest.
     onClear: () => {

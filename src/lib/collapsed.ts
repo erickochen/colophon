@@ -46,7 +46,10 @@ export interface CollapsedSections {
   collapsed: string[]
   isOpen: (key: string) => boolean
   setOpen: (key: string, open: boolean) => void
-  openAll: () => void
+  /** Unfolds these sections. Sections outside the list keep the fold they have,
+   * so acting on a filtered list leaves the rest of the page as it was. */
+  openAll: (keys: string[]) => void
+  /** Folds these sections away, on top of the ones already folded. */
   closeAll: (keys: string[]) => void
 }
 
@@ -67,7 +70,10 @@ export function useCollapsed(page: string): CollapsedSections {
     collapsed,
     isOpen: (key) => !collapsed.includes(key),
     setOpen,
-    openAll: useCallback(() => write(page, []), [page]),
-    closeAll: useCallback((keys: string[]) => write(page, [...new Set(keys)]), [page]),
+    openAll: useCallback((keys: string[]) => {
+      const gone = new Set(keys)
+      write(page, read(page).filter((k) => !gone.has(k)))
+    }, [page]),
+    closeAll: useCallback((keys: string[]) => write(page, [...new Set([...read(page), ...keys])]), [page]),
   }
 }

@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Filter } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { searchTorrents, parsePeople, coverUrl, type SearchTorrent } from '@/lib/mam-api'
 import { coverShape } from '@/lib/cover-shape'
 import { MAIN_CATS } from '@/lib/mam-facets'
 import { fmtInt } from '@/lib/format'
+import { pinnedSet } from '@/lib/saved-filters'
+import { placed, weeksOf, type Available, type Top10Query } from '@/lib/top10-period'
 import { PageHeader } from '@/app/shell/bits'
 import { Book } from '@/components/book'
 import { Badge } from '@/components/ui/badge'
@@ -19,19 +21,9 @@ import {
 } from '@/components/filters'
 import { mamFetch } from '@/lib/mam-fetch'
 
-// Periods come from cdn top10TorAvailable.php: year -> month -> week -> [start, end].
-type Available = Record<string, { all: boolean } & Record<string, { all: boolean } & Record<string, [number, number, number]>>>
-
-// Same category/mediatype facet MAM feeds #filterContainer from categories.php;
-// we reuse browse's MAIN_CATS and pass main_cat[]/cat[] to the search endpoint.
-interface Top10Query {
-  year: string
-  week: string
-  metric: string
-  mainCat: number[]
-  cat: number[]
-}
-
+// The category and mediatype facet MAM feeds #filterContainer from
+// categories.php; we reuse browse's MAIN_CATS and pass main_cat[]/cat[] to the
+// search endpoint. The period plus its index live in lib/top10-period.
 const TOP10_PAGE = 'top10'
 
 const METRICS = [
@@ -45,23 +37,58 @@ function catName(id: number): string {
   return `cat ${id}`
 }
 
+const OPEN_WITH: Top10Query = { year: 'all', week: 'all', metric: METRICS[0].value, mainCat: [], cat: [] }
+
+/** Years reach the search as a date range built from the number itself, so this
+ * is the shape a stored one has to have. */
+const YEAR = /^\d{4}$/
+
+/** How long an opening search waits for the week index before going out without
+ * it. Well past what the small JSON needs, short of leaving the page waiting. */
+const AVAIL_WAIT_MS = 8000
+
+/** A stored set read back. Anything the set does not carry returns to the value
+ * the page opens with, so applying one never leaves an older pick behind. */
+function queryFrom(raw: Record<string, unknown> | undefined): Top10Query {
+  if (!raw) return OPEN_WITH
+  const ids = (v: unknown) => (Array.isArray(v) ? v.map(Number).filter((n) => Number.isFinite(n)) : [])
+  return {
+    year: typeof raw.year === 'string' && (raw.year === 'all' || YEAR.test(raw.year)) ? raw.year : OPEN_WITH.year,
+    week: typeof raw.week === 'string' ? raw.week : OPEN_WITH.week,
+    metric: METRICS.some((m) => m.value === raw.metric) ? (raw.metric as string) : OPEN_WITH.metric,
+    mainCat: ids(raw.mainCat),
+    cat: ids(raw.cat),
+  }
+}
+
 export function Top10View(_props: PageProps) {
   const [avail, setAvail] = useState<Available | null>(null)
-  const [year, setYear] = useState<string>('all')
-  const [week, setWeek] = useState<string>('all')
-  const [metric, setMetric] = useState(METRICS[0].value)
-  const [mainCat, setMainCat] = useState<number[]>([])
-  const [cat, setCat] = useState<number[]>([])
+  // The pinned set is what this page opens with. Read once, so pinning another
+  // set later does not move the list under the reader.
+  const opening = useMemo(() => queryFrom(pinnedSet(TOP10_PAGE)?.state), [])
+  const [year, setYear] = useState<string>(opening.year)
+  const [week, setWeek] = useState<string>(opening.week)
+  const [metric, setMetric] = useState(opening.metric)
+  const [mainCat, setMainCat] = useState<number[]>(opening.mainCat)
+  const [cat, setCat] = useState<number[]>(opening.cat)
   const [rows, setRows] = useState<SearchTorrent[] | null>(null)
+  // True where a stored week could not be read, so the list covers its year.
+  const [periodFailed, setPeriodFailed] = useState(false)
   const seq = useRef(0)
+  // The query the shown list was asked for. The index lands on its own clock, so
+  // it has to answer for whatever stands here by then.
+  const asked = useRef<Top10Query>(opening)
 
   const load = useCallback(async (q: Top10Query, av: Available | null) => {
     const mine = ++seq.current
+    asked.current = q
     setRows(null)
     let startDate: string | undefined
     let endDate: string | undefined
-    if (q.year !== 'all' && av) {
-      const yearData = av[q.year]
+    // Only the week needs the index. A year turns into a range on its own, so it
+    // narrows the list whether the index is in or not.
+    if (q.year !== 'all') {
+      const yearData = av?.[q.year]
       if (q.week !== 'all' && yearData) {
         for (const month of Object.values(yearData)) {
           if (typeof month === 'object' && month && q.week in month) {
@@ -94,17 +121,43 @@ export function Top10View(_props: PageProps) {
     }
   }, [])
 
+  // Only a stored week has to wait for the index: a year turns into a range on
+  // its own. Waiting keeps the opening search down to one request. The deadline
+  // keeps an answer that never comes from leaving the page on skeletons.
   useEffect(() => {
+    const waits = opening.year !== 'all' && opening.week !== 'all'
+    if (!waits) void load(opening, null)
+    /** No index means no week, so the list covers the year plus the bar says why
+     * the week it was asked for is not on it. */
+    const wholeYear = () => {
+      if (asked.current.week === 'all') return
+      setWeek('all')
+      setPeriodFailed(true)
+      void load({ ...asked.current, week: 'all' }, null)
+    }
+    const deadline = waits ? setTimeout(wholeYear, AVAIL_WAIT_MS) : undefined
     mamFetch('https://cdn.myanonamouse.net/stats/js/top10TorAvailable.php', { credentials: 'include' })
       .then((r) => r.json())
-      .then((j: Available) => setAvail(j))
-      .catch(() => setAvail(null))
-    void load({ year: 'all', week: 'all', metric: METRICS[0].value, mainCat: [], cat: [] }, null)
+      .then((j: Available) => {
+        clearTimeout(deadline)
+        setAvail(j)
+        const next = placed(asked.current, j)
+        if (next.week !== asked.current.week) setWeek(next.week)
+        // Searches an untouched page, plus a week only the index can place. Any
+        // other list on screen was asked for by the reader, so it stays.
+        if (seq.current === 0 || next.week !== 'all') void load(next, j)
+      })
+      .catch(() => {
+        clearTimeout(deadline)
+        setAvail(null)
+        wholeYear()
+      })
+    return () => clearTimeout(deadline)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const apply = (patch: Partial<Top10Query>) => {
-    const next: Top10Query = {
+    const picked: Top10Query = {
       year,
       week: patch.year !== undefined && patch.year !== year ? 'all' : week,
       metric,
@@ -112,6 +165,9 @@ export function Top10View(_props: PageProps) {
       cat,
       ...patch,
     }
+    // A stored set can name a week this year does not have. Without the index
+    // yet the week stands, since the effect above settles it once it lands.
+    const next = avail ? placed(picked, avail) : picked
     setYear(next.year)
     setWeek(next.week)
     setMetric(next.metric)
@@ -138,29 +194,17 @@ export function Top10View(_props: PageProps) {
     // off, so Save waits until something here is actually picked.
     filtered:
       year !== 'all' || week !== 'all' || metric !== METRICS[0].value || mainCat.length > 0 || cat.length > 0,
-    onApply: (saved) => {
-      const ids = (v: unknown) => (Array.isArray(v) ? v.map(Number).filter((n) => Number.isFinite(n)) : [])
-      apply({
-        year: typeof saved.year === 'string' ? saved.year : 'all',
-        week: typeof saved.week === 'string' ? saved.week : 'all',
-        metric: METRICS.some((m) => m.value === saved.metric) ? (saved.metric as string) : metric,
-        mainCat: ids(saved.mainCat),
-        cat: ids(saved.cat),
-      })
-    },
+    onApply: (saved) => apply(queryFrom(saved)),
     // Nothing here is ever unfiltered, so switching a set off means the list
     // this page opens with.
-    onClear: () => apply({ year: 'all', week: 'all', metric: METRICS[0].value, mainCat: [], cat: [] }),
+    onClear: () => apply(OPEN_WITH),
   })
 
-  const years = avail ? Object.keys(avail).sort((a, b) => Number(b) - Number(a)) : []
-  const weeks: string[] = []
-  if (avail && year !== 'all' && avail[year]) {
-    for (const m of Object.values(avail[year])) {
-      if (typeof m === 'object' && m) for (const k of Object.keys(m)) if (k !== 'all' && !weeks.includes(k)) weeks.push(k)
-    }
-    weeks.sort((a, b) => Number(a) - Number(b))
-  }
+  const indexed = avail ? Object.keys(avail).sort((a, b) => Number(b) - Number(a)) : []
+  // A year outside the index still searches, so the select carries it rather
+  // than showing a value that is not on it.
+  const years = year !== 'all' && !indexed.includes(year) ? [year, ...indexed] : indexed
+  const weeks = weeksOf(avail, year)
 
   return (
     <div className="grid gap-4">
@@ -168,6 +212,13 @@ export function Top10View(_props: PageProps) {
         title="Top 10"
         sub="The library's most wanted"
       />
+      {/* Only while it still holds: picking a week clears it, plus dropping the
+          year makes the whole thing moot. */}
+      {periodFailed && year !== 'all' && week === 'all' && (
+        <p className="text-[12.5px] text-muted-foreground">
+          Could not read which weeks are on record in time, so this covers the whole year.
+        </p>
+      )}
 
       <FilterBar>
         <FilterSaved views={views} />

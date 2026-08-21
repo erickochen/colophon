@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Filter, Gift } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import type { RequestQuery, RequestRow } from '@/lib/mam-api'
@@ -16,6 +16,7 @@ import {
   searchRequests,
 } from '@/lib/mam-api'
 import { dateOnly, decodeEntities, fmtInt, localDate, plural, utcTitle } from '@/lib/format'
+import { pinnedSet } from '@/lib/saved-filters'
 import { useFeature } from '@/lib/settings'
 import { PageHeader } from '@/app/shell/bits'
 import { Badge } from '@/components/ui/badge'
@@ -67,13 +68,51 @@ function patchFromSaved(raw: Record<string, unknown>): Partial<RequestQuery> {
   return out
 }
 
+/** Whether one stored blob value narrows anything. MAM's own scripts write
+ * neutral values into the blob: an empty string, a zero, an off switch. None of
+ * those is a choice, so none of them speaks for the link. */
+const chose = (v: unknown): boolean => {
+  if (v == null || v === '') return false
+  if (typeof v === 'boolean') return v
+  // Entity branches nest, as in com[author][id][]. An emptied one narrows
+  // nothing, so the branch is walked rather than counted.
+  if (typeof v === 'object') return Object.values(v).some(chose)
+  return Number(v) !== 0
+}
+
+const narrows = (branch: Record<string, unknown> | undefined): boolean => Object.values(branch ?? {}).some(chose)
+
+/** Whether the link itself narrows the list. A pinned set steps aside for one
+ * that does, so a link from MAM's own menu keeps showing what it names. */
+function linkChose(q: Required<RequestQuery>): boolean {
+  return (
+    q.text.length > 0 ||
+    q.filled !== REQUEST_DEFAULTS.filled ||
+    q.requester !== REQUEST_DEFAULTS.requester ||
+    q.sortType !== REQUEST_DEFAULTS.sortType ||
+    narrows(q.extra.com) ||
+    narrows(q.extra.req)
+  )
+}
+
+/** The query this page opens with: the URL where it names filters, otherwise the
+ * pinned set on top of it. The flag says which, since a set has to reach the
+ * address bar as well. */
+function openingQuery(): { query: Required<RequestQuery>; pinned: boolean } {
+  const fromUrl = requestQueryFromUrl()
+  const pin = linkChose(fromUrl) ? undefined : pinnedSet(REQUESTS_PAGE)?.state
+  if (!pin) return { query: fromUrl, pinned: false }
+  return { query: { ...fromUrl, ...patchFromSaved(pin) }, pinned: true }
+}
+
 /** A request without a release date carries MAM's zero stamp. */
 function released(value: string | null): string | null {
   return value && !value.startsWith('0000-') ? dateOnly(value) : null
 }
 
 export function RequestsView(_props: PageProps) {
-  const [state, setState] = useState(requestQueryFromUrl)
+  const opening = useMemo(openingQuery, [])
+  const [state, setState] = useState(opening.query)
   const [text, setText] = useState(state.text)
   const [found, setFound] = useState(0)
   const [rows, setRows] = useState<RequestRow[] | null>(null)
@@ -99,6 +138,9 @@ export function RequestsView(_props: PageProps) {
   }, [])
 
   useEffect(() => {
+    // A pinned set opens a list the address bar has to name too, so copying the
+    // URL hands over what is on screen rather than the plain search.
+    if (opening.pinned) history.replaceState(null, '', requestsUrl(state))
     void load(state)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
