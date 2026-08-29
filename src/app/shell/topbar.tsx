@@ -6,6 +6,7 @@ import { chooseTheme, DARK_SCHEME_ITEMS, LIGHT_SCHEME_ITEMS, useAppearance } fro
 import { NOTIF_TARGETS, type NotifCounts } from '@/lib/notify'
 import { useLiveBonus, useLiveWedges } from '@/lib/bonus'
 import { readFeature } from '@/lib/settings'
+import { counterValue } from '@/lib/counters'
 import { NumberRoll } from '@/components/ui/number-roll'
 import { Button } from '@/components/ui/button'
 import { SidebarTrigger } from '@/components/ui/sidebar'
@@ -26,19 +27,13 @@ const BONUS_SEEN_KEY = 'colophon:bonus-seen'
 // The gain marker leaves again after this long, so the bar stays quiet.
 const DELTA_VISIBLE_MS = 6000
 
-function parseBonus(v: string | null): number | null {
-  if (v == null) return null
-  const n = Number(v.replace(/,/g, ''))
-  return Number.isFinite(n) ? n : null
-}
-
 /** Points gained since the previous page in this tab, shown once per load. */
 function useBonusDelta(current: string | null): number | null {
   const [delta, setDelta] = useState<number | null>(null)
   const announced = useRef(false)
   useEffect(() => {
     if (!readFeature('bonusDelta')) return
-    const now = parseBonus(current)
+    const now = counterValue(current)
     if (now == null) return
     try {
       const prev = Number(sessionStorage.getItem(BONUS_SEEN_KEY))

@@ -8,6 +8,8 @@ import {
   type BookmarkCleanup, type Search2Query, type SearchTorrent,
 } from '@/lib/mam-api'
 import { useCategories2 } from '@/lib/categories2'
+import { extractProfile } from '@/lib/extract/profile'
+import { mamFetch } from '@/lib/mam-fetch'
 import { groupBySeries, type SeriesGroup } from '@/lib/series'
 import { CONTENT_FLAGS, LANGUAGES, MAIN_CATS, SORT_OPTIONS } from '@/lib/mam-facets'
 import { bottomDockRef } from '@/lib/bottom-dock'
@@ -1411,6 +1413,30 @@ function ViewToggle({ view, onChange }: { view: ViewMode; onChange: (v: ViewMode
   )
 }
 
+/** An uploads list takes the member's name off its own rows. A member with no
+ * uploads leaves none to read, so their profile page answers instead. */
+function useMemberName(uid: string | null, fromRows: string | null, settled: boolean): string | null {
+  const [name, setName] = useState<string | null>(null)
+  useEffect(() => {
+    setName(null)
+    if (!uid || fromRows || !settled) return
+    let alive = true
+    void mamFetch(`/u/${uid}`, { credentials: 'same-origin' })
+      .then((res) => (res.ok ? res.text() : Promise.reject(new Error(String(res.status)))))
+      .then((html) => extractProfile(new DOMParser().parseFromString(html, 'text/html'))?.name ?? null)
+      .then((found) => {
+        if (alive && found) setName(found)
+      })
+      .catch(() => {
+        // The uid in the chip is still an answer.
+      })
+    return () => {
+      alive = false
+    }
+  }, [uid, fromRows, settled])
+  return fromRows ?? name
+}
+
 export function BrowseView(props: PageProps) {
   const [state, setState] = useState<BrowseState>(() => initialState(props.page.user.uid != null ? String(props.page.user.uid) : null))
   const stateRef = useRef(state)
@@ -1797,7 +1823,12 @@ export function BrowseView(props: PageProps) {
   const sizeActive = state.minSize !== null || state.maxSize !== null
   const uploaderMode = state.uploader != null
   // The endpoint names the owner on every row, which labels the chip.
-  const uploaderName = uploaderMode && state.uploader !== 'else' ? items.find((t) => t.owner_name)?.owner_name ?? null : null
+  const ownerUid = state.uploader && state.uploader !== 'else' ? state.uploader.slice(1) : null
+  const uploaderName = useMemberName(
+    ownerUid,
+    ownerUid ? items.find((t) => t.owner_name)?.owner_name ?? null : null,
+    !loading
+  )
   const effectiveSort = uploaderMode && state.sort === 'default' ? 'dateDesc' : state.sort
   const genres = useCategories2()
   const genreName = (id: number) => genres?.find((c) => c.id === id)?.name ?? `#${id}`

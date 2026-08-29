@@ -8,6 +8,7 @@ import { LegacyView } from '@/app/pages/legacy'
 import { RichHtml } from '@/app/shell/bits'
 import { mutedUserColor } from '@/lib/colors'
 import { fmtInt, fmtRatio, initials, plural, relTime, stampMs, utcTitle } from '@/lib/format'
+import { counterValue } from '@/lib/counters'
 import { mediaInfoGroupLabel, mediaInfoLabel } from '@/lib/media-info'
 import { bookmarkOne, searchTorrents, parsePeople, coverUrl, downloadUrl, torrentUrl, thankUploader, THANK_STEP, type SearchTorrent } from '@/lib/mam-api'
 import { coverShape, mediaTypeFromHref, type CoverShape } from '@/lib/cover-shape'
@@ -1384,7 +1385,7 @@ export function TorrentView(props: PageProps) {
   const languages = data.categories.filter((c) => c.language)
   const genres = data.categories.filter((c) => !c.language)
   // An unknown balance leaves the thanks ceiling to MAM's own maximum.
-  const balance = bonusRaw ? countOf(bonusRaw) : null
+  const balance = counterValue(bonusRaw)
 
   // The dock's wedge button carries the confirm flow, so the menu drops its bare
   // duplicate of that same spend. A wedge also buys nothing on a torrent that

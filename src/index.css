@@ -209,7 +209,7 @@
 
 /* Solarized Light, Ethan Schoonover's palette (ethanschoonover.com/solarized).
  * base3 carries the cards and base2 the sidebar; the page sits between them.
- * Tones below base2 lean toward base1, so the greys cool off as they deepen.
+ * Tones below base2 lean toward base1, so the grays cool off as they deepen.
  * Text-bearing accents run darker than the palette value; chart fills do not. */
 .scheme-solarized:not(.dark) {
   --background: oklch(0.962 0.026 91);

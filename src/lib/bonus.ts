@@ -2,6 +2,7 @@
 // a purchase. Reading from there keeps our chips current whoever spent the points.
 import { useSyncExternalStore } from 'react'
 import type { BonusBuyResult } from '@/lib/mam-api'
+import { counterValue } from '@/lib/counters'
 
 // Bonus sits in two places and the writers disagree: site.js updates the user
 // menu entry while GiftMAM and we update the header strip. Both are watched, so
@@ -32,13 +33,11 @@ function menuEntry(label: RegExp): HTMLElement | null {
   return null
 }
 
-/** "FL Wedges: 3" to "3". MAM writes these labels with a non-breaking space,
- * which trim() drops along with the regular kind. */
+/** "FL Wedges: 3" to "3". A node holding anything but a plain count says
+ * nothing, so the other node or the polled balance decides instead. */
 function numberFrom(raw: string | null | undefined): string | null {
-  const value = (raw ?? '').replace(/^[^:]*:/, '').trim()
-  if (!value) return null
-  const num = Number(value.replace(/,/g, ''))
-  return Number.isNaN(num) ? value : num.toLocaleString('en-US')
+  const n = counterValue(raw)
+  return n == null ? null : n.toLocaleString('en-US')
 }
 
 function readBonusNode(el: HTMLElement): string | null {
@@ -85,11 +84,28 @@ function watch(store: Store) {
   const nodes = store.nodes()
   if (!nodes.length) return
   for (const el of nodes) store.seen.set(el, store.readNode(el))
-  store.value = nodes.map(store.readNode).find((v) => v != null) ?? null
+  // Nodes that read as nothing leave a polled balance standing.
+  store.value = nodes.map(store.readNode).find((v) => v != null) ?? store.value
   store.observer = new MutationObserver(() => sync(store, nodes))
   for (const el of nodes) {
     store.observer.observe(el, { childList: true, characterData: true, subtree: true, attributes: true })
   }
+}
+
+function push(store: Store, value: number | null | undefined) {
+  if (value == null) return
+  const next = value.toLocaleString('en-US')
+  if (next === store.value) return
+  store.value = next
+  store.listeners.forEach((fn) => fn())
+}
+
+/** Balances as MAM's own poll endpoint reports them. The header nodes move the
+ * moment something is spent, so they stay the quick source; this one settles
+ * what they say, including where another userscript wrote into them. */
+export function pushCounters(counters: { bonus?: number | null; wedges?: number | null }): void {
+  push(bonusStore, counters.bonus)
+  push(wedgeStore, counters.wedges)
 }
 
 const subscribeBonus = (fn: Listener) => {

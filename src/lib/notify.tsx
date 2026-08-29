@@ -1,6 +1,7 @@
 // Live notification counts for the sidebar. MAM serves its header counters
 // empty and fills them from a poll, so polling is the only way to show them.
 import { useEffect, useState } from 'react'
+import { pushCounters } from '@/lib/bonus'
 import { requestsUrl } from '@/lib/mam-api'
 import { readFeature, subscribeSettings } from '@/lib/settings'
 import { toast } from '@/components/ui/toast'
@@ -66,13 +67,22 @@ function writeSnapshot(counts: NotifCounts): void {
 
 const num = (v: unknown): number => (typeof v === 'number' ? v : 0)
 
+const figure = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+
 /** Counts from the endpoint MAM's own header polls. The pages behind the
- * counters drop them from the DOM, so this endpoint is the only source. */
+ * counters drop them from the DOM, so this endpoint is the only source. The
+ * same answer carries the points plus wedge balances, which go to the counter
+ * store on the way past: they are figures there rather than header text. */
 export async function fetchNotifCounts(): Promise<NotifCounts | null> {
   try {
     const res = await mamFetch('/jsonLoad.php?notif', { credentials: 'same-origin' })
     if (!res.ok) return null
-    const data = (await res.json()) as { notifs?: Partial<Record<keyof NotifCounts, unknown>> }
+    const data = (await res.json()) as {
+      notifs?: Partial<Record<keyof NotifCounts, unknown>>
+      seedbonus?: unknown
+      wedges?: unknown
+    }
+    pushCounters({ bonus: figure(data.seedbonus), wedges: figure(data.wedges) })
     if (!data.notifs) return null
     return {
       pms: num(data.notifs.pms),

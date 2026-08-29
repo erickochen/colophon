@@ -27,6 +27,8 @@ import type { ShellData } from '@/lib/extract/shell'
 import { isActive } from '@/app/router'
 import { extractNewPosts } from '@/app/pages/subscriptions'
 import { NOTIF_TARGETS, type NotifCounts } from '@/lib/notify'
+import { compact } from '@/lib/format'
+import { counterValue } from '@/lib/counters'
 import { requestsUrl } from '@/lib/mam-api'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -96,6 +98,9 @@ async function fetchWatchlistPeek(): Promise<PeekEntry[]> {
  * A flyout item with an accent badge surfaces into the visible list while
  * its count is nonzero, mirroring MAM's header notification links. */
 function groups(page: ShellData, counts: NotifCounts): { dashboard: NavItem; groups: NavGroup[] } {
+  // The pot runs to seven figures, so the rail gets the short form and the page
+  // behind the row keeps the exact total.
+  const pot = counterValue(page.vault)
   return {
     dashboard: { title: 'Dashboard', href: '/', icon: LayoutDashboard },
     groups: [
@@ -169,7 +174,7 @@ function groups(page: ShellData, counts: NotifCounts): { dashboard: NavItem; gro
         label: 'Rewards',
         items: [
           { title: 'Store', href: '/store.php', icon: Store },
-          { title: "Millionaire's vault", href: '/millionaires/pot.php', icon: Vault },
+          { title: "Millionaire's vault", href: '/millionaires/pot.php', icon: Vault, badge: pot ? compact(pot) : null },
           { title: 'Donate', href: '/don/index.php', icon: HandCoins, badge: page.donationPct },
         ],
         more: [
@@ -411,7 +416,7 @@ export function AppSidebar({ page, counts }: { page: ShellData; counts: NotifCou
           aria-label="Dashboard"
           className="flex items-center gap-2 rounded-lg px-2 py-2 transition-colors hover:bg-sidebar-accent/60 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
         >
-          {/* 16px slot keeps the wordmark on the nav label rail; the 24px mark overhangs it, centred on the icon axis. */}
+          {/* 16px slot keeps the wordmark on the nav label rail; the 24px mark overhangs it, centered on the icon axis. */}
           <span className="flex size-4 shrink-0 items-center justify-center">
             <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary font-display text-[13px] font-bold text-primary-foreground">M</span>
           </span>

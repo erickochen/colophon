@@ -1,5 +1,6 @@
 // Reads the server-rendered MAM shell into typed data. A missing element
 // returns null, never a guess.
+import { counterValue } from '@/lib/counters'
 
 /** A notice MAM prints above the news ticker. */
 export interface SiteAlert {
@@ -202,7 +203,12 @@ export function capturePage(doc: Document): ShellData {
     user: { name, uid, klass, avatar },
     stats: {
       ratio: text(doc.querySelector('#tmR'))?.replace(/\s.*$/, '') ?? null,
-      bonus: userMenuValue(doc, /^Bonus:\s*([\d,.]+)/) ?? text(doc.querySelector('#tmBP'))?.replace(/^Bonus:\s*/, '') ?? null,
+      // The read stops at the count itself, so a note another userscript hung
+      // on the strip does not travel on as part of the balance.
+      bonus:
+        counterValue(
+          userMenuValue(doc, /^Bonus:\s*([\d,.]+)/) ?? text(doc.querySelector('#tmBP'))
+        )?.toLocaleString('en-US') ?? null,
       bonusPerHour: userMenuValue(doc, /^B\/hr:\s*([\d,.]+)/),
       wedges: num(userMenuValue(doc, /^FL Wedges:\s*([\d,]+)/)),
       cheese: num(userMenuValue(doc, /^Cheese:\s*([\d,]+)/)),

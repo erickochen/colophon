@@ -5,6 +5,7 @@ import { extractStore, type StoreOffer, type StoreSection } from '@/lib/extract/
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader, RichHtml } from '@/app/shell/bits'
 import { fmtInt } from '@/lib/format'
+import { counterValue } from '@/lib/counters'
 import { applyPointsUpdate, useLiveBonus, useLiveWedges } from '@/lib/bonus'
 import { buySeedtime, buyTitle, buyUploadCredit, buyVip, buyWedge, type BonusBuyResult } from '@/lib/mam-api'
 import {
@@ -32,15 +33,6 @@ const HOURS_IN_WORDS = 48
  * the figure is variable. */
 const priceLabel = (offer: StoreOffer): string =>
   offer.points != null ? `${fmtInt(offer.points)} points` : offer.cost
-
-/** A counter MAM printed, as a figure. Null means the page never said, which is
- * a different thing from zero: an empty balance still has to lock the buttons. */
-const num = (raw: string | null | undefined): number | null => {
-  const digits = (raw ?? '').replace(/[^\d.]/g, '')
-  if (digits === '') return null
-  const n = Number(digits)
-  return Number.isFinite(n) && n >= 0 ? n : null
-}
 
 /** How much a step buys: "2.5 GB" gives 2.5, "Max me out!" gives nothing. */
 const quantityOf = (label: string): number | null => {
@@ -460,10 +452,10 @@ export function StoreView(props: PageProps) {
   const liveWedges = useLiveWedges(null)
   if (!data) return <LegacyView {...props} />
 
-  const balance = num(liveBonus) ?? num(data.points)
-  const cheese = num(data.cheese)
-  const perHour = num(props.page.stats.bonusPerHour)
-  const wedges = num(liveWedges)
+  const balance = counterValue(liveBonus) ?? counterValue(data.points)
+  const cheese = counterValue(data.cheese)
+  const perHour = counterValue(props.page.stats.bonusPerHour)
+  const wedges = counterValue(liveWedges)
 
   return (
     <div className="mx-auto grid w-full max-w-4xl gap-4">

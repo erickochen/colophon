@@ -76,7 +76,7 @@ function onReady(fn: () => void) {
     document.addEventListener('DOMContentLoaded', fn, { once: true })
   } else {
     // Late evaluation (bfcache re-entry, manual eval): let the module finish
-    // evaluating first or boot() hits declarations below it mid-initialisation.
+    // evaluating first or boot() hits declarations below it mid-initialization.
     queueMicrotask(fn)
   }
 }

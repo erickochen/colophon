@@ -7,6 +7,7 @@ import { applyPointsUpdate, useLiveBonus, useLiveWedges } from '@/lib/bonus'
 import { closeGiftDialog, getGiftDialog, openGiftDialog, subscribeGiftDialog, type GiftRequest } from '@/lib/gift-dialog'
 import { readDefaultAmount, resolveAmount } from '@/lib/settings'
 import { initials } from '@/lib/format'
+import { counterValue } from '@/lib/counters'
 import { cn } from '@/lib/utils'
 import { AmountPicker } from '@/components/amount-picker'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -21,14 +22,8 @@ import { Spinner } from '@/components/ui/spinner'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { toast } from '@/components/ui/toast'
 
-// Round numbers a reader recognises, ending at MAM's own ceiling.
+// Round numbers a reader recognizes, ending at MAM's own ceiling.
 const GIFT_PRESETS = [100, 250, 500, MAX_GIFT]
-
-const toNumber = (value: string | null) => {
-  if (!value) return null
-  const num = Number(value.replace(/,/g, ''))
-  return Number.isNaN(num) ? null : num
-}
 
 /** Gift and wedge triggers for one member. Needs GiftMAM present plus its switch
  * for this surface on. */
@@ -127,10 +122,10 @@ export function GiftDialogHost({ page }: { page: ShellData }) {
     return (
       <WedgeDialog
         name={request.name}
-        wedges={toNumber(wedges)}
+        wedges={counterValue(wedges)}
         state={state}
         onSend={() => {
-          const left = toNumber(wedges)
+          const left = counterValue(wedges)
           run(
             request,
             () => sendWedgeTo(request.uid),
@@ -145,10 +140,10 @@ export function GiftDialogHost({ page }: { page: ShellData }) {
     <PointsDialog
       key={request.uid}
       name={request.name}
-      balance={toNumber(bonus)}
+      balance={counterValue(bonus)}
       state={state}
       onSend={(points) => {
-        const left = toNumber(bonus)
+        const left = counterValue(bonus)
         run(
           request,
           () => giftPoints(request.uid, points),

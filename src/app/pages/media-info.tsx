@@ -39,7 +39,7 @@ function fmtValue(key: string, val: string): string {
   return val
 }
 
-/* ------------------------------ normalisation ------------------------------ */
+/* ------------------------------ normalization ------------------------------ */
 
 interface Section { title: string; type: string; fields: { k: string; v: string; raw: string }[]; extra: MediaNode[] }
 

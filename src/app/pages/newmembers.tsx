@@ -4,6 +4,7 @@ import type { PageProps } from '@/app/router'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
 import { fmtInt, initials } from '@/lib/format'
+import { counterValue } from '@/lib/counters'
 import { giftPoints, MIN_GIFT } from '@/lib/mam-api'
 import { applyPointsUpdate, useLiveBonus } from '@/lib/bonus'
 import { syncPanelBalance, useGiftedSet } from '@/lib/giftmam'
@@ -51,12 +52,6 @@ function extract(doc: Document): Member[] | null {
   return members.length ? members : null
 }
 
-const toNumber = (value: string | null) => {
-  if (!value) return null
-  const num = Number(value.replace(/,/g, ''))
-  return Number.isNaN(num) ? null : num
-}
-
 interface RunState {
   done: number
   failed: number
@@ -87,7 +82,7 @@ export function NewMembersView(props: PageProps) {
   const points = Number(amount)
   const amountValid = Number.isInteger(points) && points >= BULK_GIFT_MIN && points <= BULK_GIFT_MAX
   const total = amountValid ? targets.length * points : 0
-  const balance = toNumber(bonus)
+  const balance = counterValue(bonus)
   const short = balance != null && total > balance
 
   async function runGiftAll() {
