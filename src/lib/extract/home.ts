@@ -8,7 +8,7 @@ export interface Shout {
   time: string | null
   user: { name: string; uid: number | null; color: string | null; country: { name: string; src: string } | null } | null
   text: string
-  /** Message as sanitized HTML (smilies kept as <img>, mentions coloured). The
+  /** Message as sanitized HTML (smilies kept as <img>, mentions colored). The
    * shoutbox view renders this; the dashboard keeps using `text`. */
   html: string | null
   /** MAM flags your own shout as editable (within its edit window) via
@@ -92,7 +92,7 @@ export function extractShouts(scope: ParentNode): Shout[] {
       : null
 
     // Message = everything after the "<a>user</a>: " part. Keep two forms: the
-    // sanitized HTML (smilies as <img>, coloured mentions) for the shoutbox and
+    // sanitized HTML (smilies as <img>, colored mentions) for the shoutbox and
     // flattened text (smiley alts) for the dashboard.
     const clone = div.cloneNode(true) as HTMLElement
     clone.querySelectorAll('.ts, .sb_menu, .sbNewQuote, .sbAt, svg').forEach((e) => e.remove())

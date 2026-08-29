@@ -1,6 +1,6 @@
 // One bubble language for every back and forth on the site: staff tickets and
 // private messages. Own messages sit on the right in the brand tint, the other
-// side on the left on card colour.
+// side on the left on card color.
 import {
   createContext, useCallback, useContext, useEffect, useId, useMemo, useState,
   type KeyboardEvent, type ReactNode,

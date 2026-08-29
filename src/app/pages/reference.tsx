@@ -139,7 +139,7 @@ export function TagsView(props: PageProps) {
             <EmptyHeader>
               <EmptyMedia variant="icon"><Type /></EmptyMedia>
               <EmptyTitle>No tag matches “{q.trim()}”</EmptyTitle>
-              <EmptyDescription>Try the effect you want, like colour, list or image.</EmptyDescription>
+              <EmptyDescription>Try the effect you want, like color, list or image.</EmptyDescription>
             </EmptyHeader>
           </Empty>
         </CardContent></Card>

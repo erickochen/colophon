@@ -10,7 +10,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
-// The Style form buries ~120 fields in a jQuery-UI tab widget of colour/order
+// The Style form buries ~120 fields in a jQuery-UI tab widget of color/order
 // matrices. Rebuilt as five real Tabs with pickers and number inputs, all
 // writing into the ORIGINAL inputs so the POST is unchanged.
 
@@ -152,7 +152,7 @@ function InputMirror({ el, className }: { el: HTMLInputElement; className?: stri
 
 // --- matrix controls -------------------------------------------------------
 
-/** Native colour picker + hex text field, kept in sync. Writes 6-hex WITHOUT a
+/** Native color picker + hex text field, kept in sync. Writes 6-hex WITHOUT a
  * leading '#' back to the original (empty means "use the theme default"). */
 function ColorControl({ el, dark }: { el: HTMLInputElement; dark: string }) {
   const [hex, setHex] = useState((el.value || '').replace(/^#/, ''))

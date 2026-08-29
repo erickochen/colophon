@@ -25,7 +25,7 @@ export function SimpleFormView(props: PageProps) {
     clone.querySelectorAll('h1').forEach((h) => h.remove())
     const submit = form.querySelector<HTMLInputElement>('input[type="submit"], button[type="submit"], input[name="PlayLotto"]')
     // Buttons the page offers next to submit (Preview on compose forms, etc.);
-    // they drive real behaviour, so keep them.
+    // they drive real behavior, so keep them.
     const extraActions = [...form.querySelectorAll<HTMLInputElement>('input[type="button"], button[type="button"]')]
       .map((el) => ({ label: (el.value || el.textContent || '').replace(/\s+/g, ' ').trim(), el: el as HTMLElement }))
       .filter((a) => a.label)

@@ -30,7 +30,7 @@ export function whenDocumentElement(fn: () => void) {
   obs.observe(document, { childList: true, subtree: true })
 }
 
-/** Paint our own page colour behind the veil: visibility:hidden still fills the
+/** Paint our own page color behind the veil: visibility:hidden still fills the
  * canvas from the root background, so the wait reads as our page loading. */
 function veilCss(): string {
   let bg: string = PAGE_BG.light

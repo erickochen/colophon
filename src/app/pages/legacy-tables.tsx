@@ -414,7 +414,7 @@ export function UserHistoryView(props: PageProps) {
   return <LegacyTables props={props} title="Account history" sub="Notable events on your account." />
 }
 export function MediaTypesView(props: PageProps) {
-  return <LegacyTables props={props} title="Media types" sub="How the library is organised by media." />
+  return <LegacyTables props={props} title="Media types" sub="How the library is organized by media." />
 }
 export function CategoriesView(props: PageProps) {
   return <LegacyTables props={props} title="Categories" sub="Every category in the library." />
