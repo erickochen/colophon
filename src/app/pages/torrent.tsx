@@ -9,13 +9,14 @@ import { RichHtml } from '@/app/shell/bits'
 import { mutedUserColor } from '@/lib/colors'
 import { fmtInt, fmtRatio, initials, plural, relTime, stampMs, utcTitle } from '@/lib/format'
 import { mediaInfoGroupLabel, mediaInfoLabel } from '@/lib/media-info'
-import { bookmarkOne, searchTorrents, parsePeople, coverUrl, torrentUrl, thankUploader, THANK_STEP, type SearchTorrent } from '@/lib/mam-api'
+import { bookmarkOne, searchTorrents, parsePeople, coverUrl, downloadUrl, torrentUrl, thankUploader, THANK_STEP, type SearchTorrent } from '@/lib/mam-api'
 import { coverShape, mediaTypeFromHref, type CoverShape } from '@/lib/cover-shape'
 import { seriesEntry } from '@/lib/series'
 import { markSeenTorrent, readDefaultAmount, readFeature, readNewSince, resolveAmount, useFeature } from '@/lib/settings'
 import { useRatioGuard, worthNoting, type RatioGuard, type RatioLevel } from '@/lib/ratio-protect'
 import { cn } from '@/lib/utils'
 import { AmountPicker } from '@/components/amount-picker'
+import { QuickieAction } from '@/components/quickie-action'
 import { Book, Book3D, BookAmbilight } from '@/components/book'
 import { RatioFloorInput } from '@/components/ratio-floor'
 import { TagLinks } from '@/components/tag-links'
@@ -239,6 +240,32 @@ function WedgeAction({ data, spent, onSpent, size }: { data: TorrentDetail; spen
   )
 }
 
+// A quiCKIE button sits in a box the size of the buttons beside it here.
+const QUICKIE_BOX = 'size-9 rounded-md'
+
+/** quiCKIE's two routes for this torrent, each next to ours. Both go straight
+ * to the torrent client on one click, the wedge one spending a wedge on the
+ * way, which is how quiCKIE behaves on MAM's own pages. */
+function QuickieActions({ data, level, spent, onSpent }: { data: TorrentDetail; level: RatioLevel; spent: boolean; onSpent: () => void }) {
+  const href = downloadHref(data)
+  const freeCost = data.freeleech || data.personalFreeleech || data.vip
+  if (data.downloadBlocked || !href || level === 'block') return null
+  return (
+    <>
+      <QuickieAction url={href} label="Send to your torrent client" className={QUICKIE_BOX} />
+      {data.id != null && !freeCost && !spent && (
+        <QuickieAction
+          url={downloadUrl(data.id, true)}
+          label="Spend a wedge, then send to your torrent client"
+          mark="🧀"
+          onSend={onSpent}
+          className={QUICKIE_BOX}
+        />
+      )}
+    </>
+  )
+}
+
 /** Download row with the ratio guard: freeleech, VIP and seeding torrents pass
  * untouched; a blocking ratio hit swaps the plain download for the FL routes.
  * The row ref lets the sticky strip know when the buttons scroll away. */
@@ -258,6 +285,7 @@ function DownloadDock({
       <div ref={rowRef} className="mt-5 flex flex-wrap items-center gap-2.5">
         <DownloadButton data={data} level={level} />
         <WedgeAction data={data} spent={spent} onSpent={onSpent} />
+        <QuickieActions data={data} level={level} spent={spent} onSpent={onSpent} />
         <BookmarkButton />
         <MoreActions data={data} buyButtons={buyButtons} />
       </div>

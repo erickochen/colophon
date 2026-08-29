@@ -13,6 +13,7 @@ import { CONTENT_FLAGS, LANGUAGES, MAIN_CATS, SORT_OPTIONS } from '@/lib/mam-fac
 import { bottomDockRef } from '@/lib/bottom-dock'
 import { coverShape } from '@/lib/cover-shape'
 import { wedgeHelps } from '@/lib/wedge'
+import { useQuickie } from '@/lib/quickie'
 import {
   BROWSE_COLS_KEY, BROWSE_VIEW_KEY, mamBrowseDefaults, readSticky, writeSticky, type StickyFilters,
 } from '@/lib/browse-sticky'
@@ -21,6 +22,7 @@ import { fmtInt, plural, relTime, stampMs, utcTitle } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Book } from '@/components/book'
 import { CopyResultsButton } from '@/components/copy-results'
+import { QuickieAction } from '@/components/quickie-action'
 import { CollapsibleSection } from '@/components/section'
 import { SeriesHeader } from '@/components/series-header'
 import { TagLinks } from '@/components/tag-links'
@@ -809,6 +811,10 @@ const ROW_ACTION =
  * row nobody finds. Hover, focus and touch bring them to full strength. */
 const ROW_ACTION_REST = 'opacity-40 group-hover:opacity-100 pointer-coarse:opacity-100'
 
+/* Same size and shape for an action that is not one of our buttons. Focus sits
+ * on the element inside it, so the resting state lifts on focus-within. */
+const ROW_ACTION_BOX = 'size-[34px] rounded-full duration-200 focus-within:opacity-100'
+
 /** Row bookmark toggle. Stays visible once bookmarked, so the state reads
  * without hovering the row first. */
 function RowBookmark({ t, onBookmark, onRemoved }: { t: SearchTorrent; onBookmark: BookmarkSetter; onRemoved?: RowDropper }) {
@@ -987,8 +993,9 @@ function TorrentRow({ t, cols, blurb, onBookmark, onRemoved, onFreeleech, onIgno
   const narrators = cols.includes('narrators') ? parsePeople(t.narrator_info) : []
   const series = cols.includes('series') ? parsePeople(t.series_info) : []
   const stats = LIST_COLUMNS.filter((c) => c.track && cols.includes(c.key))
+  const quickie = useQuickie()
   // Every action this list can show gets a slot, whether or not this row uses it.
-  const actionSlots = 2 + (onFreeleech ? 1 : 0) + (onIgnore ? 1 : 0)
+  const actionSlots = 2 + (onFreeleech ? 1 : 0) + (onIgnore ? 1 : 0) + (quickie ? 1 : 0)
   const lane = actionLane(actionSlots)
   // Narrow, a row is a cover beside a title with the numbers folded underneath;
   // the full set of columns only fits from md up.
@@ -1119,6 +1126,11 @@ function TorrentRow({ t, cols, blurb, onBookmark, onRemoved, onFreeleech, onIgno
             ) : (
               <WedgeNotNeeded />
             ))}
+          <QuickieAction
+            url={downloadUrl(t.id)}
+            label="Send to your torrent client"
+            className={cn(ROW_ACTION_BOX, ROW_ACTION_REST)}
+          />
           {onIgnore && (
             <Tooltip>
               <TooltipTrigger asChild>
