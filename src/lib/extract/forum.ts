@@ -211,15 +211,94 @@ export interface TopicPost {
   editHref: string | null
 }
 
+export interface PollResult {
+  label: string
+  percent: number
+  /** MAM marks the reader's own choice with a trailing asterisk. */
+  mine: boolean
+}
+
+export interface TopicPoll {
+  question: string
+  /** The ballot, on a poll this reader can still vote in. */
+  options: { value: string; label: string }[]
+  /** The standings, once a vote has been cast. */
+  results: PollResult[] | null
+  votes: string | null
+  /** MAM's own form, so a vote posts what its own page would post. */
+  form: HTMLFormElement | null
+  /** The block as served, for a shape that is neither of the two above. */
+  html: string | null
+}
+
 export interface TopicData {
   crumbs: { name: string; href: string | null }[]
   title: string
   pages: { label: string; href: string; current: boolean }[]
   prevHref: string | null
   nextHref: string | null
+  poll: TopicPoll | null
   posts: TopicPost[]
   topicId: string | null
   quickReply: boolean
+}
+
+/** An option's text sits loose after its radio, up to the next line break. The
+ * block tags end it too, so a missing break cannot drag the Vote button in. */
+function labelAfter(input: Element): string {
+  let out = ''
+  for (let node = input.nextSibling; node; node = node.nextSibling) {
+    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).matches('br, input, p, div, table, hr')) break
+    out += node.textContent ?? ''
+  }
+  return out.replace(/\s+/g, ' ').trim()
+}
+
+/** The standings MAM draws once a vote is in: a row per option, with the share
+ * as a stretched bar image beside it. Only the percentage carries the number,
+ * so the bars are left behind and we draw our own. */
+function pollResults(body: Element): PollResult[] | null {
+  const out: PollResult[] = []
+  for (const tr of body.querySelectorAll('table tr')) {
+    const tds = [...tr.querySelectorAll(':scope > td')]
+    if (tds.length < 2) continue
+    const share = txt(tds[1])?.match(/(\d+(?:\.\d+)?)\s*%/)
+    if (!share) continue
+    const label = txt(tds[0]) ?? ''
+    out.push({ label: label.replace(/\s*\*$/, ''), percent: Number(share[1]), mine: /\s\*$/.test(label) })
+  }
+  return out.length ? out : null
+}
+
+/** The poll MAM serves above the posts, as its own block headed by an h2. The
+ * path is spelled out because a member can write these same tags in a post,
+ * where they never sit this shallow. */
+function extractPoll(main: Element): TopicPoll | null {
+  const body = [...main.querySelectorAll(':scope > .blockCon > .blockBody > .blockBodyCon')].find(
+    (b) => b.querySelector(':scope > h2')?.textContent?.trim().toLowerCase() === 'poll'
+  )
+  if (!body) return null
+  const form = body.querySelector('form')
+  const options = [...(form?.querySelectorAll<HTMLInputElement>('input[type="radio"][name="choice"]') ?? [])].map(
+    (r) => ({ value: r.value, label: labelAfter(r) })
+  )
+  const results = options.length ? null : pollResults(body)
+  // The heading plus the question render on their own, so the kept HTML is what
+  // is left of the block. It only reaches the page when neither shape was read.
+  const rest = body.cloneNode(true) as HTMLElement
+  rest.querySelector(':scope > h2')?.remove()
+  rest.querySelector(':scope > div[align="center"]')?.remove()
+  return {
+    question: txt(body.querySelector(':scope > div[align="center"]')) ?? '',
+    options,
+    results,
+    votes: [...body.querySelectorAll('p')]
+      .map((p) => txt(p))
+      .find((t) => /votes:/i.test(t ?? ''))
+      ?.match(/([\d,]+)/)?.[1] ?? null,
+    form,
+    html: options.length || results ? null : cleanHtml(rest),
+  }
 }
 
 export function extractTopic(doc: Document): TopicData | null {
@@ -243,20 +322,32 @@ export function extractTopic(doc: Document): TopicData | null {
   const pages: TopicData['pages'] = []
   let prevHref: string | null = null
   let nextHref: string | null = null
-  const pageP = main.querySelector('p[align="center"], p[align=\'center\']')
-  // The page you are on is a <b>[N]</b> between the links, so read the nodes in
-  // order to keep it in its place.
-  for (const node of pageP?.childNodes ?? []) {
-    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).matches('a')) {
-      const a = node as HTMLAnchorElement
-      const label = txt(a) ?? ''
-      const href = a.getAttribute('href') ?? '#'
-      if (/next/i.test(label)) nextHref = href
-      else if (/prev/i.test(label)) prevHref = href
-      else if (/^\d+$/.test(label)) pages.push({ label, href, current: false })
-    } else {
-      const m = node.textContent?.match(/\[(\d+)\]/)
-      if (m) pages.push({ label: m[1], href: '#', current: true })
+  // A topic with a poll opens with the poll's own centered paragraph, the one
+  // holding its Vote button, so take the first that actually carries page links.
+  for (const bar of main.querySelectorAll('p[align="center"]')) {
+    const found: TopicData['pages'] = []
+    let prev: string | null = null
+    let next: string | null = null
+    // The page you are on is a <b>[N]</b> between the links, so read the nodes in
+    // order to keep it in its place.
+    for (const node of bar.childNodes) {
+      if (node.nodeType === Node.ELEMENT_NODE && (node as Element).matches('a')) {
+        const a = node as HTMLAnchorElement
+        const label = txt(a) ?? ''
+        const href = a.getAttribute('href') ?? '#'
+        if (/next/i.test(label)) next = href
+        else if (/prev/i.test(label)) prev = href
+        else if (/^\d+$/.test(label)) found.push({ label, href, current: false })
+      } else {
+        const m = node.textContent?.match(/\[(\d+)\]/)
+        if (m) found.push({ label: m[1], href: '#', current: true })
+      }
+    }
+    if (found.length || prev || next) {
+      pages.push(...found)
+      prevHref = prev
+      nextHref = next
+      break
     }
   }
 
@@ -321,6 +412,7 @@ export function extractTopic(doc: Document): TopicData | null {
     pages,
     prevHref,
     nextHref,
+    poll: extractPoll(main),
     posts,
     topicId: doc.querySelector('input[name="topicid"], input[name="topic_id"]')?.getAttribute('value') ?? null,
     quickReply: !!doc.querySelector('#quickReply form[action="/forums.php"], form[name="compose"]'),

@@ -4,6 +4,8 @@ import { cleanHtml } from '@/lib/sanitize'
 
 export interface ProfileField { label: string; html: string; text: string }
 export interface ProfileAction { label: string; href: string; kind: 'friend' | 'block' | 'pm' }
+/** An icon MAM puts beside the name in the heading: Donor, Disabled. */
+export interface ProfileMark { label: string; src: string }
 
 /** The donation record, which MAM serves as a table folded away behind a handle.
  * It gets a card of its own, so the row it came from is not kept as a field. */
@@ -16,6 +18,7 @@ export interface Donations {
 
 export interface ProfileData {
   name: string
+  marks: ProfileMark[]
   uid: string | null
   country: { name: string; flag: string } | null
   avatar: string | null
@@ -101,8 +104,22 @@ export function extractProfile(doc: Document): ProfileData | null {
   }
 
   const flag = main.querySelector<HTMLImageElement>('img.ud_country')
+  // The heading carries the name plus whatever icons apply to the account, so
+  // the name is its text nodes rather than everything in it.
+  const named = [...h1.childNodes]
+    .filter((n) => n.nodeType === Node.TEXT_NODE)
+    .map((n) => n.textContent ?? '')
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim()
   return {
-    name: h1.textContent?.trim() ?? '',
+    name: named || h1.textContent?.trim() || '',
+    marks: [...h1.querySelectorAll('img')]
+      .map((img) => ({
+        label: (img.getAttribute('title') || img.getAttribute('alt') || '').trim(),
+        src: img.getAttribute('src') ?? '',
+      }))
+      .filter((m) => m.label || m.src),
     uid: doc.querySelector('#mainBody input[name="uid"]')?.getAttribute('value') ?? location.pathname.match(/\/u\/(\d+)/)?.[1] ?? null,
     country: flag ? { name: flag.getAttribute('title') ?? '', flag: flag.getAttribute('src') ?? '' } : null,
     avatar,

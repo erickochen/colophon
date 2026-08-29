@@ -35,11 +35,13 @@ const clean = (s: string | null | undefined) => s?.replace(/\s+/g, ' ').trim() |
 
 function extract(doc: Document): ListData | null {
   const main = doc.querySelector('#mainBody')
-  const table = main?.querySelector('table')
-  if (!main || !table) return null
+  if (!main) return null
+  // The route already picked this view, so an empty list is an answer rather
+  // than a page we failed to read: caught up on your watchlist reads as one.
+  const table = main.querySelector('table')
 
   const topics: TopicItem[] = []
-  for (const tr of table.querySelectorAll('tr')) {
+  for (const tr of table?.querySelectorAll('tr') ?? []) {
     const link = tr.querySelector<HTMLAnchorElement>('a[href^="/f/t/"]')
     if (!link) continue
     const tds = [...tr.querySelectorAll(':scope > td')]
@@ -61,7 +63,6 @@ function extract(doc: Document): ListData | null {
       clearEl: tr.querySelector<HTMLInputElement>('input[name="topic_id[]"]'),
     })
   }
-  if (!topics.length) return null
 
   const pages: ListData['pages'] = []
   let prevHref: string | null = null
@@ -153,7 +154,7 @@ function ForumList({ props, emptyText }: { props: PageProps; emptyText: string }
     <div className="grid gap-4">
       <PageHeader
         title={data.title}
-        sub={`${data.topics.length} topic${data.topics.length === 1 ? '' : 's'} on this page`}
+        sub={data.topics.length === 0 ? undefined : `${data.topics.length} topic${data.topics.length === 1 ? '' : 's'} on this page`}
         action={
           selectable && (
             <div className="flex gap-2">

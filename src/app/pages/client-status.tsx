@@ -27,9 +27,13 @@ interface Client {
   testEl: HTMLAnchorElement | null
 }
 
+interface Address {
+  label: string
+  value: string
+}
+
 interface ClientData {
-  ip: string | null
-  seedbox: string | null
+  addresses: Address[]
   clients: Client[]
   guideHref: string | null
   errorsHtml: string | null
@@ -75,11 +79,20 @@ function extract(doc: Document): ClientData | null {
     })
   }
 
-  const ips = (main.textContent ?? '').match(/IP:\s*([\d.]+)[\s\S]*?Seedbox IP:\s*([\d.]+)/)
+  // The block the page opens with, one named address per line. Reading it as
+  // lines keeps every family MAM lists there, IPv6 among them. The blocks nest,
+  // so the one that holds nothing else is the addresses on their own.
+  const infoDiv = [...main.querySelectorAll<HTMLElement>('div')].find(
+    (d) => /(^|\s)IP:/.test(d.textContent ?? '') && !d.querySelector('div, table')
+  )
+  const addresses = lines(infoDiv)
+    .map((line) => line.match(/^(.+?):\s*(\S.*)$/))
+    .filter((m): m is RegExpMatchArray => m != null)
+    .map((m) => ({ label: m[1].trim(), value: m[2].trim() }))
+
   const errBlock = main.querySelector('#errors')?.closest('.blockCon')
   return {
-    ip: ips?.[1] ?? null,
-    seedbox: ips?.[2] ?? null,
+    addresses,
     clients,
     guideHref: main.querySelector<HTMLAnchorElement>('a[href*="/guides/"]')?.getAttribute('href') ?? null,
     errorsHtml: errBlock ? cleanHtml(errBlock.querySelector('.blockBodyCon')) : null,
@@ -91,7 +104,9 @@ function Stat({ label, value, sub, href }: { label: string; value: ReactNode; su
   const inner = (
     <>
       <div className="text-[10.5px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="pt-0.5 font-mono text-[13.5px] font-medium tabular-nums">{value ?? '–'}</div>
+      {/* break-all so an IPv6 address wraps inside its column instead of
+          widening the row. */}
+      <div className="pt-0.5 font-mono text-[13.5px] font-medium break-all tabular-nums">{value ?? '–'}</div>
       {sub && <div className="text-[11px] text-muted-foreground">{sub}</div>}
     </>
   )
@@ -200,20 +215,22 @@ export function ClientStatusView(props: PageProps) {
       />
 
       <div className="grid gap-3 sm:grid-cols-2">
-        {[
-          { label: 'Your IP', v: data.ip, Icon: Globe },
-          { label: 'Seedbox IP', v: data.seedbox, Icon: Radio },
-        ].filter((x) => x.v).map(({ label, v, Icon }) => (
-          <Card key={label} className="py-4">
-            <CardContent className="flex items-center gap-3">
-              <span className="flex size-10 items-center justify-center rounded-lg bg-brand-soft"><Icon className="size-5 text-accent-foreground" /></span>
-              <div>
-                <div className="font-mono text-lg font-semibold tabular-nums">{v}</div>
-                <div className="text-[11.5px] text-muted-foreground">{label}</div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {data.addresses.map((a) => {
+          const Icon = /seedbox/i.test(a.label) ? Radio : Globe
+          return (
+            <Card key={a.label} className="py-4">
+              <CardContent className="flex items-center gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-soft"><Icon className="size-5 text-accent-foreground" /></span>
+                <div className="min-w-0">
+                  {/* An IPv6 address outruns its card, so it wraps rather than
+                      pushing the row sideways. */}
+                  <div className="font-mono text-lg font-semibold break-all tabular-nums">{a.value}</div>
+                  <div className="text-[11.5px] text-muted-foreground">{/^ip$/i.test(a.label) ? 'Your IP' : a.label}</div>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
 
       {data.clients.map((c, i) => <ClientCard key={i} c={c} testing={testing} onTest={runTest} />)}

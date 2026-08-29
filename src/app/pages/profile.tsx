@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Ban, Gift, HeartHandshake, Mail, NotebookPen, Ticket, UserPlus, UserRound } from 'lucide-react'
 import type { PageProps } from '@/app/router'
-import { extractProfile, type Donations } from '@/lib/extract/profile'
+import { extractProfile, type Donations, type ProfileMark } from '@/lib/extract/profile'
 import { openGiftDialog } from '@/lib/gift-dialog'
 import { LegacyView } from '@/app/pages/legacy'
 import { RichHtml } from '@/app/shell/bits'
 import { fmtInt, initials, localDateTime, utcTitle } from '@/lib/format'
 import { useFeature, useUserNotes } from '@/lib/settings'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CollapsibleSection } from '@/components/section'
@@ -28,6 +29,18 @@ const EDGE = '[&_th:first-child]:pl-4 [&_td:first-child]:pl-4 [&_th:last-child]:
 /** A column of plain numbers, with or without a unit, reads better right up
  * against the next one. */
 const NUMERIC = /^[\d.,]+(\s*[A-Za-z]{1,3})?$/
+
+/** The two icons MAM hangs on a name get our own marks; anything else it adds
+ * later still shows, as the image it serves. */
+function NameMark({ mark }: { mark: ProfileMark }) {
+  if (/^donor$/i.test(mark.label)) {
+    return <span role="img" aria-label="Donor" title="Donor" className="text-[18px] leading-none text-warn">★</span>
+  }
+  if (/^disabled$/i.test(mark.label)) {
+    return <Badge variant="outline" className="h-5 border-warn/40 px-2 text-[11px] text-warn">Disabled</Badge>
+  }
+  return <img src={mark.src} alt={mark.label} title={mark.label} className="h-4.5" />
+}
 
 /** The donation record: shut it shows how many there are, open it is the table
  * MAM keeps behind its own plus sign. */
@@ -235,6 +248,7 @@ export function ProfileView(props: PageProps) {
         <div className="min-w-0 flex-1">
           <h1 className="flex items-center gap-2.5 font-display text-[26px] font-semibold tracking-tight">
             {data.name}
+            {data.marks.map((m) => <NameMark key={m.label + m.src} mark={m} />)}
             {data.country && <img src={data.country.flag} alt={data.country.name} title={data.country.name} className="h-4 rounded-[3px]" />}
           </h1>
           <p className="text-[13px] text-muted-foreground">

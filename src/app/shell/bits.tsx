@@ -90,7 +90,11 @@ export function Pager({
                 </PaginationItem>
               )}
               <PaginationItem>
-                <PaginationLink href={p.href} isActive={p.current}>{p.label}</PaginationLink>
+                {/* Some lists number their pages by the range they hold ("26 - 50"),
+                    which runs out of a square button. */}
+                <PaginationLink href={p.href} isActive={p.current} size={/^\d+$/.test(p.label) ? 'icon' : 'default'}>
+                  {p.label}
+                </PaginationLink>
               </PaginationItem>
             </Fragment>
           )

@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bell, BellRing, Flag, Mail, Pencil, Quote, Send } from 'lucide-react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { Bell, BellRing, Flag, Mail, Pencil, Quote, Send, Vote } from 'lucide-react'
 import type { PageProps } from '@/app/router'
-import { extractTopic, type TopicPost } from '@/lib/extract/forum'
+import { extractTopic, type TopicPoll, type TopicPost } from '@/lib/extract/forum'
 import { LegacyView } from '@/app/pages/legacy'
 import { Crumbs, Pager, POST_SPACING, RichHtml } from '@/app/shell/bits'
 import { initials, localDateTime, utcTitle } from '@/lib/format'
@@ -17,7 +17,10 @@ import { SelectionQuote } from '@/components/quote-selection'
 import { useFeature } from '@/lib/settings'
 import type { BubbleSelection } from '@/components/conversation'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Progress } from '@/components/ui/progress'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { toast } from '@/components/ui/toast'
@@ -25,7 +28,7 @@ import { GiftActions } from '@/components/giftmam-actions'
 import { uidFromHref } from '@/lib/giftmam'
 import { scrollIntoView } from '@/lib/motion'
 import { mamFetch } from '@/lib/mam-fetch'
-import { submitNative } from '@/lib/form-submit'
+import { submitGuarded, submitNative } from '@/lib/form-submit'
 
 /** Post images can finish loading after the first paint and push the target
  * down, so the anchor jump runs once more after this pause. */
@@ -154,6 +157,87 @@ function Post({
             )}
           </div>
         </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+/** The poll a topic can open with. Voting goes through MAM's own form, so the
+ * ballot that leaves is the one its page would send. A block without radios has
+ * nothing to cast, so it renders as served. */
+function TopicPollCard({ poll }: { poll: TopicPoll }) {
+  const [choice, setChoice] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const askId = useId()
+
+  function vote() {
+    const form = poll.form
+    const radio = [...(form?.querySelectorAll<HTMLInputElement>('input[name="choice"]') ?? [])].find(
+      (r) => r.value === choice
+    )
+    if (!form || !radio) {
+      toast.error('Voting is not available on this poll.')
+      return
+    }
+    radio.checked = true
+    setBusy(true)
+    if (!submitGuarded(form, form.querySelector<HTMLElement>('input[type="submit"], button[type="submit"]'))) {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card className="gap-0 py-0">
+      <CardHeader className="border-b !py-3.5">
+        <CardTitle className="flex items-center gap-2"><Vote className="size-4 text-brand" /> Poll</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-4 px-6 py-4">
+        {poll.question && <p id={askId} className="text-[13.5px] font-medium">{poll.question}</p>}
+        {poll.options.length > 0 ? (
+          <>
+            <RadioGroup
+              aria-labelledby={poll.question ? askId : undefined}
+              value={choice}
+              onValueChange={(v) => setChoice(String(v))}
+              className="gap-2.5"
+            >
+              {poll.options.map((o) => (
+                <Label key={o.value} className="flex items-start gap-2.5 text-[13px] font-normal leading-snug">
+                  <RadioGroupItem value={o.value} className="mt-0.5" />
+                  <span className="min-w-0 break-words">{o.label}</span>
+                </Label>
+              ))}
+            </RadioGroup>
+            <div className="flex justify-end">
+              <Button size="sm" className="h-8 text-[12.5px]" disabled={!choice || busy} onClick={vote}>
+                <Vote /> Vote
+              </Button>
+            </div>
+          </>
+        ) : poll.results ? (
+          <div className="grid gap-3">
+            {poll.results.map((r, i) => (
+              <div key={i} className="grid gap-1.5">
+                <div className="flex items-baseline justify-between gap-3 text-[13px]">
+                  <span className="min-w-0 break-words">
+                    {r.label}
+                    {/* The same mark the shoutbox puts on your own line. */}
+                    {r.mine && (
+                      <span className="ml-1.5 rounded bg-brand/15 px-1.5 py-px text-[9.5px] font-semibold uppercase tracking-wide text-brand">
+                        you
+                      </span>
+                    )}
+                  </span>
+                  <span className="shrink-0 tabular-nums text-muted-foreground">{r.percent}%</span>
+                </div>
+                <Progress value={r.percent} className={cn('h-2', r.mine && '[&>div]:bg-brand-fill')} />
+              </div>
+            ))}
+            {poll.votes && <p className="text-[12px] text-muted-foreground">{poll.votes} votes cast</p>}
+          </div>
+        ) : (
+          poll.html && <RichHtml html={poll.html} className={POST_SPACING} />
+        )}
       </CardContent>
     </Card>
   )
@@ -375,6 +459,7 @@ export function ForumTopicView(props: PageProps) {
           {subscribed ? 'Subscribed' : 'Subscribe'}
         </Button>
       </div>
+      {data.poll && <TopicPollCard poll={data.poll} />}
       <Pager pages={data.pages} prevHref={data.prevHref} nextHref={data.nextHref} />
       <div ref={posts} className="grid gap-3">
         {data.posts.map((p) => (
