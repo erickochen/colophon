@@ -174,14 +174,18 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
                 <CommandGroup heading="Search the catalog">
                   {CATALOG_SCOPES.map((s) => (
                     <CommandItem key={s.key} value={`s-${s.key}`} onSelect={() => go(s.href(term))}>
-                      <s.icon /> {s.label} <b>{term}</b>
+                      <s.icon />
+                      {s.label}
+                      <b>{term}</b>
                     </CommandItem>
                   ))}
                 </CommandGroup>
                 <CommandGroup heading="Search elsewhere">
                   {ELSEWHERE_SCOPES.map((s) => (
                     <CommandItem key={s.key} value={`s-${s.key}`} onSelect={() => go(s.href(term))}>
-                      <s.icon /> {s.label} <b>{term}</b>
+                      <s.icon />
+                      {s.label}
+                      <b>{term}</b>
                     </CommandItem>
                   ))}
                 </CommandGroup>
