@@ -98,7 +98,9 @@ export function resolveRoute(loc: Location): Route {
   if (/^\/f\/b\/\d+/.test(p) || p === '/forums/viewForum.php') return { id: 'board', View: ForumBoardView }
   if (p === '/f/s' || p === '/f/search.php' || p === '/forums/search.php') return { id: 'forum-search', View: ForumSearchView }
   if (p === '/forums/bugReport.php') return { id: 'bug-report', View: BugReportView }
-  if (p === '/users.php') return { id: 'users', View: UsersView }
+  // The quick search redirects to the profile on an exact name and to the member
+  // list otherwise, so it only stays on this path when no name was given.
+  if (p === '/users.php' || p === '/n_a/userQuickSearch.php') return { id: 'users', View: UsersView }
   if (p === '/tags.php') return { id: 'tags', View: TagsView }
   if (p === '/smilies.php') return { id: 'smilies', View: SmiliesView }
   if (p === '/tor/upload.php') return { id: 'simple-form', View: SimpleFormView }

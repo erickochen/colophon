@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { UsersRound } from 'lucide-react'
 import type { PageProps } from '@/app/router'
-import { MEMBER_PAGE_SIZE, searchMembers, type UserRow } from '@/lib/extract/users'
+import { MEMBER_PAGE_SIZE, parseClasses, searchMemberPage, type ClassOption, type UserRow } from '@/lib/extract/users'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
 import { localDate, plural, relTime, utcTitle } from '@/lib/format'
@@ -17,23 +17,16 @@ import {
 
 const USERS_PAGE = 'users'
 
-const clean = (s: string | null | undefined) => s?.replace(/\s+/g, ' ').trim() ?? ''
-
-interface ClassOpt { value: string; label: string }
-
-/** Class dropdown options live in the original (hidden) search form. MAM writes
- * its catch-all as "(any class)"; on a bar of plain controls it reads as a
- * value like the rest. */
-function readClasses(doc: Document): ClassOpt[] {
-  const opts = [...doc.querySelectorAll<HTMLOptionElement>('#mainBody select option')]
-  const label = (o: HTMLOptionElement) => (o.value === '-' ? 'Any class' : clean(o.textContent))
-  return opts.length ? opts.map((o) => ({ value: o.value, label: label(o) })) : [{ value: '-', label: 'Any class' }]
-}
+const ANY_CLASS: ClassOption = { value: '-', label: 'Any class' }
 
 /** A stored set read back. A class the select does not offer reads as any class,
- * so a set only ever searches on a value this page can show. */
-function filtersFrom(raw: Record<string, unknown> | undefined, classes: ClassOpt[]) {
-  const cls = typeof raw?.cls === 'string' && classes.some((c) => (c.value || '-') === raw.cls) ? raw.cls : '-'
+ * so a set only ever searches on a value this page can show. While the options
+ * are still unknown the stored class stands, so the same set behaves the same
+ * whichever page it is opened from. */
+function filtersFrom(raw: Record<string, unknown> | undefined, classes: ClassOption[]) {
+  const known = classes.length > 1
+  const offered = (v: string) => !known || classes.some((c) => c.value === v)
+  const cls = typeof raw?.cls === 'string' && offered(raw.cls) ? raw.cls : '-'
   return { text: typeof raw?.text === 'string' ? raw.text : '', cls }
 }
 
@@ -41,7 +34,13 @@ export function UsersView(props: PageProps) {
   // Decided once, before the effects: a page without MAM's body falls through to
   // the legacy view, so nothing should be fetched for it.
   const usable = useMemo(() => !!document.querySelector('#mainBody'), [])
-  const classes = useMemo(() => readClasses(document), [])
+  // The member list carries the class form, so its own page fills this in at
+  // once. Reached from the quick search there is no form; the first fetch
+  // brings the options along.
+  const [classes, setClasses] = useState<ClassOption[]>(() => {
+    const own = parseClasses(document)
+    return own.length ? own : [ANY_CLASS]
+  })
   // What this page opens with, so the first search takes it along instead of
   // running twice. A link that names a search stands above a pinned set, the
   // same order the other lists keep.
@@ -49,10 +48,15 @@ export function UsersView(props: PageProps) {
     const p = new URLSearchParams(location.search)
     // Read through the same validation first: a link naming a class this select
     // cannot show names nothing, so the pinned set still stands.
-    const link = filtersFrom({ text: p.get('search') ?? '', cls: p.get('class') || '-' }, classes)
+    // The quick search spells its field SEARCH and normally redirects with it,
+    // so read both spellings rather than lean on that redirect.
+    const link = filtersFrom({ text: p.get('search') ?? p.get('SEARCH') ?? '', cls: p.get('class') || '-' }, classes)
     if (link.text !== '' || link.cls !== '-') return link
     return filtersFrom(pinnedSet(USERS_PAGE)?.state, classes)
-  }, [classes])
+    // The opening state only: the fields below seed from it once, so a later
+    // class list does not reopen the page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [text, setText] = useState(opening.text)
   const [cls, setCls] = useState(opening.cls)
   const [rows, setRows] = useState<UserRow[] | null>(null)
@@ -68,9 +72,10 @@ export function UsersView(props: PageProps) {
     setLoading(true)
     setError(false)
     try {
-      const parsed = await searchMembers(nextText, nextCls === '-' ? '' : nextCls)
+      const page = await searchMemberPage(nextText, nextCls === '-' ? '' : nextCls)
       if (id !== reqId.current) return
-      setRows(parsed)
+      setRows(page.rows)
+      setClasses((cur) => (cur.length > 1 || !page.classes.length ? cur : page.classes))
     } catch {
       if (id === reqId.current) setError(true)
     } finally {
@@ -121,7 +126,7 @@ export function UsersView(props: PageProps) {
               setCls(v)
               void run(text, v)
             }}
-            options={classes.map((c) => ({ value: c.value || '-', label: c.label }))}
+            options={classes}
             ariaLabel="Member class"
           />
         </FilterRow>

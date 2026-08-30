@@ -1,17 +1,48 @@
-import { useEffect, useRef, useState } from 'react'
-import { BookOpen, CornerDownLeft, Loader2, MessagesSquare, Search, UserRound, UsersRound } from 'lucide-react'
-import { searchTorrents, parsePeople, requestsUrl, type SearchTorrent } from '@/lib/mam-api'
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { BookOpen, Gift, Library, Loader2, MessagesSquare, Mic, Search, UserRound, UsersRound, type LucideIcon } from 'lucide-react'
+import { searchTorrents, parsePeople, requestsUrl, search2Url, type SearchQuery, type SearchTorrent } from '@/lib/mam-api'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   Command,
-  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
 } from '@/components/ui/command'
 import { Badge } from '@/components/ui/badge'
+
+/** Shorter than this a search matches most of the library, so the menu waits.
+ * The member picker holds the same floor. */
+const MIN_TERM = 2
+
+/** What the live results read. MAM offers author, narrator plus series in its
+ * own autocomplete, so a name typed here finds a book on any of the three. */
+const SUGGEST_FIELDS: NonNullable<SearchQuery['srchIn']> = ['title', 'author', 'narrator', 'series']
+
+interface Scope {
+  key: string
+  icon: LucideIcon
+  /** Reads as "<label> <term>". */
+  label: string
+  href: (term: string) => string
+}
+
+/** One search with a different field each. Title plus author is what a search
+ * reads when nobody picks anything else, so it stands for all torrents. */
+const CATALOG_SCOPES: Scope[] = [
+  { key: 'tor', icon: Search, label: 'All torrents for', href: (t) => search2Url({ text: t, srchIn: ['title', 'author'] }) },
+  { key: 'author', icon: UserRound, label: 'Authors matching', href: (t) => search2Url({ text: t, srchIn: ['author'] }) },
+  { key: 'narrator', icon: Mic, label: 'Narrators matching', href: (t) => search2Url({ text: t, srchIn: ['narrator'] }) },
+  { key: 'series', icon: Library, label: 'Series matching', href: (t) => search2Url({ text: t, srchIn: ['series'] }) },
+]
+
+/** Three other places. The member scope is MAM's own: an exact name lands on
+ * that profile, anything else on the member list. */
+const ELSEWHERE_SCOPES: Scope[] = [
+  { key: 'forum', icon: MessagesSquare, label: 'Forum posts about', href: (t) => `/f/s?text=${encodeURIComponent(t)}` },
+  { key: 'req', icon: Gift, label: 'Requests for', href: (t) => requestsUrl({ text: t }) },
+  { key: 'user', icon: UsersRound, label: 'Members named', href: (t) => `/n_a/userQuickSearch.php?action=search&SEARCH=${encodeURIComponent(t)}` },
+]
 
 const NAV = [
   { title: 'Dashboard', href: '/' },
@@ -30,6 +61,7 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchTorrent[]>([])
   const [loading, setLoading] = useState(false)
+  const listRef = useRef<HTMLDivElement>(null)
   const seq = useRef(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -46,7 +78,7 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
 
   useEffect(() => {
     const q = query.trim()
-    if (q.length < 2) {
+    if (q.length < MIN_TERM) {
       setResults([])
       setLoading(false)
       return
@@ -55,7 +87,7 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
     const mine = ++seq.current
     const t = setTimeout(async () => {
       try {
-        const res = await searchTorrents({ text: q, srchIn: ['title', 'author', 'series'], perpage: 8 })
+        const res = await searchTorrents({ text: q, srchIn: SUGGEST_FIELDS, perpage: 8 })
         if (seq.current === mine) setResults(res.data)
       } catch {
         if (seq.current === mine) setResults([])
@@ -66,10 +98,21 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
     return () => clearTimeout(t)
   }, [query])
 
-  const enc = encodeURIComponent(query.trim())
+  const term = query.trim()
+
   const go = (href: string) => {
     onOpenChange(false)
     window.location.assign(href)
+  }
+
+  // Typing on while results are already listed can leave the list with nothing
+  // selected. Enter would then do nothing at all, so it falls back to the widest
+  // search: the first row of the catalog group.
+  const onEnter = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter' || term.length < MIN_TERM) return
+    if (listRef.current?.querySelector('[aria-selected="true"]')) return
+    e.preventDefault()
+    go(CATALOG_SCOPES[0].href(term))
   }
 
   return (
@@ -88,18 +131,25 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
         <Command shouldFilter={false} className="**:data-[slot=command-input-wrapper]:h-13">
           <CommandInput
             ref={inputRef}
-            placeholder="Search titles, authors, series…"
+            placeholder="Search titles, authors, narrators, series…"
             value={query}
             onValueChange={setQuery}
+            onKeyDown={onEnter}
           />
-          <CommandList className="max-h-[420px]">
+          {/* Enough room for the scopes under the results, while the dialog at
+              20% of the viewport stays clear of the bottom edge on a short
+              screen. Dynamic units so a phone toolbar cannot cover the last
+              rows. */}
+          <CommandList ref={listRef} className="max-h-[65dvh]">
             {loading && (
               <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
                 <Loader2 className="size-3.5 animate-spin" /> Searching…
               </div>
             )}
-            {!loading && query.trim().length >= 2 && results.length === 0 && (
-              <CommandEmpty>No torrents match “{query.trim()}”.</CommandEmpty>
+            {/* A plain row, not CommandEmpty: with filtering off cmdk counts
+                every item, so the scopes below keep the list from being empty. */}
+            {!loading && term.length >= MIN_TERM && results.length === 0 && (
+              <div className="px-4 py-3 text-sm text-muted-foreground">No torrents match “{term}”.</div>
             )}
             {results.length > 0 && (
               <CommandGroup heading="Torrents">
@@ -119,26 +169,25 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
                 })}
               </CommandGroup>
             )}
-            {query.trim().length >= 2 && (
+            {term.length >= MIN_TERM && (
               <>
-                <CommandSeparator />
-                <CommandGroup heading="Search everywhere">
-                  <CommandItem value="s-tor" onSelect={() => go(`/tor/browse.php?tor%5Btext%5D=${enc}&tor%5BsrchIn%5D%5Btitle%5D=true&tor%5BsrchIn%5D%5Bauthor%5D=true&action=search`)}>
-                    <Search /> All torrents for <b>{query.trim()}</b> <CornerDownLeft className="ml-auto size-3.5 text-muted-foreground" />
-                  </CommandItem>
-                  <CommandItem value="s-author" onSelect={() => go(`/tor/browse.php?tor%5Btext%5D=${enc}&tor%5BsrchIn%5D%5Bauthor%5D=true&action=search`)}>
-                    <UserRound /> Authors matching <b>{query.trim()}</b>
-                  </CommandItem>
-                  <CommandItem value="s-forum" onSelect={() => go(`/f/s?text=${enc}`)}>
-                    <MessagesSquare /> Forum posts about <b>{query.trim()}</b>
-                  </CommandItem>
-                  <CommandItem value="s-req" onSelect={() => go(requestsUrl({ text: query.trim() }))}>
-                    <UsersRound /> Requests for <b>{query.trim()}</b>
-                  </CommandItem>
+                <CommandGroup heading="Search the catalog">
+                  {CATALOG_SCOPES.map((s) => (
+                    <CommandItem key={s.key} value={`s-${s.key}`} onSelect={() => go(s.href(term))}>
+                      <s.icon /> {s.label} <b>{term}</b>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+                <CommandGroup heading="Search elsewhere">
+                  {ELSEWHERE_SCOPES.map((s) => (
+                    <CommandItem key={s.key} value={`s-${s.key}`} onSelect={() => go(s.href(term))}>
+                      <s.icon /> {s.label} <b>{term}</b>
+                    </CommandItem>
+                  ))}
                 </CommandGroup>
               </>
             )}
-            {query.trim().length < 2 && (
+            {term.length < MIN_TERM && (
               <CommandGroup heading="Go to">
                 {NAV.map((n) => (
                   <CommandItem key={n.href} value={n.title} onSelect={() => go(n.href)}>
