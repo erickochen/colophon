@@ -175,8 +175,7 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
                   {CATALOG_SCOPES.map((s) => (
                     <CommandItem key={s.key} value={`s-${s.key}`} onSelect={() => go(s.href(term))}>
                       <s.icon />
-                      {s.label}
-                      <b>{term}</b>
+                      <span>{s.label} <b>{term}</b></span>
                     </CommandItem>
                   ))}
                 </CommandGroup>
@@ -184,8 +183,7 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
                   {ELSEWHERE_SCOPES.map((s) => (
                     <CommandItem key={s.key} value={`s-${s.key}`} onSelect={() => go(s.href(term))}>
                       <s.icon />
-                      {s.label}
-                      <b>{term}</b>
+                      <span>{s.label} <b>{term}</b></span>
                     </CommandItem>
                   ))}
                 </CommandGroup>
