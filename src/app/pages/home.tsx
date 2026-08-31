@@ -8,6 +8,8 @@ import { mutedUserColor } from '@/lib/colors'
 import { fmtInt, localHm, relTime, utcTitle } from '@/lib/format'
 import { useHiddenSections, type HiddenSections } from '@/lib/hidden-sections'
 import { useGiftedSet, uidFromHref } from '@/lib/giftmam'
+import { ALERT_TITLE, matchesAlert, useShoutAlerts, type ShoutAlerts } from '@/lib/shout-alerts'
+import { useFeature } from '@/lib/settings'
 import { cn } from '@/lib/utils'
 import { Book } from '@/components/book'
 import { Badge } from '@/components/ui/badge'
@@ -159,16 +161,32 @@ function shelfFromDom(torrents: HomeTorrent[]): ShelfItem[] {
 }
 
 
-function ShoutList({ shouts }: { shouts: Shout[] }) {
+function ShoutList({ shouts, alerts }: { shouts: Shout[]; alerts: ShoutAlerts | null }) {
+  // The horizontal padding gives a marked row's negative margin somewhere to
+  // go: this grid sits straight against the scroll viewport, which would clip
+  // it on the left and scroll on the right.
   return (
-    <div className="grid gap-1.5">
+    <div className="grid gap-1.5 px-1">
       {/* The time keeps a column of its own; the name and the words share the
           next one, so a second line carries on under the name rather than
           leaving the left of the row empty. */}
-      {shouts.map((s) => (
-        <div key={s.id} className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-2 text-[13px]">
+      {shouts.map((s) => {
+        const alerted =
+          alerts?.mark != null &&
+          matchesAlert(alerts, `${s.user?.name ?? ''} ${s.text}`, s.user?.uid ?? null)
+        return (
+        <div
+          key={s.id}
+          // A title rather than hidden text, so a copied line stays clean.
+          title={alerted ? ALERT_TITLE : undefined}
+          style={alerted && alerts?.mark ? { backgroundColor: alerts.mark.fill, borderColor: alerts.mark.edge } : undefined}
+          className={cn(
+            'grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-2 text-[13px]',
+            alerted && '-mx-1 rounded-md border px-1 py-0.5'
+          )}
+        >
           <span className="font-mono text-[10.5px] text-muted-foreground" title={utcTitle(s.time)}>{localHm(s.time)}</span>
-          <p className="[overflow-wrap:anywhere] text-foreground/90">
+          <p className={cn('[overflow-wrap:anywhere]', alerted ? 'text-foreground' : 'text-foreground/90')}>
             {/* The margin sets the gap; the space after it keeps a copied line
                 readable. */}
             {s.user && (
@@ -185,7 +203,8 @@ function ShoutList({ shouts }: { shouts: Shout[] }) {
             {s.text}
           </p>
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -202,6 +221,8 @@ export function HomeView({ page }: PageProps) {
   const [shoutsAtLatest, setShoutsAtLatest] = useState(true)
   const sections = useHiddenSections()
   const gifted = useGiftedSet()
+  const [alertsOn] = useFeature('sbAlerts')
+  const alerts = useShoutAlerts(alertsOn)
 
   // Refresh the shelf via the search API: newer data AND real cover art.
   useEffect(() => {
@@ -353,7 +374,7 @@ export function HomeView({ page }: PageProps) {
             <CardContent className="grid gap-3">
               <div className="relative">
                 <ScrollArea viewportRef={shoutViewport} viewportClassName="max-h-64 overscroll-contain">
-                  {shouts.length ? <ShoutList shouts={shouts} /> : (
+                  {shouts.length ? <ShoutList shouts={shouts} alerts={alerts} /> : (
                     <p className="py-3 text-center text-sm text-muted-foreground">The room is quiet right now.</p>
                   )}
                 </ScrollArea>

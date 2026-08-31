@@ -6,6 +6,7 @@ import { PageHeader, UserLink } from '@/app/shell/bits'
 import { initials, localDate, localHm, relTime, utcTitle } from '@/lib/format'
 import { stableUserColor } from '@/lib/colors'
 import { useFeature, useUserList } from '@/lib/settings'
+import { ALERT_TITLE, matchesAlert, useShoutAlerts } from '@/lib/shout-alerts'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -70,16 +71,22 @@ function mentionsMe(item: ShoutItem, myUid: number | null, myName: string | null
 
 /** Rendered shout body: keep MAM's smilies as small inline images and its
  * tinted @mentions; fall back to plain text when no HTML was captured. */
-function ShoutBody({ item }: { item: ShoutItem }) {
+function ShoutBody({ item, marked }: { item: ShoutItem; marked?: boolean }) {
+  // A marked row sits on a tinted fill, so its words take the full foreground
+  // and keep the contrast a plain row has.
+  const tone = marked ? 'text-foreground' : 'text-foreground/90'
   if (item.html) {
     return (
       <span
-        className="min-w-0 [overflow-wrap:anywhere] text-foreground/90 [&_.sb-quote-jump]:mr-0.5 [&_.sb-quote-jump]:text-muted-foreground [&_a]:font-medium [&_img]:mx-px [&_img]:inline [&_img]:h-[18px] [&_img]:w-auto [&_img]:align-text-bottom"
+        className={cn(
+          'min-w-0 [overflow-wrap:anywhere] [&_.sb-quote-jump]:mr-0.5 [&_.sb-quote-jump]:text-muted-foreground [&_a]:font-medium [&_img]:mx-px [&_img]:inline [&_img]:h-[18px] [&_img]:w-auto [&_img]:align-text-bottom',
+          tone
+        )}
         dangerouslySetInnerHTML={{ __html: item.html }}
       />
     )
   }
-  return <span className="min-w-0 [overflow-wrap:anywhere] text-foreground/90">{item.text}</span>
+  return <span className={cn('min-w-0 [overflow-wrap:anywhere]', tone)}>{item.text}</span>
 }
 
 /** MAM's smilies, loaded on first open into a searchable-ish scroll grid. Picking
@@ -155,6 +162,8 @@ export function ShoutboxView(props: PageProps) {
   const [mutesOn] = useFeature('sbMutes')
   const [emphasisOn] = useFeature('sbEmphasis')
   const [colorsOn] = useFeature('sbColors')
+  const [alertsOn] = useFeature('sbAlerts')
+  const alerts = useShoutAlerts(alertsOn)
   const muted = useUserList('sb-muted')
   const emphasized = useUserList('sb-emphasized')
   // Which muted groups the reader opened, per occurrence, for this visit only.
@@ -422,15 +431,28 @@ export function ShoutboxView(props: PageProps) {
                       <div className="grid gap-0.5">
                         {g.items.map((it) => {
                           const mentioned = mentionsOn && !g.own && mentionsMe(it, myUid, myName)
+                          // MAM tests the whole rendered line, so the name joins
+                          // the words here: an alert on a person is normal.
+                          const alerted =
+                            alerts?.mark != null &&
+                            matchesAlert(alerts, `${g.user?.name ?? ''} ${it.text}`, g.user?.uid ?? null)
                           return (
                           <div
                             key={it.id}
+                            // A title rather than hidden text, so a copied
+                            // line stays clean.
+                            title={alerted ? ALERT_TITLE : undefined}
+                            style={alerted && alerts?.mark ? { backgroundColor: alerts.mark.fill, borderColor: alerts.mark.edge } : undefined}
                             className={cn(
                               'group flex items-baseline gap-2 text-[13.5px] pointer-coarse:flex-wrap',
-                              mentioned && '-mx-1.5 rounded-md bg-brand/10 px-1.5 py-0.5'
+                              (alerted || mentioned) && '-mx-1.5 rounded-md px-1.5 py-0.5',
+                              // Both say the same thing: this line is for you.
+                              // An alert wins, since it carries the color the
+                              // member chose on MAM itself.
+                              alerted ? 'border' : mentioned && 'bg-brand/10'
                             )}
                           >
-                            <ShoutBody item={it} />
+                            <ShoutBody item={it} marked={alerted} />
                             <div className="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100">
                               <span className="mr-1 font-mono text-[10px] text-muted-foreground" title={utcTitle(it.time)}>{localHm(it.time)}</span>
                               {g.user?.uid && (

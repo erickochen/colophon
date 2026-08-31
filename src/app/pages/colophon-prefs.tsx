@@ -747,6 +747,11 @@ export function ColophonPrefsView(_props: PageProps) {
 
       <PrefCard title="Shoutbox">
         <FeatureRow
+          feature="sbAlerts"
+          title="Alert words"
+          note="Marks shouts that hit one of your alert words, in the color you picked under Forum preferences. Also makes the alert sounds play on every hit instead of roughly every other one."
+        />
+        <FeatureRow
           feature="sbMentions"
           title="Mention highlight"
           note="Tints shouts that mention your name."

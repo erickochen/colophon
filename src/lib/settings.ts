@@ -21,6 +21,7 @@ export type FeatureKey =
   | 'bonusDelta'
   | 'hideSnatched'
   | 'ignoreAction'
+  | 'sbAlerts'
   | 'sbMentions'
   | 'sbMutes'
   | 'sbEmphasis'
@@ -55,6 +56,7 @@ export const FEATURES: Record<FeatureKey, FeatureDef> = {
   bonusDelta: { key: 'colophon:bonus-delta', enabledByDefault: true },
   hideSnatched: { key: 'colophon:hide-snatched', enabledByDefault: false },
   ignoreAction: { key: 'colophon:ignore-action', enabledByDefault: true },
+  sbAlerts: { key: 'colophon:sb-alerts', enabledByDefault: true },
   sbMentions: { key: 'colophon:sb-mentions', enabledByDefault: true },
   sbMutes: { key: 'colophon:sb-mutes', enabledByDefault: true },
   sbEmphasis: { key: 'colophon:sb-emphasis', enabledByDefault: true },
