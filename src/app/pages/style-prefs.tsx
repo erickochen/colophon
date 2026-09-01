@@ -176,7 +176,7 @@ function ColorControl({ el, dark }: { el: HTMLInputElement; dark: string }) {
           placeholder={dark}
           spellCheck={false}
           maxLength={6}
-          className="w-[7ch] bg-transparent py-1.5 pr-2.5 pl-0.5 font-mono text-[13px] uppercase outline-none placeholder:text-muted-foreground/60"
+          className="w-[7ch] bg-transparent py-1.5 pr-2.5 pl-0.5 font-mono text-[13px] uppercase outline-none placeholder:text-muted-foreground"
         />
       </div>
     </div>

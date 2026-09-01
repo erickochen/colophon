@@ -6,7 +6,7 @@ import { PageHeader, UserLink } from '@/app/shell/bits'
 import { initials, localDate, localHm, relTime, utcTitle } from '@/lib/format'
 import { stableUserColor } from '@/lib/colors'
 import { useFeature, useUserList } from '@/lib/settings'
-import { ALERT_TITLE, matchesAlert, useShoutAlerts } from '@/lib/shout-alerts'
+import { ALERT_LABEL, ALERT_TITLE, matchesAlert, useShoutAlerts } from '@/lib/shout-alerts'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -25,6 +25,11 @@ import { scrollTo } from '@/lib/motion'
 
 interface ShoutItem { id: string; numId: string; time: string | null; html: string | null; text: string; editable: boolean }
 interface ShoutGroup { key: string; user: Shout['user']; own: boolean; items: ShoutItem[] }
+
+/** A tinted row reads as "this one is for you" by color alone, which never
+ * reaches a screen reader. This rides along in a span that refuses selection,
+ * so the line still copies clean. */
+const MENTION_LABEL = 'Mentions you'
 
 /** Chat-style grouping: consecutive shouts from the same person collapse under
  * one avatar until the speaker changes or more than 4 minutes pass. */
@@ -74,7 +79,7 @@ function mentionsMe(item: ShoutItem, myUid: number | null, myName: string | null
 function ShoutBody({ item, marked }: { item: ShoutItem; marked?: boolean }) {
   // A marked row sits on a tinted fill, so its words take the full foreground
   // and keep the contrast a plain row has.
-  const tone = marked ? 'text-foreground' : 'text-foreground/90'
+  const tone = marked ? 'text-foreground' : 'text-foreground-soft'
   if (item.html) {
     return (
       <span
@@ -439,8 +444,6 @@ export function ShoutboxView(props: PageProps) {
                           return (
                           <div
                             key={it.id}
-                            // A title rather than hidden text, so a copied
-                            // line stays clean.
                             title={alerted ? ALERT_TITLE : undefined}
                             style={alerted && alerts?.mark ? { backgroundColor: alerts.mark.fill, borderColor: alerts.mark.edge } : undefined}
                             className={cn(
@@ -452,6 +455,9 @@ export function ShoutboxView(props: PageProps) {
                               alerted ? 'border' : mentioned && 'bg-brand/10'
                             )}
                           >
+                            {(alerted || mentioned) && (
+                              <span className="sr-only select-none">{alerted ? ALERT_LABEL : MENTION_LABEL}</span>
+                            )}
                             <ShoutBody item={it} marked={alerted} />
                             <div className="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100">
                               <span className="mr-1 font-mono text-[10px] text-muted-foreground" title={utcTitle(it.time)}>{localHm(it.time)}</span>

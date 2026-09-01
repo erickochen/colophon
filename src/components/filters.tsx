@@ -712,7 +712,7 @@ export function FilterSummary({
             size="icon"
             aria-label={`Remove ${c.label}`}
             onClick={c.onRemove}
-            className={cn('size-4 rounded-full text-muted-foreground/70 hover:bg-transparent hover:text-foreground', TAP_TARGET)}
+            className={cn('size-4 rounded-full text-muted-foreground hover:bg-transparent hover:text-foreground', TAP_TARGET)}
           >
             <X className="size-3" />
           </Button>
@@ -927,7 +927,7 @@ function SavedPill({ set, active, views }: { set: SavedSet; active: boolean; vie
         title="Open this page with these filters"
         className="h-full min-w-0 rounded-l-none rounded-r-md px-2 hover:bg-accent/40 focus-visible:relative focus-visible:z-10 data-pressed:bg-transparent dark:hover:bg-accent/40"
       >
-        <Pin className={cn('size-3.5', set.pinned ? 'text-brand' : 'text-muted-foreground/70')} />
+        <Pin className={cn('size-3.5', set.pinned ? 'text-brand' : 'text-muted-foreground')} />
       </Toggle>
     </div>
   )

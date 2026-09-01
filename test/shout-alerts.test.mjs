@@ -49,14 +49,27 @@ test('the picked color decides the hue, None means no mark', () => {
 
 test('the two theme options follow brand, having no fill of their own', () => {
   for (const color of ['yellow', 'red']) {
-    assert.match(readShoutAlerts(fakeWindow(color, { me: ['x'] })).mark.fill, /var\(--brand\)/)
+    const mark = readShoutAlerts(fakeWindow(color, { me: ['x'] })).mark
+    assert.match(mark.edge, /var\(--brand\)/)
+    // Half the schemes carry a gray card, whose stored hue is a conversion
+    // artifact, so the fill takes the scheme's brand hue rather than that.
+    assert.match(mark.fill, /var\(--brand-hue\)\)$/)
+    assert.doesNotMatch(mark.fill, /\sh\)$/)
   }
 })
 
 test('a color we do not know still gets a mark', () => {
   // MAM could add one; a member who picked a highlight should see something.
   const mark = readShoutAlerts(fakeWindow('row1-teal', { me: ['x'] })).mark
-  assert.match(mark.fill, /var\(--brand\)/)
+  assert.match(mark.edge, /var\(--brand\)/)
+})
+
+test('the fill starts from the card rather than mixing a tint in', () => {
+  // Mixing a lighter tint into a dark card lifts it toward the words on it,
+  // which costs a marked row the contrast a plain row has. Stepping further
+  // from mid gray moves away from the text on either side instead.
+  const mark = readShoutAlerts(fakeWindow('row1-blue', { me: ['x'] })).mark
+  assert.match(mark.fill, /^oklch\(from var\(--card\) calc\(l \+ \(l - 0\.5\) \* [\d.]+\) [\d.]+ 245\)$/)
 })
 
 test('a uid arriving as a string still shields your own shouts', () => {

@@ -46,7 +46,7 @@ function noteWithCredit(note: string, credit?: string): React.ReactNode {
   return (
     <>
       {note}
-      <span className="mt-0.5 block text-[11px] text-muted-foreground/70">Idea from {credit}</span>
+      <span className="mt-0.5 block text-[11px] text-muted-foreground">Idea from {credit}</span>
     </>
   )
 }

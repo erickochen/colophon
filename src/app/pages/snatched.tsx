@@ -209,7 +209,7 @@ function itemBadge(s: SnatchItem): { text: string; tone: BadgeTone } | null {
 
 function StatusBadge({ s }: { s: SnatchItem }) {
   const read = itemBadge(s)
-  if (!read) return <span className="text-[11px] text-muted-foreground/50">-</span>
+  if (!read) return <span className="text-[11px] text-muted-foreground">-</span>
   return <SnatchBadge text={read.text} tone={read.tone} />
 }
 
@@ -385,10 +385,10 @@ function BucketRow({ b }: { b: Bucket }) {
   )
   const rowBody = (
     <>
-      <span className={cn('w-10 shrink-0 text-right font-display text-[16px] font-semibold tabular-nums', !b.count && 'text-muted-foreground/45')}>
+      <span className={cn('w-10 shrink-0 text-right font-display text-[16px] font-semibold tabular-nums', !b.count && 'text-muted-foreground')}>
         {b.count.toLocaleString('en-US')}
       </span>
-      <span className={cn('text-[13px]', !b.count && 'text-muted-foreground/60')}>{pileHeading(b.label).text}</span>
+      <span className={cn('text-[13px]', !b.count && 'text-muted-foreground')}>{pileHeading(b.label).text}</span>
       {openable && (
         <ChevronDown className={cn('ml-auto size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
       )}
@@ -533,7 +533,7 @@ function ZipMatrix({ groups }: { groups: ZipGroup[] }) {
                           <Archive className="size-3.5" />
                         </a>
                       ) : (
-                        <span className="text-muted-foreground/40">–</span>
+                        <span className="text-muted-foreground">–</span>
                       )}
                     </td>
                   )

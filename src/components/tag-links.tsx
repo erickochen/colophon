@@ -64,7 +64,7 @@ export function TagLinks({ raw, limit, full = false, chips = false, className }:
         </Fragment>
       ))}
       {rest.length > 0 && (
-        <span className="text-muted-foreground/70" title={rest.map((s) => s.text).join(', ')}>+{rest.length}</span>
+        <span className="text-muted-foreground" title={rest.map((s) => s.text).join(', ')}>+{rest.length}</span>
       )}
     </span>
   )

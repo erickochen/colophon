@@ -27,7 +27,19 @@ const ACTIVE_MIN_GAP = 0.025
 const HOVER_VS_ACTIVE_GAP = 0.012
 
 const toOklch = converter('oklch')
+const toRgb = converter('rgb')
 const round = (x, digits) => Number(x.toFixed(digits))
+
+/** The color as a screen shows it: converted to sRGB, clipped per channel then
+ * rounded to 8 bit. An oklch value can sit outside sRGB, where measuring it
+ * unclipped reads higher than the pixels ever do. */
+function painted(color) {
+  const c = toRgb(color)
+  const q = (v) => Math.round(Math.max(0, Math.min(1, v)) * 255) / 255
+  return { mode: 'rgb', r: q(c.r), g: q(c.g), b: q(c.b) }
+}
+
+const contrast = (a, b) => wcagContrast(painted(a), painted(b))
 
 function oklchFromHex(hex) {
   const { l, c, h } = toOklch(hex)
@@ -115,6 +127,8 @@ for (const family of families) {
     // The result must read against both surfaces.
     const bg = parseOklch(tokens.background)
     const card = parseOklch(tokens.card)
+    // A muted block carries body copy too, so it counts as a surface here.
+    const muted = parseOklch(tokens.muted)
     const textRefs = {
       foreground: roles.foreground,
       brand: roles.brand,
@@ -141,15 +155,24 @@ for (const family of families) {
         fail(id, `--${token} hue ${got.h} strays from canonical ${round(want.h, 1)} (${ref})`)
       if (Math.abs(got.c - want.c) > CHROMA_TOLERANCE)
         fail(id, `--${token} chroma ${got.c} strays from canonical ${round(want.c, 3)} (${ref})`)
-      const worst = Math.min(wcagContrast(got, bg), card ? wcagContrast(got, card) : Infinity)
+      const worst = Math.min(
+        contrast(got, bg),
+        card ? contrast(got, card) : Infinity,
+        muted ? contrast(got, muted) : Infinity
+      )
       if (worst < TEXT_MIN_CONTRAST) fail(id, `--${token} contrast ${worst.toFixed(2)} under ${TEXT_MIN_CONTRAST}`)
       else textCount++
     }
 
-    // Foreground pairs on their own surfaces.
+    // Foreground pairs on their own surfaces. The soft tone carries body copy
+    // on all three panels the app draws it on, so it is checked on each.
     const pairs = [
+      ['foreground-soft', 'background'],
+      ['foreground-soft', 'card'],
+      ['foreground-soft', 'muted'],
       ['muted-foreground', 'background'],
       ['muted-foreground', 'card'],
+      ['muted-foreground', 'muted'],
       ['accent-foreground', 'accent'],
       // The active state in the UI: text-accent-foreground on bg-brand-soft.
       ['accent-foreground', 'brand-soft'],
@@ -164,7 +187,7 @@ for (const family of families) {
         fail(id, `missing pair --${fgTok} / --${bgTok}`)
         continue
       }
-      const ratio = wcagContrast(a, b)
+      const ratio = contrast(a, b)
       if (ratio < TEXT_MIN_CONTRAST) fail(id, `--${fgTok} on --${bgTok} contrast ${ratio.toFixed(2)} under ${TEXT_MIN_CONTRAST}`)
     }
     if (!card) fail(id, '--card is not a plain oklch value')
@@ -203,8 +226,8 @@ for (const family of families) {
 
     const dfg = parseOklch(tokens['destructive-foreground'])
     const dbg = parseOklch(tokens.destructive)
-    if (dfg && dbg && wcagContrast(dfg, dbg) < FILL_TEXT_MIN_CONTRAST)
-      fail(id, `--destructive-foreground contrast ${wcagContrast(dfg, dbg).toFixed(2)} under ${FILL_TEXT_MIN_CONTRAST}`)
+    if (dfg && dbg && contrast(dfg, dbg) < FILL_TEXT_MIN_CONTRAST)
+      fail(id, `--destructive-foreground contrast ${contrast(dfg, dbg).toFixed(2)} under ${FILL_TEXT_MIN_CONTRAST}`)
 
     // Boot veil and registration stay in step with the CSS.
     if (pageBg[id] !== tokens.background) fail(id, `PAGE_BG '${pageBg[id]}' differs from --background ${tokens.background}`)

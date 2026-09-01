@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 import { scrollIntoView } from '@/lib/motion'
 
 const RICH =
-  'text-[13.5px] leading-relaxed text-foreground/85 [overflow-wrap:anywhere] [&_a]:text-brand [&_a]:underline [&_h1]:my-2 [&_h1]:font-display [&_h1]:text-base [&_h1]:font-semibold [&_h2]:my-2 [&_h2]:font-semibold [&_li]:ml-4 [&_ol]:list-decimal [&_ol]:my-2 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_table]:my-2 [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-1 [&_ul]:list-disc [&_ul]:my-2 ' +
+  'text-[13.5px] leading-relaxed text-foreground-soft [overflow-wrap:anywhere] [&_a]:text-brand [&_a]:underline [&_h1]:my-2 [&_h1]:font-display [&_h1]:text-base [&_h1]:font-semibold [&_h2]:my-2 [&_h2]:font-semibold [&_li]:ml-4 [&_ol]:list-decimal [&_ol]:my-2 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_table]:my-2 [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-1 [&_ul]:list-disc [&_ul]:my-2 ' +
   // An answer can hold its own <details> walkthroughs (e.g. per torrent client).
   '[&_details]:my-2 [&_details]:rounded-lg [&_details]:border [&_details]:border-border/70 [&_details]:px-3 [&_details]:py-2 [&_summary]:cursor-pointer [&_summary_h4]:inline [&_summary_h4]:text-[13.5px] [&_summary_h4]:font-semibold'
 

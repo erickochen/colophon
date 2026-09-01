@@ -145,7 +145,9 @@ function StepRow({
               onClick={() => onIndex(i)}
               className={cn(
                 'rounded px-1 py-0.5 transition-colors hover:text-foreground',
-                i === index ? 'font-semibold text-foreground' : reach ? 'text-muted-foreground' : 'text-muted-foreground/45'
+                // Three readable steps down the ladder: picked, affordable,
+                // out of reach. The title says which, so the tone only ranks.
+                i === index ? 'font-semibold text-foreground' : reach ? 'text-foreground-soft' : 'text-muted-foreground'
               )}
               title={reach ? o.cost : `${o.cost}, out of reach for now`}
             >

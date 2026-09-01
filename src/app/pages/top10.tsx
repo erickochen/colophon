@@ -292,7 +292,7 @@ export function Top10View(_props: PageProps) {
               <Card className="py-3.5 transition-colors group-hover:border-brand/40">
                 <CardContent className="flex items-center gap-4">
                   <span
-                    className={'w-10 shrink-0 text-center font-display text-[28px] font-semibold tabular-nums ' + (i < 3 ? '' : 'text-muted-foreground/45')}
+                    className={'w-10 shrink-0 text-center font-display text-[28px] font-semibold tabular-nums ' + (i < 3 ? '' : 'text-muted-foreground')}
                     style={i < 3 ? { color: ['oklch(0.78 0.13 85)', 'oklch(0.62 0.02 260)', 'oklch(0.55 0.11 50)'][i] } : undefined}
                   >
                     {i + 1}

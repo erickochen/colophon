@@ -141,7 +141,7 @@ function TermChips({ el, label }: { el: HTMLTextAreaElement; label: string }) {
               write(terms.slice(0, -1))
             }
           }}
-          className="min-w-28 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground/60"
+          className="min-w-28 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
         />
       </div>
     </div>

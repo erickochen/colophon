@@ -19,14 +19,17 @@ const ALERT_HUE: Record<string, number> = {
   'row1-blue': 245,
 }
 
-/** Only the hue of this tint matters. The fill and edge blend it into the
- * scheme's own card and foreground, so both follow whatever palette is on. */
+/** Only the hue of this tint matters. The edge blends it into the scheme's own
+ * foreground, so it follows whatever palette is on. */
 const TINT_L = 0.65
 const TINT_C = 0.16
 
-/** How much tint the fill keeps. Kept low so a marked row never reads worse
- * than a plain one in any scheme. */
-const FILL_TINT = '10%'
+/** The fill starts from the card, so a marked row keeps the contrast a plain
+ * row has. Mixing a tint in instead lifts a dark card toward the words on it.
+ * The lightness only steps further from mid gray, which is away from the text
+ * on either side, so the row gains contrast as it gains color. */
+const FILL_CHROMA = 0.06
+const FILL_L_PUSH = 0.12
 
 /** The edge is what makes the mark visible, so it leans on the foreground to
  * clear 3:1 against the card whatever the scheme does. */
@@ -34,6 +37,11 @@ const EDGE_TINT = '50%'
 
 /** Why a shout carries the mark, shown on hover. */
 export const ALERT_TITLE = 'Matched one of your shoutbox alert words'
+
+/** The same fact for a screen reader, read out ahead of the shout itself. A
+ * title on a plain div never reaches one. Hidden text joins the copy when the
+ * line is selected, so this rides in a span that refuses selection. */
+export const ALERT_LABEL = 'Alert word'
 
 /** getPings.php answers after we mount, so we look again until it lands. */
 const POLL_MS = 300
@@ -57,9 +65,12 @@ export interface ShoutAlerts {
   patterns: RegExp[]
 }
 
-function blend(tint: string): AlertMark {
+/** Pass a hue for the fill to take. Null falls back to the scheme's brand hue,
+ * never to the card's own: half the schemes carry a gray card, whose stored hue
+ * is a conversion artifact that would paint an unrelated color. */
+function blend(tint: string, hue: number | null): AlertMark {
   return {
-    fill: `color-mix(in oklab, ${tint} ${FILL_TINT}, var(--card))`,
+    fill: `oklch(from var(--card) calc(l + (l - 0.5) * ${FILL_L_PUSH}) ${FILL_CHROMA} ${hue ?? 'var(--brand-hue)'})`,
     edge: `color-mix(in oklab, ${tint} ${EDGE_TINT}, var(--foreground))`,
   }
 }
@@ -67,11 +78,11 @@ function blend(tint: string): AlertMark {
 function markFor(color: string | undefined): AlertMark | null {
   // Empty means the member picked "None", which asks for no mark at all.
   if (!color) return null
-  const hue = ALERT_HUE[color]
+  const hue = ALERT_HUE[color] ?? null
   // Brand covers MAM's two "Theme Option" values, which are link colors without
   // a fill of their own. It also covers anything MAM adds later: a color the
   // member asked for deserves a mark rather than silence.
-  return hue == null ? blend('var(--brand)') : blend(`oklch(${TINT_L} ${TINT_C} ${hue})`)
+  return hue == null ? blend('var(--brand)', null) : blend(`oklch(${TINT_L} ${TINT_C} ${hue})`, hue)
 }
 
 /** Reads what getPings.php delivered. Null while it is still on the way. */

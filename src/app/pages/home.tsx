@@ -8,7 +8,7 @@ import { mutedUserColor } from '@/lib/colors'
 import { fmtInt, localHm, relTime, utcTitle } from '@/lib/format'
 import { useHiddenSections, type HiddenSections } from '@/lib/hidden-sections'
 import { useGiftedSet, uidFromHref } from '@/lib/giftmam'
-import { ALERT_TITLE, matchesAlert, useShoutAlerts, type ShoutAlerts } from '@/lib/shout-alerts'
+import { ALERT_LABEL, ALERT_TITLE, matchesAlert, useShoutAlerts, type ShoutAlerts } from '@/lib/shout-alerts'
 import { useFeature } from '@/lib/settings'
 import { cn } from '@/lib/utils'
 import { Book } from '@/components/book'
@@ -177,7 +177,6 @@ function ShoutList({ shouts, alerts }: { shouts: Shout[]; alerts: ShoutAlerts | 
         return (
         <div
           key={s.id}
-          // A title rather than hidden text, so a copied line stays clean.
           title={alerted ? ALERT_TITLE : undefined}
           style={alerted && alerts?.mark ? { backgroundColor: alerts.mark.fill, borderColor: alerts.mark.edge } : undefined}
           className={cn(
@@ -185,8 +184,9 @@ function ShoutList({ shouts, alerts }: { shouts: Shout[]; alerts: ShoutAlerts | 
             alerted && '-mx-1 rounded-md border px-1 py-0.5'
           )}
         >
+          {alerted && <span className="sr-only select-none">{ALERT_LABEL}</span>}
           <span className="font-mono text-[10.5px] text-muted-foreground" title={utcTitle(s.time)}>{localHm(s.time)}</span>
-          <p className={cn('[overflow-wrap:anywhere]', alerted ? 'text-foreground' : 'text-foreground/90')}>
+          <p className={cn('[overflow-wrap:anywhere]', alerted ? 'text-foreground' : 'text-foreground-soft')}>
             {/* The margin sets the gap; the space after it keeps a copied line
                 readable. */}
             {s.user && (

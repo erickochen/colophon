@@ -49,6 +49,7 @@ const MIX = {
   brandSoftLight: 0.12,
   hoverToHighlight: 0.55, // card toward the canonical selected surface
   mutedFgFallback: 0.28, // foreground toward background when the palette has no muted color
+  foregroundSoft: 0.1,   // foreground toward the card, for body copy that reads a shade quieter
 }
 
 // Two surfaces closer than this read as one; used to keep an active item
@@ -115,6 +116,19 @@ function asCulori({ l, c, h }) {
   return { mode: 'oklch', l, c, h }
 }
 
+const toRgb = converter('rgb')
+
+/** The color as a screen shows it: converted to sRGB, clipped per channel then
+ * rounded to 8 bit. An oklch value can sit outside sRGB, where measuring it
+ * unclipped reads higher than the pixels ever do. */
+function painted(color) {
+  const c = toRgb(asCulori(color))
+  const q = (v) => Math.round(Math.max(0, Math.min(1, v)) * 255) / 255
+  return { mode: 'rgb', r: q(c.r), g: q(c.g), b: q(c.b) }
+}
+
+const contrast = (a, b) => wcagContrast(painted(a), painted(b))
+
 // Below this chroma a color carries no real hue; its stored hue is an
 // artifact of the hex conversion and must not steer a mix.
 const ACHROMATIC_C = 0.005
@@ -143,7 +157,7 @@ function contrastSafe(color, surfaces, side, target) {
   const dir = side === 'dark' ? 1 : -1
   const out = { ...color }
   for (let i = 0; i < TEXT_L_MAX_STEPS; i++) {
-    const worst = Math.min(...surfaces.map((s) => wcagContrast(asCulori(out), asCulori(s))))
+    const worst = Math.min(...surfaces.map((s) => contrast(out, s)))
     if (worst >= target + TEXT_CONTRAST_MARGIN) break
     const next = out.l + dir * TEXT_L_STEP
     if (next <= 0 || next >= 1) break
@@ -154,10 +168,15 @@ function contrastSafe(color, surfaces, side, target) {
 
 const textSafe = (color, surfaces, side) => contrastSafe(color, surfaces, side, TEXT_MIN_CONTRAST)
 
+/** Holds a softened tone on the quiet side of the tone it softens. A walk for
+ * contrast can carry it past that tone, which reads as the pair inverted. */
+function quieter(soft, fg, side) {
+  const louder = side === 'dark' ? soft.l > fg.l : soft.l < fg.l
+  return louder ? { ...fg } : soft
+}
+
 function pickReadable(candidates, on) {
-  return candidates.reduce((best, c) =>
-    wcagContrast(asCulori(c), asCulori(on)) > wcagContrast(asCulori(best), asCulori(on)) ? c : best
-  )
+  return candidates.reduce((best, c) => (contrast(c, on) > contrast(best, on) ? c : best))
 }
 
 const WHITE = { l: 1, c: 0, h: 0 }
@@ -203,8 +222,16 @@ function buildTokens(scheme, colors) {
     ? mixOklch(sidebar, fg0, dark ? MIX.borderDark : MIX.borderLight)
     : mixOklch(sidebar, highlight, MIX.hoverToHighlight)
 
-  const surfaces = [bg, card]
+  // The muted panel is mixed from the foreground, so the walk runs twice: once
+  // to place that panel, then again with the panel as a surface copy sits on.
+  const fgOnPanels = textSafe(fg0, [bg, card], side)
+  const muted = mixOklch(bg, fgOnPanels, dark ? MIX.mutedDark : MIX.mutedLight)
+  const surfaces = [bg, card, muted]
   const fg = textSafe(fg0, surfaces, side)
+  // Body copy a shade quieter than plain foreground. The palette decides how
+  // much quieter: mix toward the card, then walk back until it reads on every
+  // surface copy sits on, so a tight palette lands just above the bar.
+  const foregroundSoft = quieter(textSafe(mixOklch(fg, card, MIX.foregroundSoft), surfaces, side), fg, side)
   const mutedFgBase = roles.mutedForeground ? ref(roles.mutedForeground) : mixOklch(fg, bg, MIX.mutedFgFallback)
   const accent = hover
   const brandText = textSafe(brand, surfaces, side)
@@ -224,6 +251,10 @@ function buildTokens(scheme, colors) {
   return {
     background: bg,
     foreground: fg,
+    'foreground-soft': foregroundSoft,
+    // The brand hue as a bare angle, for a relative color that needs a hue but
+    // borrows its lightness from a surface that may well be gray.
+    'brand-hue': `${round(brand.h ?? 0, H_DIGITS)}deg`,
     card,
     'card-foreground': fg,
     popover: card,
@@ -232,7 +263,7 @@ function buildTokens(scheme, colors) {
     'primary-foreground': bg,
     secondary: mixOklch(card, fg, MIX.secondary),
     'secondary-foreground': fg,
-    muted: mixOklch(bg, fg, dark ? MIX.mutedDark : MIX.mutedLight),
+    muted,
     'muted-foreground': textSafe(mutedFgBase, surfaces, side),
     accent,
     'accent-foreground': accentFg,
@@ -287,7 +318,7 @@ function shadowLines(side, fg) {
 
 // Token order matches the hand-written blocks in index.css for easy diffing.
 const TOKEN_ORDER = [
-  'background', 'foreground', 'card', 'card-foreground', 'popover', 'popover-foreground',
+  'background', 'foreground', 'foreground-soft', 'brand-hue', 'card', 'card-foreground', 'popover', 'popover-foreground',
   'primary', 'primary-foreground', 'secondary', 'secondary-foreground', 'muted', 'muted-foreground',
   'accent', 'accent-foreground', 'destructive', 'destructive-foreground', 'border', 'input', 'ring',
   'brand', 'brand-fill', 'brand-soft', 'ok-fill', 'ok', 'warn', 'gifted',
@@ -304,7 +335,7 @@ function cssBlock(family, scheme) {
   const lines = [
     `/* ${scheme.label}, generated from the official palette (${family.source}). */`,
     `${selector} {`,
-    ...TOKEN_ORDER.map((t) => `  --${t}: ${oklchCss(tokens[t])};`),
+    ...TOKEN_ORDER.map((t) => `  --${t}: ${typeof tokens[t] === 'string' ? tokens[t] : oklchCss(tokens[t])};`),
     ...shadowLines(scheme.side, tokens.foreground),
     ...SIDEBAR_ORDER.map((t) => `  --${t}: ${oklchCss(tokens[t])};`),
     '}',

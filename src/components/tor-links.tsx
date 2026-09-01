@@ -44,7 +44,7 @@ const LINK_CLS =
 export function ExternalSearchLinks({ title, author }: { title: string; author: string | null }) {
   return (
     <>
-      <span className="text-muted-foreground/70">Find on</span>
+      <span className="text-muted-foreground">Find on</span>
       {searchTargets(title, author).map((l) => (
         <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" className={LINK_CLS}>
           {l.label}
