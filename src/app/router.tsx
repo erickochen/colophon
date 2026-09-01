@@ -75,6 +75,7 @@ const SIMPLE_FORM_PAGES = new Set([
   '/tor/editRequest.php',
   '/comment.php',
   '/banner/index.php',
+  '/bitbucket-upload.php',
 ])
 
 export function resolveRoute(loc: Location): Route {

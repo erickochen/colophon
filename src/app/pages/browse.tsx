@@ -4,20 +4,21 @@ import type { PageProps } from '@/app/router'
 import { PageHeader } from '@/app/shell/bits'
 import {
   bookmarkCleanup, bookmarkMass, BookmarkMassError, bookmarkOne, clearNewFlag, downloadZipOf, searchAllTorrents2, searchTorrents2,
-  search2Url, parsePeople, downloadUrl, coverUrl, hideReseedUrl, requestedAt, torrentUrl, BOOKMARKS_ZIP_URL, ZIP_BATCH_MAX,
+  search2Url, parsePeople, downloadUrl, coverUrl, hideReseedUrl, requestedAt, siteNewSince, torrentUrl,
+  BOOKMARKS_ZIP_URL, GROUP_FETCH_MAX, SERIES_FETCH_MAX, ZIP_BATCH_MAX,
   type BookmarkCleanup, type Search2Query, type SearchTorrent,
 } from '@/lib/mam-api'
 import { useCategories2 } from '@/lib/categories2'
 import { extractProfile } from '@/lib/extract/profile'
 import { mamFetch } from '@/lib/mam-fetch'
-import { groupBySeries, type SeriesGroup } from '@/lib/series'
+import { groupBySeries, runsBySeries, type SeriesGroup, type SeriesRun } from '@/lib/series'
 import { CONTENT_FLAGS, LANGUAGES, MAIN_CATS, SORT_OPTIONS } from '@/lib/mam-facets'
 import { bottomDockRef } from '@/lib/bottom-dock'
 import { coverShape } from '@/lib/cover-shape'
 import { wedgeHelps } from '@/lib/wedge'
 import { useQuickie } from '@/lib/quickie'
 import {
-  BROWSE_COLS_KEY, BROWSE_VIEW_KEY, mamBrowseDefaults, readSticky, writeSticky, type StickyFilters,
+  BROWSE_COLS_KEY, BROWSE_GROUP_KEY, BROWSE_VIEW_KEY, mamBrowseDefaults, readSticky, writeSticky, type StickyFilters,
 } from '@/lib/browse-sticky'
 import { useFeature, useIgnoredTorrents, useNewMarks } from '@/lib/settings'
 import { fmtInt, plural, relTime, stampMs, utcTitle } from '@/lib/format'
@@ -138,6 +139,16 @@ function readCols(): ColKey[] {
   }
 }
 
+/** Grouping is off until a reader asks for it: it reads the whole result list,
+ * which is work a plain search should not do on its own. */
+function readGrouping(): boolean {
+  try {
+    return localStorage.getItem(BROWSE_GROUP_KEY) === 'series'
+  } catch {
+    return false
+  }
+}
+
 const PERPAGE_OPTIONS = [25, 50, 100]
 const DEFAULT_PERPAGE = PERPAGE_OPTIONS[0]
 
@@ -166,6 +177,11 @@ const actionLane = (slots: number) => `${slots * ROW_ACTION_SIZE + (slots - 1) *
 // rather than the cover inside it.
 const GALLERY_GRID =
   'grid grid-cols-3 gap-x-[22px] gap-y-7 p-6 [--shelf:150px] sm:grid-cols-4 sm:[--shelf:180px] lg:grid-cols-6 lg:[--shelf:210px]'
+
+/** The bar that names a group of rows, shared by the series view plus the runs
+ * a grouped list draws. */
+const GROUP_HEAD =
+  'flex items-center gap-2.5 bg-muted/40 px-6 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground'
 
 /** Why a row is not shown: on the personal ignore list, snatched while the
  * hide-snatched filter is on, already seen while Only new is on. */
@@ -1226,7 +1242,7 @@ const BOOKMARK_CLEANUPS = [
  * loaded. The top group covers the rows on screen; on the bookmarks list a
  * second group reaches the whole list, which is why they are kept apart. */
 function ResultActions({
-  items, bookmarksView, onBookmark, onRemoved, onCleaned, copySlot, cols, onToggleCol,
+  items, bookmarksView, onBookmark, onRemoved, onCleaned, copySlot, cols, onToggleCol, grouped, onToggleGrouping,
 }: {
   items: SearchTorrent[]
   bookmarksView: boolean
@@ -1238,6 +1254,9 @@ function ResultActions({
   /** Column visibility, when the list view is showing. */
   cols?: ColKey[]
   onToggleCol?: (k: ColKey) => void
+  /** Series grouping, left out where a series search already groups the list. */
+  grouped?: boolean
+  onToggleGrouping?: () => void
 }) {
   const [busy, setBusy] = useState(false)
   const [confirmShown, setConfirmShown] = useState(false)
@@ -1314,6 +1333,19 @@ function ResultActions({
             </DropdownMenuItem>
             {copySlot}
           </DropdownMenuGroup>
+          {onToggleGrouping && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className={MENU_GROUP_LABEL}>Grouping</DropdownMenuLabel>
+              <DropdownMenuGroup>
+                {/* This one closes the menu, unlike the columns below it: it
+                    reshapes the whole list, so the answer is the list itself. */}
+                <DropdownMenuCheckboxItem checked={!!grouped} onCheckedChange={onToggleGrouping} closeOnClick>
+                  Group by series
+                </DropdownMenuCheckboxItem>
+              </DropdownMenuGroup>
+            </>
+          )}
           {cols && onToggleCol && (
             <>
               <DropdownMenuSeparator />
@@ -1391,6 +1423,19 @@ function ResultActions({
   )
 }
 
+/** Names the series a run holds, with how many of it are here. A stretch of
+ * single titles carries no heading, so the list only breaks where that means
+ * something. */
+function RunHead({ run }: { run: SeriesRun }) {
+  if (run.name == null) return null
+  return (
+    <h3 className={GROUP_HEAD}>
+      <span className="truncate">{run.name}</span>
+      <span className="ml-auto shrink-0 tabular-nums">{run.rows.length}</span>
+    </h3>
+  )
+}
+
 /** Same joined-segment language as every other switch on a bar, so the list and
  * gallery choice reads as one control. */
 function ViewToggle({ view, onChange }: { view: ViewMode; onChange: (v: ViewMode) => void }) {
@@ -1455,6 +1500,9 @@ export function BrowseView(props: PageProps) {
     }
   })
   const [cols, setCols] = useState<ColKey[]>(readCols)
+  const [grouped, setGrouped] = useState(readGrouping)
+  // The search runs from a callback built once, so what it needs travels in refs.
+  const groupedRef = useRef(grouped)
   const seq = useRef(0)
   /** The search on the wire right now, so the same one is not sent twice. */
   const inFlight = useRef<string | null>(null)
@@ -1489,15 +1537,17 @@ export function BrowseView(props: PageProps) {
     if (!seriesBulkOn) setSelected(new Set())
   }, [seriesBulkOn])
 
-  // First run: the mark starts here rather than at some guess about the past.
-  // MAM hands out no threshold of its own, so this is the honest start. The ref
-  // holds it to one attempt, since a refused write would notify plus land here
-  // again on every render.
+  // MAM keeps a mark of its own, so both sides read the same one: clearing the
+  // tag there moves the dots here. It only travels forward, so a clear made here
+  // stands. The ref holds this to one attempt, since a refused write would
+  // notify plus land here again on every render.
   const marked = useRef(false)
   useEffect(() => {
-    if (!newOn || marks.since !== 0 || marked.current) return
+    if (!newOn || marked.current) return
     marked.current = true
-    marks.reset(Date.now())
+    const site = siteNewSince()
+    if (site != null && site > marks.since) marks.reset(site)
+    else if (marks.since === 0) marks.reset(Date.now())
   }, [newOn, marks.since, marks.reset])
 
   /** A row is new when it arrived after the mark plus was never opened here. */
@@ -1510,13 +1560,16 @@ export function BrowseView(props: PageProps) {
     setClearing(true)
     // The dots are ours: they read the local mark, not MAM's tag. So the mark
     // moves either way, plus the toast says whether MAM's own tag came along.
+    // A cleared tag answers with its own stamp, which keeps both sides on the
+    // server's clock rather than on this browser's.
     let siteCleared = true
+    let stamp: number | null = null
     try {
-      await clearNewFlag()
+      stamp = await clearNewFlag()
     } catch {
       siteCleared = false
     }
-    marks.reset(Date.now())
+    marks.reset(stamp ?? Date.now())
     setOnlyNew(false)
     setClearing(false)
     if (siteCleared) toast.success('Marked everything as seen.')
@@ -1564,6 +1617,19 @@ export function BrowseView(props: PageProps) {
     })
   }
 
+  const toggleGrouping = () => {
+    const next = !grouped
+    groupedRef.current = next
+    setGrouped(next)
+    try {
+      localStorage.setItem(BROWSE_GROUP_KEY, next ? 'series' : 'none')
+    } catch {
+      // storage may be unavailable
+    }
+    // A series can reach past the page in view, so grouping asks for the rest.
+    if (next && found > items.length) void run(stateRef.current, { push: false })
+  }
+
   const run = useCallback(async (s: BrowseState, opts: { append?: boolean; push?: boolean; take?: number } = {}) => {
     const { append = false, push = true, take } = opts
     // One click can land on two controls at once, such as a settling popover
@@ -1575,9 +1641,10 @@ export function BrowseView(props: PageProps) {
     // Typing moves the field long before a search runs, so saved sets compare
     // against the text this list was actually built from.
     setQueriedText(s.text)
-    // A series loads whole from row 0, so an offset riding in on the URL must
-    // not skew the shown count.
-    const q = s.seriesID && s.start !== 0 ? { ...s, start: 0 } : s
+    // A whole-list load starts at row 0, so an offset riding in on the URL must
+    // not skew the shown count. Grouping loads the same way a series does.
+    const whole = s.seriesID != null || groupedRef.current
+    const q = whole && s.start !== 0 ? { ...s, start: 0 } : s
     const mine = ++seq.current
     if (append) {
       setLoadingMore(true)
@@ -1594,8 +1661,10 @@ export function BrowseView(props: PageProps) {
       else history.pushState(null, '', urlFromState(q))
     }
     try {
-      const res = q.seriesID
-        ? await searchAllTorrents2(toQuery2(q))
+      // A series is a bounded list; grouping runs on searches of any width, so
+      // it reads a shorter stretch.
+      const res = whole
+        ? await searchAllTorrents2(toQuery2(q), q.seriesID ? SERIES_FETCH_MAX : GROUP_FETCH_MAX)
         : await searchTorrents2(take ? { ...toQuery2(q), perPage: take } : toQuery2(q))
       if (seq.current !== mine) return
       if (append) {
@@ -1623,10 +1692,15 @@ export function BrowseView(props: PageProps) {
       }
       // A restored list holds more rows than the offset it was asked for, so
       // the state plus the address bar move to where those rows actually end.
-      if (take != null) {
+      // A whole list has no offset to land on, since every row is already here.
+      if (take != null && !whole) {
         const settled = { ...q, start: Math.max(0, res.data.length - q.perpage) }
         setState(settled)
         history.replaceState(null, '', urlFromState(settled))
+      } else if (whole && take != null) {
+        // A whole list starts at row one, so the address bar says the same.
+        setState(q)
+        history.replaceState(null, '', urlFromState(q))
       }
     } catch (e) {
       if (seq.current === mine) setError(e instanceof Error ? e.message : 'Search failed')
@@ -1871,6 +1945,50 @@ export function BrowseView(props: PageProps) {
   )
   const firstRange = seriesGroups.find((g) => g.kind === 'range')?.key
   const groupRows = (g: SeriesGroup) => (showHidden ? g.rows : g.rows.filter((t) => !hiddenReason(t)))
+  // A series search has a view of its own, so the runs only shape a plain list.
+  const grouping = grouped && !(state.seriesID != null && seriesViewOn)
+  const seriesRuns = useMemo(
+    () => (grouping ? runsBySeries(shownItems) : []),
+    [grouping, shownItems]
+  )
+  const runCount = seriesRuns.filter((r) => r.name != null).length
+  // The note always says what grouping did. Past the fetch cap it names how far
+  // it read, since a grouped list carries no Load more beside it. "series" is
+  // its own plural, so the count needs no word after it.
+  const groupNote = !grouping
+    ? ''
+    : runCount === 0
+      ? ' · no series to group here'
+      : found > items.length
+        ? ` · ${fmtInt(runCount)} series in the first ${fmtInt(items.length)}`
+        : ` · ${fmtInt(runCount)} series grouped`
+
+  // One row, drawn the same whether it sits in a run or straight in the list.
+  const listRow = (t: SearchTorrent) => (
+    <TorrentRow
+      key={t.id}
+      t={t}
+      cols={cols}
+      blurb={blurbOn}
+      onBookmark={setBookmarked}
+      onRemoved={dropOnUnbookmark}
+      onFreeleech={setPersonalFreeleech}
+      onIgnore={ignoreOn ? ignoreTorrent : undefined}
+      onUnignore={ignored.remove}
+      hiddenReason={showHidden ? hiddenReason(t) : null}
+      isNew={isNewRow(t)}
+    />
+  )
+  const galleryItem = (t: SearchTorrent) => (
+    <GalleryItem
+      key={t.id}
+      t={t}
+      blurb={blurbOn}
+      hiddenReason={showHidden ? hiddenReason(t) : null}
+      onUnignore={ignored.remove}
+      isNew={isNewRow(t)}
+    />
+  )
   // entityName JSON-parses every row it scans and the view rerenders per
   // keystroke, which at a whole series is real work.
   const seriesName = useMemo(
@@ -2204,7 +2322,7 @@ export function BrowseView(props: PageProps) {
               ? 'Searching…'
               : state.seriesID && seriesViewOn
                 ? `${fmtInt(found)} results · grouped by part`
-                : `${fmtInt(found)} results`}
+                : `${fmtInt(found)} results${groupNote}`}
           </span>
           {/* The column headers carry the everyday sorts; this names the current
               one and reaches the handful that have no column. */}
@@ -2285,6 +2403,8 @@ export function BrowseView(props: PageProps) {
                 copySlot={<CopyResultsButton rows={items} asMenuItem />}
                 cols={view === 'list' ? cols : undefined}
                 onToggleCol={view === 'list' ? toggleCol : undefined}
+                grouped={grouping}
+                onToggleGrouping={state.seriesID != null && seriesViewOn ? undefined : toggleGrouping}
               />
             )}
           </span>
@@ -2339,29 +2459,29 @@ export function BrowseView(props: PageProps) {
         {!loading && shownItems.length > 0 && (!state.seriesID || !seriesViewOn) && view === 'list' && (
           <div className="divide-y divide-border">
             <ListHeader cols={cols} lane={actionLane(3 + (ignoreOn ? 1 : 0))} sort={effectiveSort} onSort={(v) => apply({ sort: v })} />
-            {shownItems.map((t) => (
-              <TorrentRow
-                key={t.id}
-                t={t}
-                cols={cols}
-                blurb={blurbOn}
-                onBookmark={setBookmarked}
-                onRemoved={dropOnUnbookmark}
-                onFreeleech={setPersonalFreeleech}
-                onIgnore={ignoreOn ? ignoreTorrent : undefined}
-                onUnignore={ignored.remove}
-                hiddenReason={showHidden ? hiddenReason(t) : null}
-                isNew={isNewRow(t)}
-              />
-            ))}
+            {grouping
+              ? seriesRuns.map((r) => (
+                  <div key={r.key}>
+                    <RunHead run={r} />
+                    <div className="divide-y divide-border">{r.rows.map(listRow)}</div>
+                  </div>
+                ))
+              : shownItems.map(listRow)}
           </div>
         )}
         {!loading && shownItems.length > 0 && (!state.seriesID || !seriesViewOn) && view === 'grid' && (
-          <div className={cn(GALLERY_GRID)}>
-            {shownItems.map((t) => (
-              <GalleryItem key={t.id} t={t} blurb={blurbOn} hiddenReason={showHidden ? hiddenReason(t) : null} onUnignore={ignored.remove} isNew={isNewRow(t)} />
-            ))}
-          </div>
+          grouping ? (
+            <div>
+              {seriesRuns.map((r) => (
+                <div key={r.key}>
+                  <RunHead run={r} />
+                  <div className={cn(GALLERY_GRID)}>{r.rows.map(galleryItem)}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className={cn(GALLERY_GRID)}>{shownItems.map(galleryItem)}</div>
+          )
         )}
         {!loading && shownItems.length > 0 && state.seriesID != null && seriesViewOn && (
           <div className="divide-y divide-border">
@@ -2416,7 +2536,7 @@ export function BrowseView(props: PageProps) {
                   {g.kind === 'range' && firstRange === g.key && (
                     <h3 className="border-t px-6 pt-4 pb-1 font-display text-[13px] font-semibold">Boxsets and collections</h3>
                   )}
-                  <h3 className="flex items-center gap-2.5 bg-muted/40 px-6 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                  <h3 className={GROUP_HEAD}>
                     {view === 'list' && seriesBulkOn && (
                       <Checkbox
                         checked={checkedCount > 0 && checkedCount === rowIds.length}
@@ -2433,7 +2553,7 @@ export function BrowseView(props: PageProps) {
             })}
           </div>
         )}
-        {!loading && items.length > 0 && !state.seriesID && (remaining > 0 || loadingMore || error) && (
+        {!loading && items.length > 0 && !state.seriesID && !grouping && (remaining > 0 || loadingMore || error) && (
           <div className="flex items-center justify-center border-t py-4">
             {error ? (
               <span className="text-sm text-destructive">

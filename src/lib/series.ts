@@ -3,9 +3,7 @@
 // -1 for a row with no part at all.
 import type { SearchTorrent } from '@/lib/mam-api'
 import { decodeEntities } from '@/lib/format'
-
-/** MAM's flag for a row that names no part. */
-const NO_PART = -1
+import { NO_PART, planRuns, type SeriesMap } from '@/lib/series-runs'
 
 export interface SeriesEntry {
   name: string
@@ -24,17 +22,22 @@ export interface SeriesGroup {
   rows: SearchTorrent[]
 }
 
+/** Every series a torrent names, keyed by series id. */
+function allSeries(t: SearchTorrent): SeriesMap {
+  if (!t.series_info) return {}
+  try {
+    return JSON.parse(t.series_info) as SeriesMap
+  } catch {
+    return {}
+  }
+}
+
+const entryOf = (hit: [string, string, number] | undefined): SeriesEntry | null =>
+  hit ? { name: decodeEntities(String(hit[0] ?? '')), part: decodeEntities(String(hit[1] ?? '')), weight: Number(hit[2]) } : null
+
 /** The entry for one series, out of the several a torrent can belong to. */
 export function seriesEntry(t: SearchTorrent, seriesId: number): SeriesEntry | null {
-  if (!t.series_info) return null
-  try {
-    const all = JSON.parse(t.series_info) as Record<string, [string, string, number]>
-    const hit = all[String(seriesId)]
-    if (!hit) return null
-    return { name: decodeEntities(String(hit[0] ?? '')), part: decodeEntities(String(hit[1] ?? '')), weight: Number(hit[2]) }
-  } catch {
-    return null
-  }
+  return entryOf(allSeries(t)[String(seriesId)])
 }
 
 function kindOf(part: string, weight: number): SeriesGroupKind {
@@ -60,6 +63,29 @@ export function groupBySeries(rows: SearchTorrent[], seriesId: number): SeriesGr
   return [...byKey.values()].sort((a, b) =>
     order[a.kind] - order[b.kind] || a.weight - b.weight || a.key.localeCompare(b.key)
   )
+}
+
+/** A stretch of one result list. Either the books of a series pulled together
+ * or the titles between two of those, which belong to no series worth a run. */
+export interface SeriesRun {
+  key: string
+  /** The series these rows share, null for titles standing on their own. */
+  name: string | null
+  rows: SearchTorrent[]
+}
+
+/** Pulls the books of a series together, naming each run after the series it
+ * holds. The planning lives in series-runs.ts; this side reads MAM's rows. */
+export function runsBySeries(rows: SearchTorrent[]): SeriesRun[] {
+  const maps = rows.map(allSeries)
+  return planRuns(maps).map((plan) => {
+    const first = plan.rows[0] ?? 0
+    return {
+      key: plan.id ?? `one-${rows[first]?.id ?? first}`,
+      name: plan.id ? entryOf(maps[first][plan.id])?.name ?? null : null,
+      rows: plan.rows.map((i) => rows[i]),
+    }
+  })
 }
 
 export interface SeriesProgress {

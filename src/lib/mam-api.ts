@@ -169,6 +169,11 @@ export const SERIES_PAGE = 100
 // torrents, so this leaves room without letting a runaway filter page forever.
 export const SERIES_FETCH_MAX = 1000
 
+// Ceiling when a plain list is read whole to group it. That runs on searches of
+// any width, so it stays well under the series ceiling: five pages reach far
+// enough to cluster an author while asking the endpoint far less.
+export const GROUP_FETCH_MAX = 500
+
 /** Every row of a query, paged. Stops at the cap and reports the server's own
  * total, so a caller can say how much was left out. */
 export async function searchAllTorrents(query: SearchQuery, cap = SERIES_FETCH_MAX): Promise<SearchResult> {
@@ -544,14 +549,28 @@ export async function searchTorrents2(q: Search2Query): Promise<SearchResult> {
   }
 }
 
+/** The endpoint answers 403 to searches that follow each other too closely.
+ * Keeping that up costs the whole session, so pages are spaced out. */
+const PAGE_GAP_MS = 700
+
+const pause = (ms: number) => new Promise((done) => setTimeout(done, ms))
+
 /** Every row of a query, paged. Stops at the cap and reports the server's own
- * total, so a caller can say how much was left out. */
+ * total, so a caller can say how much was left out. A page that fails ends the
+ * run with whatever the earlier ones brought, since a long list is worth more
+ * than the tail it is missing. */
 export async function searchAllTorrents2(q: Search2Query, cap = SERIES_FETCH_MAX): Promise<SearchResult> {
   const first = await searchTorrents2({ ...q, start: 0, perPage: SERIES_PAGE })
   const rows = [...first.data]
   const target = Math.min(first.found, cap)
   while (rows.length < target && first.data.length > 0) {
-    const next = await searchTorrents2({ ...q, start: rows.length, perPage: SERIES_PAGE })
+    await pause(PAGE_GAP_MS)
+    let next: SearchResult
+    try {
+      next = await searchTorrents2({ ...q, start: rows.length, perPage: SERIES_PAGE })
+    } catch {
+      break
+    }
     if (next.data.length === 0) break
     rows.push(...next.data)
   }
@@ -794,9 +813,21 @@ export function requestedAt(requesttime: number): string {
 /** The timeout MAM's own handler for this GET carries. */
 const CLEAR_TAG_TIMEOUT_MS = 20000
 
+/** MAM's own mark for the NEW tag, in milliseconds. Its search page carries the
+ * last clear as a hidden field in unix seconds, which torSearch.js compares
+ * against each row's added stamp. The server only writes that field when the
+ * "Show new tag" preference is on, so null means there is nothing to read. */
+export function siteNewSince(doc: Document = document): number | null {
+  const field = doc.getElementById('showNewIcon')
+  const seconds = Number(field instanceof HTMLInputElement ? field.value : NaN)
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * MS_PER_SECOND : null
+}
+
 /** Clears MAM's own NEW tag for this account. Its browse page does the same GET
- * from its "Clear NEW tag" button, then drops every new.gif on the page. */
-export async function clearNewFlag(): Promise<void> {
+ * from its "Clear NEW tag" button, then drops every new.gif on the page. The
+ * answer carries the fresh mark in unix seconds, which MAM writes back into its
+ * own hidden field. */
+export async function clearNewFlag(): Promise<number | null> {
   const res = await mamFetch('/tor/json/resetNewFlag.php', {
     credentials: 'include',
     signal: AbortSignal.timeout(CLEAR_TAG_TIMEOUT_MS),
@@ -807,15 +838,17 @@ export async function clearNewFlag(): Promise<void> {
   // caller asks for json plus never reads the header back.
   const text = (await res.text()).trim()
   if (text.startsWith('<')) throw new Error('Could not clear the tag')
-  if (!text) return
-  let body: { success?: unknown; error?: unknown } | null = null
+  if (!text) return null
+  let body: { success?: unknown; error?: unknown; ts?: unknown } | null = null
   try {
-    body = JSON.parse(text) as { success?: unknown; error?: unknown }
+    body = JSON.parse(text) as { success?: unknown; error?: unknown; ts?: unknown }
   } catch {
     // Not JSON plus not a page. MAM's own handler reads no field off it either.
-    return
+    return null
   }
   if (body?.success === false) throw new Error(String(body.error ?? 'Could not clear the tag'))
+  const ts = Number(body?.ts)
+  return Number.isFinite(ts) && ts > 0 ? ts * MS_PER_SECOND : null
 }
 
 export function downloadUrl(id: number, useWedge = false) {

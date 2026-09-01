@@ -1,5 +1,7 @@
-// Store extractor (/store.php). The storeTable is a rowspan matrix: each
-// section = th>h1 title + description cell + N (cost, button) rows.
+// Store extractor (/store.php). MAM serves two layouts, switched with its own
+// ?switchView link. The table layout is a rowspan matrix of th>h1 title,
+// description cell plus (cost, button) rows. The row layout writes a section as
+// an h2.bonusRow heading with the block after it, pricing on button[title].
 import { cleanHtml } from '@/lib/sanitize'
 
 /** Which purchase a block makes. MAM binds each one to its own call, so the
@@ -44,16 +46,22 @@ export interface StoreData {
 
 const txt = (el: Element | null | undefined) => el?.textContent?.replace(/\s+/g, ' ').trim() ?? null
 
+const flat = (s: string) => s.replace(/\s+/g, ' ').trim()
+
+/** The element carrying the class that names the purchase: the cell in the
+ * table layout, the block after the heading in the row layout. */
+const kindHost = (btn: HTMLButtonElement): Element | null => btn.closest('td, .bonusRow')
+
 /** MAM marks each purchase with its own cell class or button id; site.js binds
  * the matching call to exactly those. Anything else stays generic plus keeps
  * going through MAM's own button. */
 function kindOf(btn: HTMLButtonElement): StoreKind {
   if (btn.id === 'seedtimeButton') return 'seedtime'
   if (btn.id === 'giveTitle') return 'title'
-  const cell = btn.closest('td')?.className ?? ''
-  if (/uploadCreditContent/.test(cell)) return 'upload'
-  if (/vipStatusContent/.test(cell)) return 'vip'
-  if (/cheeseWedgesContent/.test(cell)) return 'wedges'
+  const host = kindHost(btn)?.className ?? ''
+  if (/uploadCreditContent/.test(host)) return 'upload'
+  if (/vipStatusContent/.test(host)) return 'vip'
+  if (/cheeseWedgesContent/.test(host)) return 'wedges'
   return 'other'
 }
 
@@ -64,61 +72,139 @@ function priceOf(cost: string): { points: number | null; cheese: number | null }
   return /cheese/i.test(cost) ? { points: null, cheese: n } : { points: n, cheese: null }
 }
 
-function selectorFor(btn: HTMLButtonElement, section: string, i: number): string {
-  if (btn.id) return `#${CSS.escape(btn.id)}`
-  const cellClass = btn.closest('td')?.className?.split(/\s+/).find(Boolean)
-  const value = btn.getAttribute('value') ?? ''
-  if (cellClass) return `td.${CSS.escape(cellClass)} button[value="${CSS.escape(value)}"]`
-  return `.storeTable button[value="${CSS.escape(value)}"]`
+/** The class naming the purchase, so one selector fits both layouts: the row
+ * layout wraps that same name in bonusRow plus hideMe. */
+function hostClass(el: Element | null): string | null {
+  const classes = (el?.className ?? '').split(/\s+/).filter(Boolean)
+  return classes.find((c) => c.endsWith('Content')) ?? null
 }
 
-export function extractStore(doc: Document): StoreData | null {
-  const table = doc.querySelector('.storeTable')
-  const main = doc.querySelector('#mainBody')
-  if (!table || !main) return null
+function selectorFor(btn: HTMLButtonElement): string {
+  if (btn.id) return `#${CSS.escape(btn.id)}`
+  const value = btn.getAttribute('value') ?? ''
+  const cls = hostClass(kindHost(btn))
+  if (cls) return `.${CSS.escape(cls)} button[value="${CSS.escape(value)}"]`
+  return `#mainBody button[value="${CSS.escape(value)}"]`
+}
 
+/** MAM's own words around a purchase, with its controls taken out. */
+function describe(el: Element | null | undefined): string | null {
+  if (!el) return null
+  const clone = el.cloneNode(true) as HTMLElement
+  clone.querySelectorAll('input, button').forEach((e) => e.remove())
+  return cleanHtml(clone)
+}
+
+function addOffer(section: StoreSection, cost: string, btn: HTMLButtonElement): void {
+  // Every row of a block posts the same call, so the first one names it.
+  if (section.kind === 'other') section.kind = kindOf(btn)
+  section.offers.push({
+    cost,
+    label: txt(btn) ?? '',
+    ...priceOf(cost),
+    value: btn.getAttribute('value'),
+    buttonSelector: selectorFor(btn),
+  })
+}
+
+function addInput(section: StoreSection, inp: HTMLInputElement): void {
+  if (section.inputs.some((x) => x.name === inp.name)) return
+  section.inputs.push({
+    name: inp.name,
+    placeholder: inp.name.includes('torrent') ? 'Torrent ID' : inp.name,
+  })
+}
+
+function addInputs(section: StoreSection, root: Element | null | undefined): void {
+  for (const inp of root?.querySelectorAll<HTMLInputElement>('input[name]') ?? []) addInput(section, inp)
+}
+
+const emptySection = (title: string, descHtml: string | null): StoreSection => ({
+  kind: 'other', title, descHtml, offers: [], inputs: [],
+})
+
+function readTable(table: Element): StoreSection[] {
   const sections: StoreSection[] = []
   let current: StoreSection | null = null
   for (const tr of table.querySelectorAll(':scope > tbody > tr, :scope > tr')) {
     const th = tr.querySelector<HTMLElement>(':scope > th h1')
     if (th) {
       const descCell = tr.querySelector(':scope > td[rowspan], :scope > td:not(.cost)')
-      let descHtml: string | null = null
-      if (descCell) {
-        const clone = descCell.cloneNode(true) as HTMLElement
-        clone.querySelectorAll('input, button').forEach((e) => e.remove())
-        descHtml = cleanHtml(clone)
-      }
       const tc = th.cloneNode(true) as HTMLElement
       tc.querySelectorAll('br').forEach((br) => br.replaceWith(' '))
-      current = { kind: 'other', title: (tc.textContent ?? '').replace(/\s+/g, ' ').trim(), descHtml, offers: [], inputs: [] }
+      current = emptySection(flat(tc.textContent ?? ''), describe(descCell))
       sections.push(current)
-      for (const inp of descCell?.querySelectorAll<HTMLInputElement>('input[name]') ?? []) {
-        current.inputs.push({ name: inp.name, placeholder: inp.name.includes('torrent') ? 'Torrent ID' : inp.name })
-      }
+      addInputs(current, descCell)
     }
     if (!current) continue
     const cost = tr.querySelector(':scope > td.cost')
     const btn = tr.querySelector<HTMLButtonElement>('button')
-    if (cost && btn) {
-      const price = txt(cost) ?? ''
-      // Every row of a block posts the same call, so the first one names it.
-      if (current.kind === 'other') current.kind = kindOf(btn)
-      current.offers.push({
-        cost: price,
-        label: txt(btn) ?? '',
-        ...priceOf(price),
-        value: btn.getAttribute('value'),
-        buttonSelector: selectorFor(btn, current.title, current.offers.length),
-      })
+    if (cost && btn) addOffer(current, txt(cost) ?? '', btn)
+    // Inputs living in non-rowspan description cells (seedtime/ratio/title rows)
+    for (const cell of tr.querySelectorAll(':scope > td:not(.cost)')) addInputs(current, cell)
+  }
+  return sections
+}
+
+/** One purchase per h3, in both layouts. The row layout groups several of them
+ * under one heading ("Torrent changes"), so a block splits on its headings and
+ * nothing an account is offered goes missing. The nodes stay live, so a button
+ * still knows which block it sits in. */
+function splitOnHeadings(body: Element): ChildNode[][] {
+  const parts: ChildNode[][] = []
+  let current: ChildNode[] | null = null
+  for (const node of body.childNodes) {
+    if (!current || (node.nodeType === Node.ELEMENT_NODE && (node as Element).matches('h3'))) {
+      current = []
+      parts.push(current)
     }
-    // inputs living in non-rowspan description cells (seedtime/ratio/title rows)
-    for (const inp of tr.querySelectorAll<HTMLInputElement>(':scope > td:not(.cost) input[name]')) {
-      if (!current.inputs.some((x) => x.name === inp.name)) {
-        current.inputs.push({ name: inp.name, placeholder: inp.name.includes('torrent') ? 'Torrent ID' : inp.name.replace(/([A-Z])/g, ' $1').toLowerCase() })
+    current.push(node)
+  }
+  return parts
+}
+
+/** Elements of one kind inside a run of nodes, the nodes themselves included. */
+function within<T extends Element>(nodes: ChildNode[], selector: string): T[] {
+  const out: T[] = []
+  for (const node of nodes) {
+    if (node.nodeType !== Node.ELEMENT_NODE) continue
+    const el = node as Element
+    if (el.matches(selector)) out.push(el as T)
+    out.push(...el.querySelectorAll<T>(selector))
+  }
+  return out
+}
+
+function readRows(main: Element): StoreSection[] {
+  const sections: StoreSection[] = []
+  for (const head of main.querySelectorAll('h2.bonusRow')) {
+    const body = head.nextElementSibling
+    if (!body?.classList.contains('bonusRow')) continue
+    const parts = splitOnHeadings(body).filter((p) => within(p, 'button').length > 0)
+    for (const part of parts) {
+      // With one purchase the block heading names it; with several, each h3 does.
+      const own = parts.length > 1 ? flat(txt(within(part, 'h3')[0]) ?? '') : ''
+      const clone = body.ownerDocument.createElement('div')
+      part.forEach((n) => clone.appendChild(n.cloneNode(true)))
+      // A heading used as the title would read twice inside the block itself.
+      if (own) clone.querySelector('h3')?.remove()
+      const section = emptySection(own || flat(head.textContent ?? ''), describe(clone))
+      for (const btn of within<HTMLButtonElement>(part, 'button')) {
+        addOffer(section, btn.getAttribute('title') ?? '', btn)
       }
+      for (const inp of within<HTMLInputElement>(part, 'input[name]')) addInput(section, inp)
+      sections.push(section)
     }
   }
+  return sections
+}
+
+export function extractStore(doc: Document): StoreData | null {
+  const main = doc.querySelector('#mainBody')
+  if (!main) return null
+  const table = doc.querySelector('.storeTable')
+  const sections = table ? readTable(table) : readRows(main)
+  if (sections.length === 0) return null
 
   const earning = main.querySelector('h3')?.nextSibling
   let earningHtml: string | null = null

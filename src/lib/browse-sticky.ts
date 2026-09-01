@@ -5,6 +5,7 @@ export const BROWSE_FILTERS_KEY = 'colophon:browse-filters'
 // Owned by the browse page; named here so the settings export can carry them.
 export const BROWSE_VIEW_KEY = 'colophon:browse-view'
 export const BROWSE_COLS_KEY = 'colophon:browse-cols'
+export const BROWSE_GROUP_KEY = 'colophon:browse-group'
 
 export interface StickyFilters {
   mainCat: number[]

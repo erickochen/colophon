@@ -253,12 +253,35 @@ function Widget({ c, onChange, wide }: { c: MirrorControl; onChange: () => void;
       return <MirrorComposer c={c} onChange={onChange} />
 
     case 'file':
-      return (
-        <Button type="button" variant="outline" size="sm" onClick={() => c.el.click()}>
-          <Paperclip /> {c.el.files?.[0]?.name ?? 'Choose file…'}
-        </Button>
-      )
+      return <MirrorFile c={c} onChange={onChange} labelledBy={labelledBy} />
   }
+}
+
+/** MAM's own file input, driven from our button. The picker answers on the
+ * input itself, so the chosen name only shows up by listening there. */
+function MirrorFile({
+  c, onChange, labelledBy,
+}: {
+  c: Extract<MirrorControl, { kind: 'file' }>
+  onChange: () => void
+  labelledBy?: string
+}) {
+  const [name, setName] = useState<string | null>(c.el.files?.[0]?.name ?? null)
+  useEffect(() => {
+    const el = c.el
+    const read = () => {
+      setName(el.files?.[0]?.name ?? null)
+      onChange()
+    }
+    el.addEventListener('change', read)
+    return () => el.removeEventListener('change', read)
+  }, [c.el, onChange])
+
+  return (
+    <Button type="button" variant="outline" size="sm" aria-labelledby={labelledBy} onClick={() => c.el.click()}>
+      <Paperclip /> {name ?? 'Choose file…'}
+    </Button>
+  )
 }
 
 function Explain({ noteHtml, text }: { noteHtml?: string | null; text?: string | null }) {

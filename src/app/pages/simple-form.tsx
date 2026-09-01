@@ -17,7 +17,11 @@ export function SimpleFormView(props: PageProps) {
     const form = main?.querySelector<HTMLFormElement>('form:not(#mainSearch)')
     if (!main || !form) return { intro: null, mirror: null, submitLabel: "Submit", extraActions: [], subtitle: null }
     const clone = main.cloneNode(true) as HTMLElement
-    clone.querySelectorAll('form').forEach((f) => f.remove())
+    // The controls of a form are mirrored below, but text MAM writes loose
+    // inside it belongs to the reader: the bit-bucket names its size limit there.
+    clone.querySelectorAll('form').forEach((f) => {
+      f.querySelectorAll('table, input, select, textarea, button, label').forEach((e) => e.remove())
+    })
     // The page's own h1 often carries context the title misses ("Message to
     // <user>", "Add a comment to <torrent>"): lift it to the header subtitle,
     // then drop it from the body so it isn't shown twice.

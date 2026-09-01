@@ -6,7 +6,7 @@ import {
   applyTheme, DARK_SCHEMES, LIGHT_SCHEMES, SCHEME_DARK_KEY, SCHEME_LIGHT_KEY, THEME_KEY,
 } from '@/lib/theme'
 import { getPortalContainer } from '@/lib/portals'
-import { BROWSE_COLS_KEY, BROWSE_FILTERS_KEY, BROWSE_VIEW_KEY } from '@/lib/browse-sticky'
+import { BROWSE_COLS_KEY, BROWSE_FILTERS_KEY, BROWSE_GROUP_KEY, BROWSE_VIEW_KEY } from '@/lib/browse-sticky'
 import { COLLAPSED_PREFIX, reloadCollapsed } from '@/lib/collapsed'
 import { HIDDEN_SECTIONS_KEY, reloadHiddenSections } from '@/lib/hidden-sections'
 import { SAVED_FILTERS_KEY, SCHEMA as SAVED_FILTERS_SCHEMA, reloadSavedFilters } from '@/lib/saved-filters'
@@ -538,6 +538,7 @@ const VALUE_KEYS: Record<string, (raw: string) => boolean> = {
   [SCHEME_DARK_KEY]: (raw) => (DARK_SCHEMES as readonly string[]).includes(raw),
   [BROWSE_VIEW_KEY]: (raw) => raw === 'list' || raw === 'grid',
   [BROWSE_COLS_KEY]: (raw) => parses(raw, validStringList),
+  [BROWSE_GROUP_KEY]: (raw) => raw === 'series' || raw === 'none',
   [BROWSE_FILTERS_KEY]: (raw) => parses(raw, validPlainObject),
   [HIDDEN_SECTIONS_KEY]: (raw) => parses(raw, validStringList),
   [SAVED_FILTERS_KEY]: (raw) => parses(raw, validSavedFilters),

@@ -397,7 +397,9 @@ function PlainBlock({ section }: { section: StoreSection }) {
 
   function buy(selector: string) {
     for (const inp of section.inputs) {
-      const el = document.querySelector<HTMLInputElement>(`.storeTable input[name="${CSS.escape(inp.name)}"]`)
+      // Both store layouts live inside #mainBody, so this reaches the field
+      // whichever one this account is on.
+      const el = document.querySelector<HTMLInputElement>(`#mainBody input[name="${CSS.escape(inp.name)}"]`)
       if (el) el.value = values[inp.name] ?? ''
     }
     if (section.inputs.length > 0 && section.inputs.some((i) => !(values[i.name] ?? '').trim())) {
