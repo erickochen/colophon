@@ -3,7 +3,7 @@
 import { Sprout } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import type { BadgeTone } from '@/lib/snatch-status'
+import { pileBadge, readPile, type BadgeTone } from '@/lib/snatch-status'
 
 // The quiet tone keeps its outline: beside a category or a language badge, which
 // carry the same fill and no border, that line is what marks it as a state.
@@ -42,4 +42,19 @@ export function SnatchBadge({
       {text}
     </Badge>
   )
+}
+
+/** Whether there is anything to say about holding this torrent. */
+export const snatchMarked = (pile?: string | null, snatched?: boolean) => !!pile || !!snatched
+
+/** Where a member stands with a torrent they already hold, for any list that can
+ * answer it. The pile says it best, since it knows whether the torrent is still
+ * seeding; without one the search flag still says they have had it before. */
+export function SnatchMark({ pile, snatched, dense }: { pile?: string | null; snatched?: boolean; dense?: boolean }) {
+  if (pile) {
+    const read = pileBadge(readPile(pile))
+    return <SnatchBadge text={read.text} tone={read.tone} title={pile} dense={dense} />
+  }
+  if (!snatched) return null
+  return <SnatchBadge text="Snatched" tone="muted" title="You have had this torrent before" dense={dense} />
 }

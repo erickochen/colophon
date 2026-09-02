@@ -6,9 +6,12 @@ import { coverShape } from '@/lib/cover-shape'
 import { MAIN_CATS } from '@/lib/mam-facets'
 import { fmtInt } from '@/lib/format'
 import { pinnedSet } from '@/lib/saved-filters'
+import { useFeature } from '@/lib/settings'
+import { useSnatchIndex } from '@/lib/snatch-index'
 import { placed, weeksOf, type Available, type Top10Query } from '@/lib/top10-period'
 import { PageHeader } from '@/app/shell/bits'
 import { Book } from '@/components/book'
+import { SnatchMark, snatchMarked } from '@/components/status-badge'
 import { Badge } from '@/components/ui/badge'
 import { BlurFade } from '@/components/ui/blur-fade'
 import { Card, CardContent } from '@/components/ui/card'
@@ -72,6 +75,10 @@ export function Top10View(_props: PageProps) {
   const [mainCat, setMainCat] = useState<number[]>(opening.mainCat)
   const [cat, setCat] = useState<number[]>(opening.cat)
   const [rows, setRows] = useState<SearchTorrent[] | null>(null)
+  const [checkOn] = useFeature('snatchCheck')
+  // What this member already holds, which the search flag only half answers: it
+  // knows nothing about seeding state plus it runs minutes behind.
+  const { index: snatches } = useSnatchIndex(checkOn)
   // True where a stored week could not be read, so the list covers its year.
   const [periodFailed, setPeriodFailed] = useState(false)
   const seq = useRef(0)
@@ -286,6 +293,7 @@ export function Top10View(_props: PageProps) {
         )}
         {rows?.map((t, i) => {
           const authors = parsePeople(t.author_info)
+          const pile = snatches?.have.get(t.id) ?? null
           return (
             <BlurFade key={t.id} delay={0.05 * i} direction="up" offset={8}>
             <a href={`/t/${t.id}`} className="group block">
@@ -311,6 +319,13 @@ export function Top10View(_props: PageProps) {
                     <div className="truncate text-[12px] text-muted-foreground">
                       {authors.map((a) => a.name).join(', ')}{t.catname ? ` · ${t.catname}` : ''}
                     </div>
+                    {/* With the title rather than beside the numbers, since the
+                        columns on the right sit past the fold on a phone. */}
+                    {snatchMarked(pile, t.my_snatched === 1) && (
+                      <div className="mt-1 flex">
+                        <SnatchMark pile={pile} snatched={t.my_snatched === 1} dense />
+                      </div>
+                    )}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {t.vip === 1 && <Badge className="bg-brand-soft text-accent-foreground" variant="secondary">VIP</Badge>}

@@ -2,9 +2,12 @@ import { useMemo } from 'react'
 import { ArrowUpRight, BookOpen, Sparkles } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { coverCandidates } from '@/lib/mam-api'
+import { useFeature } from '@/lib/settings'
+import { useSnatchIndex } from '@/lib/snatch-index'
 import { LegacyView } from '@/app/pages/legacy'
 import { PageHeader } from '@/app/shell/bits'
 import { Book } from '@/components/book'
+import { SnatchMark, snatchMarked } from '@/components/status-badge'
 import { BlurFade } from '@/components/ui/blur-fade'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -77,7 +80,7 @@ function extract(doc: Document): ClubsData | null {
   return { clubs, cats, suggestHref }
 }
 
-function PickCard({ p }: { p: Pick }) {
+function PickCard({ p, pile }: { p: Pick; pile?: string | null }) {
   return (
     <a href={p.href} className="group grid content-end gap-2">
       <span className="relative block transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1 motion-reduce:transition-none">
@@ -99,6 +102,13 @@ function PickCard({ p }: { p: Pick }) {
       <div className="grid gap-0.5">
         <span className="font-display line-clamp-2 text-[13px] font-medium leading-snug group-hover:underline">{p.title}</span>
         {p.author && <span className="line-clamp-1 text-[11px] text-muted-foreground">{p.author}</span>}
+        {/* A pick you already hold, since the point of this page is finding one
+            you have not read. */}
+        {snatchMarked(pile) && (
+          <span className="mt-0.5 flex">
+            <SnatchMark pile={pile} dense />
+          </span>
+        )}
       </div>
     </a>
   )
@@ -106,6 +116,10 @@ function PickCard({ p }: { p: Pick }) {
 
 export function BookClubsView(props: PageProps) {
   const data = useMemo(() => extract(document), [])
+  const [checkOn] = useFeature('snatchCheck')
+  // A pick carries a torrent id plus nothing else, so the snatch piles are the
+  // only side that knows whether this member already holds it.
+  const { index: snatches } = useSnatchIndex(checkOn && data != null)
   if (!data) return <LegacyView {...props} />
 
   return (
@@ -158,7 +172,9 @@ export function BookClubsView(props: PageProps) {
                 <BookOpen className="size-3.5" /> {cat.name}
               </h3>
               <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-                {cat.picks.map((p, i) => <PickCard key={p.href + i} p={p} />)}
+                {cat.picks.map((p, i) => (
+                  <PickCard key={p.href + i} p={p} pile={p.tid ? snatches?.have.get(p.tid) ?? null : null} />
+                ))}
               </div>
             </div>
           ))}

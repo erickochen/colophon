@@ -16,7 +16,6 @@ import { CONTENT_FLAGS, LANGUAGES, MAIN_CATS, SORT_OPTIONS } from '@/lib/mam-fac
 import { bottomDockRef } from '@/lib/bottom-dock'
 import { coverShape } from '@/lib/cover-shape'
 import { useSnatchIndex } from '@/lib/snatch-index'
-import { pileBadge, readPile } from '@/lib/snatch-status'
 import { wedgeHelps } from '@/lib/wedge'
 import { useQuickie } from '@/lib/quickie'
 import {
@@ -30,7 +29,7 @@ import { CopyResultsButton } from '@/components/copy-results'
 import { QuickieAction } from '@/components/quickie-action'
 import { CollapsibleSection } from '@/components/section'
 import { SeriesHeader } from '@/components/series-header'
-import { SnatchBadge } from '@/components/status-badge'
+import { SnatchMark, snatchMarked } from '@/components/status-badge'
 import { TagLinks } from '@/components/tag-links'
 import { WedgeBatchButton, WedgeRowButton } from '@/components/wedge-download'
 import { Badge } from '@/components/ui/badge'
@@ -850,21 +849,6 @@ function RowCover({ t, blurb }: { t: SearchTorrent; blurb: boolean }) {
   )
 }
 
-/** Whether a row has anything to say about holding this torrent. */
-const snatchMarked = (t: SearchTorrent, pile?: string | null) => !!pile || t.my_snatched === 1
-
-/** Where this member stands with a torrent they already hold. The pile says it
- * best, since it knows whether the torrent is still seeding; without one the
- * endpoint's flag still says they have had it before. */
-function SnatchMark({ t, pile, dense }: { t: SearchTorrent; pile?: string | null; dense?: boolean }) {
-  if (pile) {
-    const read = pileBadge(readPile(pile))
-    return <SnatchBadge text={read.text} tone={read.tone} title={pile} dense={dense} />
-  }
-  if (t.my_snatched !== 1) return null
-  return <SnatchBadge text="Snatched" tone="muted" title="You have had this torrent before" dense={dense} />
-}
-
 /** Flip the local bookmark flag on the given rows. */
 type BookmarkSetter = (ids: number[], bookmarked: boolean) => void
 
@@ -1116,7 +1100,7 @@ function TorrentRow({ t, cols, blurb, onBookmark, onRemoved, onFreeleech, onIgno
           <span className="mt-1.5 flex flex-wrap items-center gap-1">
             {t.vip === 1 && <Badge className="bg-brand-soft text-accent-foreground" variant="secondary">VIP</Badge>}
             {(t.free === 1 || t.personal_freeleech === 1) && <Badge className="bg-ok/15 text-ok" variant="secondary">Freeleech</Badge>}
-            <SnatchMark t={t} pile={pile} />
+            <SnatchMark pile={pile} snatched={t.my_snatched === 1} />
             <Badge variant="outline">{t.catname || catName(t.category)}</Badge>
             {t.lang_code && t.lang_code !== 'ENG' && <Badge variant="outline">{t.lang_code}</Badge>}
           </span>
@@ -1264,9 +1248,9 @@ function GalleryItem({ t, blurb, hiddenReason, onUnignore, isNew, pile }: { t: S
         {authorsText && <span className="mt-0.5 line-clamp-1 text-[11.5px] text-muted-foreground">{authorsText}</span>}
         {/* A tile has no room for a row of badges, so only this one: whether the
             book is already yours is what a reader scans a shelf for. */}
-        {snatchMarked(t, pile) && (
+        {snatchMarked(pile, t.my_snatched === 1) && (
           <span className="mt-1 flex">
-            <SnatchMark t={t} pile={pile} dense />
+            <SnatchMark pile={pile} snatched={t.my_snatched === 1} dense />
           </span>
         )}
       </a>
