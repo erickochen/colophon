@@ -5,10 +5,12 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type { BadgeTone } from '@/lib/snatch-status'
 
+// The quiet tone keeps its outline: beside a category or a language badge, which
+// carry the same fill and no border, that line is what marks it as a state.
 const TONES: Record<BadgeTone, string> = {
   ok: 'bg-ok/15 text-ok',
   warn: 'border-warn/40 text-warn',
-  muted: 'text-muted-foreground',
+  muted: 'border-border text-muted-foreground',
 }
 
 /** `dense` is the h-4 size the freeleech rows use beside language plus

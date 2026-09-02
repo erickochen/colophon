@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AudioLines, BookImage, BookOpen, Headphones, Loader2, Music, Newspaper, Radio, Tag } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { PageProps } from '@/app/router'
@@ -8,7 +8,7 @@ import { coverThumbUrl } from '@/lib/mam-api'
 import { useCollapsed } from '@/lib/collapsed'
 import { pinnedSet, sameState } from '@/lib/saved-filters'
 import { useFeature } from '@/lib/settings'
-import { cachedSnatchIndex, loadSnatchIndex, type SnatchIndex } from '@/lib/snatch-index'
+import { useSnatchIndex } from '@/lib/snatch-index'
 import { pileBadge, readPile } from '@/lib/snatch-status'
 import { Book } from '@/components/book'
 import { CollapsibleSection } from '@/components/section'
@@ -102,12 +102,7 @@ export function FreeleechView(props: PageProps) {
   const [cats, setCats] = useState<string[]>(opening.cats)
   const [groupBy, setGroupBy] = useState(opening.groupBy)
   const [owned, setOwned] = useState<Owned>(opening.owned)
-  // A warm cache paints the badges in the first frame; a cold one arrives while
-  // the list is already readable.
-  const [index, setIndex] = useState<SnatchIndex | null>(() => (checkOn ? cachedSnatchIndex() : null))
-  const [checking, setChecking] = useState(false)
-  const [checkFailed, setCheckFailed] = useState(false)
-  const [attempt, setAttempt] = useState(0)
+  const { index, checking, failed: checkFailed, retry } = useSnatchIndex(checkOn)
   const fold = useCollapsed('freeleech')
   // While a filter runs, every matching section opens: folds made now are
   // temporary so the reader's own layout returns once the filter clears.
@@ -153,9 +148,6 @@ export function FreeleechView(props: PageProps) {
   const needle = q.trim().toLowerCase()
   const have = index?.have ?? null
   const owns = (tid: string) => have?.has(Number(tid)) ?? false
-  // The reject handler runs outside this render, so it reads the map from here.
-  const haveRef = useRef(have)
-  haveRef.current = have
   // The split only counts as filtering while it can answer, so a choice that
   // narrows nothing leaves the reader's own folds alone.
   const filtering =
@@ -170,30 +162,11 @@ export function FreeleechView(props: PageProps) {
     if (!tempFolds && tempClosed.length > 0) setTempClosed([])
   }, [tempFolds, tempClosed.length])
 
+  // Only where nothing can answer the split: a cached map still can, so taking
+  // the choice away there would throw away a working filter.
   useEffect(() => {
-    if (!checkOn) return
-    let live = true
-    setChecking(true)
-    setCheckFailed(false)
-    void loadSnatchIndex().then(
-      (next) => {
-        if (!live) return
-        setIndex(next)
-        setChecking(false)
-      },
-      () => {
-        if (!live) return
-        setCheckFailed(true)
-        setChecking(false)
-        // Only where nothing can answer the split: a cached map still can, so
-        // taking the choice away there would throw away a working filter.
-        if (!haveRef.current) setOwned('all')
-      }
-    )
-    return () => {
-      live = false
-    }
-  }, [checkOn, attempt])
+    if (checkFailed && !have) setOwned('all')
+  }, [checkFailed, have])
 
   const matches = useMemo(() => {
     const keep = (i: FlItem) =>
@@ -342,7 +315,7 @@ export function FreeleechView(props: PageProps) {
           {have
             ? 'Could not refresh your snatch list, so these marks are the ones from last time.'
             : 'Could not read your snatch list, so the picks you already have are not marked.'}{' '}
-          <Button variant="link" className={QUIET_LINK} onClick={() => setAttempt((n) => n + 1)}>
+          <Button variant="link" className={QUIET_LINK} onClick={retry}>
             Try again
           </Button>
         </p>

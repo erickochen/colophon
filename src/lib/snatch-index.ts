@@ -2,6 +2,7 @@
 // no endpoint that answers that per torrent: the search API's my_snatched runs
 // 5 to 20 minutes behind and carries no seeding state. So the piles from
 // /snatch_summary.php are the source, read once and kept.
+import { useCallback, useEffect, useState } from 'react'
 import { mamFetch, sessionToken } from '@/lib/mam-fetch'
 import { MS_PER_SECOND } from '@/lib/format'
 import { readPile } from '@/lib/snatch-status'
@@ -142,6 +143,46 @@ export function loadSnatchIndex(): Promise<SnatchIndex> {
     inflight = null
   })
   return inflight
+}
+
+/** The map for a page that marks what this member already holds. A warm cache
+ * paints in the first frame; a cold one lands while the list is already
+ * readable. `retry` is for the line a page shows when the read failed. */
+export function useSnatchIndex(enabled: boolean): {
+  index: SnatchIndex | null
+  checking: boolean
+  failed: boolean
+  retry: () => void
+} {
+  const [index, setIndex] = useState<SnatchIndex | null>(() => (enabled ? cachedSnatchIndex() : null))
+  const [checking, setChecking] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    if (!enabled) return
+    let live = true
+    setChecking(true)
+    setFailed(false)
+    void loadSnatchIndex().then(
+      (next) => {
+        if (!live) return
+        setIndex(next)
+        setChecking(false)
+      },
+      () => {
+        if (!live) return
+        setFailed(true)
+        setChecking(false)
+      }
+    )
+    return () => {
+      live = false
+    }
+  }, [enabled, attempt])
+
+  const retry = useCallback(() => setAttempt((n) => n + 1), [])
+  return { index, checking, failed, retry }
 }
 
 async function run(): Promise<SnatchIndex> {

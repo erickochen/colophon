@@ -666,7 +666,7 @@ export function ColophonPrefsView(_props: PageProps) {
         <FeatureRow
           feature="hideSnatched"
           title="Hide snatched torrents"
-          note="Hides results you already snatched. The same toggle lives in the browse filters."
+          note="Opens browse on New to me, so torrents you have had before stay out of the results. The same choice sits in the browse filters, where you can put them back."
           credit="MAM+ by GardenShade"
         />
         <FeatureRow
@@ -694,8 +694,8 @@ export function ColophonPrefsView(_props: PageProps) {
         />
         <FeatureRow
           feature="snatchCheck"
-          title="Check freeleech against your snatches"
-          note="Marks the freeleech picks you already have plus lets you filter them out. Reads your snatch summary, so the first visit costs a few requests."
+          title="Check results against your snatches"
+          note="Marks what you already have in browse plus the freeleech picks, with the seeding state beside it. Reads your snatch summary, so the first visit costs a few requests."
         />
         <FeatureRow
           feature="coverBlurb"

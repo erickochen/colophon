@@ -15,12 +15,14 @@ import { groupBySeries, runsBySeries, type SeriesGroup, type SeriesRun } from '@
 import { CONTENT_FLAGS, LANGUAGES, MAIN_CATS, SORT_OPTIONS } from '@/lib/mam-facets'
 import { bottomDockRef } from '@/lib/bottom-dock'
 import { coverShape } from '@/lib/cover-shape'
+import { useSnatchIndex } from '@/lib/snatch-index'
+import { pileBadge, readPile } from '@/lib/snatch-status'
 import { wedgeHelps } from '@/lib/wedge'
 import { useQuickie } from '@/lib/quickie'
 import {
   BROWSE_COLS_KEY, BROWSE_GROUP_KEY, BROWSE_VIEW_KEY, mamBrowseDefaults, readSticky, writeSticky, type StickyFilters,
 } from '@/lib/browse-sticky'
-import { useFeature, useIgnoredTorrents, useNewMarks } from '@/lib/settings'
+import { readFeature, useFeature, useIgnoredTorrents, useNewMarks } from '@/lib/settings'
 import { fmtInt, plural, relTime, stampMs, utcTitle } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Book } from '@/components/book'
@@ -28,6 +30,7 @@ import { CopyResultsButton } from '@/components/copy-results'
 import { QuickieAction } from '@/components/quickie-action'
 import { CollapsibleSection } from '@/components/section'
 import { SeriesHeader } from '@/components/series-header'
+import { SnatchBadge } from '@/components/status-badge'
 import { TagLinks } from '@/components/tag-links'
 import { WedgeBatchButton, WedgeRowButton } from '@/components/wedge-download'
 import { Badge } from '@/components/ui/badge'
@@ -85,6 +88,12 @@ const SEARCH_TYPES = [
 const SEARCH_INS = [
   ['torrents', 'Everywhere'], ['bookmarks', 'My bookmarks'],
   ['mine', 'My uploads'], ['allReseed', 'All reseed requests'], ['myReseed', 'I could reseed'],
+] as const
+
+// MAM's own Snatched slot, in the wording the freeleech picks use for the same
+// split. The values are MAM's, so state plus blob say the same thing.
+const SNATCHED_FILTERS = [
+  ['all', 'Snatched or not'], ['not', 'New to me'], ['only', 'Already have'],
 ] as const
 
 // The list you are in is what the page is about, so it names the page as well.
@@ -204,12 +213,16 @@ type SrchField = (typeof SRCH_FIELDS)[number][0]
 
 type BrowseSearchType = (typeof SEARCH_TYPES)[number][0]
 type BrowseSearchIn = (typeof SEARCH_INS)[number][0]
+type SnatchedFilter = (typeof SNATCHED_FILTERS)[number][0]
 
 interface BrowseState {
   text: string
   srchIn: SrchField[]
   searchType: BrowseSearchType
   searchIn: BrowseSearchIn
+  /** Whether torrents you have had before are in the results. The endpoint
+   * answers it, so it holds across every page rather than the loaded rows. */
+  snatched: SnatchedFilter
   // Tab ids stay the classic main categories; the POST maps them to the new
   // media-type schema.
   mainCat: number[]
@@ -467,6 +480,13 @@ function stateFromSearchJson(raw: string, myUid: string | null): Partial<BrowseS
     out.searchType = 'inactive'
     takeTor('state')
   }
+  // MAM's own serializer drops neutral values, "all" among them, so a blob
+  // carrying it was written here. That makes it a choice: the reader put their
+  // snatches back while the preference says to hide them.
+  if (tor.downloaded === 'only' || tor.downloaded === 'not' || tor.downloaded === 'all') {
+    out.snatched = tor.downloaded
+    takeTor('downloaded')
+  }
   if (tor.bookmarked === 'only') {
     out.searchIn = 'bookmarks'
     takeTor('bookmarked')
@@ -511,6 +531,8 @@ function stateFromUrl(myUid: string | null = null): BrowseState {
     searchType:
       rawType === 'fl-VIP' ? 'fl' : SEARCH_TYPES.some(([v]) => v === rawType) ? (rawType as BrowseSearchType) : 'all',
     searchIn: SEARCH_INS.some(([v]) => v === rawIn) ? (rawIn as BrowseSearchIn) : 'torrents',
+    // Only the newer blob carries this slot; the classic browse form has none.
+    snatched: 'all',
     mainCat: [...new Set([...p.getAll('tor[main_cat][]').map(Number).filter(Boolean), ...catTabs])],
     categories: [],
     langs: p.getAll('tor[browse_lang][]').map(Number).filter(Boolean),
@@ -557,6 +579,7 @@ const savedOf = (s: BrowseState): Record<string, unknown> => ({
   text: s.text,
   srchIn: s.srchIn,
   searchType: s.searchType,
+  snatched: s.snatched,
   mainCat: s.mainCat,
   categories: s.categories,
   langs: s.langs,
@@ -596,8 +619,13 @@ const SAVED_DEFAULTS: Partial<BrowseState> = {
   sort: 'default',
   extra: EMPTY_EXTRA,
   // Page size stays out: it reads as a preference of its own and the sticky
-  // filters would carry a reset of it into every later visit.
+  // filters would carry a reset of it into every later visit. The snatched
+  // split stays out for the same reason; openingSnatched puts it back.
 }
+
+/** The snatched split a fresh list opens with, which is the stored preference.
+ * A link naming the slot itself beats it. */
+const openingSnatched = (): SnatchedFilter => (readFeature('hideSnatched') ? 'not' : 'all')
 
 const asIds = (v: unknown): number[] | undefined =>
   Array.isArray(v) ? v.map(Number).filter((n) => Number.isFinite(n) && n > 0) : undefined
@@ -619,6 +647,7 @@ function patchFromSaved(raw: Record<string, unknown>): Partial<BrowseState> {
     : []
   if (srchIn.length > 0) out.srchIn = srchIn
   if (SEARCH_TYPES.some(([v]) => v === raw.searchType)) out.searchType = raw.searchType as BrowseSearchType
+  if (SNATCHED_FILTERS.some(([v]) => v === raw.snatched)) out.snatched = raw.snatched as SnatchedFilter
   const mainCat = asIds(raw.mainCat)
   if (mainCat) out.mainCat = mainCat.filter((m) => MAIN_CATS.some((x) => x.id === m))
   const categories = asIds(raw.categories)
@@ -663,6 +692,7 @@ function namesFilters(b: Partial<BrowseState>): boolean {
     // absence of a choice rather than one.
     (b.sort != null && b.sort !== 'default') ||
     (b.searchType != null && b.searchType !== 'all') ||
+    (b.snatched != null && b.snatched !== 'all') ||
     (b.searchIn != null && b.searchIn !== 'torrents') ||
     (b.extra != null && hasExtra(b.extra))
   )
@@ -673,14 +703,19 @@ function namesFilters(b: Partial<BrowseState>): boolean {
  * opening your bookmarks or your uploads should show that list whole. A pinned
  * set stands above all of it plus steps aside only for a link naming filters. */
 function initialState(myUid: string | null): BrowseState {
-  const s = stateFromUrl(myUid)
-  // An entity link pins one author, narrator or series; saved filters would
-  // narrow that list to confusion.
-  if (s.searchIn !== 'torrents' || s.uploader || s.authorID || s.narratorID || s.seriesID) return s
+  const fromUrl = stateFromUrl(myUid)
   const p = new URLSearchParams(location.search)
   // A filter the link itself names is a choice, whether it rides in as a
   // tor[...] param or inside the s= blob of the newer search page.
   const blob = p.get('s') ? stateFromSearchJson(p.get('s')!, myUid) : null
+  // The preference decides what the page opens with, so a reader who keeps their
+  // own snatches out of the way does not set that per visit. A link naming the
+  // slot beats it, which is how a reader who puts them back keeps them after a
+  // reload or a step back.
+  const s: BrowseState = blob?.snatched == null ? { ...fromUrl, snatched: openingSnatched() } : fromUrl
+  // An entity link pins one author, narrator or series; saved filters would
+  // narrow that list to confusion.
+  if (s.searchIn !== 'torrents' || s.uploader || s.authorID || s.narratorID || s.seriesID) return s
   const pin = pinnedSet(BROWSE_PAGE)
   if (pin) {
     const urlSortPicked = p.get('tor[sortType]') && p.get('tor[sortType]') !== 'default'
@@ -764,6 +799,9 @@ function toQuery2(s: BrowseState): Search2Query {
     fl: s.searchType === 'fl' ? 'fl' : undefined,
     vip: s.searchType === 'VIP' ? 'vip' : s.searchType === 'nVIP' ? 'not' : undefined,
     bookmarked: s.searchIn === 'bookmarks' ? 'only' : undefined,
+    // The wide stand only travels where the preference would decide otherwise.
+    // Written down there, since a reload would put the filter back on.
+    downloaded: s.snatched !== 'all' ? s.snatched : openingSnatched() === 'all' ? undefined : 'all',
     rr: s.searchIn === 'allReseed' ? 'reseed' : s.searchIn === 'myReseed' ? 'myReseeds' : undefined,
     start: s.start || undefined,
     perPage: s.perpage,
@@ -810,6 +848,21 @@ function RowCover({ t, blurb }: { t: SearchTorrent; blurb: boolean }) {
       </a>
     </CoverPreview>
   )
+}
+
+/** Whether a row has anything to say about holding this torrent. */
+const snatchMarked = (t: SearchTorrent, pile?: string | null) => !!pile || t.my_snatched === 1
+
+/** Where this member stands with a torrent they already hold. The pile says it
+ * best, since it knows whether the torrent is still seeding; without one the
+ * endpoint's flag still says they have had it before. */
+function SnatchMark({ t, pile, dense }: { t: SearchTorrent; pile?: string | null; dense?: boolean }) {
+  if (pile) {
+    const read = pileBadge(readPile(pile))
+    return <SnatchBadge text={read.text} tone={read.tone} title={pile} dense={dense} />
+  }
+  if (t.my_snatched !== 1) return null
+  return <SnatchBadge text="Snatched" tone="muted" title="You have had this torrent before" dense={dense} />
 }
 
 /** Flip the local bookmark flag on the given rows. */
@@ -1006,7 +1059,7 @@ function ReseedNote({ t, compact }: { t: SearchTorrent; compact?: boolean }) {
   )
 }
 
-function TorrentRow({ t, cols, blurb, onBookmark, onRemoved, onFreeleech, onIgnore, onUnignore, hiddenReason, selectable, checked, onCheck, isNew }: { t: SearchTorrent; cols: ColKey[]; blurb: boolean; onBookmark: BookmarkSetter; onRemoved?: RowDropper; onFreeleech?: (id: number) => void; onIgnore?: (t: SearchTorrent) => void; onUnignore?: (id: number) => void; hiddenReason?: HiddenReason | null; selectable?: boolean; checked?: boolean; onCheck?: (id: number, on: boolean) => void; isNew?: boolean }) {
+function TorrentRow({ t, cols, blurb, onBookmark, onRemoved, onFreeleech, onIgnore, onUnignore, hiddenReason, selectable, checked, onCheck, isNew, pile }: { t: SearchTorrent; cols: ColKey[]; blurb: boolean; onBookmark: BookmarkSetter; onRemoved?: RowDropper; onFreeleech?: (id: number) => void; onIgnore?: (t: SearchTorrent) => void; onUnignore?: (id: number) => void; hiddenReason?: HiddenReason | null; selectable?: boolean; checked?: boolean; onCheck?: (id: number, on: boolean) => void; isNew?: boolean; pile?: string | null }) {
   const authors = parsePeople(t.author_info)
   const narrators = cols.includes('narrators') ? parsePeople(t.narrator_info) : []
   const series = cols.includes('series') ? parsePeople(t.series_info) : []
@@ -1063,7 +1116,7 @@ function TorrentRow({ t, cols, blurb, onBookmark, onRemoved, onFreeleech, onIgno
           <span className="mt-1.5 flex flex-wrap items-center gap-1">
             {t.vip === 1 && <Badge className="bg-brand-soft text-accent-foreground" variant="secondary">VIP</Badge>}
             {(t.free === 1 || t.personal_freeleech === 1) && <Badge className="bg-ok/15 text-ok" variant="secondary">Freeleech</Badge>}
-            {t.my_snatched === 1 && <Badge variant="secondary">Snatched</Badge>}
+            <SnatchMark t={t} pile={pile} />
             <Badge variant="outline">{t.catname || catName(t.category)}</Badge>
             {t.lang_code && t.lang_code !== 'ENG' && <Badge variant="outline">{t.lang_code}</Badge>}
           </span>
@@ -1171,7 +1224,7 @@ function TorrentRow({ t, cols, blurb, onBookmark, onRemoved, onFreeleech, onIgno
   )
 }
 
-function GalleryItem({ t, blurb, hiddenReason, onUnignore, isNew }: { t: SearchTorrent; blurb: boolean; hiddenReason?: HiddenReason | null; onUnignore?: (id: number) => void; isNew?: boolean }) {
+function GalleryItem({ t, blurb, hiddenReason, onUnignore, isNew, pile }: { t: SearchTorrent; blurb: boolean; hiddenReason?: HiddenReason | null; onUnignore?: (id: number) => void; isNew?: boolean; pile?: string | null }) {
   const authors = parsePeople(t.author_info)
   const authorsText = authors.map((a) => a.name).join(', ')
   return (
@@ -1209,6 +1262,13 @@ function GalleryItem({ t, blurb, hiddenReason, onUnignore, isNew }: { t: SearchT
           {t.title}
         </span>
         {authorsText && <span className="mt-0.5 line-clamp-1 text-[11.5px] text-muted-foreground">{authorsText}</span>}
+        {/* A tile has no room for a row of badges, so only this one: whether the
+            book is already yours is what a reader scans a shelf for. */}
+        {snatchMarked(t, pile) && (
+          <span className="mt-1 flex">
+            <SnatchMark t={t} pile={pile} dense />
+          </span>
+        )}
       </a>
       {/* Outside the tile link, since it carries a link of its own. The reader
           keeps whichever view they last used, so the reseed lists have to say
@@ -1513,8 +1573,11 @@ export function BrowseView(props: PageProps) {
   // Rows this list dropped by itself, for as long as the endpoint keeps
   // answering with them.
   const dropped = useRef<Set<number>>(new Set())
-  const [hideSnatched, setHideSnatched] = useFeature('hideSnatched')
   const [newOn] = useFeature('newTorrents')
+  const [checkOn] = useFeature('snatchCheck')
+  // What this member already holds, by torrent id. The endpoint's own flag runs
+  // 5 to 20 minutes behind, so the piles fill in what it has not caught up with.
+  const { index: snatches } = useSnatchIndex(checkOn)
   const marks = useNewMarks()
   // Not a stored setting: a list held to Only new would open empty the next day,
   // once everything on it has been seen.
@@ -1856,17 +1919,29 @@ export function BrowseView(props: PageProps) {
 
   const dropOnUnbookmark = state.searchIn === 'bookmarks' ? dropRows : undefined
 
-  /** Ignore wins, then hide-snatched, then Only new, so a row is counted once. */
+  const piles = snatches?.have ?? null
+  /** The pile this torrent sits in, which is what the badge reads. */
+  const pileOf = useCallback((id: number) => piles?.get(id) ?? null, [piles])
+  /** Either source is enough: the endpoint knows every torrent, the piles know
+   * what it has not caught up with yet. */
+  const isSnatched = useCallback(
+    (t: SearchTorrent) => t.my_snatched === 1 || piles?.has(t.id) === true,
+    [piles]
+  )
+
+  /** Ignore wins, then the snatched split, then Only new, so a row is counted
+   * once. The endpoint already leaves snatched rows out; this catches the ones
+   * its flag has not caught up with. */
   const hiddenReason = useCallback(
     (t: SearchTorrent): HiddenReason | null =>
       ignored.has(t.id)
         ? 'ignored'
-        : hideSnatched && t.my_snatched === 1
+        : state.snatched === 'not' && isSnatched(t)
           ? 'snatched'
           : onlyNew && !isNewRow(t)
             ? 'seen'
             : null,
-    [ignored, hideSnatched, onlyNew, isNewRow]
+    [ignored, state.snatched, isSnatched, onlyNew, isNewRow]
   )
   const shownItems = useMemo(
     () => (showHidden ? items : items.filter((t) => !hiddenReason(t))),
@@ -1977,6 +2052,7 @@ export function BrowseView(props: PageProps) {
       onUnignore={ignored.remove}
       hiddenReason={showHidden ? hiddenReason(t) : null}
       isNew={isNewRow(t)}
+      pile={pileOf(t.id)}
     />
   )
   const galleryItem = (t: SearchTorrent) => (
@@ -1987,6 +2063,7 @@ export function BrowseView(props: PageProps) {
       hiddenReason={showHidden ? hiddenReason(t) : null}
       onUnignore={ignored.remove}
       isNew={isNewRow(t)}
+      pile={pileOf(t.id)}
     />
   )
   // entityName JSON-parses every row it scans and the view rerenders per
@@ -2099,15 +2176,14 @@ export function BrowseView(props: PageProps) {
     .filter(Boolean)
     .join(' · ')
 
-  /** Everything with a chip goes, the hide-snatched toggle included. Wider than
-   * a set: this one also lets go of the list you are in plus the author,
-   * narrator or series a link pinned. */
+  /** Everything with a chip goes, the snatched split included. Wider than a set:
+   * this one also lets go of the list you are in plus the author, narrator or
+   * series a link pinned. */
   const clearFilters = () => {
-    setHideSnatched(false)
     apply({
       mainCat: [], categories: [], langs: [], langsMode: 'has', flags: [],
       minSize: null, maxSize: null, dateRange: '', startDate: '', endDate: '',
-      searchType: 'all', searchIn: 'torrents',
+      searchType: 'all', searchIn: 'torrents', snatched: 'all',
       authorID: null, narratorID: null, seriesID: null, uploader: null, extra: EMPTY_EXTRA,
     })
   }
@@ -2118,7 +2194,7 @@ export function BrowseView(props: PageProps) {
     name: savedName,
     filtered: savedName.length > 0,
     onApply: (saved) => apply(patchFromSaved(saved)),
-    onClear: () => apply(SAVED_DEFAULTS),
+    onClear: () => apply({ ...SAVED_DEFAULTS, snatched: openingSnatched() }),
   })
 
   return (
@@ -2185,6 +2261,14 @@ export function BrowseView(props: PageProps) {
             onChange={(v) => apply({ searchType: v as BrowseState['searchType'] })}
             options={SEARCH_TYPES.map(([value, label]) => ({ value, label }))}
             ariaLabel="Which torrents to show"
+          />
+          {/* Sits with the other two: together they say which set you are in,
+              before the facets narrow it. */}
+          <FilterSelect
+            value={state.snatched}
+            onChange={(v) => apply({ snatched: v as SnatchedFilter })}
+            options={SNATCHED_FILTERS.map(([value, label]) => ({ value, label }))}
+            ariaLabel="Torrents you have had before"
           />
 
           <FilterFacet label="Genres" count={state.categories.length} width="w-72">
@@ -2280,13 +2364,6 @@ export function BrowseView(props: PageProps) {
             />
           </FilterFacet>
 
-          <FilterToggle
-            pressed={hideSnatched}
-            onPressedChange={setHideSnatched}
-            label="Hide snatched"
-            note="only in this browser"
-            icon={<EyeOff className="size-3.5" />}
-          />
           {newOn && (
             <FilterToggle
               pressed={onlyNew}
@@ -2505,6 +2582,7 @@ export function BrowseView(props: PageProps) {
                       onUnignore={ignored.remove}
                       hiddenReason={showHidden ? hiddenReason(t) : null}
                       isNew={isNewRow(t)}
+                      pile={pileOf(t.id)}
                       selectable={seriesBulkOn}
                       checked={selected.has(t.id)}
                       onCheck={toggleSelect}
@@ -2514,7 +2592,7 @@ export function BrowseView(props: PageProps) {
               ) : (
                 <div className={cn(GALLERY_GRID)}>
                   {rows.map((t) => (
-                    <GalleryItem key={t.id} t={t} blurb={blurbOn} hiddenReason={showHidden ? hiddenReason(t) : null} onUnignore={ignored.remove} isNew={isNewRow(t)} />
+                    <GalleryItem key={t.id} t={t} blurb={blurbOn} hiddenReason={showHidden ? hiddenReason(t) : null} onUnignore={ignored.remove} isNew={isNewRow(t)} pile={pileOf(t.id)} />
                   ))}
                 </div>
               )

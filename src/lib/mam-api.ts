@@ -453,6 +453,11 @@ export interface Search2Query {
   fl?: 'gfl' | 'pfl' | 'fl' | 'not'
   vip?: 'vip' | 'not' | 'temp' | 'perm'
   bookmarked?: 'only' | 'not'
+  /** MAM's own Snatched slot. `only` keeps what you have had before; `not`
+   * leaves it out. It answers off the same record as my_snatched. MAM's own
+   * pages drop the neutral `all`, so it only travels where a caller writes it
+   * down on purpose. */
+  downloaded?: 'all' | 'only' | 'not'
   rr?: 'reseed' | 'myReseeds'
   /** 0 hides the listed flags, 1 shows only torrents carrying them. */
   flagsMode?: 0 | 1
@@ -497,6 +502,7 @@ export function search2Json(q: Search2Query): Record<string, unknown> {
   if (q.fl) tor.fl = q.fl
   if (q.vip) tor.vip = q.vip
   if (q.bookmarked) tor.bookmarked = q.bookmarked
+  if (q.downloaded) tor.downloaded = q.downloaded
   if (q.rr) tor.rr = q.rr
   if (q.uploader) tor.uploader = q.uploader
   const s: Record<string, unknown> = { searchType: 'Torrents' }
