@@ -38,50 +38,87 @@ function blockHeldEnter(e: KeyboardEvent) {
   if (e.key === 'Enter' && e.repeat) e.preventDefault()
 }
 
+/** Whether the spend also takes the file. MAM offers both routes, so
+ * bookmarking now and downloading later stays possible. */
+export type WedgeMode = 'download' | 'only'
+
+/** What the spend leaves behind, for the toast and the confirm. */
+const WEDGE_RESULT: Record<WedgeMode, string> = {
+  download: 'The download is on its way.',
+  only: 'This torrent is freeleech for you now.',
+}
+
+/** Torrents with a spend on the way. A page can offer two wedge routes side by
+ * side, each with its own button state, while no spend can be taken back. */
+const spending = new Set<number>()
+
 /** The spend itself, without any UI around it. Both the confirm dialog and the
- * skip path call this, so the toast and the stash update read the same. The
- * boolean says whether the spend landed. */
-export function useSpendWedge(target: WedgeTarget, onDone: () => void): { spend: () => Promise<boolean>; busy: boolean } {
+ * skip path call this, so the toast and the stash update read the same. A null
+ * target leaves the caller with a spend that does nothing. The boolean says
+ * whether the spend landed. */
+export function useSpendWedge(
+  target: WedgeTarget | null,
+  onDone: () => void,
+  mode: WedgeMode = 'download',
+): { spend: () => Promise<boolean>; busy: boolean } {
   const [busy, setBusy] = useState(false)
   // The button goes disabled a render later, so a held Enter can fire twice.
   const inFlight = useRef(false)
+  const id = target?.id ?? null
+  const href = target?.href ?? null
 
   const spend = useCallback(async () => {
-    if (inFlight.current) return false
+    if (id == null || inFlight.current) return false
+    // Another route is already spending on this torrent. Saying so beats a
+    // click that appears to do nothing.
+    if (spending.has(id)) {
+      toast.info('A wedge for this torrent is already on its way.')
+      return false
+    }
     inFlight.current = true
+    spending.add(id)
     setBusy(true)
     try {
-      const result = await spendWedgeAndDownload(target.id, target.href)
+      const result = mode === 'only' ? await buyPersonalFreeleech(id) : await spendWedgeAndDownload(id, href)
       applyPointsUpdate(result)
       const after = Number(result.FLleft)
       toast.success('Wedge applied', {
         description: Number.isNaN(after)
-          ? 'The download is on its way.'
-          : `${after.toLocaleString('en-US')} wedge${after === 1 ? '' : 's'} left. The download is on its way.`,
+          ? WEDGE_RESULT[mode]
+          : `${after.toLocaleString('en-US')} wedge${after === 1 ? '' : 's'} left. ${WEDGE_RESULT[mode]}`,
       })
       onDone()
       return true
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'The wedge did not go through, so nothing was downloaded.')
+      const failed = mode === 'only' ? 'The wedge did not go through.' : 'The wedge did not go through, so nothing was downloaded.'
+      toast.error(e instanceof Error ? e.message : failed)
       return false
     } finally {
       inFlight.current = false
+      spending.delete(id)
       setBusy(false)
     }
-  }, [target.id, target.href, onDone])
+  }, [id, href, mode, onDone])
 
   return { spend, busy }
 }
 
 /** Confirm step for a spend that cannot be undone: names the torrent, the ratio
  * it saves and what the stash looks like afterwards. */
-function WedgeConfirm({ target, onDone, onClose }: { target: WedgeTarget; onDone: () => void; onClose: () => void }) {
+export function WedgeConfirm({
+  target, mode = 'download', onDone, onClose,
+}: {
+  target: WedgeTarget
+  mode?: WedgeMode
+  onDone: () => void
+  onClose: () => void
+}) {
   const guard = useRatioGuard(target.size)
   const wedges = useLiveWedges(null)
   const [, setSkip] = useFeature('skipWedgeConfirm')
   const [dontAsk, setDontAsk] = useState(false)
   const confirmRef = useRef<HTMLElement>(null)
-  const { spend, busy } = useSpendWedge(target, onDone)
+  const { spend, busy } = useSpendWedge(target, onDone, mode)
   const left = wedges != null ? Number(wedges.replace(/,/g, '')) : null
   const none = left === 0
   const showRatio = guard != null && worthNoting(guard.impact)
@@ -107,7 +144,9 @@ function WedgeConfirm({ target, onDone, onClose }: { target: WedgeTarget; onDone
         <AlertDialogHeader>
           <AlertDialogTitle className="font-display">Spend a freeleech wedge?</AlertDialogTitle>
           <AlertDialogDescription>
-            The download starts right away and never counts against your ratio. Spending a wedge is final.
+            {mode === 'only'
+              ? 'This torrent turns freeleech for you, so downloading it whenever you like costs no ratio. Spending a wedge is final.'
+              : 'The download starts right away and never counts against your ratio. Spending a wedge is final.'}
             {showRatio && guard?.impact.current != null && (
               <> Without a wedge it takes your ratio to <b className="font-semibold tabular-nums">{fmtRatio(guard.impact.next)}</b>.</>
             )}

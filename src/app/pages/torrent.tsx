@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type ComponentProps, type RefObject } from 'react'
 import { MotionConfig, motion, useInView, useReducedMotion, type Variants } from 'motion/react'
-import { Bookmark, BookmarkCheck, Check, CircleSlash, Copy, Download, FilePenLine, Flag, Gift, Heart, History, Info, Lock, MessageSquarePlus, Minus, MoreHorizontal, Quote, Settings2, Sprout } from 'lucide-react'
+import { Bookmark, BookmarkCheck, Check, CircleSlash, Copy, Download, FilePenLine, Flag, Gift, Heart, History, Info, Lock, MessageSquarePlus, Minus, MoreHorizontal, Quote, Settings2, Sprout, Ticket } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { extractTorrent, type MediaNode, type TorrentComment, type TorrentDetail } from '@/lib/extract/torrent'
 import { parseFileList, parsePeers, type FileListData, type PeerData, type PeerRow, type TorrentFile } from '@/lib/extract/torrent-panels'
@@ -22,7 +22,7 @@ import { Book, Book3D, BookAmbilight } from '@/components/book'
 import { RatioFloorInput } from '@/components/ratio-floor'
 import { TagLinks } from '@/components/tag-links'
 import { TorLinks, useReadingSnippet } from '@/components/tor-links'
-import { WedgeDetailButton } from '@/components/wedge-download'
+import { WedgeConfirm, WedgeDetailButton, useSpendWedge, type WedgeTarget } from '@/components/wedge-download'
 import { AnimatedGroup } from '@/components/ui/animated-group'
 import { AnimatedNumber } from '@/components/ui/animated-number'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -214,11 +214,23 @@ function DownloadButton({ data, level, size }: { data: TorrentDetail; level: Rat
   )
 }
 
+/** Whether a wedge still buys anything: the torrent costs ratio, the account
+ * may download it and no wedge landed on it yet. */
+function canWedge(data: TorrentDetail, spent: boolean): boolean {
+  const freeCost = data.freeleech || data.personalFreeleech || data.vip
+  return !freeCost && !data.downloadBlocked && !spent && !!downloadHref(data)
+}
+
+/** What a spend on this page applies to. Null where a wedge buys nothing. */
+function wedgeTargetOf(data: TorrentDetail, spent: boolean): WedgeTarget | null {
+  if (data.id == null || !canWedge(data, spent)) return null
+  return { id: data.id, title: data.title, size: data.size, href: downloadHref(data) }
+}
+
 /** The wedge route, when the torrent still costs ratio. */
 function WedgeAction({ data, spent, onSpent, size }: { data: TorrentDetail; spent: boolean; onSpent: () => void; size?: ButtonSize }) {
-  const freeCost = data.freeleech || data.personalFreeleech || data.vip
   const buyFl = data.ratio?.buttons.find((b) => b.name === 'personalFL')
-  if (freeCost || !!data.downloadBlocked || spent || !downloadHref(data)) return null
+  if (!canWedge(data, spent)) return null
   if (data.id != null) {
     return (
       <WedgeDetailButton
@@ -281,6 +293,10 @@ function DownloadDock({
   buyButtons: NonNullable<TorrentDetail['ratio']>['buttons']
 }) {
   const level = guard?.impact.level ?? 'none'
+  const [skipConfirm] = useFeature('skipWedgeConfirm')
+  const [askWedge, setAskWedge] = useState(false)
+  const wedgeTarget = wedgeTargetOf(data, spent)
+  const { spend, busy } = useSpendWedge(wedgeTarget, onSpent, 'only')
   return (
     <>
       <div ref={rowRef} className="mt-5 flex flex-wrap items-center gap-2.5">
@@ -288,7 +304,12 @@ function DownloadDock({
         <WedgeAction data={data} spent={spent} onSpent={onSpent} />
         <QuickieActions data={data} level={level} spent={spent} onSpent={onSpent} />
         <BookmarkButton />
-        <MoreActions data={data} buyButtons={buyButtons} />
+        <MoreActions
+          data={data}
+          buyButtons={buyButtons}
+          onWedgeOnly={wedgeTarget ? () => (skipConfirm ? void spend() : setAskWedge(true)) : undefined}
+          wedgeBusy={busy}
+        />
       </div>
       {guard && !data.downloadBlocked && <RatioNote guard={guard} />}
       {data.downloadBlocked && (
@@ -297,21 +318,29 @@ function DownloadDock({
       {spent && (
         <p className="mt-2 text-[12px] leading-snug text-ok">This torrent is a personal freeleech now, so downloading it costs you nothing.</p>
       )}
+      {/* The confirm sits outside the menu: a menu unmounts its content on the
+          click that opens the dialog. */}
+      {askWedge && wedgeTarget && (
+        <WedgeConfirm mode="only" target={wedgeTarget} onDone={onSpent} onClose={() => setAskWedge(false)} />
+      )}
     </>
   )
 }
 
 /** The rarer routes for this torrent, behind one trigger so the download row
- * keeps a single primary action: the freeleech purchases MAM keeps as buttons,
- * plus the two copy helpers. */
+ * keeps a single primary action: the wedge on its own, the freeleech purchases
+ * MAM keeps as buttons, plus the two copy helpers. */
 function MoreActions({
-  data, buyButtons,
+  data, buyButtons, onWedgeOnly, wedgeBusy,
 }: {
   data: TorrentDetail
   buyButtons: NonNullable<TorrentDetail['ratio']>['buttons']
+  onWedgeOnly?: () => void
+  /** A spend from this item is on the way, so the item reads as taken. */
+  wedgeBusy?: boolean
 }) {
   const copySnippet = useReadingSnippet(data)
-  if (!copySnippet && !data.clone && buyButtons.length === 0) return null
+  if (!copySnippet && !data.clone && !onWedgeOnly && buyButtons.length === 0) return null
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -320,6 +349,11 @@ function MoreActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
+        {onWedgeOnly && (
+          <DropdownMenuItem onClick={onWedgeOnly} disabled={wedgeBusy}>
+            <Ticket /> Apply FL wedge
+          </DropdownMenuItem>
+        )}
         {buyButtons.map((b) => (
           <DropdownMenuItem
             key={b.name ?? b.label}
@@ -1387,13 +1421,13 @@ export function TorrentView(props: PageProps) {
   // An unknown balance leaves the thanks ceiling to MAM's own maximum.
   const balance = counterValue(bonusRaw)
 
-  // The dock's wedge button carries the confirm flow, so the menu drops its bare
-  // duplicate of that same spend. A wedge also buys nothing on a torrent that
+  // Our own wedge routes carry the confirm flow, so the menu drops MAM's bare
+  // button for that same spend. A wedge also buys nothing on a torrent that
   // already costs nothing, even where MAM keeps offering the button.
   const freeForMe = data.freeleech || data.personalFreeleech || data.vip || spent
-  const dockHasWedge = !freeForMe && !data.downloadBlocked && data.id != null
+  const ourWedge = wedgeTargetOf(data, spent) != null
   const buyButtons =
-    data.ratio?.buttons.filter((b) => !((dockHasWedge || freeForMe) && b.name === 'personalFL')) ?? []
+    data.ratio?.buttons.filter((b) => !((ourWedge || freeForMe) && b.name === 'personalFL')) ?? []
 
   const count = (raw: string | null) => (raw ? countOf(raw) : undefined)
   const stats: StatEntry[] = [
