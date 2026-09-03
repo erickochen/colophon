@@ -23,6 +23,7 @@ import { ShineBorder } from '@/components/ui/shine-border'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { toast } from '@/components/ui/toast'
 import { scrollTo } from '@/lib/motion'
+import { NO_AUTOFILL } from '@/lib/autofill'
 
 const VAULT_GOAL = 20_000_000
 
@@ -390,10 +391,12 @@ export function HomeView({ page }: PageProps) {
               </div>
               <div className="flex h-10 items-center gap-1.5 rounded-lg border border-input bg-background pr-1 transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
                 <input
+                  {...NO_AUTOFILL}
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && sendShout()}
                   placeholder="Say something nice…"
+                  aria-label="Write a shout"
                   maxLength={1500}
                   className="h-full min-w-0 flex-1 bg-transparent pl-3 text-[13.5px] outline-none placeholder:text-muted-foreground"
                 />

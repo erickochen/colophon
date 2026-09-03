@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
+import { NO_AUTOFILL } from '@/lib/autofill'
 
 // The Style form buries ~120 fields in a jQuery-UI tab widget of color/order
 // matrices. Rebuilt as five real Tabs with pickers and number inputs, all
@@ -154,7 +155,7 @@ function InputMirror({ el, className }: { el: HTMLInputElement; className?: stri
 
 /** Native color picker + hex text field, kept in sync. Writes 6-hex WITHOUT a
  * leading '#' back to the original (empty means "use the theme default"). */
-function ColorControl({ el, dark }: { el: HTMLInputElement; dark: string }) {
+function ColorControl({ el, dark, label }: { el: HTMLInputElement; dark: string; label: string }) {
   const [hex, setHex] = useState((el.value || '').replace(/^#/, ''))
   const valid = /^[0-9a-fA-F]{6}$/.test(hex)
   const shown = valid ? `#${hex}` : /^[0-9a-fA-F]{6}$/.test(dark) ? `#${dark}` : '#888888'
@@ -166,14 +167,16 @@ function ColorControl({ el, dark }: { el: HTMLInputElement; dark: string }) {
   return (
     <div className="flex items-center gap-2">
       <span className="relative size-7 shrink-0 overflow-hidden rounded-md shadow-xs" style={{ backgroundColor: shown }}>
-        <input type="color" value={shown} onChange={(e) => write(e.target.value)} aria-label="Pick color" className="absolute inset-0 size-full cursor-pointer opacity-0" />
+        <input type="color" value={shown} onChange={(e) => write(e.target.value)} aria-label={`Pick ${label}`} className="absolute inset-0 size-full cursor-pointer opacity-0" />
       </span>
       <div className="flex items-center rounded-md bg-muted/70 shadow-xs">
         <span className="pl-2.5 font-mono text-[13px] text-muted-foreground">#</span>
         <input
+          {...NO_AUTOFILL}
           value={hex}
           onChange={(e) => write(e.target.value)}
           placeholder={dark}
+          aria-label={`${label} hex value`}
           spellCheck={false}
           maxLength={6}
           className="w-[7ch] bg-transparent py-1.5 pr-2.5 pl-0.5 font-mono text-[13px] uppercase outline-none placeholder:text-muted-foreground"
@@ -324,7 +327,7 @@ function MatrixCard({ heading, fields }: { heading: string | null; fields: Field
           </div>
           <div className="flex shrink-0 justify-end">
             {f.kind === 'color'
-              ? <ColorControl el={f.el} dark={f.dark} />
+              ? <ColorControl el={f.el} dark={f.dark} label={f.label} />
               : <InputMirror el={f.el} className={f.kind === 'number' ? 'w-20 text-center font-mono' : 'w-56 font-mono text-[12.5px]'} />}
           </div>
         </div>

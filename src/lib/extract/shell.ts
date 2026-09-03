@@ -9,6 +9,12 @@ export interface SiteAlert {
   tone: 'urgent' | 'info' | 'ok'
 }
 
+/** Connectability of one protocol, with MAM's own wording for that state. */
+export interface ProtocolStatus {
+  connectable: boolean | null
+  note: string | null
+}
+
 export interface ShellData {
   user: { name: string; uid: number | null; klass: string | null; avatar: string | null }
   stats: {
@@ -22,7 +28,7 @@ export interface ShellData {
     downloaded: string | null
     unsats: number | null
   }
-  client: { ipv4: boolean | null; ipv6: boolean | null }
+  client: { ipv4: ProtocolStatus; ipv6: ProtocolStatus }
   vault: string | null
   news: { href: string; text: string }[]
   alerts: SiteAlert[]
@@ -175,9 +181,13 @@ export function capturePage(doc: Document): ShellData {
   const klassRaw = text(doc.querySelector('li.mmUserStats li.tmC a'))
   const klass = klassRaw?.replace(/[()]/g, '').trim() || null
 
+  // MAM names each protocol's state on the image itself, so the wording a
+  // member reads is his, not ours.
   const clientImgs = doc.querySelectorAll<HTMLImageElement>('#tmCo img')
-  const connectable = (img: HTMLImageElement | undefined): boolean | null =>
-    img ? img.classList.contains('connectable') : null
+  const clientStatus = (img: HTMLImageElement | undefined): ProtocolStatus => ({
+    connectable: img ? img.classList.contains('connectable') : null,
+    note: img?.getAttribute('title')?.trim() || img?.getAttribute('alt')?.trim() || null,
+  })
 
   const newsLinks = new Map<string, string>()
   for (const a of doc.querySelectorAll<HTMLAnchorElement>(
@@ -219,7 +229,7 @@ export function capturePage(doc: Document): ShellData {
       downloaded: text(doc.querySelector('#downloadedTD'))?.match(/[\d.,]+\s*[KMGTP]?i?B/i)?.[0] ?? null,
       unsats: num(userMenuValue(doc, /Unsat\(s\):\s*([\d,]+)/)),
     },
-    client: { ipv4: connectable(clientImgs[0]), ipv6: connectable(clientImgs[1]) },
+    client: { ipv4: clientStatus(clientImgs[0]), ipv6: clientStatus(clientImgs[1]) },
     vault: num(text(doc.querySelector('#millionInfo')))?.toLocaleString('en-US') ?? null,
     news: [...newsLinks].map(([href, t]) => ({ href, text: t })),
     alerts: readAlerts(doc),

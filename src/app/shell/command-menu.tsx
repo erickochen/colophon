@@ -10,6 +10,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Badge } from '@/components/ui/badge'
+import { NO_AUTOFILL } from '@/lib/autofill'
 
 /** Shorter than this a search matches most of the library, so the menu waits.
  * The member picker holds the same floor. */
@@ -130,6 +131,7 @@ export function CommandMenu({ open, onOpenChange }: { open: boolean; onOpenChang
       >
         <Command shouldFilter={false} className="**:data-[slot=command-input-wrapper]:h-13">
           <CommandInput
+            {...NO_AUTOFILL}
             ref={inputRef}
             placeholder="Search titles, authors, narrators, series…"
             value={query}

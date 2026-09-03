@@ -22,6 +22,7 @@ import { toast } from '@/components/ui/toast'
 import { GiftActions } from '@/components/giftmam-actions'
 import { QuickShouts } from '@/components/quick-shouts'
 import { scrollTo } from '@/lib/motion'
+import { NO_AUTOFILL } from '@/lib/autofill'
 
 interface ShoutItem { id: string; numId: string; time: string | null; html: string | null; text: string; editable: boolean }
 interface ShoutGroup { key: string; user: Shout['user']; own: boolean; items: ShoutItem[] }
@@ -544,11 +545,13 @@ export function ShoutboxView(props: PageProps) {
               <EmojiPicker onPick={(code) => appendDraft(code)} />
               <QuickShouts draft={draft} onInsert={insertAtCaret} />
               <input
+                {...NO_AUTOFILL}
                 ref={input}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && send()}
                 placeholder="Say something nice…"
+                aria-label="Write a shout"
                 maxLength={1500}
                 className="h-full min-w-0 flex-1 bg-transparent text-[14px] outline-none placeholder:text-muted-foreground"
               />

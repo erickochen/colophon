@@ -3,6 +3,7 @@ import { ChevronRight, Eye, Headset, Mail, Moon, PackageCheck, Palette, Search, 
 import type { ShellData } from '@/lib/extract/shell'
 import type { Theme } from '@/lib/theme'
 import { chooseTheme, DARK_SCHEME_ITEMS, LIGHT_SCHEME_ITEMS, useAppearance } from '@/components/appearance'
+import { protocolNote, protocolWord } from '@/app/shell/bits'
 import { NOTIF_TARGETS, type NotifCounts } from '@/lib/notify'
 import { useLiveBonus, useLiveWedges } from '@/lib/bonus'
 import { readFeature } from '@/lib/settings'
@@ -141,28 +142,29 @@ function ClientChip({ client }: { client: ShellData['client'] }) {
       : state
         ? 'bg-ok-fill ring-1 ring-foreground/20'
         : 'bg-transparent ring-2 ring-warn'
-  const word = (state: boolean | null) =>
-    state == null ? 'unknown' : state ? 'connectable' : 'offline'
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <a
           href="/userClientDetails.php"
-          aria-label={`Client connectivity: IPv4 ${word(client.ipv4)}, IPv6 ${word(client.ipv6)}`}
+          aria-label={`Client connectivity: IPv4 ${protocolWord(client.ipv4)}, IPv6 ${protocolWord(client.ipv6)}`}
           className="hidden items-center gap-2 rounded-md px-1.5 py-1 text-[12.5px] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground md:flex"
         >
           <span className="flex items-center gap-1.5">
-            <span className={'size-1.5 rounded-full ' + dot(client.ipv4)} />
+            <span className={'size-1.5 rounded-full ' + dot(client.ipv4.connectable)} />
             v4
           </span>
           <span className="flex items-center gap-1.5">
-            <span className={'size-1.5 rounded-full ' + dot(client.ipv6)} />
+            <span className={'size-1.5 rounded-full ' + dot(client.ipv6.connectable)} />
             v6
           </span>
         </a>
       </TooltipTrigger>
-      <TooltipContent>
-        IPv4 {word(client.ipv4)} · IPv6 {word(client.ipv6)} · client details
+      {/* MAM's own wording for each state, because it says what the site means
+          by it: this is about your torrent client, not about this browser. */}
+      <TooltipContent className="grid gap-0.5">
+        <span>IPv4: {protocolNote(client.ipv4)}</span>
+        <span>IPv6: {protocolNote(client.ipv6)}</span>
       </TooltipContent>
     </Tooltip>
   )

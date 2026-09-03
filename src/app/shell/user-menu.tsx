@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronsUpDown, Crown, History, LogOut, Radio, Settings2, TrendingUp, UserRound } from 'lucide-react'
 import type { ShellData } from '@/lib/extract/shell'
+import { protocolNote } from '@/app/shell/bits'
 import { fmtRatio } from '@/lib/format'
 import { useLiveBonus, useLiveWedges } from '@/lib/bonus'
 import { useVipUntil } from '@/lib/vip'
@@ -16,11 +17,11 @@ import {
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
 
 function StatusDot({ page, className }: { page: ShellData; className?: string }) {
-  const connectable = page.client.ipv4 === true || page.client.ipv6 === true
-  if (page.client.ipv4 == null) return null
+  const connectable = page.client.ipv4.connectable === true || page.client.ipv6.connectable === true
+  if (page.client.ipv4.connectable == null) return null
   return (
     <span
-      title={connectable ? 'Connectable' : 'Not connectable'}
+      title={`IPv4: ${protocolNote(page.client.ipv4)}\nIPv6: ${protocolNote(page.client.ipv6)}`}
       className={
         'size-2 shrink-0 rounded-full ' + (connectable ? 'bg-ok-fill ring-1 ring-foreground/20' : 'bg-transparent ring-1 ring-muted-foreground/60') + (className ? ' ' + className : '')
       }

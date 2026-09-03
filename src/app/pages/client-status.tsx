@@ -1,14 +1,19 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Activity, BookOpen, Globe, Radio, RefreshCcw, Server, ShieldCheck } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Activity, AlertTriangle, BookOpen, CheckCircle2, Globe, Radio, RefreshCcw, Server, ShieldCheck } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { cleanHtml } from '@/lib/sanitize'
 import { LegacyView } from '@/app/pages/legacy'
-import { PageHeader, RichHtml } from '@/app/shell/bits'
+import { PageHeader, protocolNote, protocolWord, RichHtml } from '@/app/shell/bits'
+import type { ProtocolStatus } from '@/lib/extract/shell'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { toast } from '@/components/ui/toast'
+import { Spinner } from '@/components/ui/spinner'
+
+// MAM's LoadTest has no error branch, so nothing else ends a request that stays
+// unanswered.
+const TEST_TIMEOUT_MS = 30_000
 
 interface Client {
   ip: string | null
@@ -113,7 +118,60 @@ function Stat({ label, value, sub, href }: { label: string; value: ReactNode; su
   return href ? <a href={href} className="rounded-md px-1 py-0.5 transition-colors hover:bg-accent/50">{inner}</a> : <div className="px-1 py-0.5">{inner}</div>
 }
 
-function ClientCard({ c, testing, onTest }: { c: Client; testing: boolean; onTest: (el: HTMLAnchorElement) => void }) {
+type TestOutcome = { html: string; text: string } | { timedOut: true }
+
+// MAM fills #testreturn twice: first a heading that names the signed token it
+// posts, then the answer. Only the second one carries a result.
+function testAnswer(el: HTMLElement): TestOutcome | null {
+  const c = el.cloneNode(true) as HTMLElement
+  for (const h of c.querySelectorAll('h1, h2, h3')) {
+    if (/^\s*testing\b/i.test(h.textContent ?? '')) h.remove()
+  }
+  const html = cleanHtml(c)
+  const text = (c.textContent ?? '').replace(/\s+/g, ' ').trim()
+  return html && text ? { html, text } : null
+}
+
+const TEST_TONE = {
+  ok: { box: 'bg-ok/15', icon: 'text-ok', Icon: CheckCircle2 },
+  warn: { box: 'bg-warn/15', icon: 'text-warn', Icon: AlertTriangle },
+  plain: { box: 'bg-muted', icon: 'text-muted-foreground', Icon: Activity },
+} as const
+
+/* The wording is MAM's, so a verdict only gets a color where it is plain. */
+function testTone(text: string): keyof typeof TEST_TONE {
+  if (/\b(?:not|un)\s*connectable\b|\binvalid\b|\berror|\bfail/i.test(text)) return 'warn'
+  if (/\bconnectable\b/i.test(text)) return 'ok'
+  return 'plain'
+}
+
+function TestOutcomeStrip({ outcome }: { outcome: TestOutcome }) {
+  const tone = TEST_TONE['timedOut' in outcome ? 'warn' : testTone(outcome.text)]
+  return (
+    <div className={cn('flex items-start gap-2.5 rounded-lg px-4 py-3 text-[13px]', tone.box)}>
+      <tone.Icon className={cn('mt-0.5 size-4 shrink-0', tone.icon)} />
+      {'timedOut' in outcome ? (
+        <p className="leading-normal">The tracker did not answer. Test again to retry.</p>
+      ) : (
+        <RichHtml html={outcome.html} className="min-w-0 flex-1 text-[13px] leading-normal" />
+      )}
+    </div>
+  )
+}
+
+function ClientCard({
+  c,
+  testing,
+  busy,
+  outcome,
+  onTest,
+}: {
+  c: Client
+  testing: boolean
+  busy: boolean
+  outcome: TestOutcome | undefined
+  onTest: (el: HTMLAnchorElement) => void
+}) {
   const ok = /accepts incoming/i.test(c.connectable ?? '') || /^connect$/i.test(c.connectResponse ?? '')
   return (
     <Card className="gap-0 py-0">
@@ -129,8 +187,8 @@ function ClientCard({ c, testing, onTest }: { c: Client; testing: boolean; onTes
           {c.connectResponse ?? (ok ? 'Connectable' : 'Unknown')}
         </Badge>
         {c.testEl && (
-          <Button size="sm" variant="outline" className="h-7 text-[12px]" disabled={testing} onClick={() => onTest(c.testEl!)}>
-            <RefreshCcw className={testing ? 'animate-spin' : ''} /> Test now
+          <Button size="sm" variant="outline" className="h-7 text-[12px]" disabled={busy} onClick={() => onTest(c.testEl!)}>
+            {testing ? <><Spinner /> Testing…</> : <><RefreshCcw /> Test now</>}
           </Button>
         )}
       </CardHeader>
@@ -142,54 +200,80 @@ function ClientCard({ c, testing, onTest }: { c: Client; testing: boolean; onTes
         <Stat label="Last test" value={c.lastTested} sub={c.responseMs ? `${c.responseMs} ms` : null} />
         <Stat label="Announce" value={c.meanAnnounce} sub="mean interval" />
       </CardContent>
+      {outcome && (
+        <CardContent className="px-6 pb-4">
+          <TestOutcomeStrip outcome={outcome} />
+        </CardContent>
+      )}
     </Card>
   )
 }
 
-/* Sitewide connectability per protocol, from the shell status. */
-function ProtocolDot({ label, state }: { label: string; state: boolean | null }) {
+/* Connectability per protocol, from the shell status. MAM's own menu calls
+ * these "Client IPv4" plus "Client IPv6". That word separates them from the
+ * address this browser reaches the site on. */
+function ProtocolDot({ label, status }: { label: string; status: ProtocolStatus }) {
   const dot =
-    state == null
+    status.connectable == null
       ? 'bg-transparent ring-1 ring-muted-foreground/50'
-      : state
+      : status.connectable
         ? 'bg-ok-fill ring-1 ring-foreground/20'
         : 'bg-transparent ring-2 ring-warn'
-  const word = state == null ? 'unknown' : state ? 'connectable' : 'offline'
   return (
-    <span className="flex items-center gap-1.5">
-      <span className={'size-1.5 rounded-full ' + dot} />
-      {label} {word}
+    <span className="flex items-center gap-1.5" title={protocolNote(status)}>
+      <span className={'size-1.5 shrink-0 rounded-full ' + dot} />
+      Client {label} {protocolWord(status)}
     </span>
   )
 }
 
 export function ClientStatusView(props: PageProps) {
   const data = useMemo(() => extract(document), [])
-  const [testing, setTesting] = useState(false)
-  const [testResult, setTestResult] = useState<string | null>(null)
+  // MAM shares one #testreturn block between every client, so one test runs at
+  // a time and its answer belongs to the row that started it.
+  const [testing, setTesting] = useState<number | null>(null)
+  const [outcomes, setOutcomes] = useState<Record<number, TestOutcome>>({})
+  const running = useRef<number | null>(null)
 
+  const settle = useCallback((i: number, outcome: TestOutcome) => {
+    running.current = null
+    setOutcomes((prev) => ({ ...prev, [i]: outcome }))
+    setTesting(null)
+  }, [])
+
+  // The block is watched from mount on, because MAM writes its answer a tenth
+  // of a second after the click and an observer attached from an effect can
+  // arrive later than that.
   useEffect(() => {
-    if (!testing) return
     const target = document.getElementById('testreturn')
     if (!target) return
     const obs = new MutationObserver(() => {
-      const t = target.textContent?.trim()
-      if (t) {
-        setTestResult(t)
-        setTesting(false)
-      }
+      const i = running.current
+      if (i == null) return
+      const answer = testAnswer(target)
+      if (answer) settle(i, answer)
     })
     obs.observe(target, { childList: true, subtree: true, characterData: true })
     return () => obs.disconnect()
-  }, [testing])
+  }, [settle])
+
+  useEffect(() => {
+    if (testing == null) return
+    const timer = window.setTimeout(() => settle(testing, { timedOut: true }), TEST_TIMEOUT_MS)
+    return () => window.clearTimeout(timer)
+  }, [testing, settle])
 
   if (!data) return <LegacyView {...props} />
 
-  function runTest(el: HTMLAnchorElement) {
-    setTestResult(null)
-    setTesting(true)
+  function runTest(i: number, el: HTMLAnchorElement) {
+    setOutcomes((prev) => {
+      const next = { ...prev }
+      delete next[i]
+      return next
+    })
+    running.current = i
+    setTesting(i)
     el.click()
-    toast.info('Testing connectivity…')
   }
 
   return (
@@ -200,8 +284,8 @@ export function ClientStatusView(props: PageProps) {
           <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
             How the tracker sees your torrent clients right now.
             <span className="flex items-center gap-3 text-[12.5px]">
-              <ProtocolDot label="IPv4" state={props.page.client.ipv4} />
-              <ProtocolDot label="IPv6" state={props.page.client.ipv6} />
+              <ProtocolDot label="IPv4" status={props.page.client.ipv4} />
+              <ProtocolDot label="IPv6" status={props.page.client.ipv6} />
             </span>
           </span>
         }
@@ -233,17 +317,18 @@ export function ClientStatusView(props: PageProps) {
         })}
       </div>
 
-      {data.clients.map((c, i) => <ClientCard key={i} c={c} testing={testing} onTest={runTest} />)}
+      {data.clients.map((c, i) => (
+        <ClientCard
+          key={i}
+          c={c}
+          testing={testing === i}
+          busy={testing != null}
+          outcome={outcomes[i]}
+          onTest={(el) => runTest(i, el)}
+        />
+      ))}
       {data.clients.length === 0 && (
         <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">No active clients announced to the tracker.</CardContent></Card>
-      )}
-
-      {testResult && (
-        <Card className="border-ok/40 py-4">
-          <CardContent className="flex items-center gap-2 text-[13px]">
-            <Badge className="bg-ok/15 text-ok" variant="secondary"><Activity className="size-3" /> Test result</Badge> {testResult}
-          </CardContent>
-        </Card>
       )}
 
       <Card className="gap-0 py-0">

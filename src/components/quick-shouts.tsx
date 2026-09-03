@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { toast } from '@/components/ui/toast'
+import { NO_AUTOFILL } from '@/lib/autofill'
 
 export function QuickShouts({ draft, onInsert }: { draft: string; onInsert: (text: string) => void }) {
   const [on] = useFeature('quickShout')
@@ -64,6 +65,7 @@ export function QuickShouts({ draft, onInsert }: { draft: string; onInsert: (tex
               renaming?.from === s.name ? (
                 <div key={s.name} className="flex items-center gap-1 px-1 py-0.5">
                   <Input
+                    {...NO_AUTOFILL}
                     autoFocus
                     value={renaming.to}
                     onChange={(e) => setRenaming({ from: s.name, to: e.target.value })}
@@ -120,6 +122,7 @@ export function QuickShouts({ draft, onInsert }: { draft: string; onInsert: (tex
         </div>
         <div className="flex items-center gap-1.5 border-t p-2">
           <Input
+            {...NO_AUTOFILL}
             value={saveName}
             onChange={(e) => setSaveName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && saveCurrent()}

@@ -26,6 +26,7 @@ import { Separator } from '@/components/ui/separator'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Toggle } from '@/components/ui/toggle'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { NO_AUTOFILL } from '@/lib/autofill'
 
 export interface FacetOption {
   value: string
@@ -94,6 +95,7 @@ export function FilterSearch({
         <Search />
       </InputGroupAddon>
       <InputGroupInput
+        {...NO_AUTOFILL}
         ref={inputRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { TAP_TARGET } from '@/components/filters'
 import { cn } from '@/lib/utils'
+import { NO_AUTOFILL } from '@/lib/autofill'
 
 // Three cards for what MAM serves as one flat list: forums, shoutbox and alert
 // words. The two image-resize selects share a MAM row, so that row is split and
@@ -127,6 +128,7 @@ function TermChips({ el, label }: { el: HTMLTextAreaElement; label: string }) {
           </Badge>
         ))}
         <input
+          {...NO_AUTOFILL}
           value={draft}
           spellCheck={false}
           placeholder={terms.length ? undefined : 'Add a word or term…'}

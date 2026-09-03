@@ -3,7 +3,7 @@
 export function cleanHtml(el: Element | null | undefined): string | null {
   if (!el) return null
   const c = el.cloneNode(true) as HTMLElement
-  c.querySelectorAll('script, style, iframe, object, embed, link, meta').forEach((x) => x.remove())
+  c.querySelectorAll('script, style, iframe, object, embed, link, meta, title').forEach((x) => x.remove())
   for (const node of c.querySelectorAll<HTMLElement>('*')) {
     for (const attr of [...node.attributes]) {
       const n = attr.name.toLowerCase()
