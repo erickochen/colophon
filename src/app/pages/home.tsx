@@ -389,7 +389,7 @@ export function HomeView({ page }: PageProps) {
                   </Button>
                 )}
               </div>
-              <div className="flex h-10 items-center gap-1.5 rounded-lg border border-input bg-background pr-1 transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
+              <div className="flex h-10 items-center gap-1.5 rounded-lg border border-input-line bg-background pr-1 transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
                 <input
                   {...NO_AUTOFILL}
                   value={draft}

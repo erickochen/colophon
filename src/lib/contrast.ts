@@ -40,8 +40,9 @@ function viaCanvas(value: string): Rgb | null {
 
 /** Plain numeric channels, which is the shape the CSSOM hands back for a color
  * an author wrote. Percentages plus a percentage alpha are valid rgb() that
- * this cannot read, so those say so instead of guessing. */
-function fromChannels(inner: string): Rgb | null {
+ * this cannot read, so those say so instead of guessing. Exported because the
+ * canvas behind parseColor needs a document, which puts it out of reach. */
+export function fromChannels(inner: string): Rgb | null {
   const parts = inner.split(/[\s,/]+/).filter(Boolean).map(Number)
   if (parts.length < 3 || parts.length > 4) return null
   if (parts.some((n) => !Number.isFinite(n))) return null

@@ -683,7 +683,7 @@ export function BBComposer({
   )
 
   return (
-    <div className={cn('group overflow-hidden rounded-lg border border-input bg-background transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50', className)}>
+    <div className={cn('group overflow-hidden rounded-lg border border-input-line bg-background transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50', className)}>
       <div
         ref={barRef}
         role="toolbar"

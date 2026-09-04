@@ -94,16 +94,26 @@ export const PAGE_BG = {
 const systemDark = () => window.matchMedia('(prefers-color-scheme: dark)')
 const systemContrast = () => window.matchMedia('(prefers-contrast: more)')
 
+/** Blocked site data throws on read. These are asked for during a render as
+ * well as at boot, so a refusal has to read as no preference at all. */
+function stored(key: string): string | null {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
 /** Stored preference. Anything unrecognized counts as auto. */
 export function getTheme(): Theme {
-  const stored = localStorage.getItem(THEME_KEY)
-  return stored === 'light' || stored === 'dark' ? stored : 'auto'
+  const held = stored(THEME_KEY)
+  return held === 'light' || held === 'dark' ? held : 'auto'
 }
 
 /** Stored preference. Anything unrecognized counts as auto. */
 export function getContrast(): Contrast {
-  const stored = localStorage.getItem(CONTRAST_KEY)
-  return stored === 'standard' || stored === 'high' ? stored : 'auto'
+  const held = stored(CONTRAST_KEY)
+  return held === 'standard' || held === 'high' ? held : 'auto'
 }
 
 /** Whether the pass runs right now. On auto that is what the system asks for. */
@@ -113,13 +123,13 @@ export function contrastOn(pref: Contrast = getContrast()): boolean {
 
 /** Stored scheme per side. Anything unrecognized counts as default. */
 export function getLightScheme(): LightScheme {
-  const stored = localStorage.getItem(SCHEME_LIGHT_KEY) as LightScheme | null
-  return stored && LIGHT_SCHEMES.includes(stored) ? stored : 'default'
+  const held = stored(SCHEME_LIGHT_KEY) as LightScheme | null
+  return held && LIGHT_SCHEMES.includes(held) ? held : 'default'
 }
 
 export function getDarkScheme(): DarkScheme {
-  const stored = localStorage.getItem(SCHEME_DARK_KEY) as DarkScheme | null
-  return stored && DARK_SCHEMES.includes(stored) ? stored : 'default'
+  const held = stored(SCHEME_DARK_KEY) as DarkScheme | null
+  return held && DARK_SCHEMES.includes(held) ? held : 'default'
 }
 
 /** Which of the two sides a preference resolves to right now. */

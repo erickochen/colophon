@@ -5,7 +5,7 @@ import test from 'node:test'
 import { converter, parse, wcagContrast } from 'culori'
 
 import { readable } from '../src/lib/contrast.ts'
-import { SHAPE_MIN, SHAPE_TOKENS, TEXT_MIN, TEXT_TOKENS } from '../src/lib/contrast-mode.ts'
+import { OUTLINE_TOKENS, SHAPE_MIN, SHAPE_TOKENS, TEXT_MIN, TEXT_TOKENS } from '../src/lib/contrast-mode.ts'
 import { readShoutAlerts } from '../src/lib/shout-alerts.ts'
 
 const ROOT = path.join(import.meta.dirname, '..')
@@ -171,6 +171,17 @@ function reachable(ground, min) {
   return Math.max(contrast('#000', ground), contrast('#fff', ground)) >= min
 }
 
+/** Every fill the app draws a control on, written out here rather than imported
+ * so a surface dropped from the pass shows up as a failure instead of quietly
+ * narrowing what gets checked. A card holds forms, the page holds the search
+ * bar, muted holds a nested block, the sidebar holds its own field, accent
+ * holds a highlighted row plus secondary holds a panel. */
+const PANELS = ['card', 'background', 'muted', 'sidebar', 'accent', 'secondary', 'popover']
+
+/** A token named for one panel answers only to that panel; an outline can land
+ * on any of them. */
+const judged = (pairs, surfaces) => (pairs === OUTLINE_TOKENS ? PANELS : surfaces)
+
 test('high contrast reaches its threshold on every scheme', () => {
   const blocks = schemeBlocks()
   assert.ok(blocks.length > 40, `expected every scheme block, found ${blocks.length}`)
@@ -179,14 +190,32 @@ test('high contrast reaches its threshold on every scheme', () => {
     for (const [pairs, min] of [
       [TEXT_TOKENS, TEXT_MIN],
       [SHAPE_TOKENS, SHAPE_MIN],
+      [OUTLINE_TOKENS, SHAPE_MIN],
     ]) {
-      for (const [token, surfaces] of pairs) {
-        if (!tokens[token]) continue
+      // An outline starts from another token, since a custom property holding
+      // var(--input) would freeze at the value of the block that declares it.
+      for (const [token, surfaces, from] of pairs) {
+        const source = from ?? token
+        if (!tokens[source]) continue
         const grounds = surfaces.filter((s) => tokens[s]).map((s) => [s, bytes(tokens[s])])
         if (grounds.length === 0) continue
-        let value = bytes(tokens[token])
-        for (const [, bg] of grounds) value = readable(value, bg, min) ?? value
-        for (const [name, bg] of grounds) {
+        let value = bytes(tokens[source])
+        for (let round = 0; round < grounds.length; round += 1) {
+          let moved = false
+          for (const [, bg] of grounds) {
+            const next = readable(value, bg, min)
+            if (!next) continue
+            value = next
+            moved = true
+          }
+          if (!moved) break
+        }
+        // Measured against every fill this token can land on, not only against
+        // the ones its own list names. A missing surface is exactly the kind of
+        // gap a check built from that same list can never see.
+        for (const name of judged(pairs, surfaces)) {
+          if (!tokens[name]) continue
+          const bg = bytes(tokens[name])
           const ratio = contrast(asToken(value), asToken(bg))
           if (ratio < min && reachable(asToken(bg), min)) {
             offenders.push(`${sel} --${token} on --${name}: ${ratio.toFixed(2)}`)

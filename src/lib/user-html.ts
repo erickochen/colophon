@@ -2,10 +2,16 @@
 // a full-width layout and a dark default theme. Both assumptions break in our
 // column, so a fragment gets measured against where it actually lands.
 import { parseColor, readable, type Rgb } from '@/lib/contrast'
+import { TEXT_MIN } from '@/lib/contrast-mode'
 import { getPortalContainer } from '@/lib/portals'
+import { contrastOn } from '@/lib/theme'
 
 // WCAG AA for body text. Color in a post is decoration; the words are not.
 const MIN_CONTRAST = 4.5
+
+/** What a post has to reach. A reader who asked for more contrast means the
+ * words on the page, plus on a forum page most of those are in a post. */
+const postMin = () => (contrastOn() ? TEXT_MIN : MIN_CONTRAST)
 // Below this a background is see-through, so the color behind it still shows.
 const OPAQUE_ALPHA = 0.9
 
@@ -21,7 +27,7 @@ function paperColor(): Rgb | null {
 /** MAM's default theme is dark, so posts written there pick colors that vanish
  * on a light page. Anything that cannot be read gets the smallest nudge that
  * makes it legible; whatever already reads is left exactly as written. */
-function fixColors(body: HTMLElement, paper: Rgb): void {
+function fixColors(body: HTMLElement, paper: Rgb, min: number): void {
   for (const el of body.querySelectorAll<HTMLElement>('[style*="color"], font[color]')) {
     // An author who set a background chose the pair together, so that block
     // carries its own contrast plus stays untouched.
@@ -32,7 +38,7 @@ function fixColors(body: HTMLElement, paper: Rgb): void {
     // A see-through color reads against whatever it covers, which this pass
     // cannot know, so it keeps whatever the author gave it.
     if (!current || current.a < 1) continue
-    const fixed = readable(current, paper, MIN_CONTRAST)
+    const fixed = readable(current, paper, min)
     if (!fixed) continue
     el.removeAttribute('color')
     el.style.color = `rgb(${fixed.r} ${fixed.g} ${fixed.b})`
@@ -52,7 +58,7 @@ export function tameHtml(html: string): string {
   const body = new DOMParser().parseFromString(html, 'text/html').body
   tameTables(body)
   const paper = paperColor()
-  if (paper) fixColors(body, paper)
+  if (paper) fixColors(body, paper, postMin())
   return body.innerHTML
 }
 

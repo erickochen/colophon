@@ -14,7 +14,10 @@ function Checkbox({
     <CheckboxPrimitive.Root
       data-slot="checkbox"
       className={cn(
-        "peer group/checkbox size-4 shrink-0 rounded-[4px] bg-muted-foreground/25 shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground data-indeterminate:border-primary data-indeterminate:bg-primary data-indeterminate:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-checked:bg-primary dark:data-indeterminate:bg-primary",
+        // Empty, the outline is the whole control, so it carries the line the
+        // fill is too soft to draw on its own. Drawn inside the box rather than
+        // as a border: the mark already fills this square edge to edge.
+        "peer group/checkbox size-4 shrink-0 rounded-[4px] inset-ring-1 inset-ring-input-line bg-muted-foreground/25 shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-checked:inset-ring-transparent data-checked:bg-primary data-checked:text-primary-foreground data-indeterminate:inset-ring-transparent data-indeterminate:bg-primary data-indeterminate:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-checked:bg-primary dark:data-indeterminate:bg-primary",
         className
       )}
       {...props}

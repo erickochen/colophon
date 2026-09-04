@@ -17,6 +17,11 @@ const MID_LIGHTNESS = 0.5
 // scheme blocks write it.
 const LIGHTNESS_SCALE = 1000
 
+/** Every fill a control can land on. A field sits in a card, on the page, in a
+ * muted block, in the sidebar, on a highlighted row plus in a secondary panel,
+ * so its outline has to hold against all of them. */
+export const SURFACES = ['card', 'background', 'muted', 'sidebar', 'accent', 'secondary', 'popover'] as const
+
 /** Every text token the pass rewrites, with the surfaces it has to read on.
  * The heaviest requirement wins, so a color that lands on both a card and the
  * page satisfies both. */
@@ -43,26 +48,51 @@ export const TEXT_TOKENS: ReadonlyArray<readonly [string, readonly string[]]> = 
   ['user-4', ['card', 'background']],
 ]
 
-/** Lines that carry no words but do carry meaning: the edge of a field, the
- * ring around what has focus. */
+/** Lines that carry no words but do carry meaning: the hairline between blocks,
+ * the ring around what has focus. --input stays out of it, since every use of
+ * that token is a fill now that the outline has one of its own. */
 export const SHAPE_TOKENS: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['border', ['card', 'background']],
-  ['input', ['card', 'background']],
   ['sidebar-border', ['sidebar']],
   ['ring', ['background', 'card']],
 ]
 
+/** The outline of a control, which is the only thing telling an empty field
+ * from the card behind it. SC 1.4.11 is AA, so this one is lifted in both
+ * modes rather than only in high contrast.
+ *
+ * It starts from --input rather than from itself: a custom property holding
+ * var(--input) is substituted where it is declared, so it would freeze at the
+ * light value on every dark scheme. */
+export const OUTLINE_TOKENS: ReadonlyArray<readonly [string, readonly string[], string]> = [
+  ['input-line', SURFACES, 'input'],
+]
+
 const HASH_LIGHTNESS = 'user-hash-l'
 
-const WRITTEN = [...TEXT_TOKENS, ...SHAPE_TOKENS].map(([token]) => `--${token}`)
+const WRITTEN = [...TEXT_TOKENS, ...SHAPE_TOKENS, ...OUTLINE_TOKENS].map(([token]) => `--${token}`)
+
+/** Set on the root while the pass is on, so anything that has to redraw when
+ * the paper changes can watch one attribute instead of every token. */
+export const HIGH_CLASS = 'contrast-high'
 
 const toCss = (c: Rgb) => `rgb(${c.r} ${c.g} ${c.b})`
 
 /** Walks one token onto every surface it appears on, keeping the shade the
- * heaviest surface asks for. */
+ * heaviest surface asks for. Two surfaces on opposite sides of mid lightness
+ * pull in opposite directions, so the walk repeats until nothing moves. */
 function lifted(start: Rgb, grounds: Rgb[], min: number): Rgb {
   let out = start
-  for (const bg of grounds) out = readable(out, bg, min) ?? out
+  for (let round = 0; round < grounds.length; round += 1) {
+    let moved = false
+    for (const bg of grounds) {
+      const next = readable(out, bg, min)
+      if (!next) continue
+      out = next
+      moved = true
+    }
+    if (!moved) break
+  }
   return out
 }
 
@@ -87,7 +117,10 @@ function searchLightness(chroma: number, grounds: Rgb[], darkSide: boolean): num
   const reads = (l: number) =>
     hues.every((hue) => {
       const sample = parseColor(`oklch(${l} ${chroma} ${hue})`)
-      return sample != null && grounds.every((bg) => contrast(sample, bg) >= TEXT_MIN)
+      // A canvas that cannot read the color space paints nothing. Taking that
+      // for a shade would let every lightness pass against black.
+      if (!sample || sample.a < 1) return false
+      return grounds.every((bg) => contrast(sample, bg) >= TEXT_MIN)
     })
   // Light schemes darken their names, dark schemes lighten them.
   let lo = darkSide ? MID_LIGHTNESS : 0
@@ -114,7 +147,7 @@ export function applyContrast(rootEl: HTMLElement, on: boolean): void {
   // sits on the element would measure the previous pass.
   for (const token of WRITTEN) rootEl.style.removeProperty(token)
   rootEl.style.removeProperty(`--${HASH_LIGHTNESS}`)
-  if (!on) return
+  rootEl.classList.toggle(HIGH_CLASS, on)
 
   const style = getComputedStyle(rootEl)
   const raw = (name: string) => style.getPropertyValue(`--${name}`).trim()
@@ -131,12 +164,15 @@ export function applyContrast(rootEl: HTMLElement, on: boolean): void {
     return seen.get(name) ?? null
   }
 
-  for (const [pairs, min] of [
-    [TEXT_TOKENS, TEXT_MIN],
-    [SHAPE_TOKENS, SHAPE_MIN],
-  ] as const) {
-    for (const [token, surfaces] of pairs) {
-      const start = read(token)
+  // The outline of a control is an AA floor, so it runs whether or not high
+  // contrast is on. Everything below it is the enhanced pass.
+  const groups = on
+    ? ([[OUTLINE_TOKENS, SHAPE_MIN], [TEXT_TOKENS, TEXT_MIN], [SHAPE_TOKENS, SHAPE_MIN]] as const)
+    : ([[OUTLINE_TOKENS, SHAPE_MIN]] as const)
+
+  for (const [pairs, min] of groups) {
+    for (const [token, surfaces, from] of pairs) {
+      const start = read(from ?? token)
       if (!start) continue
       const grounds = surfaces.map(read).filter((c): c is Rgb => c != null)
       if (grounds.length === 0) continue
@@ -144,6 +180,9 @@ export function applyContrast(rootEl: HTMLElement, on: boolean): void {
       if (next !== start) rootEl.style.setProperty(`--${token}`, toCss(next))
     }
   }
+
+  // The hashed names carry words, so they belong to the enhanced pass.
+  if (!on) return
 
   // An undefined custom property reads as the empty string, which Number turns
   // into a perfectly finite zero, so emptiness is checked before the value is.

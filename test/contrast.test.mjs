@@ -1,24 +1,33 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { BLACK, WHITE, contrast, parseColor, readable } from '../src/lib/contrast.ts'
+import { BLACK, WHITE, contrast, fromChannels, parseColor, readable } from '../src/lib/contrast.ts'
 
 const rgb = (r, g, b) => ({ r, g, b, a: 1 })
 
 test('numeric channels are read straight off the value', () => {
-  assert.deepEqual(parseColor('rgb(12, 34, 56)'), { r: 12, g: 34, b: 56, a: 1 })
-  assert.deepEqual(parseColor('rgb(12 34 56)'), { r: 12, g: 34, b: 56, a: 1 })
-  assert.deepEqual(parseColor('rgba(12, 34, 56, 0.5)'), { r: 12, g: 34, b: 56, a: 0.5 })
-  assert.deepEqual(parseColor('rgb(12 34 56 / 0.25)'), { r: 12, g: 34, b: 56, a: 0.25 })
+  assert.deepEqual(fromChannels('12, 34, 56'), { r: 12, g: 34, b: 56, a: 1 })
+  assert.deepEqual(fromChannels('12 34 56'), { r: 12, g: 34, b: 56, a: 1 })
+  assert.deepEqual(fromChannels('12, 34, 56, 0.5'), { r: 12, g: 34, b: 56, a: 0.5 })
+  assert.deepEqual(fromChannels('12 34 56 / 0.25'), { r: 12, g: 34, b: 56, a: 0.25 })
 })
 
-// A shade the fast path cannot read goes to the canvas, which knows every color
-// space. Handing back a made-up alpha would repaint a color an author meant to
-// be see-through.
-test('a channel form the fast path cannot read is never guessed at', () => {
-  assert.notEqual(parseColor('rgb(0 0 0 / 50%)')?.a, 1)
-  assert.notEqual(parseColor('rgb(100% 0% 0%)')?.r, 100)
+// A shade the fast path cannot read hands back nothing, so parseColor sends it
+// to the canvas instead. Returning a made-up alpha would repaint a color an
+// author meant to be see-through.
+test('a channel form the fast path cannot read is refused rather than guessed', () => {
+  assert.equal(fromChannels('0 0 0 / 50%'), null)
+  assert.equal(fromChannels('100% 0% 0%'), null)
+  assert.equal(fromChannels('12 34'), null)
+  assert.equal(fromChannels('1 2 3 4 5'), null)
+})
+
+// Without a document there is no canvas to fall back on, which is what a test
+// runner has. An empty value never even asks.
+test('parseColor answers with nothing where it cannot paint', () => {
   assert.equal(parseColor(''), null)
+  assert.equal(parseColor('rgb(0 0 0 / 50%)'), null)
+  assert.deepEqual(parseColor('rgb(12 34 56)'), { r: 12, g: 34, b: 56, a: 1 })
 })
 
 test('contrast matches the WCAG reference pairs', () => {

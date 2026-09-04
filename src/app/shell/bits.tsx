@@ -12,7 +12,7 @@ import {
 import { mutedUserColor } from '@/lib/colors'
 import { rewriteHiddenBlocks, toggleSpoiler } from '@/lib/hidden-text'
 import { getPortalContainer } from '@/lib/portals'
-import { onThemeSide } from '@/lib/theme-paint'
+import { onPaintChange } from '@/lib/theme-paint'
 import { tameHtml } from '@/lib/user-html'
 import { cn } from '@/lib/utils'
 
@@ -211,11 +211,12 @@ function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
 /** MAM rich-content (sanitized upstream) in readable Reading Room typography. */
 export function RichHtml({ html, className }: { html: string; className?: string }) {
   const [zoom, setZoom] = useState<string | null>(null)
-  // Whether a color in a post can be read depends on which side is painted, so
-  // a flip sends the fragment back through the same pass. Rebuilding it costs a
-  // reader their open spoilers plus any selection, so nothing smaller counts.
+  // Whether a color in a post can be read depends on the paper under it, so a
+  // change there sends the fragment back through the same pass. Rebuilding it
+  // costs a reader their open spoilers plus any selection, so nothing smaller
+  // counts than a side flip or a move of the contrast bar.
   const [side, setSide] = useState(0)
-  useEffect(() => onThemeSide(() => setSide((n) => n + 1)), [])
+  useEffect(() => onPaintChange(() => setSide((n) => n + 1)), [])
   const body = useMemo(
     () => tameHtml(rewriteHiddenBlocks(tidyQuotes(html))),
     // eslint-disable-next-line react-hooks/exhaustive-deps

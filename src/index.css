@@ -37,6 +37,11 @@
   --destructive-foreground: oklch(0.985 0.001 106);
   --border: oklch(0.915 0.006 75);
   --input: oklch(0.875 0.008 72);
+  /* The visible outline of a control, which is what tells an empty field from
+   * the card behind it. lib/contrast-mode.ts writes the real value per scheme,
+   * derived from that scheme's --input; this is what shows in the moment before
+   * the first paint. Resolved again on #mam-root, where the scheme class sits. */
+  --input-line: var(--input);
   --ring: oklch(0.62 0.02 56);
   --brand: oklch(0.473 0.078 46);
   --brand-fill: oklch(0.473 0.078 46);
@@ -126,6 +131,9 @@
   --destructive-foreground: oklch(0.985 0.001 106);
   --border: oklch(0.28 0.007 56);
   --input: oklch(0.33 0.008 56);
+  /* Declared per side so the moment before the first paint is not a light line
+   * on a dark page. The pass writes the per-scheme value straight after. */
+  --input-line: var(--input);
   --ring: oklch(0.553 0.013 58);
   --brand: oklch(0.75 0.09 70);
   --brand-fill: oklch(0.75 0.09 70);
@@ -398,6 +406,7 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-input-line: var(--input-line);
   --color-ring: var(--ring);
   --color-brand: var(--brand);
   --color-brand-fill: var(--brand-fill);
@@ -472,6 +481,10 @@
  * striping at non-retina scaling. Warmth comes from the palette instead. */
 #mam-root {
   --tw-ring-offset-color: var(--background);
+  /* Resolved here for the same reason as the line above: the scheme class sits
+   * on this element, so a var() written on the host would freeze at the Reading
+   * Room tone for every other scheme. */
+  --input-line: var(--input);
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
