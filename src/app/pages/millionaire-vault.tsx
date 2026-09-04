@@ -122,7 +122,7 @@ function VaultDonations({ donations, failed }: { donations: Donation[] | null; f
       </CardHeader>
       <CardContent className="px-0 pb-2">
         {failed ? (
-          <p className="px-6 pb-6 text-[13px] text-muted-foreground">
+          <p className="px-6 pb-6 text-13 text-muted-foreground">
             The pot page did not answer, so your donations stay hidden this time.
           </p>
         ) : donations === null ? (
@@ -133,8 +133,8 @@ function VaultDonations({ donations, failed }: { donations: Donation[] | null; f
           </div>
         ) : donations.length === 0 ? (
           <div className="grid gap-1 px-6 pb-6">
-            <p className="text-[13px] text-muted-foreground">Nothing given to this pot yet.</p>
-            <p className="text-[12px] text-muted-foreground">
+            <p className="text-13 text-muted-foreground">Nothing given to this pot yet.</p>
+            <p className="text-12 text-muted-foreground">
               {BASE_WEDGES} wedges waiting for you when the vault fills.
               {` Donate ${fmtInt(WEDGE_BONUS_AT)} or more to make it ${BASE_WEDGES + BONUS_WEDGES}.`}
             </p>
@@ -146,10 +146,10 @@ function VaultDonations({ donations, failed }: { donations: Donation[] | null; f
                 <span className="font-display text-3xl font-semibold tabular-nums">
                   <NumberRoll value={total} />
                 </span>
-                <span className="text-[13px] text-muted-foreground">points given</span>
+                <span className="text-13 text-muted-foreground">points given</span>
               </div>
               <Progress value={Math.min(100, (total / WEDGE_BONUS_AT) * 100)} className="h-2 [&>div]:bg-brand-fill" />
-              <p className="text-[12px] text-muted-foreground">
+              <p className="text-12 text-muted-foreground">
                 {toBonus > 0
                   ? `${BASE_WEDGES} wedges waiting for you when the vault fills. Donate ${fmtInt(toBonus)} more to make it ${BASE_WEDGES + BONUS_WEDGES}.`
                   : `${BASE_WEDGES + BONUS_WEDGES} wedges waiting for you when the vault fills.`}
@@ -157,7 +157,7 @@ function VaultDonations({ donations, failed }: { donations: Donation[] | null; f
             </div>
             <div className="max-h-[320px] overflow-y-auto">
               {donations.map((d, i) => (
-                <div key={i} className="flex items-center justify-between gap-4 px-6 py-2 text-[13px]">
+                <div key={i} className="flex items-center justify-between gap-4 px-6 py-2 text-13">
                   <span className="text-muted-foreground" title={d.raw}>{whenLabel(d)}</span>
                   <span className="font-mono tabular-nums">{fmtInt(d.amount)}</span>
                 </div>
@@ -208,13 +208,13 @@ export function MillionaireVaultView(props: PageProps) {
                 <span className="font-display text-5xl font-semibold tabular-nums tracking-tight">
                   {data.pot > 0 ? <NumberRoll value={data.pot} /> : '0'}
                 </span>
-                <span className="whitespace-nowrap text-[15px] text-muted-foreground">/ {fmtInt(data.goal)} points</span>
+                <span className="whitespace-nowrap text-15 text-muted-foreground">/ {fmtInt(data.goal)} points</span>
               </div>
-              {data.started && <p className="mt-1 text-[12.5px] text-muted-foreground">Pot opened {data.started}</p>}
+              {data.started && <p className="mt-1 text-12-5 text-muted-foreground">Pot opened {data.started}</p>}
             </div>
             <div className="grid gap-1.5">
               <Progress value={pct} className="h-2.5 [&>div]:bg-brand-fill" />
-              <div className="flex justify-between text-[12px] text-muted-foreground">
+              <div className="flex justify-between text-12 text-muted-foreground">
                 <span>{pct.toFixed(1)}% filled</span>
                 <span>{fmtInt(remaining)} points to go</span>
               </div>
@@ -224,7 +224,7 @@ export function MillionaireVaultView(props: PageProps) {
             <Button asChild size="lg" className="w-full">
               <a href="/millionaires/donate.php"><HandCoins /> Donate to the pot</a>
             </Button>
-            <p className="text-center text-[11.5px] leading-snug text-muted-foreground">
+            <p className="text-center text-11-5 leading-snug text-muted-foreground">
               Up to 2,000 points a day. Members with a ratio of 1.05 or higher can donate.
             </p>
           </div>
@@ -238,8 +238,8 @@ export function MillionaireVaultView(props: PageProps) {
           <CardContent className="flex items-start gap-3">
             <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-soft"><Gift className="size-5 text-accent-foreground" /></span>
             <div>
-              <div className="text-[14px] font-semibold">Everyone active gets 2 wedges</div>
-              <p className="pt-0.5 text-[12.5px] leading-normal text-muted-foreground">When the vault hits {fmtInt(data.goal)}, every active member receives 2 freeleech wedges.</p>
+              <div className="text-14 font-semibold">Everyone active gets 2 wedges</div>
+              <p className="pt-0.5 text-12-5 leading-normal text-muted-foreground">When the vault hits {fmtInt(data.goal)}, every active member receives 2 freeleech wedges.</p>
             </div>
           </CardContent>
         </Card>
@@ -247,8 +247,8 @@ export function MillionaireVaultView(props: PageProps) {
           <CardContent className="flex items-start gap-3">
             <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-soft"><Sparkles className="size-5 text-accent-foreground" /></span>
             <div>
-              <div className="text-[14px] font-semibold">Donate 2,000+ for 8 more</div>
-              <p className="pt-0.5 text-[12.5px] leading-normal text-muted-foreground">Give 2,000 points or more in total and you collect another 8 freeleech wedges on top.</p>
+              <div className="text-14 font-semibold">Donate 2,000+ for 8 more</div>
+              <p className="pt-0.5 text-12-5 leading-normal text-muted-foreground">Give 2,000 points or more in total and you collect another 8 freeleech wedges on top.</p>
             </div>
           </CardContent>
         </Card>
@@ -373,7 +373,7 @@ export function VaultDonateView(props: PageProps) {
           <CardContent className="grid gap-5">
             <div className="flex items-baseline gap-2">
               <span className="font-display text-5xl font-semibold tabular-nums tracking-tight">{fmtInt(amount)}</span>
-              <span className="text-[15px] text-muted-foreground">points</span>
+              <span className="text-15 text-muted-foreground">points</span>
             </div>
 
             <AmountPicker
@@ -387,7 +387,7 @@ export function VaultDonateView(props: PageProps) {
             />
 
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <span className="text-[12.5px] text-muted-foreground">
+              <span className="text-12-5 text-muted-foreground">
                 {fmtInt(left)} of {fmtInt(data.dailyMax)} left to give today
               </span>
               <Button size="lg" onClick={give} disabled={sending}>
@@ -399,11 +399,11 @@ export function VaultDonateView(props: PageProps) {
       ) : (
         <Card>
           <CardContent className="grid gap-3">
-            <div className="text-[14px] font-semibold">Nothing to give right now</div>
+            <div className="text-14 font-semibold">Nothing to give right now</div>
             {data.notice ? (
               <RichHtml html={data.notice} />
             ) : (
-              <p className="text-[13px] text-muted-foreground">
+              <p className="text-13 text-muted-foreground">
                 You have given your {fmtInt(data.dailyMax)} for today. The allowance comes back tomorrow.
               </p>
             )}

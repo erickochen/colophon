@@ -108,11 +108,11 @@ function extract(doc: Document): ClientData | null {
 function Stat({ label, value, sub, href }: { label: string; value: ReactNode; sub?: string | null; href?: string | null }) {
   const inner = (
     <>
-      <div className="text-[10.5px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="text-10-5 uppercase tracking-wide text-muted-foreground">{label}</div>
       {/* break-all so an IPv6 address wraps inside its column instead of
           widening the row. */}
-      <div className="pt-0.5 font-mono text-[13.5px] font-medium break-all tabular-nums">{value ?? '–'}</div>
-      {sub && <div className="text-[11px] text-muted-foreground">{sub}</div>}
+      <div className="pt-0.5 font-mono text-13-5 font-medium break-all tabular-nums">{value ?? '–'}</div>
+      {sub && <div className="text-11 text-muted-foreground">{sub}</div>}
     </>
   )
   return href ? <a href={href} className="rounded-md px-1 py-0.5 transition-colors hover:bg-accent/50">{inner}</a> : <div className="px-1 py-0.5">{inner}</div>
@@ -148,12 +148,12 @@ function testTone(text: string): keyof typeof TEST_TONE {
 function TestOutcomeStrip({ outcome }: { outcome: TestOutcome }) {
   const tone = TEST_TONE['timedOut' in outcome ? 'warn' : testTone(outcome.text)]
   return (
-    <div className={cn('flex items-start gap-2.5 rounded-lg px-4 py-3 text-[13px]', tone.box)}>
+    <div className={cn('flex items-start gap-2.5 rounded-lg px-4 py-3 text-13', tone.box)}>
       <tone.Icon className={cn('mt-0.5 size-4 shrink-0', tone.icon)} />
       {'timedOut' in outcome ? (
         <p className="leading-normal">The tracker did not answer. Test again to retry.</p>
       ) : (
-        <RichHtml html={outcome.html} className="min-w-0 flex-1 text-[13px] leading-normal" />
+        <RichHtml html={outcome.html} className="min-w-0 flex-1 text-13 leading-normal" />
       )}
     </div>
   )
@@ -181,13 +181,13 @@ function ClientCard({
         </span>
         <div className="min-w-0 flex-1">
           <CardTitle>{c.agent ?? 'Torrent client'}</CardTitle>
-          <p className="pt-0.5 text-[11.5px] text-muted-foreground">{c.connectable}</p>
+          <p className="pt-0.5 text-11-5 text-muted-foreground">{c.connectable}</p>
         </div>
-        <Badge variant="secondary" className={cn('text-[10.5px]', ok ? 'bg-ok/15 text-ok' : 'bg-warn/15 text-warn')} title={c.connectDetail ?? undefined}>
+        <Badge variant="secondary" className={cn('text-10-5', ok ? 'bg-ok/15 text-ok' : 'bg-warn/15 text-warn')} title={c.connectDetail ?? undefined}>
           {c.connectResponse ?? (ok ? 'Connectable' : 'Unknown')}
         </Badge>
         {c.testEl && (
-          <Button size="sm" variant="outline" className="h-7 text-[12px]" disabled={busy} onClick={() => onTest(c.testEl!)}>
+          <Button size="sm" variant="outline" className="h-7 text-12" disabled={busy} onClick={() => onTest(c.testEl!)}>
             {testing ? <><Spinner /> Testing…</> : <><RefreshCcw /> Test now</>}
           </Button>
         )}
@@ -283,7 +283,7 @@ export function ClientStatusView(props: PageProps) {
         sub={
           <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
             How the tracker sees your torrent clients right now.
-            <span className="flex items-center gap-3 text-[12.5px]">
+            <span className="flex items-center gap-3 text-12-5">
               <ProtocolDot label="IPv4" status={props.page.client.ipv4} />
               <ProtocolDot label="IPv6" status={props.page.client.ipv6} />
             </span>
@@ -309,7 +309,7 @@ export function ClientStatusView(props: PageProps) {
                   {/* An IPv6 address outruns its card, so it wraps rather than
                       pushing the row sideways. */}
                   <div className="font-mono text-lg font-semibold break-all tabular-nums">{a.value}</div>
-                  <div className="text-[11.5px] text-muted-foreground">{/^ip$/i.test(a.label) ? 'Your IP' : a.label}</div>
+                  <div className="text-11-5 text-muted-foreground">{/^ip$/i.test(a.label) ? 'Your IP' : a.label}</div>
                 </div>
               </CardContent>
             </Card>
@@ -337,9 +337,9 @@ export function ClientStatusView(props: PageProps) {
         </CardHeader>
         <CardContent className="px-6 py-4">
           {data.noErrors || !data.errorsHtml ? (
-            <p className="text-[13px] text-muted-foreground">No recent errors logged. Errors disappear 48 hours after they last occurred.</p>
+            <p className="text-13 text-muted-foreground">No recent errors logged. Errors disappear 48 hours after they last occurred.</p>
           ) : (
-            <RichHtml html={data.errorsHtml} className="text-[13px]" />
+            <RichHtml html={data.errorsHtml} className="text-13" />
           )}
         </CardContent>
       </Card>

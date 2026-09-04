@@ -91,7 +91,7 @@ function TopicDivider({ subject }: { subject: string }) {
   return (
     <div className="flex items-center gap-2.5 pt-1">
       <span className="h-px flex-1 bg-border" />
-      <span className="font-display truncate text-[11.5px] font-medium text-muted-foreground">{subject}</span>
+      <span className="font-display truncate text-11-5 font-medium text-muted-foreground">{subject}</span>
       <span className="h-px flex-1 bg-border" />
     </div>
   )
@@ -115,7 +115,7 @@ function QuotedHistory({
       <CollapsibleTrigger
         tabIndex={tabIndex}
         aria-label={`Quoted history under ${author}: ${plural(quotes.length, 'quoted message')}`}
-        className="flex items-center gap-1 py-1 text-[11.5px] text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
+        className="flex items-center gap-1 py-1 text-11-5 text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
       >
         <ChevronRight aria-hidden="true" className={cn('size-3 transition-transform', open && 'rotate-90')} />
         Quoted history
@@ -125,8 +125,8 @@ function QuotedHistory({
         <div className="grid gap-2 pt-2">
           {quotes.map((q, i) => (
             <div key={i} className="rounded-md bg-muted px-3 py-2">
-              <div className="pb-1 text-[11px] font-semibold text-muted-foreground">{q.author} wrote</div>
-              <RichHtml html={q.html} className={cn(POST_SPACING, 'text-[12.5px] text-foreground-soft')} />
+              <div className="pb-1 text-11 font-semibold text-muted-foreground">{q.author} wrote</div>
+              <RichHtml html={q.html} className={cn(POST_SPACING, 'text-12-5 text-foreground-soft')} />
             </div>
           ))}
         </div>
@@ -232,9 +232,9 @@ const ThreadBubble = memo(function ThreadBubble({
           <Skeleton className="h-3 w-32" />
         </div>
       ) : hasText ? (
-        <RichHtml html={split!.head} className={cn(POST_SPACING, 'text-[13.5px]')} />
+        <RichHtml html={split!.head} className={cn(POST_SPACING, 'text-13-5')} />
       ) : (
-        <p className="text-[13px] text-muted-foreground">{split ? 'Only quoted text.' : 'This message has no body.'}</p>
+        <p className="text-13 text-muted-foreground">{split ? 'Only quoted text.' : 'This message has no body.'}</p>
       )}
     </ConversationBubble>
   )
@@ -520,15 +520,15 @@ export function MessagesView(props: PageProps) {
             ]}
           />
           {scanning && (
-            <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+            <span className="flex items-center gap-1.5 text-12 text-muted-foreground">
               <Spinner className="size-3" /> Reading inbox and sentbox
             </span>
           )}
           {scanFailed && !scanning && (
-            <span className="text-[12px] text-warn">Part of the mailbox did not load. Reload to try again.</span>
+            <span className="text-12 text-warn">Part of the mailbox did not load. Reload to try again.</span>
           )}
           {truncated && !scanning && !scanFailed && (
-            <span className="text-[12px] text-muted-foreground">Older pages are left out of the scan.</span>
+            <span className="text-12 text-muted-foreground">Older pages are left out of the scan.</span>
           )}
         </FilterRow>
       </FilterBar>
@@ -573,20 +573,20 @@ export function MessagesView(props: PageProps) {
                         <UserLink
                           name={t.party?.name ?? 'system'}
                           color={t.party?.color}
-                          className={cn('truncate text-[12.5px]', count > 0 && 'font-semibold')}
+                          className={cn('truncate text-12-5', count > 0 && 'font-semibold')}
                         />
-                        <span className="shrink-0 text-[11px] text-muted-foreground" title={utcTitle(t.last.date)}>{relTime(t.last.date)}</span>
+                        <span className="shrink-0 text-11 text-muted-foreground" title={utcTitle(t.last.date)}>{relTime(t.last.date)}</span>
                       </span>
                       <span
                         className={cn(
-                          'font-display block truncate text-[13.5px]',
+                          'font-display block truncate text-13-5',
                           count > 0 ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground'
                         )}
                       >
                         {t.subject}
                       </span>
                       {t.messages.length > 1 && (
-                        <span className="text-[11px] text-muted-foreground">{t.messages.length} messages</span>
+                        <span className="text-11 text-muted-foreground">{t.messages.length} messages</span>
                       )}
                     </span>
                   </Button>
@@ -603,9 +603,9 @@ export function MessagesView(props: PageProps) {
                         name={selected.party?.name ?? 'system'}
                         href={selected.party?.href}
                         color={selected.party?.color}
-                        className="font-display block truncate text-[14px] font-semibold"
+                        className="font-display block truncate text-14 font-semibold"
                       />
-                      <div className="truncate text-[12px] text-muted-foreground">
+                      <div className="truncate text-12 text-muted-foreground">
                         {selected.isSystem
                           ? `${selected.messages.length} ${selected.messages.length === 1 ? 'notice' : 'notices'}`
                           : `${selected.messages.length} ${selected.messages.length === 1 ? 'message' : 'messages'}`}
@@ -677,16 +677,16 @@ export function MessagesView(props: PageProps) {
                       }}
                     >
                       {answering && (
-                        <div className="grid gap-1 rounded-md bg-brand-soft/40 px-3 py-2 text-[12px]">
+                        <div className="grid gap-1 rounded-md bg-brand-soft/40 px-3 py-2 text-12">
                           <div className="flex items-center gap-2">
                             <CornerUpLeft aria-hidden="true" className="size-3.5 shrink-0 text-brand" />
                             <span className="min-w-0 flex-1 truncate font-medium">
                               Replying to {answering.box === -1 ? 'your own message' : selected.party?.name ?? 'them'}
                             </span>
                             {picked && (
-                              <Badge variant="secondary" className="shrink-0 text-[10px]">your selection</Badge>
+                              <Badge variant="secondary" className="shrink-0 text-10">your selection</Badge>
                             )}
-                            <span className="shrink-0 text-[11px] text-muted-foreground">Esc to cancel</span>
+                            <span className="shrink-0 text-11 text-muted-foreground">Esc to cancel</span>
                             <Button
                               variant="ghost"
                               size="icon"
@@ -700,7 +700,7 @@ export function MessagesView(props: PageProps) {
                               <X className="size-3.5" />
                             </Button>
                           </div>
-                          <p className="truncate pl-5 text-[11.5px] italic text-muted-foreground">
+                          <p className="truncate pl-5 text-11-5 italic text-muted-foreground">
                             {answeringQuote === null
                               ? 'Loading the message you are answering'
                               : answeringQuote || 'That message has no text to quote.'}

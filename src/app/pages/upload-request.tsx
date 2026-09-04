@@ -43,7 +43,7 @@ function QuestionCard({
   return (
     <Card className="gap-0 py-0">
       <CardHeader className="!py-3.5">
-        <p className="text-[12px] text-muted-foreground">
+        <p className="text-12 text-muted-foreground">
           Question {index + 1} of {total}
           {question.kind === 'open' && question.required && <span className="pl-2">required</span>}
         </p>
@@ -58,7 +58,7 @@ function QuestionCard({
               aria-invalid={error ? true : undefined}
               onChange={(e) => onAnswer(question.id, e.target.value)}
               placeholder="Your answer"
-              className="min-h-40 text-[13px]"
+              className="min-h-40 text-13"
             />
           ) : (
             <Input
@@ -67,12 +67,12 @@ function QuestionCard({
               aria-invalid={error ? true : undefined}
               onChange={(e) => onAnswer(question.id, e.target.value)}
               placeholder="Your answer"
-              className="h-10 text-[13px]"
+              className="h-10 text-13"
             />
           )
         ) : (
           question.options.map((o) => (
-            <FieldLabel key={o.id} className="text-[13px] font-normal">
+            <FieldLabel key={o.id} className="text-13 font-normal">
               <Field orientation="horizontal">
                 <Checkbox
                   checked={picked.has(o.id)}
@@ -83,12 +83,12 @@ function QuestionCard({
                     )
                   }
                 />
-                <FieldTitle className="text-[13px] leading-snug">{o.label}</FieldTitle>
+                <FieldTitle className="text-13 leading-snug">{o.label}</FieldTitle>
               </Field>
             </FieldLabel>
           ))
         )}
-        {error && <p className="text-[12px] text-destructive">{error}</p>}
+        {error && <p className="text-12 text-destructive">{error}</p>}
       </CardContent>
     </Card>
   )
@@ -105,7 +105,7 @@ function ReviewCard({
     <Card className="gap-0 py-0">
       <CardHeader className="!py-3.5">
         <CardTitle>Your answers</CardTitle>
-        <p className="text-[12px] text-muted-foreground">Staff read every one of these, so a quick reread pays off.</p>
+        <p className="text-12 text-muted-foreground">Staff read every one of these, so a quick reread pays off.</p>
       </CardHeader>
       <CardContent className="grid gap-5 pb-6">
         {questions.map((q, i) => {
@@ -114,21 +114,21 @@ function ReviewCard({
           return (
             <div key={q.id} className="grid gap-1">
               <div className="flex flex-wrap items-baseline gap-x-3">
-                <span className="min-w-0 flex-1 text-[13px] font-medium leading-snug">
+                <span className="min-w-0 flex-1 text-13 font-medium leading-snug">
                   <span className="pr-1.5 text-muted-foreground">{i + 1}</span>
                   {q.prompt}
                 </span>
                 <button
                   type="button"
                   onClick={() => onEdit(i)}
-                  className="shrink-0 text-[12px] text-brand hover:underline"
+                  className="shrink-0 text-12 text-brand hover:underline"
                 >
                   Edit
                 </button>
               </div>
               <p
                 className={cn(
-                  'whitespace-pre-wrap text-[13px] leading-snug',
+                  'whitespace-pre-wrap text-13 leading-snug',
                   !done && (missing ? 'text-destructive' : 'text-muted-foreground')
                 )}
               >
@@ -224,7 +224,7 @@ function QuizWizard({ quiz, fallbackTitle }: { quiz: UploadQuiz; fallbackTitle: 
         title={quiz.title || fallbackTitle}
         sub="Answer the questionnaire, staff take it from there."
         action={
-          <Badge variant="secondary" className="h-8 px-3 text-[12px] font-normal">
+          <Badge variant="secondary" className="h-8 px-3 text-12 font-normal">
             {answered} of {questions.length} answered
           </Badge>
         }
@@ -233,13 +233,13 @@ function QuizWizard({ quiz, fallbackTitle }: { quiz: UploadQuiz; fallbackTitle: 
       <WizardSteps steps={stepNames} step={step} reached={reached} onStep={setStep} label="Questionnaire steps" />
 
       {draftOffer && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/50 px-4 py-2.5 text-[12.5px]">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/50 px-4 py-2.5 text-12-5">
           <span>An unfinished questionnaire is waiting.</span>
           <span className="flex gap-2">
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 text-[12px]"
+              className="h-7 text-12"
               onClick={() => {
                 uploadQuizDraft.clear()
                 setDraftOffer(false)
@@ -249,7 +249,7 @@ function QuizWizard({ quiz, fallbackTitle }: { quiz: UploadQuiz; fallbackTitle: 
             </Button>
             <Button
               size="sm"
-              className="h-7 text-[12px]"
+              className="h-7 text-12"
               onClick={() => {
                 const draft = uploadQuizDraft.read()
                 if (draft) {
@@ -271,7 +271,7 @@ function QuizWizard({ quiz, fallbackTitle }: { quiz: UploadQuiz; fallbackTitle: 
           <CardContent>
             <RichHtml
               html={quiz.introHtml}
-              className="text-[13px] leading-normal [&_.blockFoot]:hidden [&_.blockHead]:hidden [&_a]:text-brand"
+              className="text-13 leading-normal [&_.blockFoot]:hidden [&_.blockHead]:hidden [&_a]:text-brand"
             />
           </CardContent>
         </Card>

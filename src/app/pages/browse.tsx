@@ -189,7 +189,7 @@ const GALLERY_GRID =
 /** The bar that names a group of rows, shared by the series view plus the runs
  * a grouped list draws. */
 const GROUP_HEAD =
-  'flex items-center gap-2.5 bg-muted/40 px-6 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground'
+  'flex items-center gap-2.5 bg-muted/40 px-6 py-1.5 font-mono text-11 font-semibold uppercase tracking-[0.08em] text-muted-foreground'
 
 /** Why a row is not shown: on the personal ignore list, snatched while the
  * hide-snatched filter is on, already seen while Only new is on. */
@@ -825,7 +825,7 @@ function RowCover({ t, blurb }: { t: SearchTorrent; blurb: boolean }) {
         href={torrentUrl(t.id)}
         tabIndex={-1}
         aria-hidden
-        className="flex h-[var(--cover-h)] items-center justify-center self-center text-[9px] md:h-[var(--cover-h-lg)]"
+        className="flex h-[var(--cover-h)] items-center justify-center self-center text-9 md:h-[var(--cover-h-lg)]"
         style={{ '--cover-h': `${ROW_COVER_H_SM}px`, '--cover-h-lg': `${ROW_COVER_H}px` } as CSSProperties}
       >
         <Book
@@ -959,7 +959,7 @@ function SortHead({ label, keyName, sort, onSort, align }: {
       onClick={() => onSort(next)}
       aria-label={`Sort by ${label.toLowerCase()}`}
       className={cn(
-        'group/sort h-auto gap-1 rounded-sm p-0 text-[10px] font-semibold whitespace-nowrap uppercase tracking-[0.08em] text-muted-foreground hover:bg-transparent hover:text-foreground',
+        'group/sort h-auto gap-1 rounded-sm p-0 text-10 font-semibold whitespace-nowrap uppercase tracking-[0.08em] text-muted-foreground hover:bg-transparent hover:text-foreground',
         align === 'right' && 'justify-end',
         active && 'text-foreground'
       )}
@@ -990,7 +990,7 @@ function ListHeader({ cols, lane, selectable, sort, onSort }: {
   return (
     <div
       style={{ gridTemplateColumns: rowTracks(stats.length, lane, selectable) }}
-      className="hidden gap-x-[18px] border-b bg-card px-6 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground md:grid"
+      className="hidden gap-x-[18px] border-b bg-card px-6 py-1.5 text-10 font-semibold uppercase tracking-[0.08em] text-muted-foreground md:grid"
     >
       {selectable && <span />}
       <span />
@@ -1018,7 +1018,7 @@ function ReseedNote({ t, compact }: { t: SearchTorrent; compact?: boolean }) {
   const mine = t.my_snatched === 1
   const hidden = mine && 'rri' in t
   return (
-    <p className={cn('text-[11px] text-muted-foreground', compact ? 'mt-1 leading-snug' : 'mt-1.5')}>
+    <p className={cn('text-11 text-muted-foreground', compact ? 'mt-1 leading-snug' : 'mt-1.5')}>
       <span title={compact ? `Reseed requested ${relTime(at)}, ${utcTitle(at)}` : utcTitle(at)}>
         Reseed requested{!compact && ` ${relTime(at)}`}
       </span>
@@ -1028,7 +1028,7 @@ function ReseedNote({ t, compact }: { t: SearchTorrent; compact?: boolean }) {
           {' · '}
           {/* Named after the torrent it belongs to: a list of these all reading
               the same is no help to anyone running down the links. */}
-          <Button asChild variant="link" className="h-auto p-0 py-1 text-[11px] font-normal text-muted-foreground underline hover:text-foreground">
+          <Button asChild variant="link" className="h-auto p-0 py-1 text-11 font-normal text-muted-foreground underline hover:text-foreground">
             <a
               href={hideReseedUrl(t.id)}
               aria-label={`Hide the reseed request for ${t.title}`}
@@ -1077,12 +1077,12 @@ function TorrentRow({ t, cols, blurb, onBookmark, onRemoved, onFreeleech, onIgno
       {/* Tags sit outside the row link: a link inside a link is invalid. */}
       <div className="min-w-0">
         <a href={torrentUrl(t.id)} className="block min-w-0">
-          <h3 className="font-display text-[15px] font-medium leading-[1.3] transition-colors group-hover:text-brand">
+          <h3 className="font-display text-15 font-medium leading-[1.3] transition-colors group-hover:text-brand">
             {isNew && <NewDot />}
             {t.title}
           </h3>
           {(authors.length > 0 || narrators.length > 0 || series.length > 0) && (
-            <p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">
+            <p className="mt-0.5 text-12 leading-snug text-muted-foreground">
               {authors.map((a) => a.name).join(', ')}
               {narrators.length > 0 && (
                 <span className="text-muted-foreground">
@@ -1106,7 +1106,7 @@ function TorrentRow({ t, cols, blurb, onBookmark, onRemoved, onFreeleech, onIgno
           </span>
         </a>
         <ReseedNote t={t} />
-        <TagLinks raw={t.tags} limit={ROW_TAG_LIMIT} className="mt-1.5 text-[11px] text-muted-foreground" />
+        <TagLinks raw={t.tags} limit={ROW_TAG_LIMIT} className="mt-1.5 text-11 text-muted-foreground" />
       </div>
       {stats.length > 0 && (
         <div
@@ -1116,26 +1116,26 @@ function TorrentRow({ t, cols, blurb, onBookmark, onRemoved, onFreeleech, onIgno
           style={{ gridTemplateColumns: stats.map((c) => c.track).join(' ') }}
         >
           {cols.includes('filetype') && (
-            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+            <span className="font-mono text-10 font-semibold uppercase tracking-[0.06em] text-muted-foreground">
               {t.filetype?.split(' ')[0] ?? '–'}
             </span>
           )}
           {cols.includes('size') && (
-            <span className="font-mono text-[12.5px] text-muted-foreground">
+            <span className="font-mono text-12-5 text-muted-foreground">
               {t.size}
-              <span className="block font-sans text-[11px] text-muted-foreground">{fmtInt(t.numfiles)} file{t.numfiles === 1 ? '' : 's'}</span>
+              <span className="block font-sans text-11 text-muted-foreground">{fmtInt(t.numfiles)} file{t.numfiles === 1 ? '' : 's'}</span>
             </span>
           )}
           {cols.includes('peers') && (
-            <span className="font-mono text-[12.5px]">
+            <span className="font-mono text-12-5">
               <span className="text-ok" title="Seeders">{fmtInt(t.seeders)}</span>
               <span className="text-muted-foreground/60"> / </span>
               <span className="text-warn" title="Leechers">{fmtInt(t.leechers)}</span>
-              <span className="block font-sans text-[11px] text-muted-foreground" title="Times snatched">{fmtInt(t.times_completed)} snatched</span>
+              <span className="block font-sans text-11 text-muted-foreground" title="Times snatched">{fmtInt(t.times_completed)} snatched</span>
             </span>
           )}
           {cols.includes('added') && (
-            <span className="font-mono text-[12px] text-muted-foreground" title={utcTitle(t.added)}>{relTime(t.added)}</span>
+            <span className="font-mono text-12 text-muted-foreground" title={utcTitle(t.added)}>{relTime(t.added)}</span>
           )}
         </div>
       )}
@@ -1218,7 +1218,7 @@ function GalleryItem({ t, blurb, hiddenReason, onUnignore, isNew, pile }: { t: S
             rest on one floor and every title starts level. Whatever shape a
             cover turns out to be, it keeps it and takes the room it needs. */}
         <CoverPreview t={t} poster={t.poster_type ? coverUrl(t.id, t.poster_type) : null} withCover={false} enabled={blurb}>
-        <span className="flex justify-center text-[11px] transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1.5 motion-reduce:transition-none">
+        <span className="flex justify-center text-11 transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1.5 motion-reduce:transition-none">
           <Book
             poster={t.poster_type ? coverUrl(t.id, t.poster_type) : null}
             title={t.title}
@@ -1241,11 +1241,11 @@ function GalleryItem({ t, blurb, hiddenReason, onUnignore, isNew, pile }: { t: S
           </Book>
         </span>
         </CoverPreview>
-        <span className="font-display mt-2.5 line-clamp-2 min-h-[2.7em] text-[13px] font-medium leading-[1.35]">
+        <span className="font-display mt-2.5 line-clamp-2 min-h-[2.7em] text-13 font-medium leading-[1.35]">
           {isNew && <NewDot />}
           {t.title}
         </span>
-        {authorsText && <span className="mt-0.5 line-clamp-1 text-[11.5px] text-muted-foreground">{authorsText}</span>}
+        {authorsText && <span className="mt-0.5 line-clamp-1 text-11-5 text-muted-foreground">{authorsText}</span>}
         {/* A tile has no room for a row of badges, so only this one: whether the
             book is already yours is what a reader scans a shelf for. */}
         {snatchMarked(pile, t.my_snatched === 1) && (
@@ -1263,7 +1263,7 @@ function GalleryItem({ t, blurb, hiddenReason, onUnignore, isNew, pile }: { t: S
           variant="secondary"
           size="sm"
           onClick={() => onUnignore(t.id)}
-          className="absolute left-1.5 top-1.5 z-3 h-7 gap-1 rounded-full bg-card/90 px-2 text-[11px] shadow-sm hover:text-brand"
+          className="absolute left-1.5 top-1.5 z-3 h-7 gap-1 rounded-full bg-card/90 px-2 text-11 shadow-sm hover:text-brand"
         >
           <Undo2 className="size-3" /> Unignore
         </Button>
@@ -1273,7 +1273,7 @@ function GalleryItem({ t, blurb, hiddenReason, onUnignore, isNew, pile }: { t: S
 }
 
 
-const MENU_GROUP_LABEL = 'text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground'
+const MENU_GROUP_LABEL = 'text-11 font-semibold uppercase tracking-[0.08em] text-muted-foreground'
 
 const BOOKMARK_CLEANUPS = [
   { type: 'seedCom', menu: 'Remove seeded to requirements', title: 'Seeded to requirements', question: 'Remove every bookmark you have seeded to requirements?' },
@@ -2274,7 +2274,7 @@ export function BrowseView(props: PageProps) {
                 maxHeight="max-h-72"
               />
             )}
-            <p className="border-t px-2.5 py-2 text-[11.5px] text-muted-foreground">
+            <p className="border-t px-2.5 py-2 text-11-5 text-muted-foreground">
               Older torrents without a genre stay out of these results.
             </p>
           </FilterFacet>
@@ -2320,7 +2320,7 @@ export function BrowseView(props: PageProps) {
                 a 403 from the endpoint. */}
             <div className="flex items-center gap-2 p-2.5">
               <SizeBound label="Minimum size" value={state.minSize} onCommit={(v) => commitSize('min', v)} />
-              <span className="text-[12px] text-muted-foreground">to</span>
+              <span className="text-12 text-muted-foreground">to</span>
               <SizeBound label="Maximum size" value={state.maxSize} onCommit={(v) => commitSize('max', v)} />
               <FilterSelect
                 value={String(state.sizeUnit)}
@@ -2378,7 +2378,7 @@ export function BrowseView(props: PageProps) {
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b bg-muted/25 px-6 py-2">
           {/* A search never reloads the page, so the count is the only thing
               that reports the outcome; a live region says it out loud too. */}
-          <span role="status" className="text-[12.5px] tabular-nums text-muted-foreground">
+          <span role="status" className="text-12-5 tabular-nums text-muted-foreground">
             {loading
               ? 'Searching…'
               : state.seriesID && seriesViewOn
@@ -2390,7 +2390,7 @@ export function BrowseView(props: PageProps) {
           {!loading && !(state.seriesID && seriesViewOn) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="link" className="h-auto p-0 text-[12.5px] font-normal text-muted-foreground hover:text-foreground">
+                <Button variant="link" className="h-auto p-0 text-12-5 font-normal text-muted-foreground hover:text-foreground">
                   sorted by {(BROWSE_SORTS.find((o) => o.value === effectiveSort)?.label ?? 'relevance').toLowerCase()}
                 </Button>
               </DropdownMenuTrigger>
@@ -2411,10 +2411,10 @@ export function BrowseView(props: PageProps) {
               that starts here says so once; past that only a count is true, so a
               page without new rows says nothing at all. */}
           {newOn && !loading && marks.since === 0 && (
-            <span className="text-[12.5px] text-muted-foreground">Marking new arrivals from now on</span>
+            <span className="text-12-5 text-muted-foreground">Marking new arrivals from now on</span>
           )}
           {newOn && !loading && marks.since > 0 && newCount > 0 && (
-            <span className="text-[12.5px] tabular-nums text-muted-foreground">{fmtInt(newCount)} new here</span>
+            <span className="text-12-5 tabular-nums text-muted-foreground">{fmtInt(newCount)} new here</span>
           )}
           <span className="ml-auto flex flex-wrap items-center gap-1.5">
             {newOn && newCount > 0 && (
@@ -2425,7 +2425,7 @@ export function BrowseView(props: PageProps) {
                     size="sm"
                     disabled={clearing}
                     onClick={() => void markAllSeen()}
-                    className="h-8 text-[12.5px]"
+                    className="h-8 text-12-5"
                   >
                     {clearing ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCheck className="size-3.5" />}
                     Mark all as seen
@@ -2596,7 +2596,7 @@ export function BrowseView(props: PageProps) {
               return (
                 <div key={g.key}>
                   {g.kind === 'range' && firstRange === g.key && (
-                    <h3 className="border-t px-6 pt-4 pb-1 font-display text-[13px] font-semibold">Boxsets and collections</h3>
+                    <h3 className="border-t px-6 pt-4 pb-1 font-display text-13 font-semibold">Boxsets and collections</h3>
                   )}
                   <h3 className={GROUP_HEAD}>
                     {view === 'list' && seriesBulkOn && (
@@ -2637,20 +2637,20 @@ export function BrowseView(props: PageProps) {
           aria-live="polite"
           className="fixed inset-x-0 bottom-4 z-40 mx-auto flex w-fit max-w-[calc(100%-2rem)] flex-wrap items-center justify-center gap-2 rounded-xl border bg-card px-6 py-2.5 shadow-lg"
         >
-          <span className="text-[12.5px] tabular-nums">{plural(selected.size, 'torrent')} selected</span>
-          <Button variant="outline" size="sm" disabled={barBusy} className="h-8 text-[12.5px]" onClick={() => void bookmarkSelected()}>
+          <span className="text-12-5 tabular-nums">{plural(selected.size, 'torrent')} selected</span>
+          <Button variant="outline" size="sm" disabled={barBusy} className="h-8 text-12-5" onClick={() => void bookmarkSelected()}>
             {barBusy ? <Loader2 className="animate-spin" /> : <Bookmark />} Bookmark
           </Button>
-          <Button variant="outline" size="sm" className="h-8 text-[12.5px]" onClick={zipSelected}>
+          <Button variant="outline" size="sm" className="h-8 text-12-5" onClick={zipSelected}>
             <FileArchive /> {selectedIds.length > ZIP_BATCH_MAX ? `Zip first ${fmtInt(ZIP_BATCH_MAX)}` : 'Download .zip'}
           </Button>
           <WedgeBatchButton targets={wedgeTargets} onDone={onBatchFreeleech} />
-          <Button variant="ghost" size="sm" className="h-8 text-[12.5px]" onClick={() => setSelected(new Set())}>Clear</Button>
+          <Button variant="ghost" size="sm" className="h-8 text-12-5" onClick={() => setSelected(new Set())}>Clear</Button>
         </div>
       )}
 
       <div className="flex items-center justify-between">
-        <span className="flex items-center gap-2 text-[12.5px] tabular-nums text-muted-foreground">
+        <span className="flex items-center gap-2 text-12-5 tabular-nums text-muted-foreground">
           {loading ? (
             <Loader2 className="size-3.5 animate-spin" />
           ) : (
@@ -2663,7 +2663,7 @@ export function BrowseView(props: PageProps) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-8 text-[12.5px]"
+                    className="h-8 text-12-5"
                     onClick={() => setShowHidden((v) => !v)}
                   >
                     {showHidden ? 'Hide again' : 'Show'}

@@ -26,7 +26,7 @@ function AlertRow({ alert }: { alert: SiteAlert }) {
       {alert.href && <ChevronRight className="mt-px size-4 shrink-0 text-muted-foreground" />}
     </>
   )
-  const box = cn('flex items-start gap-2.5 rounded-lg px-4 py-3 text-[13px]', tone.box)
+  const box = cn('flex items-start gap-2.5 rounded-lg px-4 py-3 text-13', tone.box)
   if (!alert.href) return <div className={box}>{body}</div>
   return (
     <a

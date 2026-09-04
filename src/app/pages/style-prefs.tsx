@@ -146,7 +146,7 @@ function InputMirror({ el, className }: { el: HTMLInputElement; className?: stri
       spellCheck={false}
       aria-invalid={bad || undefined}
       onChange={(e) => { setV(e.target.value); el.value = e.target.value }}
-      className={cn('h-8 text-[13px]', bad && 'ring-2 ring-destructive/45')}
+      className={cn('h-8 text-13', bad && 'ring-2 ring-destructive/45')}
     />
   )
 }
@@ -170,7 +170,7 @@ function ColorControl({ el, dark, label }: { el: HTMLInputElement; dark: string;
         <input type="color" value={shown} onChange={(e) => write(e.target.value)} aria-label={`Pick ${label}`} className="absolute inset-0 size-full cursor-pointer opacity-0" />
       </span>
       <div className="flex items-center rounded-md bg-muted/70 shadow-xs">
-        <span className="pl-2.5 font-mono text-[13px] text-muted-foreground">#</span>
+        <span className="pl-2.5 font-mono text-13 text-muted-foreground">#</span>
         <input
           {...NO_AUTOFILL}
           value={hex}
@@ -179,7 +179,7 @@ function ColorControl({ el, dark, label }: { el: HTMLInputElement; dark: string;
           aria-label={`${label} hex value`}
           spellCheck={false}
           maxLength={6}
-          className="w-[7ch] bg-transparent py-1.5 pr-2.5 pl-0.5 font-mono text-[13px] uppercase outline-none placeholder:text-muted-foreground"
+          className="w-[7ch] bg-transparent py-1.5 pr-2.5 pl-0.5 font-mono text-13 uppercase outline-none placeholder:text-muted-foreground"
         />
       </div>
     </div>
@@ -249,7 +249,7 @@ function OrderCard({ heading, fields }: { heading: string | null; fields: Field[
         <span className="flex flex-wrap items-center justify-between gap-2">
           {heading ?? 'Order'}
           {touched && (
-            <Button variant="ghost" size="sm" className="h-7 text-[12px] font-normal text-muted-foreground" onClick={reset}>
+            <Button variant="ghost" size="sm" className="h-7 text-12 font-normal text-muted-foreground" onClick={reset}>
               <RotateCcw /> Reset to site default
             </Button>
           )}
@@ -270,13 +270,13 @@ function OrderCard({ heading, fields }: { heading: string | null; fields: Field[
           <GripVertical className="size-4 text-muted-foreground/50" aria-hidden />
           <span
             className={cn(
-              'flex size-6 items-center justify-center rounded-md text-[11.5px] font-medium tabular-nums',
+              'flex size-6 items-center justify-center rounded-md text-11-5 font-medium tabular-nums',
               touched ? 'bg-brand-soft text-accent-foreground' : 'bg-muted text-muted-foreground'
             )}
           >
             {i + 1}
           </span>
-          <span className="truncate text-[13px]" title={f.label}>{f.label}</span>
+          <span className="truncate text-13" title={f.label}>{f.label}</span>
           <span className="flex gap-0.5">
             <Button
               variant="ghost"
@@ -322,13 +322,13 @@ function MatrixCard({ heading, fields }: { heading: string | null; fields: Field
       {fields.map((f, i) => (
         <div key={i} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 px-6 py-2.5">
           <div className="min-w-0">
-            <div className="text-[13px] font-medium leading-snug">{f.label}</div>
-            <div className="text-[11.5px] leading-normal text-muted-foreground">{fieldHint(f)}</div>
+            <div className="text-13 font-medium leading-snug">{f.label}</div>
+            <div className="text-11-5 leading-normal text-muted-foreground">{fieldHint(f)}</div>
           </div>
           <div className="flex shrink-0 justify-end">
             {f.kind === 'color'
               ? <ColorControl el={f.el} dark={f.dark} label={f.label} />
-              : <InputMirror el={f.el} className={f.kind === 'number' ? 'w-20 text-center font-mono' : 'w-56 font-mono text-[12.5px]'} />}
+              : <InputMirror el={f.el} className={f.kind === 'number' ? 'w-20 text-center font-mono' : 'w-56 font-mono text-12-5'} />}
           </div>
         </div>
       ))}
@@ -342,14 +342,14 @@ function CodeEditor({ el, note }: { el: HTMLTextAreaElement; note: string }) {
   const [v, setV] = useState(el.value)
   return (
     <div className="grid gap-2">
-      {note && <p className="text-[12px] leading-normal text-muted-foreground">{note}</p>}
+      {note && <p className="text-12 leading-normal text-muted-foreground">{note}</p>}
       <textarea
         value={v}
         spellCheck={false}
         maxLength={65000}
         placeholder="/* your custom CSS */"
         onChange={(e) => { setV(e.target.value); el.value = e.target.value }}
-        className="min-h-64 w-full resize-y rounded-lg bg-muted/70 px-3.5 py-3 font-mono text-[12.5px] leading-relaxed shadow-xs outline-none transition-[color,box-shadow] focus-visible:ring-[3px] focus-visible:ring-ring"
+        className="min-h-64 w-full resize-y rounded-lg bg-muted/70 px-3.5 py-3 font-mono text-12-5 leading-relaxed shadow-xs outline-none transition-[color,box-shadow] focus-visible:ring-[3px] focus-visible:ring-ring"
       />
     </div>
   )
@@ -381,16 +381,16 @@ function TopMenuBlock({ cell, onChange }: { cell: HTMLElement; onChange: () => v
 
   return (
     <div className="grid gap-4">
-      {parsed.note && <p className="text-[12px] leading-normal text-muted-foreground">{parsed.note}</p>}
+      {parsed.note && <p className="text-12 leading-normal text-muted-foreground">{parsed.note}</p>}
       <div className="grid">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4 pb-1 text-11 font-medium uppercase tracking-wide text-muted-foreground">
           <span>Item</span>
           <span className="w-16 text-center">Order</span>
           <span>Show</span>
         </div>
         {parsed.items.map((it, i) => (
           <div key={i} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4 py-1.5">
-            <span className="text-[13px]">{it.label}</span>
+            <span className="text-13">{it.label}</span>
             {it.order ? <InputMirror el={it.order} className="w-16 text-center" /> : <span className="w-16" />}
             <Switch defaultChecked={it.cb.checked} onCheckedChange={(v) => { it.cb.checked = v === true; onChange() }} />
           </div>
@@ -399,17 +399,17 @@ function TopMenuBlock({ cell, onChange }: { cell: HTMLElement; onChange: () => v
       {(parsed.url || parsed.display) && (
         <div className="grid gap-3">
           <div className="h-px bg-border" />
-          <div className="text-[13px] font-medium">Custom link above the menu bar</div>
-          {parsed.empty && <p className="text-[12px] text-muted-foreground">No custom links added yet.</p>}
+          <div className="text-13 font-medium">Custom link above the menu bar</div>
+          {parsed.empty && <p className="text-12 text-muted-foreground">No custom links added yet.</p>}
           {parsed.url && (
             <div className="grid gap-1.5">
-              <span className="text-[12.5px] text-muted-foreground">Site URL</span>
+              <span className="text-12-5 text-muted-foreground">Site URL</span>
               <InputMirror el={parsed.url} className="h-8" />
             </div>
           )}
           {parsed.display && (
             <div className="grid gap-1.5">
-              <span className="text-[12.5px] text-muted-foreground">Display text (replaces the URL)</span>
+              <span className="text-12-5 text-muted-foreground">Display text (replaces the URL)</span>
               <InputMirror el={parsed.display} className="h-8 max-w-xs" />
             </div>
           )}
@@ -471,7 +471,7 @@ function GenericControl({ item, onChange }: { item: Ctl; onChange: () => void })
           }}
         >
           {item.options.map((o) => (
-            <ToggleGroupItem key={o.el.value} value={o.el.value} className="px-3 text-[12.5px]">{o.label}</ToggleGroupItem>
+            <ToggleGroupItem key={o.el.value} value={o.el.value} className="px-3 text-12-5">{o.label}</ToggleGroupItem>
           ))}
         </ToggleGroup>
       )
@@ -495,7 +495,7 @@ function GenericCell({ cell, note, onChange }: { cell: HTMLElement; note: string
   const items = useMemo(() => parseControls(cell), [cell])
   return (
     <div className="grid gap-3">
-      {note && <p className="text-[12px] leading-normal text-muted-foreground">{note}</p>}
+      {note && <p className="text-12 leading-normal text-muted-foreground">{note}</p>}
       {items.map((it, i) => <GenericControl key={i} item={it} onChange={onChange} />)}
     </div>
   )

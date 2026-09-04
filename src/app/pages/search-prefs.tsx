@@ -89,12 +89,12 @@ function FacetShell({
       <CardHeader className="!py-3.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle>{title}</CardTitle>
-          <span className="flex items-center gap-3 text-[12px] text-muted-foreground">
+          <span className="flex items-center gap-3 text-12 text-muted-foreground">
             {count} / {total} selected
-            {count > 0 && <Button variant="link" onClick={onClear} className="h-auto p-0 text-[12px] text-brand">Clear</Button>}
+            {count > 0 && <Button variant="link" onClick={onClear} className="h-auto p-0 text-12 text-brand">Clear</Button>}
           </span>
         </div>
-        {note && <p className="pt-0.5 text-[12px] text-muted-foreground">{note}</p>}
+        {note && <p className="pt-0.5 text-12 text-muted-foreground">{note}</p>}
       </CardHeader>
       <CardContent className="grid gap-4 pb-5">{children}</CardContent>
     </Card>
@@ -105,7 +105,7 @@ function CheckGrid({ items, onChange }: { items: Check[]; onChange: () => void }
   return (
     <div className="grid grid-cols-2 gap-x-5 gap-y-2 sm:grid-cols-3 lg:grid-cols-4">
       {items.map((c, i) => (
-        <label key={i} className="flex items-center gap-2 text-[13px] leading-snug">
+        <label key={i} className="flex items-center gap-2 text-13 leading-snug">
           <Checkbox checked={c.el.checked} onCheckedChange={(v) => { c.el.checked = v === true; onChange() }} />
           {c.img && <img src={c.img} alt="" className="size-4 shrink-0 rounded-[3px] object-cover" />}
           <span className="min-w-0 truncate" title={c.name}>{c.name}</span>
@@ -128,7 +128,7 @@ function ChipChecks({ items, onChange }: { items: Check[]; onChange: () => void 
             variant="outline"
             pressed={active}
             onPressedChange={() => { c.el.checked = !active; onChange() }}
-            className="h-8 w-auto gap-1.5 px-2.5 text-[12.5px] text-muted-foreground data-pressed:bg-brand-soft data-pressed:text-accent-foreground"
+            className="h-8 w-auto gap-1.5 px-2.5 text-12-5 text-muted-foreground data-pressed:bg-brand-soft data-pressed:text-accent-foreground"
           >
             {c.img && <img src={c.img} alt="" className="size-4 shrink-0" />}
             {c.name}
@@ -157,10 +157,10 @@ function CategoryFacet({
         const state: boolean | 'indeterminate' = s === 0 ? false : s === g.cats.length ? true : 'indeterminate'
         return (
           <div key={g.id}>
-            <label className="flex items-center gap-2 pb-2.5 text-[13.5px] font-medium">
+            <label className="flex items-center gap-2 pb-2.5 text-13-5 font-medium">
               <Checkbox checked={state === true} indeterminate={state === 'indeterminate'} onCheckedChange={(v) => { g.cats.forEach((c) => (c.el.checked = v === true)); onChange() }} />
               {g.name}
-              <span className="text-[12px] font-normal text-muted-foreground">{s}/{g.cats.length}</span>
+              <span className="text-12 font-normal text-muted-foreground">{s}/{g.cats.length}</span>
             </label>
             <div className="pl-6"><CheckGrid items={g.cats} onChange={onChange} /></div>
           </div>
@@ -178,7 +178,7 @@ function SearchableFacet({ title, note, items, onChange }: { title: string; note
   return (
     <FacetShell title={title} note={note} count={sel} total={items.length} onClear={() => { items.forEach((i) => (i.el.checked = false)); onChange() }}>
       {items.length > 12 && (
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter…" className="h-8 max-w-56 text-[12.5px]" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter…" className="h-8 max-w-56 text-12-5" />
       )}
       <CheckGrid items={shown} onChange={onChange} />
     </FacetShell>
@@ -210,7 +210,7 @@ function wedgeFields(form: HTMLElement): WedgeData | null {
 function WedgeInput({ el, suffix, label }: { el: HTMLInputElement; suffix?: string; label: string }) {
   const [v, setV] = useState(() => (el.value === '' ? null : Number(el.value)))
   return (
-    <span className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
+    <span className="flex items-center gap-2 text-12-5 text-muted-foreground">
       {label}
       <NumberField
         label={label}
@@ -232,8 +232,8 @@ function WedgeRule({ title, note, children }: { title: string; note: string; chi
   return (
     <div className="grid gap-2">
       <div>
-        <div className="text-[13.5px] font-medium leading-snug">{title}</div>
-        <p className="pt-0.5 text-[12px] leading-normal text-muted-foreground">{note}</p>
+        <div className="text-13-5 font-medium leading-snug">{title}</div>
+        <p className="pt-0.5 text-12 leading-normal text-muted-foreground">{note}</p>
       </div>
       <div className="flex flex-wrap gap-x-5 gap-y-2">{children}</div>
     </div>
@@ -246,7 +246,7 @@ function WedgeCard({ w, onChange }: { w: WedgeData; onChange: () => void }) {
       title={<span className="flex items-center gap-2"><Ticket className="size-4" /> Automatic FL wedges</span>}
       note="A rule applies to a download when it matches either threshold. Empty fields do not apply."
     >
-      <div className="flex items-start gap-2.5 rounded-lg bg-warn/15 px-4 py-3 text-[13px]">
+      <div className="flex items-start gap-2.5 rounded-lg bg-warn/15 px-4 py-3 text-13">
         <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" />
         <p className="leading-normal">
           These rules spend your FL wedges on their own. The first one can even block a download.
@@ -373,13 +373,13 @@ export function SearchPrefsView(props: PageProps) {
               >
                 {data.quickIn.length > 0 && (
                   <div className="grid gap-2">
-                    <span className="text-[13px] font-medium leading-snug">Quick search</span>
+                    <span className="text-13 font-medium leading-snug">Quick search</span>
                     <ChipChecks items={data.quickIn} onChange={bump} />
                   </div>
                 )}
                 {data.fullIn.length > 0 && (
                   <div className="grid gap-2">
-                    <span className="text-[13px] font-medium leading-snug">Full search</span>
+                    <span className="text-13 font-medium leading-snug">Full search</span>
                     <ChipChecks items={data.fullIn} onChange={bump} />
                   </div>
                 )}
@@ -424,7 +424,7 @@ export function SearchPrefsView(props: PageProps) {
                 <ChipChecks items={data.mediaTypes} onChange={bump} />
                 {data.mainCats.length > 0 && (
                   <div className="grid gap-2 pt-1">
-                    <span className="text-[13px] font-medium leading-snug">Fiction or nonfiction</span>
+                    <span className="text-13 font-medium leading-snug">Fiction or nonfiction</span>
                     <ChipChecks items={data.mainCats} onChange={bump} />
                   </div>
                 )}

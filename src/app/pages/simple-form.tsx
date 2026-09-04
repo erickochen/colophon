@@ -55,7 +55,7 @@ export function SimpleFormView(props: PageProps) {
       {intro && (
         <Card>
           <CardContent>
-            <RichHtml html={intro} className="[&_.blockHead]:hidden [&_.blockFoot]:hidden [&_h1]:font-display [&_h1]:my-2 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:my-2 [&_h2]:text-[15px] [&_h2]:font-semibold [&_h3]:my-1.5 [&_h3]:font-semibold" />
+            <RichHtml html={intro} className="[&_.blockHead]:hidden [&_.blockFoot]:hidden [&_h1]:font-display [&_h1]:my-2 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:my-2 [&_h2]:text-15 [&_h2]:font-semibold [&_h3]:my-1.5 [&_h3]:font-semibold" />
           </CardContent>
         </Card>
       )}

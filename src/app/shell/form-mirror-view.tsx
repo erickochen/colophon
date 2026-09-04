@@ -128,7 +128,7 @@ function Widget({ c, onChange, wide }: { c: MirrorControl; onChange: () => void;
             className="justify-start"
           >
             {c.options.map((o) => (
-              <ToggleGroupItem key={o.value} value={o.value} className="px-3 text-[12.5px]">{cleanLabel(o.label)}</ToggleGroupItem>
+              <ToggleGroupItem key={o.value} value={o.value} className="px-3 text-12-5">{cleanLabel(o.label)}</ToggleGroupItem>
             ))}
           </ToggleGroup>
         )
@@ -145,7 +145,7 @@ function Widget({ c, onChange, wide }: { c: MirrorControl; onChange: () => void;
           className="gap-2.5"
         >
           {c.options.map((o) => (
-            <Label key={o.value} className="flex items-start gap-2.5 text-[13px] font-normal leading-snug">
+            <Label key={o.value} className="flex items-start gap-2.5 text-13 font-normal leading-snug">
               <RadioGroupItem value={o.value} className="mt-0.5" />
               <span>{cleanLabel(o.label)}</span>
             </Label>
@@ -216,7 +216,7 @@ function Widget({ c, onChange, wide }: { c: MirrorControl; onChange: () => void;
     }
 
     case 'text': {
-      const size = wide ? 'h-10 w-full' : 'h-8 w-48 text-[13px]'
+      const size = wide ? 'h-10 w-full' : 'h-8 w-48 text-13'
       const hint = c.placeholder ?? (wide || c.el.value ? undefined : 'site default')
       if (c.suggest) {
         return (
@@ -288,8 +288,8 @@ function Explain({ noteHtml, text }: { noteHtml?: string | null; text?: string |
   if (!noteHtml && !text) return null
   return (
     <div className="grid gap-1 pt-1">
-      {noteHtml && <RichHtml html={noteHtml} className="text-[12px] leading-normal text-muted-foreground [&_a]:text-brand" />}
-      {text && <p className="text-[12px] leading-normal text-muted-foreground">{text}</p>}
+      {noteHtml && <RichHtml html={noteHtml} className="text-12 leading-normal text-muted-foreground [&_a]:text-brand" />}
+      {text && <p className="text-12 leading-normal text-muted-foreground">{text}</p>}
     </div>
   )
 }
@@ -313,7 +313,7 @@ function SettingRow({
       )}
     >
       <div className="min-w-0 grow basis-32">
-        {title && <div id={labelId} className="text-[13.5px] font-medium leading-snug">{title}</div>}
+        {title && <div id={labelId} className="text-13-5 font-medium leading-snug">{title}</div>}
         <Explain noteHtml={noteHtml} text={text} />
       </div>
       <div className={cn('flex shrink-0 justify-end', tall && 'pt-0.5')}>
@@ -332,7 +332,7 @@ function StackedRow({
     <div className="grid gap-3 px-6 py-4">
       {(title || noteHtml || text) && (
         <div className="min-w-0">
-          {title && <div id={labelId} className="text-[13.5px] font-medium leading-snug">{title}</div>}
+          {title && <div id={labelId} className="text-13-5 font-medium leading-snug">{title}</div>}
           <Explain noteHtml={noteHtml} text={text} />
         </div>
       )}
@@ -373,7 +373,7 @@ function GroupRow({
   return (
     <div role="group" aria-labelledby={titleId} className="flex w-full flex-wrap items-start gap-x-8 gap-y-3 px-6 py-4">
       <div className="min-w-0 grow basis-32">
-        <div id={titleId} className="text-[13.5px] font-medium leading-snug">{row.label}</div>
+        <div id={titleId} className="text-13-5 font-medium leading-snug">{row.label}</div>
         <Explain noteHtml={row.noteHtml} text={curated} />
       </div>
       <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2.5">
@@ -381,7 +381,7 @@ function GroupRow({
           const id = `${base}-${i}`
           return (
             <Fragment key={i}>
-              <span id={id} className="text-[12.5px] leading-snug text-muted-foreground">{ownLabel(c)}</span>
+              <span id={id} className="text-12-5 leading-snug text-muted-foreground">{ownLabel(c)}</span>
               <RowLabelId.Provider value={id}>
                 <Widget c={c} onChange={onChange} />
               </RowLabelId.Provider>
@@ -413,7 +413,7 @@ function FieldRow({ row, onChange, layout }: { row: MirrorRow; onChange: () => v
   if (row.kind === 'static') {
     return (
       <SettingRow title={STATIC_LABELS[row.label] ?? row.label}>
-        <span className="text-[13px] text-muted-foreground">{row.noteHtml}</span>
+        <span className="text-13 text-muted-foreground">{row.noteHtml}</span>
       </SettingRow>
     )
   }
@@ -433,7 +433,7 @@ function FieldRow({ row, onChange, layout }: { row: MirrorRow; onChange: () => v
           {row.controls.map((c, i) => (
             <div key={i} className="w-full">
               {row.controls.length > 1 && ownLabel(c) && (
-                <div className="pb-1 text-[12.5px] text-muted-foreground">{ownLabel(c)}</div>
+                <div className="pb-1 text-12-5 text-muted-foreground">{ownLabel(c)}</div>
               )}
               <Widget c={c} onChange={change} wide />
             </div>
@@ -479,7 +479,7 @@ function FieldRow({ row, onChange, layout }: { row: MirrorRow; onChange: () => v
   return (
     <div ref={anchor} className={invalid ? 'rounded-lg ring-2 ring-destructive/45' : undefined}>
       {body}
-      {invalid && <p className="-mt-1 px-6 pb-3 text-[12px] leading-normal text-destructive">{invalid}</p>}
+      {invalid && <p className="-mt-1 px-6 pb-3 text-12 leading-normal text-destructive">{invalid}</p>}
     </div>
   )
 }
@@ -509,7 +509,7 @@ export function MirrorCards({ rows, layout = 'settings' }: { rows: MirrorRow[]; 
             <CardHeader className="!py-3.5">
               <CardTitle>{g.title}</CardTitle>
               {g.note && (
-                <RichHtml html={g.note} className="pt-0.5 text-[12px] leading-normal text-muted-foreground [&_a]:text-brand" />
+                <RichHtml html={g.note} className="pt-0.5 text-12 leading-normal text-muted-foreground [&_a]:text-brand" />
               )}
             </CardHeader>
           )}

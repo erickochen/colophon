@@ -121,7 +121,7 @@ export function NameSuggest({
       <AutocompleteContent hidden={!status}>
         <AutocompleteStatus>
           {status && status !== 'hits' && (
-            <p className="flex items-center gap-2 px-3 py-2 text-[12.5px] text-muted-foreground">
+            <p className="flex items-center gap-2 px-3 py-2 text-12-5 text-muted-foreground">
               {busy && <Spinner className="size-3.5" />}
               {status === 'searching' && 'Searching'}
               {status === 'short' && `Type ${MIN_NAME_TERM} letters to see known ${KIND_NOUN[kind]} names.`}
@@ -138,7 +138,7 @@ export function NameSuggest({
               onClick={() => onPick?.(hit)}
             >
               <span className="min-w-0 flex-1 truncate">{hit.name}</span>
-              {hit.id > 0 && <span className="shrink-0 text-[11.5px] tabular-nums text-muted-foreground">{hit.id}</span>}
+              {hit.id > 0 && <span className="shrink-0 text-11-5 tabular-nums text-muted-foreground">{hit.id}</span>}
             </AutocompleteItem>
           )}
         </AutocompleteList>

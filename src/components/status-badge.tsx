@@ -35,7 +35,7 @@ export function SnatchBadge({
         TONES[tone],
         // The icon size rides on the badge: Badge's own [&>svg]:size-3 beats a
         // class on the icon itself, on specificity plus on source order.
-        dense ? 'h-4 px-1 text-[9.5px] [&>svg]:size-2.5' : 'h-5 px-2 text-[11px]'
+        dense ? 'h-4 px-1 text-9-5 [&>svg]:size-2.5' : 'h-5 px-2 text-11'
       )}
     >
       {tone === 'ok' && <Sprout />}

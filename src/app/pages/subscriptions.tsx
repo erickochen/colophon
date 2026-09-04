@@ -76,11 +76,11 @@ export function SubscriptionNewPostsView(props: PageProps) {
         sub={data.cleared ? 'Notifications cleared' : 'Topics you follow that picked up replies'}
         action={
           <div className="flex flex-wrap gap-1.5">
-            <Button asChild variant="outline" size="sm" className="h-8 text-[12.5px]">
+            <Button asChild variant="outline" size="sm" className="h-8 text-12-5">
               <a href="/forums/subscriptions.php"><Bookmark /> Manage subscriptions</a>
             </Button>
             {data.clearHref && (
-              <Button asChild variant="outline" size="sm" className="h-8 text-[12.5px]">
+              <Button asChild variant="outline" size="sm" className="h-8 text-12-5">
                 <a href={data.clearHref}><CheckCheck /> Clear notifications</a>
               </Button>
             )}
@@ -93,14 +93,14 @@ export function SubscriptionNewPostsView(props: PageProps) {
           <CardContent className="grid divide-y divide-border/60 px-0 py-0">
             {threads.map((t, i) => (
               <div key={i} className="grid grid-cols-1 gap-0.5 px-6 py-3">
-                <a href={t.href} className="truncate text-[13.5px] font-medium hover:underline">{t.title}</a>
+                <a href={t.href} className="truncate text-13-5 font-medium hover:underline">{t.title}</a>
                 {t.board && (
                   t.board.href ? (
-                    <a href={t.board.href} className="w-fit text-[12px] text-muted-foreground hover:underline">
+                    <a href={t.board.href} className="w-fit text-12 text-muted-foreground hover:underline">
                       in {t.board.name}
                     </a>
                   ) : (
-                    <span className="text-[12px] text-muted-foreground">in {t.board.name}</span>
+                    <span className="text-12 text-muted-foreground">in {t.board.name}</span>
                   )
                 )}
               </div>
@@ -142,7 +142,7 @@ export function SubscriptionCleanView(props: PageProps) {
       <PageHeader title="Clear watchlist notifications" sub="One click and the list starts fresh" />
       <Card>
         <CardContent className="grid gap-4">
-          <p className="text-[13.5px]">
+          <p className="text-13-5">
             Clear all new-post notifications? The topics stay on your watchlist. Only the new-post markers go.
           </p>
           <div className="flex flex-wrap gap-2">
@@ -250,8 +250,8 @@ export function SubscriptionsView(props: PageProps) {
           )}
           {data.topics.map((t) => (
             <div key={t.id} className="flex items-center justify-between gap-3 px-6 py-2.5">
-              <a href={t.href} className="min-w-0 truncate text-[13.5px] font-medium hover:underline">{t.title}</a>
-              <Button variant="outline" size="sm" className="h-7 text-[12px]" onClick={() => unsubscribeTopic(t)}>
+              <a href={t.href} className="min-w-0 truncate text-13-5 font-medium hover:underline">{t.title}</a>
+              <Button variant="outline" size="sm" className="h-7 text-12" onClick={() => unsubscribeTopic(t)}>
                 <BellOff /> Unsubscribe
               </Button>
             </div>
@@ -267,7 +267,7 @@ export function SubscriptionsView(props: PageProps) {
           <CardContent className="grid px-0 py-1">
             {data.boards.filter((b) => b.section === section).map((b) => (
               <div key={b.id} className="grid items-center gap-3 px-6 py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
-                <span className="truncate text-[13.5px] font-medium">{b.name}</span>
+                <span className="truncate text-13-5 font-medium">{b.name}</span>
                 <ToggleGroup
                   type="single"
                   variant="outline"
@@ -279,13 +279,13 @@ export function SubscriptionsView(props: PageProps) {
                     <ToggleGroupItem
                       key={mode}
                       value={mode}
-                      className="h-8 px-2.5 text-[12px] font-medium text-muted-foreground data-pressed:bg-brand-soft data-pressed:text-accent-foreground"
+                      className="h-8 px-2.5 text-12 font-medium text-muted-foreground data-pressed:bg-brand-soft data-pressed:text-accent-foreground"
                     >
                       {label}
                     </ToggleGroupItem>
                   ))}
                 </ToggleGroup>
-                <Label className="flex items-center gap-2 text-[12px] font-normal text-muted-foreground">
+                <Label className="flex items-center gap-2 text-12 font-normal text-muted-foreground">
                   Hide on dashboard
                   <Switch checked={b.hideFront} onCheckedChange={(v) => toggleHide(b, v === true)} />
                 </Label>

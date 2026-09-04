@@ -196,7 +196,7 @@ export function ConversationBubble({
       <Avatar aria-hidden="true" className="size-9 shrink-0 rounded-lg">
         <AvatarFallback
           className={cn(
-            'rounded-lg text-[11px] font-semibold',
+            'rounded-lg text-11 font-semibold',
             mine ? 'bg-primary text-primary-foreground' : 'bg-brand-soft text-accent-foreground'
           )}
         >
@@ -206,13 +206,13 @@ export function ConversationBubble({
       <div className={cn('min-w-0 max-w-[85%] flex-1', mine && 'flex flex-col items-end')}>
         <div className={cn('flex items-baseline gap-2 pb-1', mine && 'flex-row-reverse')}>
           {href ? (
-            <a href={href} className="text-[12.5px] font-semibold hover:underline" style={style}>{author}</a>
+            <a href={href} className="text-12-5 font-semibold hover:underline" style={style}>{author}</a>
           ) : (
-            <span className="text-[12.5px] font-semibold" style={style}>{author}</span>
+            <span className="text-12-5 font-semibold" style={style}>{author}</span>
           )}
           {badge}
           {at && (
-            <time dateTime={at.replace(' ', 'T') + 'Z'} title={utcTitle(at)} className="text-[11px] text-muted-foreground">
+            <time dateTime={at.replace(' ', 'T') + 'Z'} title={utcTitle(at)} className="text-11 text-muted-foreground">
               {relTime(at)}
               <span className="sr-only"> ({at} UTC)</span>
             </time>

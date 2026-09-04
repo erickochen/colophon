@@ -20,8 +20,8 @@ export function PageHeader({ title, sub, action }: { title: ReactNode; sub?: Rea
   return (
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="font-display text-[26px] font-semibold tracking-tight text-balance">{title}</h1>
-        {sub && <p className="mt-0.5 text-[13px] text-muted-foreground">{sub}</p>}
+        <h1 className="font-display text-26 font-semibold tracking-tight text-balance">{title}</h1>
+        {sub && <p className="mt-0.5 text-13 text-muted-foreground">{sub}</p>}
       </div>
       {action}
     </div>
@@ -41,7 +41,7 @@ export function protocolNote(p: ProtocolStatus): string {
 export function Crumbs({ items }: { items: { name: string; href: string | null }[] }) {
   return (
     <Breadcrumb>
-      <BreadcrumbList className="text-[12.5px]">
+      <BreadcrumbList className="text-12-5">
         {items.map((c, i) => (
           <Fragment key={i}>
             {i > 0 && <BreadcrumbSeparator />}
@@ -125,7 +125,7 @@ export function Pager({
  * nesting reads at a glance. The serif quote mark lives in index.css. Shared
  * with the composer so writing matches posting. */
 export const QUOTE_CLASSES =
-  '[&_.quote]:my-3 [&_.quote]:rounded-md [&_.quote]:border [&_.quote]:bg-muted [&_.quote]:py-2.5 [&_.quote]:pr-3.5 [&_.quote]:pl-4 [&_.quote]:text-[13px] [&_.quote_.quote]:bg-card [&_.quote_.quote_.quote]:bg-muted [&_.quote>span:first-child]:mb-1.5 [&_.quote>span:first-child]:block [&_.quote>span:first-child]:text-[11.5px] [&_.quote>span:first-child]:font-semibold [&_.quote>span:first-child]:text-foreground [&_.quote_p:last-child]:mb-0'
+  '[&_.quote]:my-3 [&_.quote]:rounded-md [&_.quote]:border [&_.quote]:bg-muted [&_.quote]:py-2.5 [&_.quote]:pr-3.5 [&_.quote]:pl-4 [&_.quote]:text-13 [&_.quote_.quote]:bg-card [&_.quote_.quote_.quote]:bg-muted [&_.quote>span:first-child]:mb-1.5 [&_.quote>span:first-child]:block [&_.quote>span:first-child]:text-11-5 [&_.quote>span:first-child]:font-semibold [&_.quote>span:first-child]:text-foreground [&_.quote_p:last-child]:mb-0'
 
 /* MAM's editor writes every line as its own <p> and renders <p> without
  * margins, so blank lines only come from explicitly empty paragraphs. Post
@@ -241,11 +241,11 @@ export function RichHtml({ html, className }: { html: string; className?: string
     <div
       onClick={onClick}
       className={cn(
-        'user-html text-[13.5px] leading-relaxed [overflow-wrap:anywhere]',
+        'user-html text-13-5 leading-relaxed [overflow-wrap:anywhere]',
         // A percentage cap inside a table cell is circular, so the cap on images
         // there is a flat length. Wider tables scroll in their lane instead.
         '[&_.table-lane]:max-w-full [&_.table-lane]:overflow-x-auto [&_table_img]:max-w-[20rem] [&_table_img:hover]:max-w-[20rem]',
-        '[&_:where(:not(a))>img]:cursor-zoom-in [&_a]:text-brand [&_a]:underline [&_blockquote]:my-2 [&_blockquote]:rounded-md [&_blockquote]:bg-muted [&_blockquote]:px-3 [&_blockquote]:py-2 [&_blockquote]:text-[13px] [&_img]:my-1 [&_img]:h-auto [&_img]:max-h-[600px] [&_img]:max-w-[min(600px,100%)] [&_img]:rounded-md [&_img:hover]:max-h-none [&_img:hover]:max-w-full [&_li]:ml-4 [&_ol]:list-decimal [&_p]:mb-2.5 [&_p:last-child]:mb-0 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-[12px] [&_table]:my-2 [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-1 [&_ul]:list-disc',
+        '[&_:where(:not(a))>img]:cursor-zoom-in [&_a]:text-brand [&_a]:underline [&_blockquote]:my-2 [&_blockquote]:rounded-md [&_blockquote]:bg-muted [&_blockquote]:px-3 [&_blockquote]:py-2 [&_blockquote]:text-13 [&_img]:my-1 [&_img]:h-auto [&_img]:max-h-[600px] [&_img]:max-w-[min(600px,100%)] [&_img]:rounded-md [&_img:hover]:max-h-none [&_img:hover]:max-w-full [&_li]:ml-4 [&_ol]:list-decimal [&_p]:mb-2.5 [&_p:last-child]:mb-0 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-12 [&_table]:my-2 [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-1 [&_ul]:list-disc',
         QUOTE_CLASSES,
         className
       )}

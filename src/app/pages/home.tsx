@@ -74,7 +74,7 @@ function HiddenBar({ sections }: { sections: HiddenSections }) {
   if (!sections.hidden.length) return null
   const gone = SECTIONS.filter((s) => sections.isHidden(s.id))
   return (
-    <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-2 text-12-5 text-muted-foreground">
       <span>Hidden</span>
       {gone.map((s) => (
         <Button
@@ -82,14 +82,14 @@ function HiddenBar({ sections }: { sections: HiddenSections }) {
           variant="outline"
           size="sm"
           onClick={() => sections.show(s.id)}
-          className="h-7 gap-1 rounded-full px-2.5 text-[12.5px] font-normal text-muted-foreground hover:text-foreground"
+          className="h-7 gap-1 rounded-full px-2.5 text-12-5 font-normal text-muted-foreground hover:text-foreground"
         >
           <Plus className="size-3" />
           {s.label}
         </Button>
       ))}
       {gone.length > 1 && (
-        <Button variant="link" onClick={sections.showAll} className="h-auto p-0 text-[12.5px] text-brand">
+        <Button variant="link" onClick={sections.showAll} className="h-auto p-0 text-12-5 text-brand">
           Show all
         </Button>
       )}
@@ -124,19 +124,19 @@ function Shelf({ items }: { items: ShelfItem[] }) {
           <span className="relative block transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1.5 motion-reduce:transition-none">
             <Book poster={t.poster} title={t.title} author={t.authorsText} shape={t.shape} size="shelf" className="group-hover:shadow-book-lift" />
             {t.fileType && (
-              <span className="absolute right-1.5 top-1.5 z-3 rounded bg-black/55 px-1.5 py-0.5 font-mono text-[9.5px] font-semibold uppercase tracking-wide text-white backdrop-blur-[2px]">
+              <span className="absolute right-1.5 top-1.5 z-3 rounded bg-black/55 px-1.5 py-0.5 font-mono text-9-5 font-semibold uppercase tracking-wide text-white backdrop-blur-[2px]">
                 {t.fileType}
               </span>
             )}
             {(t.vip || t.explicit) && (
-              <span className="absolute bottom-2 left-2 z-3 rounded-full bg-brand-soft px-2 py-0.5 text-[9.5px] font-semibold tracking-wide text-accent-foreground">
+              <span className="absolute bottom-2 left-2 z-3 rounded-full bg-brand-soft px-2 py-0.5 text-9-5 font-semibold tracking-wide text-accent-foreground">
                 {[t.vip ? 'VIP' : null, t.explicit ? '18+' : null].filter(Boolean).join(' · ')}
               </span>
             )}
           </span>
           <div className="grid gap-0.5">
-            <span className="font-display line-clamp-2 text-[13px] font-medium leading-snug">{t.title}</span>
-            <span className="line-clamp-1 text-[11.5px] text-muted-foreground">{t.authorsText}</span>
+            <span className="font-display line-clamp-2 text-13 font-medium leading-snug">{t.title}</span>
+            <span className="line-clamp-1 text-11-5 text-muted-foreground">{t.authorsText}</span>
           </div>
         </a>
         </BlurFade>
@@ -181,12 +181,12 @@ function ShoutList({ shouts, alerts }: { shouts: Shout[]; alerts: ShoutAlerts | 
           title={alerted ? ALERT_TITLE : undefined}
           style={alerted && alerts?.mark ? { backgroundColor: alerts.mark.fill, borderColor: alerts.mark.edge } : undefined}
           className={cn(
-            'grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-2 text-[13px]',
+            'grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-2 text-13',
             alerted && '-mx-1 rounded-md border px-1 py-0.5'
           )}
         >
           {alerted && <span className="sr-only select-none">{ALERT_LABEL}</span>}
-          <span className="font-mono text-[10.5px] text-muted-foreground" title={utcTitle(s.time)}>{localHm(s.time)}</span>
+          <span className="font-mono text-10-5 text-muted-foreground" title={utcTitle(s.time)}>{localHm(s.time)}</span>
           <p className={cn('[overflow-wrap:anywhere]', alerted ? 'text-foreground' : 'text-foreground-soft')}>
             {/* The margin sets the gap; the space after it keeps a copied line
                 readable. */}
@@ -323,8 +323,8 @@ export function HomeView({ page }: PageProps) {
   return (
     <div className="grid gap-5">
       <div>
-        <h1 className="font-display text-[26px] font-semibold tracking-tight">{greeting(page.user.name)}</h1>
-        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[13px] text-muted-foreground">
+        <h1 className="font-display text-26 font-semibold tracking-tight">{greeting(page.user.name)}</h1>
+        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-13 text-muted-foreground">
           {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' })}
           {data.stats.find((s) => s.label === 'Enabled Users') && (
             <> · {data.stats.find((s) => s.label === 'Enabled Users')!.value.split(' / ')[0]} members reading right now</>
@@ -347,7 +347,7 @@ export function HomeView({ page }: PageProps) {
             <CardHeader>
               <CardTitle>Fresh on the shelves</CardTitle>
               <CardAction className="flex items-center gap-2">
-                <a href="/tor/browse.php" className="inline-flex items-center gap-1 text-[12.5px] font-medium text-brand">
+                <a href="/tor/browse.php" className="inline-flex items-center gap-1 text-12-5 font-medium text-brand">
                   Browse all <ArrowRight className="size-3.5" />
                 </a>
                 <HideButton label="Fresh on the shelves" onHide={() => sections.hide('shelf')} />
@@ -366,7 +366,7 @@ export function HomeView({ page }: PageProps) {
             <CardHeader>
               <CardTitle>The reading room</CardTitle>
               <CardAction className="flex items-center gap-2">
-                <a href="/shoutbox/index.php" className="inline-flex items-center gap-1 text-[12.5px] font-medium text-brand">
+                <a href="/shoutbox/index.php" className="inline-flex items-center gap-1 text-12-5 font-medium text-brand">
                   Open shoutbox <ArrowRight className="size-3.5" />
                 </a>
                 <HideButton label="The reading room" onHide={() => sections.hide('reading-room')} />
@@ -383,7 +383,7 @@ export function HomeView({ page }: PageProps) {
                   <Button
                     size="sm"
                     onClick={jumpToLatestShout}
-                    className="absolute bottom-2 left-1/2 h-6 -translate-x-1/2 gap-1.5 rounded-full px-2.5 text-[11px] shadow-lg transition-transform hover:scale-105"
+                    className="absolute bottom-2 left-1/2 h-6 -translate-x-1/2 gap-1.5 rounded-full px-2.5 text-11 shadow-lg transition-transform hover:scale-105"
                   >
                     <ArrowDown className="size-3" /> Jump to latest
                   </Button>
@@ -398,9 +398,9 @@ export function HomeView({ page }: PageProps) {
                   placeholder="Say something nice…"
                   aria-label="Write a shout"
                   maxLength={1500}
-                  className="h-full min-w-0 flex-1 bg-transparent pl-3 text-[13.5px] outline-none placeholder:text-muted-foreground"
+                  className="h-full min-w-0 flex-1 bg-transparent pl-3 text-13-5 outline-none placeholder:text-muted-foreground"
                 />
-                <Button onClick={sendShout} size="sm" className="h-7 shrink-0 text-[12px]"><Send /> Shout</Button>
+                <Button onClick={sendShout} size="sm" className="h-7 shrink-0 text-12"><Send /> Shout</Button>
               </div>
             </CardContent>
           </Card>
@@ -411,7 +411,7 @@ export function HomeView({ page }: PageProps) {
             <CardHeader>
               <CardTitle>Conversations</CardTitle>
               <CardAction className="flex items-center gap-2">
-                <a href="/f" className="inline-flex items-center gap-1 text-[12.5px] font-medium text-brand">
+                <a href="/f" className="inline-flex items-center gap-1 text-12-5 font-medium text-brand">
                   All forums <ArrowRight className="size-3.5" />
                 </a>
                 <HideButton label="Conversations" onHide={() => sections.hide('conversations')} />
@@ -425,12 +425,12 @@ export function HomeView({ page }: PageProps) {
                   className="-mx-2 flex items-center justify-between gap-4 rounded-md px-2 py-2 hover:bg-accent/50"
                 >
                   <span className="min-w-0">
-                    <span className="font-display block truncate text-[14px] font-medium">{p.title}</span>
-                    <span className="block text-[12px] text-muted-foreground">
+                    <span className="font-display block truncate text-14 font-medium">{p.title}</span>
+                    <span className="block text-12 text-muted-foreground">
                       {p.board} · last by {p.lastBy ?? p.author} · <span title={utcTitle(p.lastAt)}>{relTime(p.lastAt)}</span>
                     </span>
                   </span>
-                  <span className="shrink-0 font-mono text-[11.5px] text-muted-foreground">{fmtInt(p.replies)} replies</span>
+                  <span className="shrink-0 font-mono text-11-5 text-muted-foreground">{fmtInt(p.replies)} replies</span>
                 </a>
               ))}
               {!posts.length && <p className="py-3 text-center text-sm text-muted-foreground">No recent forum posts.</p>}
@@ -454,7 +454,7 @@ export function HomeView({ page }: PageProps) {
                 {vaultNum > 0 ? <NumberRoll value={vaultNum} /> : page.vault ?? '–'}
               </span>
               <Progress value={Math.min(100, (vaultNum / VAULT_GOAL) * 100)} className="[&>div]:bg-brand-fill" />
-              <span className="text-[12px] text-muted-foreground">of 20,000,000 points · everyone gets 2 wedges</span>
+              <span className="text-12 text-muted-foreground">of 20,000,000 points · everyone gets 2 wedges</span>
               <Button asChild variant="outline" size="sm" className="mt-1 w-fit">
                 <a href="/millionaires/pot.php">Donate up to 2,000/day</a>
               </Button>
@@ -473,8 +473,8 @@ export function HomeView({ page }: PageProps) {
             <CardContent className="grid">
               {data.news.map((nw, i) => (
                 <a key={i} href={nw.href} className="-mx-2 flex gap-3 rounded-md px-2 py-2 hover:bg-accent/50">
-                  <span className="shrink-0 pt-0.5 font-mono text-[11px] text-muted-foreground">{nw.date?.slice(5) ?? ''}</span>
-                  <span className={'text-[13px] ' + (nw.sub ? 'text-muted-foreground' : 'font-medium')}>{nw.text}</span>
+                  <span className="shrink-0 pt-0.5 font-mono text-11 text-muted-foreground">{nw.date?.slice(5) ?? ''}</span>
+                  <span className={'text-13 ' + (nw.sub ? 'text-muted-foreground' : 'font-medium')}>{nw.text}</span>
                 </a>
               ))}
               {!data.news.length && <p className="py-3 text-center text-sm text-muted-foreground">No announcements.</p>}
@@ -505,7 +505,7 @@ export function HomeView({ page }: PageProps) {
                     <div className="font-display text-lg font-semibold tabular-nums">
                       {num != null ? <NumberRoll value={num} /> : value}
                     </div>
-                    <div className="text-[11.5px] text-muted-foreground">{label}</div>
+                    <div className="text-11-5 text-muted-foreground">{label}</div>
                   </div>
                 )
               })}
@@ -524,7 +524,7 @@ export function HomeView({ page }: PageProps) {
               <CardContent className="grid gap-2.5">
                 {data.servers.map((s) => (
                   <div key={s.name} className="grid gap-1">
-                    <div className="flex justify-between text-[12px]">
+                    <div className="flex justify-between text-12">
                       <span className="font-medium">{s.name}</span>
                       <span className="font-mono text-muted-foreground">{s.cpuAvail != null ? `${s.cpuAvail.toFixed(0)}% free` : '–'}</span>
                     </div>

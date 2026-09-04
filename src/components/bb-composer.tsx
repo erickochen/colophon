@@ -734,7 +734,7 @@ export function BBComposer({
           <DropdownMenuContent align="start">
             {SIZES.map((n) => (
               <DropdownMenuItem key={n} onClick={() => (wysiwyg ? exec('fontSize', String(n)) : insert(`[size=${n}]`, '[/size]'))}>
-                <span style={{ fontSize: SIZE_PX[n] }}>Size {n}</span>{n === 2 && <span className="ml-1 text-[10px] text-muted-foreground">default</span>}
+                <span style={{ fontSize: SIZE_PX[n] }}>Size {n}</span>{n === 2 && <span className="ml-1 text-10 text-muted-foreground">default</span>}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -745,7 +745,7 @@ export function BBComposer({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button type="button" variant="ghost" size="sm" tabIndex={-1} className="h-7 gap-1 px-1.5 text-[11px] text-muted-foreground hover:text-foreground" onMouseDown={saveSel}>
+            <Button type="button" variant="ghost" size="sm" tabIndex={-1} className="h-7 gap-1 px-1.5 text-11 text-muted-foreground hover:text-foreground" onMouseDown={saveSel}>
               <Braces aria-hidden="true" className="size-3.5" /> more <ChevronDown aria-hidden="true" className="size-3" />
             </Button>
           </DropdownMenuTrigger>
@@ -769,7 +769,7 @@ export function BBComposer({
         {/* Preview is server-rendered through /jsonPostTest.php in both modes. The
             rich editor keeps its raw-markup Code view as a third option. */}
         <div className="ml-auto flex items-center gap-2">
-          <span aria-hidden="true" className="hidden text-[10.5px] text-muted-foreground opacity-0 transition-opacity group-focus-within:opacity-100 md:inline">
+          <span aria-hidden="true" className="hidden text-10-5 text-muted-foreground opacity-0 transition-opacity group-focus-within:opacity-100 md:inline">
             Alt+F10 for the toolbar
           </span>
           <ToggleGroup
@@ -787,7 +787,7 @@ export function BBComposer({
               <ToggleGroupItem
                 key={key}
                 value={key}
-                className="h-6 gap-1 px-2 text-[11.5px] text-muted-foreground data-pressed:bg-background data-pressed:font-medium data-pressed:shadow-sm"
+                className="h-6 gap-1 px-2 text-11-5 text-muted-foreground data-pressed:bg-background data-pressed:font-medium data-pressed:shadow-sm"
               >
                 <Icon aria-hidden="true" className="size-3" /> {label}
               </ToggleGroupItem>
@@ -811,18 +811,18 @@ export function BBComposer({
           aria-busy={preview.status === 'loading'}
         >
           {preview.status === 'loading' ? (
-            <p role="status" className="text-[13px] text-muted-foreground">Rendering preview&hellip;</p>
+            <p role="status" className="text-13 text-muted-foreground">Rendering preview&hellip;</p>
           ) : preview.status === 'error' ? (
             <>
-              <p role="status" className="mb-2 text-[12px] text-muted-foreground">Server preview unavailable, this is the local approximation.</p>
+              <p role="status" className="mb-2 text-12 text-muted-foreground">Server preview unavailable, this is the local approximation.</p>
               <RichHtml html={bbToHtml(value)} className={POST_SPACING} />
             </>
           ) : preview.status === 'server-error' ? (
-            <p role="status" className="text-[13px] text-muted-foreground">{preview.message}</p>
+            <p role="status" className="text-13 text-muted-foreground">{preview.message}</p>
           ) : preview.status === 'done' ? (
             <RichHtml html={preview.html} className={POST_SPACING} />
           ) : (
-            <p className="text-[13px] text-muted-foreground">Nothing to preview yet.</p>
+            <p className="text-13 text-muted-foreground">Nothing to preview yet.</p>
           )}
         </div>
       ) : wysiwyg && tab === 'source' ? (
@@ -836,12 +836,12 @@ export function BBComposer({
           aria-describedby={describe}
           aria-keyshortcuts="Alt+F10"
           onKeyDown={onSurfaceKeyDown}
-          className={cn('block w-full resize-none overflow-y-auto bg-transparent px-3.5 py-2.5 font-mono text-[12.5px] leading-relaxed outline-none placeholder:text-muted-foreground max-h-[70vh]', minHeightClass)}
+          className={cn('block w-full resize-none overflow-y-auto bg-transparent px-3.5 py-2.5 font-mono text-12-5 leading-relaxed outline-none placeholder:text-muted-foreground max-h-[70vh]', minHeightClass)}
         />
       ) : wysiwyg ? (
         <div className="relative">
           {empty && placeholder && (
-            <div className="pointer-events-none absolute left-3.5 top-2.5 text-[13.5px] text-muted-foreground">{placeholder}</div>
+            <div className="pointer-events-none absolute left-3.5 top-2.5 text-13-5 text-muted-foreground">{placeholder}</div>
           )}
           <div
             ref={edRef}
@@ -857,7 +857,7 @@ export function BBComposer({
             onKeyUp={saveSel}
             onMouseUp={saveSel}
             className={cn(
-              'block w-full overflow-y-auto bg-transparent px-3.5 py-2.5 text-[13.5px] leading-normal outline-none max-h-[70vh]',
+              'block w-full overflow-y-auto bg-transparent px-3.5 py-2.5 text-13-5 leading-normal outline-none max-h-[70vh]',
               '[&_a]:font-medium [&_a]:text-brand [&_a]:underline [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-5',
               '[&_img]:max-w-full [&_img]:rounded-sm',
               // A picture that cannot load reads as its file name in a dashed
@@ -866,10 +866,10 @@ export function BBComposer({
               '[&_.bb-img-missing]:inline-block [&_.bb-img-missing]:w-auto',
               '[&_.bb-img-missing]:rounded [&_.bb-img-missing]:border [&_.bb-img-missing]:border-dashed [&_.bb-img-missing]:border-muted-foreground/35',
               '[&_.bb-img-missing]:bg-muted/40 [&_.bb-img-missing]:px-2 [&_.bb-img-missing]:py-1 [&_.bb-img-missing]:align-middle',
-              '[&_.bb-img-missing]:text-[11.5px] [&_.bb-img-missing]:text-muted-foreground',
+              '[&_.bb-img-missing]:text-11-5 [&_.bb-img-missing]:text-muted-foreground',
               '[&_blockquote]:my-1 [&_blockquote]:rounded-md [&_blockquote]:bg-muted [&_blockquote]:px-3 [&_blockquote]:py-1.5 [&_blockquote]:text-muted-foreground',
               QUOTE_CLASSES,
-              '[&_pre]:my-1 [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:font-mono [&_pre]:text-[12.5px]',
+              '[&_pre]:my-1 [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:font-mono [&_pre]:text-12-5',
               minHeightClass
             )}
           />
@@ -885,7 +885,7 @@ export function BBComposer({
           aria-keyshortcuts="Alt+F10"
           onKeyDown={onSurfaceKeyDown}
           onFocus={() => (plainTouched.current = true)}
-          className={cn('block w-full resize-none overflow-y-auto bg-transparent px-3.5 py-2.5 text-[13.5px] outline-none placeholder:text-muted-foreground max-h-[70vh]', minHeightClass)}
+          className={cn('block w-full resize-none overflow-y-auto bg-transparent px-3.5 py-2.5 text-13-5 outline-none placeholder:text-muted-foreground max-h-[70vh]', minHeightClass)}
         />
       )}
 
@@ -907,7 +907,7 @@ export function BBComposer({
           >
             <FieldGroup>
               <Field data-invalid={askError ? true : undefined}>
-                <FieldLabel htmlFor={askUrlId} className="text-[13.5px]">
+                <FieldLabel htmlFor={askUrlId} className="text-13-5">
                   {askKind.current === 'image' ? 'Image address' : 'Link address'}
                 </FieldLabel>
                 <Input
@@ -915,7 +915,7 @@ export function BBComposer({
                   autoFocus
                   value={askUrl}
                   placeholder="https://"
-                  className="text-[13px]"
+                  className="text-13"
                   aria-invalid={askError ? true : undefined}
                   aria-describedby={askError ? askErrorId : undefined}
                   onChange={(e) => {
@@ -923,16 +923,16 @@ export function BBComposer({
                     setAskError(null)
                   }}
                 />
-                <FieldError id={askErrorId} className="text-[12px]">{askError}</FieldError>
+                <FieldError id={askErrorId} className="text-12">{askError}</FieldError>
               </Field>
               {askKind.current === 'link' && (
                 <Field>
-                  <FieldLabel htmlFor={askTextId} className="text-[13.5px]">Text to show</FieldLabel>
+                  <FieldLabel htmlFor={askTextId} className="text-13-5">Text to show</FieldLabel>
                   <Input
                     id={askTextId}
                     value={askText}
                     placeholder="Leave empty to show the address itself"
-                    className="text-[13px]"
+                    className="text-13"
                     onChange={(e) => setAskText(e.target.value)}
                   />
                 </Field>

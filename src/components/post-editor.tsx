@@ -136,12 +136,12 @@ export function PostEditor({
 
   if (failed) {
     return (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 py-6 text-[12.5px] text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 py-6 text-12-5 text-muted-foreground">
         <span>The editor did not load.</span>
-        <Button variant="link" size="sm" asChild className="h-auto p-0 text-[12.5px]">
+        <Button variant="link" size="sm" asChild className="h-auto p-0 text-12-5">
           <a href={postEditUrl(pid)}>Edit on MAM instead</a>
         </Button>
-        <Button variant="link" size="sm" className="h-auto p-0 text-[12.5px]" onClick={onClose}>
+        <Button variant="link" size="sm" className="h-auto p-0 text-12-5" onClick={onClose}>
           Back to the post
         </Button>
       </div>
@@ -152,11 +152,11 @@ export function PostEditor({
     // The way back matters here: a stalled fetch would otherwise hide this post
     // plus its quotable text until the reader reloads the page.
     return (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 py-6 text-[12.5px] text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 py-6 text-12-5 text-muted-foreground">
         <span className="flex items-center gap-2">
           <Loader2 className="size-3.5 animate-spin" /> Loading the editor…
         </span>
-        <Button variant="link" size="sm" className="h-auto p-0 text-[12.5px]" onClick={onClose}>
+        <Button variant="link" size="sm" className="h-auto p-0 text-12-5" onClick={onClose}>
           Cancel
         </Button>
       </div>

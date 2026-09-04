@@ -58,14 +58,14 @@ export function PostsHistoryView(props: PageProps) {
       <div className="grid gap-3">
         {posts.map((p, i) => (
           <Card key={i} className="gap-0 py-0">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 bg-muted/30 px-5 py-2.5 text-[12.5px]">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 bg-muted/30 px-5 py-2.5 text-12-5">
               <MessagesSquare className="size-3.5 shrink-0 text-brand" />
               {p.topic ? (
                 <a href={p.topic.href} className="font-medium hover:underline">{p.topic.name}</a>
               ) : (
                 <span className="font-medium">Post</span>
               )}
-              {p.forum && <Badge variant="secondary" className="text-[10.5px]">{p.forum}</Badge>}
+              {p.forum && <Badge variant="secondary" className="text-10-5">{p.forum}</Badge>}
               <span className="ml-auto flex items-center gap-2 text-muted-foreground">
                 {p.postHref && <a href={p.postHref} className="font-mono hover:underline">#{p.postNum}</a>}
                 <span title={utcTitle(p.date)}>{p.rel ?? localDateTime(p.date)}</span>
@@ -74,7 +74,7 @@ export function PostsHistoryView(props: PageProps) {
             <CardContent className="py-4">
               <RichHtml
                 html={p.bodyHtml}
-                className={`${POST_SPACING} text-[13.5px] [&_.quote]:my-1 [&_.quote]:rounded-md [&_.quote]:bg-muted [&_.quote]:px-3 [&_.quote]:py-2 [&_.quote]:text-[12.5px] [&_.quote_span]:text-muted-foreground [&_img]:inline`}
+                className={`${POST_SPACING} text-13-5 [&_.quote]:my-1 [&_.quote]:rounded-md [&_.quote]:bg-muted [&_.quote]:px-3 [&_.quote]:py-2 [&_.quote]:text-12-5 [&_.quote_span]:text-muted-foreground [&_img]:inline`}
               />
             </CardContent>
           </Card>

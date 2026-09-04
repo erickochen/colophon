@@ -135,40 +135,40 @@ export function UsersView(props: PageProps) {
       {views.hasActions && <FilterSummary actions={<FilterSavedActions views={views} />} />}
 
       {loading && (
-        <div className="flex items-center justify-center gap-2 py-12 text-[13px] text-muted-foreground"><Spinner className="size-4" /> Searching…</div>
+        <div className="flex items-center justify-center gap-2 py-12 text-13 text-muted-foreground"><Spinner className="size-4" /> Searching…</div>
       )}
       {!loading && error && (
-        <Card><CardContent className="py-10 text-center text-[13px] text-muted-foreground">Something went wrong. Try again.</CardContent></Card>
+        <Card><CardContent className="py-10 text-center text-13 text-muted-foreground">Something went wrong. Try again.</CardContent></Card>
       )}
       {!loading && !error && rows && (
         rows.length > 0 ? (
           <div className="grid gap-3">
-            <p className="text-[12.5px] text-muted-foreground">
+            <p className="text-12-5 text-muted-foreground">
               {plural(rows.length, 'member')}
               {rows.length === MEMBER_PAGE_SIZE && ' or more'}
             </p>
             <Card className="py-0">
               <CardContent className="grid gap-0 px-0 py-0">
                 {/* header */}
-                <div className="grid grid-cols-[minmax(0,1fr)_auto_120px_120px] items-center gap-3 px-6 py-2.5 text-[10.5px] uppercase tracking-wide text-muted-foreground">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_120px_120px] items-center gap-3 px-6 py-2.5 text-10-5 uppercase tracking-wide text-muted-foreground">
                   <span>Member</span><span>Country</span><span>Registered</span><span>Last access</span>
                 </div>
                 {rows.map((u, i) => (
                   <a
                     key={u.href + i}
                     href={u.href}
-                    className="grid grid-cols-[minmax(0,1fr)_auto_120px_120px] items-center gap-3 px-6 py-2.5 text-[13px] transition-colors odd:bg-muted/25 hover:bg-accent/50"
+                    className="grid grid-cols-[minmax(0,1fr)_auto_120px_120px] items-center gap-3 px-6 py-2.5 text-13 transition-colors odd:bg-muted/25 hover:bg-accent/50"
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       <span className="truncate font-medium">{u.name}</span>
-                      {u.className && <Badge variant="secondary" className="shrink-0 text-[10px]">{u.className}</Badge>}
+                      {u.className && <Badge variant="secondary" className="shrink-0 text-10">{u.className}</Badge>}
                     </span>
-                    <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+                    <span className="flex items-center gap-1.5 text-12 text-muted-foreground">
                       {u.flag && <img src={u.flag} alt="" className="h-3.5 w-auto" />}
                       <span className="hidden sm:inline">{u.country ?? ''}</span>
                     </span>
-                    <span className="text-[12px] text-muted-foreground" title={utcTitle(u.registered)}>{localDate(u.registered)}</span>
-                    <span className="text-[12px] text-muted-foreground" title={utcTitle(u.lastAccess)}>{relTime(u.lastAccess)}</span>
+                    <span className="text-12 text-muted-foreground" title={utcTitle(u.registered)}>{localDate(u.registered)}</span>
+                    <span className="text-12 text-muted-foreground" title={utcTitle(u.lastAccess)}>{relTime(u.lastAccess)}</span>
                   </a>
                 ))}
               </CardContent>

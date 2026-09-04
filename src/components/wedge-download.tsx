@@ -155,8 +155,8 @@ export function WedgeConfirm({
         {/* min-w-0 gives the nowrap title a floor to truncate against; a grid
             item otherwise sizes to its min-content. */}
         <div className="min-w-0 rounded-lg bg-muted/50 px-3 py-2 text-left">
-          <p className="truncate text-[13.5px] font-semibold" title={target.title ?? undefined}>{target.title ?? 'This torrent'}</p>
-          <p className="mt-0.5 text-[12px] text-muted-foreground">
+          <p className="truncate text-13-5 font-semibold" title={target.title ?? undefined}>{target.title ?? 'This torrent'}</p>
+          <p className="mt-0.5 text-12 text-muted-foreground">
             {target.size ?? 'Size unknown'}
             {left != null && (
               <>
@@ -166,7 +166,7 @@ export function WedgeConfirm({
             )}
           </p>
         </div>
-        <Label className="flex items-center gap-2 text-[12.5px] font-normal">
+        <Label className="flex items-center gap-2 text-12-5 font-normal">
           <Checkbox checked={dontAsk} onCheckedChange={(v) => setDontAsk(!!v)} />
           Don't ask again
         </Label>
@@ -299,7 +299,7 @@ export function WedgeBatchButton({ targets, onDone }: { targets: WedgeTarget[]; 
   if (batch.length === 0) return null
   return (
     <>
-      <Button variant="outline" size="sm" className="h-8 text-[12.5px]" onClick={() => setOpen(true)}>
+      <Button variant="outline" size="sm" className="h-8 text-12-5" onClick={() => setOpen(true)}>
         <Ticket /> Wedge {fmtInt(batch.length)}
       </Button>
       {open && (
@@ -314,7 +314,7 @@ export function WedgeBatchButton({ targets, onDone }: { targets: WedgeTarget[]; 
               </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="min-w-0 rounded-lg bg-muted/50 px-3 py-2 text-left">
-              <p className="text-[12px] text-muted-foreground">
+              <p className="text-12 text-muted-foreground">
                 {left == null
                   ? 'Stash unknown'
                   : short

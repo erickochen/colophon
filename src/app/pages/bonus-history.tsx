@@ -225,7 +225,7 @@ function EventRow({ event }: { event: BonusEvent }) {
   const Icon = eventIcon(event.type)
   const amount = eventAmount(event)
   return (
-    <div className="flex items-center justify-between gap-4 px-6 py-2.5 text-[13px]">
+    <div className="flex items-center justify-between gap-4 px-6 py-2.5 text-13">
       <span className="flex min-w-0 items-center gap-2">
         <Icon className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="shrink-0 font-medium">{eventLabel(event)}</span>
@@ -236,7 +236,7 @@ function EventRow({ event }: { event: BonusEvent }) {
         <span className={'font-mono tabular-nums ' + (amount >= 0 ? 'text-ok' : 'text-destructive')}>{amount >= 0 ? '+' : ''}{fmtInt(amount)}</span>
         {/* The column is only fixed where there is room for it: on a phone those
             20 pixels are the difference between a name and an ellipsis. */}
-        <span className="shrink-0 whitespace-nowrap text-right text-[11.5px] text-muted-foreground sm:w-20">{relTime(new Date(event.timestamp * 1000).toISOString())}</span>
+        <span className="shrink-0 whitespace-nowrap text-right text-11-5 text-muted-foreground sm:w-20">{relTime(new Date(event.timestamp * 1000).toISOString())}</span>
       </span>
     </div>
   )
@@ -259,7 +259,7 @@ function EventCard({ title, note, events, empty }: {
         {rows?.map((e, i) => <EventRow key={i} event={e} />)}
       </CardContent>
       {rows?.length === BONUS_EVENT_CAP && (
-        <CardFooter className="px-6 pb-3.5 text-[11.5px] text-muted-foreground">Only the newest {BONUS_EVENT_CAP} events come back from the site.</CardFooter>
+        <CardFooter className="px-6 pb-3.5 text-11-5 text-muted-foreground">Only the newest {BONUS_EVENT_CAP} events come back from the site.</CardFooter>
       )}
     </Card>
   )
@@ -276,7 +276,7 @@ function Stat({ icon, label, value, hint }: { icon: ReactNode; label: string; va
         <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-accent-foreground">{icon}</span>
         <div className="min-w-0">
           <div className="font-display text-2xl font-semibold tabular-nums">{value}</div>
-          <div className="text-[11.5px] text-muted-foreground">{label}{hint && <span> · {hint}</span>}</div>
+          <div className="text-11-5 text-muted-foreground">{label}{hint && <span> · {hint}</span>}</div>
         </div>
       </CardContent>
     </Card>
@@ -540,7 +540,7 @@ export function BonusHistoryView({ page }: PageProps) {
       <Card className="gap-0 py-0">
         <CardHeader className="!py-3.5"><CardTitle>Range summary</CardTitle></CardHeader>
         <CardContent className="px-0 pb-1">
-          <div className="grid grid-cols-[1.4fr_repeat(3,1fr)] gap-x-4 bg-muted/50 px-6 py-2 text-[11.5px] font-medium uppercase tracking-wide text-muted-foreground">
+          <div className="grid grid-cols-[1.4fr_repeat(3,1fr)] gap-x-4 bg-muted/50 px-6 py-2 text-11-5 font-medium uppercase tracking-wide text-muted-foreground">
             <span>Metric</span><span className="text-right">Min</span><span className="text-right">Max</span><span className="text-right">Average</span>
           </div>
           {([
@@ -550,7 +550,7 @@ export function BonusHistoryView({ page }: PageProps) {
             ['Freeleech wedges', stats.wedges, 1],
             ['Ratio', stats.ratio, 0],
           ] as [string, { min: number; max: number; avg: number }, number][]).map(([label, s, dp]) => (
-            <div key={label} className="grid grid-cols-[1.4fr_repeat(3,1fr)] gap-x-4 px-6 py-2 text-[13px] tabular-nums">
+            <div key={label} className="grid grid-cols-[1.4fr_repeat(3,1fr)] gap-x-4 px-6 py-2 text-13 tabular-nums">
               <span className="font-medium">{label}</span>
               <span className="text-right text-muted-foreground">{loading ? '–' : s.min.toFixed(dp)}</span>
               <span className="text-right text-muted-foreground">{loading ? '–' : s.max.toFixed(dp)}</span>

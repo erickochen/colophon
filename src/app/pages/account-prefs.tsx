@@ -135,7 +135,7 @@ function analyze(pw: string, username: string) {
 
 function Req({ ok, children }: { ok: boolean; children: ReactNode }) {
   return (
-    <li className={cn('flex items-center gap-1.5 text-[12px] leading-snug', ok ? 'text-ok' : 'text-muted-foreground')}>
+    <li className={cn('flex items-center gap-1.5 text-12 leading-snug', ok ? 'text-ok' : 'text-muted-foreground')}>
       {ok ? <Check className="size-3.5 shrink-0" /> : <X className="size-3.5 shrink-0" />}
       <span>{children}</span>
     </li>
@@ -144,7 +144,7 @@ function Req({ ok, children }: { ok: boolean; children: ReactNode }) {
 
 function ClassBadge({ ok, label }: { ok: boolean; label: string }) {
   return (
-    <span className={cn('rounded-md px-1.5 py-0.5 text-[11px]', ok ? 'bg-ok/15 text-ok' : 'bg-muted text-muted-foreground')}>
+    <span className={cn('rounded-md px-1.5 py-0.5 text-11', ok ? 'bg-ok/15 text-ok' : 'bg-muted text-muted-foreground')}>
       {label}
     </span>
   )
@@ -180,9 +180,9 @@ function Field({
 }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <div className="grid gap-1.5">
-      <Label className="text-[13px]">{label}</Label>
+      <Label className="text-13">{label}</Label>
       {children}
-      {hint && <p className="text-[11.5px] leading-normal text-muted-foreground">{hint}</p>}
+      {hint && <p className="text-11-5 leading-normal text-muted-foreground">{hint}</p>}
     </div>
   )
 }
@@ -221,7 +221,7 @@ function TwoFactorCard({
       </SettingRow>
 
       {tf.warning && (
-        <div className="flex items-start gap-2.5 rounded-lg bg-warn/15 px-4 py-3 text-[13px]">
+        <div className="flex items-start gap-2.5 rounded-lg bg-warn/15 px-4 py-3 text-13">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" />
           <p className="leading-normal">{tf.warning}</p>
         </div>
@@ -244,7 +244,7 @@ function TwoFactorCard({
 
       {tf.yubi && (
         <Field label="Add a YubiKey">
-          {tf.yubiHint && <p className="text-[11.5px] leading-normal text-muted-foreground">{tf.yubiHint}</p>}
+          {tf.yubiHint && <p className="text-11-5 leading-normal text-muted-foreground">{tf.yubiHint}</p>}
           <Input
             autoComplete="off"
             placeholder={tf.yubi.getAttribute('placeholder') ?? undefined}
@@ -298,7 +298,7 @@ function TwoFactorCard({
       )}
 
       {tf.faqHref && (
-        <a href={tf.faqHref} className="text-[12.5px] text-brand underline-offset-4 hover:underline">
+        <a href={tf.faqHref} className="text-12-5 text-brand underline-offset-4 hover:underline">
           Read how two-factor works on this site
         </a>
       )}
@@ -334,7 +334,7 @@ function AccountForm({ d, host }: { d: AccountData; host: HTMLElement }) {
       {d.passkey && (
         <PrefCard title={<span className="flex items-center gap-2"><KeyRound className="size-4" /> Passkey</span>} note="Your private torrent passkey. Keep it secret.">
           <div className="flex flex-wrap items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded-md bg-muted/70 px-3 py-2 font-mono text-[13px]" title={d.passkey}>
+            <code className="min-w-0 flex-1 truncate rounded-md bg-muted/70 px-3 py-2 font-mono text-13" title={d.passkey}>
               {d.passkey}
             </code>
             <Button variant="outline" size="sm" onClick={copyPasskey}>
@@ -407,7 +407,7 @@ function AccountForm({ d, host }: { d: AccountData; host: HTMLElement }) {
             <Input type="password" autoComplete="off" minLength={10} value={irc2} onChange={(e) => write(d.irc2, e.target.value, setIrc2)} className="max-w-sm" />
           </Field>
           <Meter pw={irc} confirm={irc2} username={d.username} forbid={{ value: pw, label: 'Different from your site password' }} />
-          {d.ircNames && <p className="text-[12px] leading-normal text-muted-foreground">IRC names: {d.ircNames}</p>}
+          {d.ircNames && <p className="text-12 leading-normal text-muted-foreground">IRC names: {d.ircNames}</p>}
         </PrefCard>
       )}
 

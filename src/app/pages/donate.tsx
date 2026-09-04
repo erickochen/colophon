@@ -146,7 +146,7 @@ export function DonateView(props: PageProps) {
       <PageHeader title="Donate" sub="Keep the library's lights on" />
 
       {data.intro && (
-        <Card><CardContent><RichHtml html={data.intro} className="[&_.blockHead]:hidden [&_.blockFoot]:hidden text-[13px]" /></CardContent></Card>
+        <Card><CardContent><RichHtml html={data.intro} className="[&_.blockHead]:hidden [&_.blockFoot]:hidden text-13" /></CardContent></Card>
       )}
 
       <Card>
@@ -158,7 +158,7 @@ export function DonateView(props: PageProps) {
         </CardHeader>
         <CardContent className="grid gap-4">
           <div className="flex items-center gap-2">
-            <span className="text-[13px] text-muted-foreground">Amount €</span>
+            <span className="text-13 text-muted-foreground">Amount €</span>
             <NumberField
               label="Donation amount"
               value={amount === '' ? null : Number(amount)}
@@ -166,15 +166,15 @@ export function DonateView(props: PageProps) {
               step={DONATION_STEP}
               onValueChange={(v) => syncAmount(v == null ? '' : String(v))}
             />
-            <span className="text-[12px] text-muted-foreground">minimum {DONATION_MIN}</span>
+            <span className="text-12 text-muted-foreground">minimum {DONATION_MIN}</span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {options.map((o, i) => (
               <div key={o.title + i} className="rounded-xl bg-muted/50 p-4">
-                <div className="pb-2 font-display text-[14px] font-semibold">{o.title}</div>
+                <div className="pb-2 font-display text-14 font-semibold">{o.title}</div>
                 <dl className="grid gap-1">
                   {o.lines.map((ln, j) => (
-                    <div key={j} className="flex items-baseline justify-between gap-3 text-[12.5px]">
+                    <div key={j} className="flex items-baseline justify-between gap-3 text-12-5">
                       <dt className="text-muted-foreground">{ln.k}</dt>
                       {ln.v && <dd className="font-medium tabular-nums">{ln.v}</dd>}
                     </div>
@@ -184,7 +184,7 @@ export function DonateView(props: PageProps) {
             ))}
           </div>
           {data.notes.length > 0 && (
-            <p className="text-[11.5px] leading-relaxed text-muted-foreground">{data.notes.join(' · ')}</p>
+            <p className="text-11-5 leading-relaxed text-muted-foreground">{data.notes.join(' · ')}</p>
           )}
         </CardContent>
       </Card>
@@ -204,7 +204,7 @@ export function DonateView(props: PageProps) {
                       {c.qr && <img src={c.qr} alt={`${c.name} QR`} className="size-36 rounded-md bg-white p-1.5" />}
                       {c.address && (
                         <div className="flex items-center gap-2">
-                          <code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1.5 font-mono text-[11.5px]">{c.address}</code>
+                          <code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1.5 font-mono text-11-5">{c.address}</code>
                           <Button size="icon" variant="outline" className="size-8 shrink-0" onClick={() => { navigator.clipboard.writeText(c.address ?? ''); toast.success(`${c.name} address copied`) }}>
                             <Copy className="size-3.5" />
                           </Button>
@@ -216,7 +216,7 @@ export function DonateView(props: PageProps) {
                 {data.coins.length === 0 && <Card className="md:col-span-2"><CardContent className="py-8 text-center text-sm text-muted-foreground">No crypto options found.</CardContent></Card>}
               </div>
             ) : (
-              <Card><CardContent>{t.html ? <RichHtml html={t.html} className="text-[13.5px]" /> : <p className="text-sm text-muted-foreground">See the intro above.</p>}</CardContent></Card>
+              <Card><CardContent>{t.html ? <RichHtml html={t.html} className="text-13-5" /> : <p className="text-sm text-muted-foreground">See the intro above.</p>}</CardContent></Card>
             )}
           </TabsContent>
         ))}

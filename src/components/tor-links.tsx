@@ -58,7 +58,7 @@ export function TorLinks({ data }: { data: TorrentDetail }) {
   const [linksOn] = useFeature('externalLinks')
   if (!linksOn || !data.title) return null
   return (
-    <div className="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12.5px] text-muted-foreground">
+    <div className="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-12-5 text-muted-foreground">
       <ExternalSearchLinks title={data.title} author={data.authors[0]?.name ?? null} />
     </div>
   )

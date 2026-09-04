@@ -28,7 +28,7 @@ export function ForumIndexView(props: PageProps) {
         action={
           <div className="flex flex-wrap gap-1.5">
             {ACTIONS.map((a) => (
-              <Button key={a.href} asChild variant="outline" size="sm" className="h-8 text-[12.5px]">
+              <Button key={a.href} asChild variant="outline" size="sm" className="h-8 text-12-5">
                 <a href={a.href}><a.icon /> {a.label}</a>
               </Button>
             ))}
@@ -49,10 +49,10 @@ export function ForumIndexView(props: PageProps) {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     {b.hasNew && <span className="size-2 shrink-0 rounded-full bg-brand-fill" title="new posts" />}
-                    <a href={b.href} className="font-display truncate text-[14.5px] font-semibold hover:underline">{b.name}</a>
+                    <a href={b.href} className="font-display truncate text-14-5 font-semibold hover:underline">{b.name}</a>
                     {b.locked && <Lock className="size-3.5 shrink-0 text-muted-foreground" />}
                   </div>
-                  {b.desc && <p className="mt-0.5 line-clamp-1 text-[12.5px] text-muted-foreground">{b.desc}</p>}
+                  {b.desc && <p className="mt-0.5 line-clamp-1 text-12-5 text-muted-foreground">{b.desc}</p>}
                   {b.subBoards.length > 0 && (
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       {b.subBoards.map((s) => (
@@ -65,17 +65,17 @@ export function ForumIndexView(props: PageProps) {
                       ))}
                     </div>
                   )}
-                  <div className="mt-1 font-mono text-[11.5px] tabular-nums text-muted-foreground lg:hidden">
+                  <div className="mt-1 font-mono text-11-5 tabular-nums text-muted-foreground lg:hidden">
                     {fmtInt(b.topics)} topics · {fmtInt(b.posts)} posts
                     {b.last.at && <> · <span title={utcTitle(b.last.at)}>{relTime(b.last.at)}</span></>}
                   </div>
                 </div>
-                <div className="hidden text-right font-mono text-[12px] tabular-nums text-muted-foreground lg:block">
+                <div className="hidden text-right font-mono text-12 tabular-nums text-muted-foreground lg:block">
                   {fmtInt(b.topics)} topics
                   <br />
                   {fmtInt(b.posts)} posts
                 </div>
-                <div className="hidden min-w-0 text-[12px] leading-snug text-muted-foreground lg:block">
+                <div className="hidden min-w-0 text-12 leading-snug text-muted-foreground lg:block">
                   {b.last.topic ? (
                     <>
                       <a href={b.last.href ?? '#'} className="line-clamp-1 font-medium text-foreground hover:underline">{b.last.topic}</a>

@@ -27,16 +27,16 @@ function TopicRow({ t }: { t: NonNullable<ReturnType<typeof extractBoard>>['topi
             <div className="flex flex-wrap items-center gap-1.5">
               {t.sticky && <Pin className="size-3.5 shrink-0 text-brand" />}
               {t.locked && <Lock className="size-3.5 shrink-0 text-muted-foreground" />}
-              <a href={t.href} className="font-display text-[14px] font-medium leading-snug hover:underline">{t.title}</a>
+              <a href={t.href} className="font-display text-14 font-medium leading-snug hover:underline">{t.title}</a>
             </div>
             {(t.author || t.pages.length > 0) && (
-              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted-foreground">
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-12 text-muted-foreground">
                 {t.author && <span>by <UserLink name={t.author} color={t.authorColor} /></span>}
                 {t.author && t.pages.length > 0 && <span aria-hidden>·</span>}
                 {chips.map((p) => (
                   <span key={p.href} className="flex items-center gap-1">
                     {p.gap && <span aria-hidden>…</span>}
-                    <a href={p.href} className="rounded border px-1.5 py-0.5 text-[10.5px] font-medium hover:bg-accent/50">
+                    <a href={p.href} className="rounded border px-1.5 py-0.5 text-10-5 font-medium hover:bg-accent/50">
                       {p.label}
                     </a>
                   </span>
@@ -46,11 +46,11 @@ function TopicRow({ t }: { t: NonNullable<ReturnType<typeof extractBoard>>['topi
           </div>
         </div>
       </TableCell>
-      <TableCell className="text-right font-mono text-[12px] tabular-nums text-muted-foreground">
+      <TableCell className="text-right font-mono text-12 tabular-nums text-muted-foreground">
         <div className="text-foreground">{fmtInt(t.replies)} replies</div>
         <div className="mt-1">{fmtInt(t.views)} views</div>
       </TableCell>
-      <TableCell className="text-[12px] text-muted-foreground">
+      <TableCell className="text-12 text-muted-foreground">
         <a href={t.last.href ?? '#'} className="block hover:underline" title={utcTitle(t.last.at)}>{relTime(t.last.at)}</a>
         by <UserLink name={t.last.by} color={t.last.byColor} />
       </TableCell>
@@ -76,7 +76,7 @@ export function ForumBoardView(props: PageProps) {
                 asChild
                 variant={/new topic/i.test(a.label) ? 'default' : 'outline'}
                 size="sm"
-                className="h-8 text-[12.5px]"
+                className="h-8 text-12-5"
               >
                 <a href={a.href}>{a.label}</a>
               </Button>

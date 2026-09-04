@@ -81,7 +81,7 @@ function PickOne({
           aria-expanded={open}
           aria-invalid={invalid || undefined}
           className={cn(
-            'h-10 w-full justify-start gap-2 px-3 text-[13px] font-normal',
+            'h-10 w-full justify-start gap-2 px-3 text-13 font-normal',
             !current && 'text-muted-foreground'
           )}
         >
@@ -99,7 +99,7 @@ function PickOne({
                 key={o.value}
                 value={o.value}
                 keywords={[o.label]}
-                className="h-8 gap-2 text-[12.5px]"
+                className="h-8 gap-2 text-12-5"
                 onSelect={() => {
                   onValue(o.value)
                   setOpen(false)
@@ -122,13 +122,13 @@ function Row({
 }: { label: string; hint?: ReactNode; error?: string; children: ReactNode; required?: boolean }) {
   return (
     <Field data-invalid={error ? true : undefined}>
-      <FieldTitle className="text-[13.5px]">
+      <FieldTitle className="text-13-5">
         {label}
-        {required && <span className="text-[12px] font-normal text-muted-foreground">required</span>}
+        {required && <span className="text-12 font-normal text-muted-foreground">required</span>}
       </FieldTitle>
-      {hint && <FieldDescription className="-mt-1 text-[12px]">{hint}</FieldDescription>}
+      {hint && <FieldDescription className="-mt-1 text-12">{hint}</FieldDescription>}
       {children}
-      {error && <FieldErrorText className="text-[12px]">{error}</FieldErrorText>}
+      {error && <FieldErrorText className="text-12">{error}</FieldErrorText>}
     </Field>
   )
 }
@@ -153,7 +153,7 @@ function NameRows({
             kind={kind}
             defaultValue={name}
             placeholder={placeholder}
-            className="h-10 w-full text-[13px]"
+            className="h-10 w-full text-13"
             onChange={(v) => onValues(rows.map((old, j) => (j === i ? v : old)))}
             onPick={(hit) => {
               const el = document.activeElement
@@ -177,13 +177,13 @@ function NameRows({
         <Button
           variant="outline"
           size="sm"
-          className="h-8 text-[12.5px]"
+          className="h-8 text-12-5"
           onClick={() => onValues([...rows, ''])}
         >
           <Plus /> Add another {kind}
         </Button>
       </div>
-      {error && <p className="text-[12px] text-destructive">{error}</p>}
+      {error && <p className="text-12 text-destructive">{error}</p>}
     </div>
   )
 }
@@ -201,7 +201,7 @@ function SeriesRows({
               kind="series"
               defaultValue={s.name}
               placeholder="Series name"
-              className="h-10 w-full text-[13px]"
+              className="h-10 w-full text-13"
               onChange={(v) => onValues(rows.map((old, j) => (j === i ? { ...old, name: v } : old)))}
             />
           </div>
@@ -209,7 +209,7 @@ function SeriesRows({
             value={s.extra}
             placeholder="Number in series"
             aria-label="Number in series"
-            className="h-10 w-40 text-[13px]"
+            className="h-10 w-40 text-13"
             onChange={(e) => onValues(rows.map((old, j) => (j === i ? { ...old, extra: e.target.value } : old)))}
           />
           {rows.length > 1 && (
@@ -229,7 +229,7 @@ function SeriesRows({
         <Button
           variant="outline"
           size="sm"
-          className="h-8 text-[12.5px]"
+          className="h-8 text-12-5"
           onClick={() => onValues([...rows, { name: '', extra: '' }])}
         >
           <Plus /> Add another series
@@ -264,23 +264,23 @@ function FastFillDialog({
             onValueChange={(v) => v && setKind(v as typeof kind)}
             className="justify-start"
           >
-            <ToggleGroupItem value="author" className="h-8 px-3 text-[12.5px]">Authors</ToggleGroupItem>
-            <ToggleGroupItem value="narrator" className="h-8 px-3 text-[12.5px]">Narrators</ToggleGroupItem>
-            <ToggleGroupItem value="series" className="h-8 px-3 text-[12.5px]">Series</ToggleGroupItem>
+            <ToggleGroupItem value="author" className="h-8 px-3 text-12-5">Authors</ToggleGroupItem>
+            <ToggleGroupItem value="narrator" className="h-8 px-3 text-12-5">Narrators</ToggleGroupItem>
+            <ToggleGroupItem value="series" className="h-8 px-3 text-12-5">Series</ToggleGroupItem>
           </ToggleGroup>
           <Textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder={'Terry Pratchett\nNeil Gaiman'}
-            className="min-h-32 text-[13px]"
+            className="min-h-32 text-13"
           />
-          <FieldLabel className="text-[12.5px] font-normal">
+          <FieldLabel className="text-12-5 font-normal">
             <Field orientation="horizontal">
               <Checkbox checked={splitAmp} onCheckedChange={(v) => setSplitAmp(v === true)} />
-              <FieldTitle className="text-[12.5px] font-normal">Split on ampersands too</FieldTitle>
+              <FieldTitle className="text-12-5 font-normal">Split on ampersands too</FieldTitle>
             </Field>
           </FieldLabel>
-          <p className="text-[12px] text-muted-foreground">
+          <p className="text-12 text-muted-foreground">
             {names.length === 0 ? 'Nothing to add yet.' : `${names.length} ${names.length === 1 ? 'name' : 'names'} ready.`}
           </p>
         </div>
@@ -325,9 +325,9 @@ function JsonFillDialog({
             setBad(null)
           }}
           placeholder='{"title":"…","authors":["…"]}'
-          className="min-h-40 font-mono text-[12.5px]"
+          className="min-h-40 font-mono text-12-5"
         />
-        {bad && <p className="text-[12px] text-destructive">{bad}</p>}
+        {bad && <p className="text-12 text-destructive">{bad}</p>}
         <DialogFooter>
           <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
@@ -385,13 +385,13 @@ function SummaryCard({
         {rows
           .filter((r) => r.value.trim())
           .map((r) => (
-            <div key={r.label} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[13px]">
-              <span className="w-20 shrink-0 text-[12px] text-muted-foreground">{r.label}</span>
+            <div key={r.label} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-13">
+              <span className="w-20 shrink-0 text-12 text-muted-foreground">{r.label}</span>
               <span className="min-w-0 flex-1 leading-snug">{r.value}</span>
               <button
                 type="button"
                 onClick={() => onEdit(r.step)}
-                className="shrink-0 text-[12px] text-brand hover:underline"
+                className="shrink-0 text-12 text-brand hover:underline"
               >
                 Edit
               </button>
@@ -410,11 +410,11 @@ function DupeTorrentRow({ t }: { t: DupeTorrent }) {
       rel="noopener"
       className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-6 py-2.5 hover:bg-muted/50"
     >
-      <span className="min-w-0 flex-1 text-[13px] font-medium leading-snug">{t.title}</span>
+      <span className="min-w-0 flex-1 text-13 font-medium leading-snug">{t.title}</span>
       {t.authors.length > 0 && (
-        <span className="text-[12px] text-muted-foreground">{t.authors.join(', ')}</span>
+        <span className="text-12 text-muted-foreground">{t.authors.join(', ')}</span>
       )}
-      <span className="text-[11.5px] tabular-nums text-muted-foreground">
+      <span className="text-11-5 tabular-nums text-muted-foreground">
         {t.filetype && `${t.filetype.toUpperCase()} · `}{t.sizeReadable}
         {t.added > 0 && ` · ${localDate(new Date(t.added * 1000).toISOString())}`}
       </span>
@@ -431,9 +431,9 @@ function DupeRequestRow({ r }: { r: DupeRequest }) {
       rel="noopener"
       className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-6 py-2.5 hover:bg-muted/50"
     >
-      <span className="min-w-0 flex-1 text-[13px] font-medium leading-snug">{r.title}</span>
+      <span className="min-w-0 flex-1 text-13 font-medium leading-snug">{r.title}</span>
       {r.authors.length > 0 && (
-        <span className="text-[12px] text-muted-foreground">{r.authors.join(', ')}</span>
+        <span className="text-12 text-muted-foreground">{r.authors.join(', ')}</span>
       )}
       <ExternalLink className="size-3.5 shrink-0 text-muted-foreground" />
     </a>
@@ -774,14 +774,14 @@ export function NewRequestView(props: PageProps) {
         sub="Ask the site for something that is not here yet. One request costs one credit."
         action={
           <span className="flex flex-wrap items-center gap-2">
-            <Button asChild variant="outline" size="sm" className="h-8 text-[12.5px]">
+            <Button asChild variant="outline" size="sm" className="h-8 text-12-5">
               <a href={REQUESTS_URL}><ArrowLeft /> All requests</a>
             </Button>
             {intro.credits ? (
             <Badge
               variant="secondary"
               title={intro.extraCredits ? `${intro.extraCredits} credits on top of the monthly ones` : undefined}
-              className="h-8 gap-1.5 px-3 text-[12px] font-normal"
+              className="h-8 gap-1.5 px-3 text-12 font-normal"
             >
               <Sparkles className="size-3.5 text-brand" />
               <span>{intro.credits}</span>
@@ -795,13 +795,13 @@ export function NewRequestView(props: PageProps) {
       <WizardSteps steps={STEPS} step={step} reached={reached} onStep={setStep} label="Request steps" />
 
       {draftOffer && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/50 px-4 py-2.5 text-[12.5px]">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/50 px-4 py-2.5 text-12-5">
           <span>An unfinished request is waiting.</span>
           <span className="flex gap-2">
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 text-[12px]"
+              className="h-7 text-12"
               onClick={() => {
                 clearRequestDraft()
                 setDraftOffer(false)
@@ -811,7 +811,7 @@ export function NewRequestView(props: PageProps) {
             </Button>
             <Button
               size="sm"
-              className="h-7 text-[12px]"
+              className="h-7 text-12"
               onClick={() => {
                 const draft = readRequestDraft()
                 if (draft) {
@@ -829,11 +829,11 @@ export function NewRequestView(props: PageProps) {
       )}
 
       {serverErrors.length > 0 && (
-        <div className="grid gap-1.5 rounded-lg bg-destructive/10 px-4 py-3 text-[13px]">
+        <div className="grid gap-1.5 rounded-lg bg-destructive/10 px-4 py-3 text-13">
           <span className="flex items-center gap-2 font-medium">
             <TriangleAlert className="size-4 text-destructive" /> MAM sent the form back
           </span>
-          <ul className="grid gap-0.5 pl-6 text-[12.5px] text-muted-foreground">
+          <ul className="grid gap-0.5 pl-6 text-12-5 text-muted-foreground">
             {serverErrors.map((e, i) => <li key={i} className="list-disc">{e.message}</li>)}
           </ul>
         </div>
@@ -844,7 +844,7 @@ export function NewRequestView(props: PageProps) {
           <Card className="gap-0 py-0">
             <CardHeader className="!py-3.5">
               <CardTitle>What are you asking for?</CardTitle>
-              <p className="pt-0.5 text-[12px] text-muted-foreground">
+              <p className="pt-0.5 text-12 text-muted-foreground">
                 This picks the section your request lands in plus the fields on the next step.
               </p>
             </CardHeader>
@@ -857,24 +857,24 @@ export function NewRequestView(props: PageProps) {
                 {MEDIA_TYPES.map((m) => {
                   const Icon = MEDIA_ICONS[m.id] ?? BookOpen
                   return (
-                    <FieldLabel key={m.id} htmlFor={`media-${m.id}`} className="text-[13px] font-normal">
+                    <FieldLabel key={m.id} htmlFor={`media-${m.id}`} className="text-13 font-normal">
                       <Field orientation="horizontal">
                         <RadioGroupItem value={String(m.id)} id={`media-${m.id}`} />
                         <Icon className="size-4 shrink-0 text-muted-foreground" />
-                        <FieldTitle className="text-[13px]">{m.name}</FieldTitle>
-                        <span className="ml-auto text-[11.5px] text-muted-foreground">{MAIN_CAT_NAMES[m.mainCat]}</span>
+                        <FieldTitle className="text-13">{m.name}</FieldTitle>
+                        <span className="ml-auto text-11-5 text-muted-foreground">{MAIN_CAT_NAMES[m.mainCat]}</span>
                       </Field>
                     </FieldLabel>
                   )
                 })}
               </RadioGroup>
               {formBusy && (
-                <p className="flex items-center gap-2 pt-3 text-[12px] text-muted-foreground">
+                <p className="flex items-center gap-2 pt-3 text-12 text-muted-foreground">
                   <Spinner className="size-3.5" /> Loading the form for this type
                 </p>
               )}
               {formFailed && (
-                <p className="pt-3 text-[12px] text-destructive">
+                <p className="pt-3 text-12 text-destructive">
                   MAM did not hand over the form. Pick the type again to retry.
                 </p>
               )}
@@ -891,7 +891,7 @@ export function NewRequestView(props: PageProps) {
                 <CardContent className="py-4">
                   <RichHtml
                     html={intro.rulesHtml}
-                    className="text-[12.5px] leading-normal text-muted-foreground [&_a]:text-brand [&_legend]:hidden"
+                    className="text-12-5 leading-normal text-muted-foreground [&_a]:text-brand [&_legend]:hidden"
                   />
                 </CardContent>
               </CollapsibleSection>
@@ -904,13 +904,13 @@ export function NewRequestView(props: PageProps) {
         <Card className="gap-0 py-0">
           <CardContent className="grid gap-3 py-6">
             {formBusy ? (
-              <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
+              <p className="flex items-center gap-2 text-13 text-muted-foreground">
                 <Spinner className="size-4" /> Loading the form for this type
               </p>
             ) : (
               <>
-                <p className="text-[13px]">MAM did not hand over the form for this type.</p>
-                <Button variant="outline" size="sm" className="h-8 w-fit text-[12.5px]" onClick={() => setStep(0)}>
+                <p className="text-13">MAM did not hand over the form for this type.</p>
+                <Button variant="outline" size="sm" className="h-8 w-fit text-12-5" onClick={() => setStep(0)}>
                   <ChevronLeft /> Back to the type
                 </Button>
               </>
@@ -924,7 +924,7 @@ export function NewRequestView(props: PageProps) {
           <Card className="gap-0 py-0">
             <CardHeader className="!py-3.5">
               <CardTitle>Start from a number</CardTitle>
-              <p className="pt-0.5 text-[12px] text-muted-foreground">
+              <p className="pt-0.5 text-12 text-muted-foreground">
                 An ISBN or ASIN fills in the title, the author plus the description. Everything stays editable.
               </p>
             </CardHeader>
@@ -935,12 +935,12 @@ export function NewRequestView(props: PageProps) {
                   onChange={(e) => setValue('isbn', e.target.value)}
                   placeholder="9780261102217 or ASIN: B002RI9SLQ"
                   aria-label="ISBN or ASIN"
-                  className="h-10 min-w-56 flex-1 text-[13px]"
+                  className="h-10 min-w-56 flex-1 text-13"
                 />
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-10 text-[12.5px]"
+                  className="h-10 text-12-5"
                   disabled={isbnBusy || !values.isbn.trim()}
                   onClick={() => void runIsbn()}
                 >
@@ -948,10 +948,10 @@ export function NewRequestView(props: PageProps) {
                 </Button>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button variant="ghost" size="sm" className="h-8 text-[12px]" onClick={() => setFastFill(true)}>
+                <Button variant="ghost" size="sm" className="h-8 text-12" onClick={() => setFastFill(true)}>
                   <ListPlus /> Fast fill names
                 </Button>
-                <Button variant="ghost" size="sm" className="h-8 text-[12px]" onClick={() => setJsonFill(true)}>
+                <Button variant="ghost" size="sm" className="h-8 text-12" onClick={() => setJsonFill(true)}>
                   <FileJson /> Fill from JSON
                 </Button>
               </div>
@@ -978,7 +978,7 @@ export function NewRequestView(props: PageProps) {
                   value={values.title}
                   onChange={(e) => setValue('title', e.target.value)}
                   placeholder="Title: Subtitle"
-                  className="h-10 text-[13px]"
+                  className="h-10 text-13"
                 />
               </Row>
 
@@ -1023,7 +1023,7 @@ export function NewRequestView(props: PageProps) {
                   value={values.publishedURL}
                   onChange={(e) => setValue('publishedURL', e.target.value)}
                   placeholder="https://"
-                  className="h-10 text-[13px]"
+                  className="h-10 text-13"
                 />
               </Row>
 
@@ -1033,7 +1033,7 @@ export function NewRequestView(props: PageProps) {
                   value={values.releaseDate}
                   max={form.releaseMax ?? undefined}
                   onChange={(e) => setValue('releaseDate', e.target.value)}
-                  className="h-10 w-52 text-[13px]"
+                  className="h-10 w-52 text-13"
                 />
               </Row>
 
@@ -1043,7 +1043,7 @@ export function NewRequestView(props: PageProps) {
                   value={values.posterURL}
                   onChange={(e) => setValue('posterURL', e.target.value)}
                   placeholder="https://"
-                  className="h-10 text-[13px]"
+                  className="h-10 text-13"
                 />
               </Row>
             </CardContent>
@@ -1060,7 +1060,7 @@ export function NewRequestView(props: PageProps) {
                   value={values.description}
                   onChange={(e) => setValue('description', e.target.value)}
                   placeholder="Unabridged, epub preferred, available on Overdrive."
-                  className="min-h-32 text-[13px]"
+                  className="min-h-32 text-13"
                 />
               </Row>
 
@@ -1081,7 +1081,7 @@ export function NewRequestView(props: PageProps) {
                 <Row label="Flags">
                   <div className="grid gap-2">
                     {form.flags.map((f) => (
-                      <FieldLabel key={f.name} className="text-[13px] font-normal">
+                      <FieldLabel key={f.name} className="text-13 font-normal">
                         <Field orientation="horizontal">
                           <Checkbox
                             checked={values.flags.includes(f.name)}
@@ -1089,7 +1089,7 @@ export function NewRequestView(props: PageProps) {
                               setValue('flags', v === true ? [...values.flags, f.name] : values.flags.filter((n) => n !== f.name))
                             }
                           />
-                          <FieldTitle className="text-[13px]">{f.label}</FieldTitle>
+                          <FieldTitle className="text-13">{f.label}</FieldTitle>
                         </Field>
                       </FieldLabel>
                     ))}
@@ -1106,7 +1106,7 @@ export function NewRequestView(props: PageProps) {
           <Card className="gap-0 py-0">
             <CardHeader className="!py-3.5">
               <CardTitle>Fiction or nonfiction</CardTitle>
-              <p className="pt-0.5 text-[12px] text-muted-foreground">This narrows the genre list below.</p>
+              <p className="pt-0.5 text-12 text-muted-foreground">This narrows the genre list below.</p>
             </CardHeader>
             <CardContent className="pb-5">
               <RadioGroup
@@ -1115,16 +1115,16 @@ export function NewRequestView(props: PageProps) {
                 className="grid grid-cols-1 gap-2 sm:grid-cols-2"
               >
                 {(taxonomy?.mainTypes ?? [{ id: 1, name: 'Fiction' }, { id: 2, name: 'Nonfiction' }]).map((t) => (
-                  <FieldLabel key={t.id} htmlFor={`main-${t.id}`} className="text-[13px] font-normal">
+                  <FieldLabel key={t.id} htmlFor={`main-${t.id}`} className="text-13 font-normal">
                     <Field orientation="horizontal">
                       <RadioGroupItem value={String(t.id)} id={`main-${t.id}`} />
-                      <FieldTitle className="text-[13px]">{t.name}</FieldTitle>
+                      <FieldTitle className="text-13">{t.name}</FieldTitle>
                     </Field>
                   </FieldLabel>
                 ))}
               </RadioGroup>
               {(localErrors.mainType || errorFor(serverErrors, 'MAIN_CAT')) && (
-                <p className="pt-2 text-[12px] text-destructive">{localErrors.mainType ?? errorFor(serverErrors, 'MAIN_CAT')}</p>
+                <p className="pt-2 text-12 text-destructive">{localErrors.mainType ?? errorFor(serverErrors, 'MAIN_CAT')}</p>
               )}
             </CardContent>
           </Card>
@@ -1132,19 +1132,19 @@ export function NewRequestView(props: PageProps) {
           <Card className="gap-0 py-0">
             <CardHeader className="!py-3.5">
               <CardTitle>Genres</CardTitle>
-              <p className="pt-0.5 text-[12px] text-muted-foreground">
+              <p className="pt-0.5 text-12 text-muted-foreground">
                 Pick everything that applies. Only the genres that fit your choices are listed.
               </p>
             </CardHeader>
             <CardContent className="px-0 pb-3">
               {!taxonomy ? (
-                <p className="flex items-center gap-2 px-6 text-[12px] text-muted-foreground">
+                <p className="flex items-center gap-2 px-6 text-12 text-muted-foreground">
                   <Spinner className="size-3.5" /> Loading genres
                 </p>
               ) : !values.mainType ? (
-                <p className="px-6 text-[12.5px] text-muted-foreground">Pick fiction or nonfiction first.</p>
+                <p className="px-6 text-12-5 text-muted-foreground">Pick fiction or nonfiction first.</p>
               ) : genres.length === 0 ? (
-                <p className="px-6 text-[12.5px] text-muted-foreground">MAM lists no genres for this combination.</p>
+                <p className="px-6 text-12-5 text-muted-foreground">MAM lists no genres for this combination.</p>
               ) : (
                 <>
                   <FilterSummary
@@ -1183,7 +1183,7 @@ export function NewRequestView(props: PageProps) {
                 </>
               )}
               {(localErrors.categories || errorFor(serverErrors, 'CATEGORIES')) && (
-                <p className="px-6 pt-2 text-[12px] text-destructive">{localErrors.categories ?? errorFor(serverErrors, 'CATEGORIES')}</p>
+                <p className="px-6 pt-2 text-12 text-destructive">{localErrors.categories ?? errorFor(serverErrors, 'CATEGORIES')}</p>
               )}
             </CardContent>
           </Card>
@@ -1191,7 +1191,7 @@ export function NewRequestView(props: PageProps) {
           <Card className="gap-0 py-0">
             <CardHeader className="!py-3.5">
               <CardTitle>Searchable category</CardTitle>
-              <p className="pt-0.5 text-[12px] text-muted-foreground">
+              <p className="pt-0.5 text-12 text-muted-foreground">
                 The one MAM's search runs on today. It is a separate list, so it needs its own pick.
               </p>
             </CardHeader>
@@ -1205,7 +1205,7 @@ export function NewRequestView(props: PageProps) {
                 invalid={!!localErrors.category}
               />
               {(localErrors.category || errorFor(serverErrors, 'CATEGORY')) && (
-                <p className="pt-2 text-[12px] text-destructive">{localErrors.category ?? errorFor(serverErrors, 'CATEGORY')}</p>
+                <p className="pt-2 text-12 text-destructive">{localErrors.category ?? errorFor(serverErrors, 'CATEGORY')}</p>
               )}
             </CardContent>
           </Card>
@@ -1228,20 +1228,20 @@ export function NewRequestView(props: PageProps) {
               <CardTitle className="flex items-center gap-2">
                 Already on the site?
                 {dupeTorrents && dupeTorrents.length > 0 && (
-                  <Badge variant="secondary" className="text-[11px] font-normal">{dupeTorrents.length}</Badge>
+                  <Badge variant="secondary" className="text-11 font-normal">{dupeTorrents.length}</Badge>
                 )}
               </CardTitle>
-              <p className="pt-0.5 text-[12px] text-muted-foreground">
+              <p className="pt-0.5 text-12 text-muted-foreground">
                 MAM looked for torrents that match what you filled in.
               </p>
             </CardHeader>
             <CardContent className="px-0 py-0">
               {dupeTorrents === null ? (
-                <p className="flex items-center gap-2 px-6 py-4 text-[12.5px] text-muted-foreground">
+                <p className="flex items-center gap-2 px-6 py-4 text-12-5 text-muted-foreground">
                   <Spinner className="size-3.5" /> Searching torrents
                 </p>
               ) : dupeTorrents.length === 0 ? (
-                <p className="px-6 py-4 text-[12.5px] text-muted-foreground">No torrents look like this one.</p>
+                <p className="px-6 py-4 text-12-5 text-muted-foreground">No torrents look like this one.</p>
               ) : (
                 <div className="grid divide-y">
                   {dupeTorrents.map((t) => <DupeTorrentRow key={t.id} t={t} />)}
@@ -1255,20 +1255,20 @@ export function NewRequestView(props: PageProps) {
               <CardTitle className="flex items-center gap-2">
                 Already requested?
                 {dupeRequests && dupeRequests.length > 0 && (
-                  <Badge variant="secondary" className="text-[11px] font-normal">{dupeRequests.length}</Badge>
+                  <Badge variant="secondary" className="text-11 font-normal">{dupeRequests.length}</Badge>
                 )}
               </CardTitle>
-              <p className="pt-0.5 text-[12px] text-muted-foreground">
+              <p className="pt-0.5 text-12 text-muted-foreground">
                 Voting on an existing request is free and gets the same result.
               </p>
             </CardHeader>
             <CardContent className="px-0 py-0">
               {dupeRequests === null ? (
-                <p className="flex items-center gap-2 px-6 py-4 text-[12.5px] text-muted-foreground">
+                <p className="flex items-center gap-2 px-6 py-4 text-12-5 text-muted-foreground">
                   <Spinner className="size-3.5" /> Searching requests
                 </p>
               ) : dupeRequests.length === 0 ? (
-                <p className="px-6 py-4 text-[12.5px] text-muted-foreground">No open request matches this.</p>
+                <p className="px-6 py-4 text-12-5 text-muted-foreground">No open request matches this.</p>
               ) : (
                 <div className="grid divide-y">
                   {dupeRequests.map((r) => <DupeRequestRow key={r.requestTime} r={r} />)}
@@ -1280,27 +1280,27 @@ export function NewRequestView(props: PageProps) {
           <Card className="gap-0 py-0">
             <CardHeader className="!py-3.5"><CardTitle>Before it costs you a credit</CardTitle></CardHeader>
             <CardContent className="grid gap-2.5 pb-5">
-              <FieldLabel className="text-[13px] font-normal">
+              <FieldLabel className="text-13 font-normal">
                 <Field orientation="horizontal">
                   <Checkbox checked={agreeTorrents} onCheckedChange={(v) => setAgreeTorrents(v === true)} />
-                  <FieldTitle className="text-[13px]">
+                  <FieldTitle className="text-13">
                     {dupeTorrents && dupeTorrents.length > 0
                       ? 'None of those torrents are what I am after'
                       : 'I searched the torrents and it is not here'}
                   </FieldTitle>
                 </Field>
               </FieldLabel>
-              <FieldLabel className="text-[13px] font-normal">
+              <FieldLabel className="text-13 font-normal">
                 <Field orientation="horizontal">
                   <Checkbox checked={agreeRequests} onCheckedChange={(v) => setAgreeRequests(v === true)} />
-                  <FieldTitle className="text-[13px]">
+                  <FieldTitle className="text-13">
                     {dupeRequests && dupeRequests.length > 0
                       ? 'None of those requests are what I am after'
                       : 'I searched the requests and it is not here'}
                   </FieldTitle>
                 </Field>
               </FieldLabel>
-              <p className="pt-1 text-[12px] text-muted-foreground">
+              <p className="pt-1 text-12 text-muted-foreground">
                 A duplicate gets deleted and the credit is gone with it.
               </p>
             </CardContent>

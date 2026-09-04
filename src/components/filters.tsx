@@ -43,10 +43,10 @@ export interface FacetOption {
 }
 
 /** Shared control height, so every trigger on a bar lines up. */
-export const TRIGGER = 'h-8 gap-1.5 text-[12.5px] font-medium'
+export const TRIGGER = 'h-8 gap-1.5 text-12-5 font-medium'
 
 /** The quiet action next to a list of chips, as used by Clear all. */
-export const QUIET_LINK = 'h-auto p-0 text-[12px] text-brand'
+export const QUIET_LINK = 'h-auto p-0 text-12 text-brand'
 
 // A glyph this small still needs a finger-sized target. The pseudo-element
 // grows the tap area to the 24px minimum without moving anything on screen.
@@ -220,7 +220,7 @@ export function FilterScope({
 /** Rounded shape for the category tabs, which switch which list you are in
  * rather than narrowing one. */
 const PILL =
-  'h-auto flex-none justify-between gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] text-muted-foreground shadow-none transition-colors'
+  'h-auto flex-none justify-between gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-12-5 text-muted-foreground shadow-none transition-colors'
 
 /** Wrapping pill row for category tabs; pair with FilterPill inside a Tabs root. */
 export function FilterPillList({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -251,7 +251,7 @@ export function FilterPill({
       )}
     >
       {children}
-      {count != null && <span className="rounded-full bg-muted px-1.5 text-[10px] tabular-nums">{fmtInt(count)}</span>}
+      {count != null && <span className="rounded-full bg-muted px-1.5 text-10 tabular-nums">{fmtInt(count)}</span>}
     </TabsTrigger>
   )
 }
@@ -279,16 +279,16 @@ export function FilterSegments({
       value={o.value}
       aria-label={o.badge ? `${o.label}, ${fmtInt(o.badge)} new` : o.label}
       className={cn(
-        'h-8 px-3 text-[12.5px] font-medium text-muted-foreground',
+        'h-8 px-3 text-12-5 font-medium text-muted-foreground',
         'data-pressed:bg-brand-soft data-pressed:text-accent-foreground'
       )}
     >
       {o.label}
       {o.count != null && (
-        <span className="text-[11px] tabular-nums text-muted-foreground">{fmtInt(o.count)}</span>
+        <span className="text-11 tabular-nums text-muted-foreground">{fmtInt(o.count)}</span>
       )}
       {!!o.badge && (
-        <span className="rounded-full bg-brand/15 px-1.5 py-px text-[10px] font-semibold tabular-nums text-brand">
+        <span className="rounded-full bg-brand/15 px-1.5 py-px text-10 font-semibold tabular-nums text-brand">
           {fmtInt(o.badge)}
         </span>
       )}
@@ -346,7 +346,7 @@ export function FilterFacet({
           {icon}
           {label}
           {count > 0 && (
-            <Badge variant="secondary" className="ml-0.5 h-4 min-w-4 rounded-full px-1 text-[10px] tabular-nums">
+            <Badge variant="secondary" className="ml-0.5 h-4 min-w-4 rounded-full px-1 text-10 tabular-nums">
               {count}
             </Badge>
           )}
@@ -414,8 +414,8 @@ export function FacetOptions({
     <>
       <Separator />
       <div className="flex items-center justify-between px-2.5 py-1.5">
-        <span className="text-[11.5px] text-muted-foreground">{selected.length} selected</span>
-        <Button variant="link" onClick={onClear} className="h-auto p-0 text-[12px] text-brand">
+        <span className="text-11-5 text-muted-foreground">{selected.length} selected</span>
+        <Button variant="link" onClick={onClear} className="h-auto p-0 text-12 text-brand">
           Clear
         </Button>
       </div>
@@ -443,9 +443,9 @@ export function FacetOptions({
                 >
                   <Checkbox checked={selected.includes(o.value)} aria-hidden className="pointer-events-none" />
                   <span className="truncate">{o.label}</span>
-                  {o.hint && <span className="ml-auto pl-2 text-[11px] text-muted-foreground">{o.hint}</span>}
+                  {o.hint && <span className="ml-auto pl-2 text-11 text-muted-foreground">{o.hint}</span>}
                   {o.count != null && (
-                    <span className="ml-auto pl-2 text-[11px] tabular-nums text-muted-foreground">{fmtInt(o.count)}</span>
+                    <span className="ml-auto pl-2 text-11 tabular-nums text-muted-foreground">{fmtInt(o.count)}</span>
                   )}
                 </CommandItem>
               ))}
@@ -460,13 +460,13 @@ export function FacetOptions({
   return (
     <>
       <div className={cn('overflow-y-auto p-1.5', maxHeight, columns === 2 && 'grid grid-cols-2 gap-x-2')}>
-        {options.length === 0 && <p className="px-1.5 py-2 text-[12.5px] text-muted-foreground">{emptyText}</p>}
+        {options.length === 0 && <p className="px-1.5 py-2 text-12-5 text-muted-foreground">{emptyText}</p>}
         {options.map((o) => (
           <Label
             key={o.value}
             title={o.hint}
             className={cn(
-              'flex items-center gap-2 rounded-sm px-1.5 py-1.5 text-[12.5px] font-normal hover:bg-accent/50',
+              'flex items-center gap-2 rounded-sm px-1.5 py-1.5 text-12-5 font-normal hover:bg-accent/50',
               o.disabled && 'opacity-45'
             )}
           >
@@ -477,7 +477,7 @@ export function FacetOptions({
             />
             <span className={cn('truncate', o.depth === 1 && 'pl-2 text-muted-foreground')}>{o.label}</span>
             {o.count != null && (
-              <span className="ml-auto pl-2 text-[11px] tabular-nums text-muted-foreground">{fmtInt(o.count)}</span>
+              <span className="ml-auto pl-2 text-11 tabular-nums text-muted-foreground">{fmtInt(o.count)}</span>
             )}
           </Label>
         ))}
@@ -512,7 +512,7 @@ export function FacetMode({
           <ToggleGroupItem
             key={o.value}
             value={o.value}
-            className="h-7 flex-1 text-[12px] text-muted-foreground data-pressed:bg-brand-soft data-pressed:text-accent-foreground"
+            className="h-7 flex-1 text-12 text-muted-foreground data-pressed:bg-brand-soft data-pressed:text-accent-foreground"
           >
             {o.label}
           </ToggleGroupItem>
@@ -526,7 +526,7 @@ export function FacetMode({
 export function FacetSection({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
     <div className="px-2.5 py-2">
-      <div className="pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="pb-1 text-11 font-semibold uppercase tracking-wide text-muted-foreground">
         {title}
         {note && <span className="ml-1.5 font-normal normal-case tracking-normal">{note}</span>}
       </div>
@@ -554,7 +554,7 @@ export function FilterSelect({
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger size="sm" aria-label={ariaLabel} className={cn('h-8 w-auto text-[12.5px]', className)}>
+      <SelectTrigger size="sm" aria-label={ariaLabel} className={cn('h-8 w-auto text-12-5', className)}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent align={align} className="max-h-72">
@@ -667,7 +667,7 @@ export function FilterDateRange({
                   send(undefined)
                   setOpen(false)
                 }}
-                className="h-auto p-0 text-[12px] text-brand"
+                className="h-auto p-0 text-12 text-brand"
               >
                 Clear dates
               </Button>
@@ -707,7 +707,7 @@ export function FilterSummary({
   return (
     <div className={cn('flex flex-wrap items-center gap-2 px-6', className)}>
       {list.map((c) => (
-        <Badge key={c.key} variant="outline" className="gap-1 rounded-full py-[3px] pl-2.5 pr-1 text-[12px] font-normal text-muted-foreground">
+        <Badge key={c.key} variant="outline" className="gap-1 rounded-full py-[3px] pl-2.5 pr-1 text-12 font-normal text-muted-foreground">
           {c.label}
           <Button
             variant="ghost"
@@ -728,7 +728,7 @@ export function FilterSummary({
       {actions}
       {(meta || children) && (
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          {meta && <span className="text-[12px] tabular-nums text-muted-foreground">{meta}</span>}
+          {meta && <span className="text-12 tabular-nums text-muted-foreground">{meta}</span>}
           {children}
         </div>
       )}
@@ -899,7 +899,7 @@ function SavedPill({ set, active, views }: { set: SavedSet; active: boolean; vie
     )
   }
   return (
-    <div className="flex h-8 items-center rounded-md bg-brand-soft text-[12.5px] font-medium text-accent-foreground">
+    <div className="flex h-8 items-center rounded-md bg-brand-soft text-12-5 font-medium text-accent-foreground">
       {views.clearable ? (
         <Button
           variant="ghost"
@@ -908,7 +908,7 @@ function SavedPill({ set, active, views }: { set: SavedSet; active: boolean; vie
           aria-label={`Turn off ${set.name}`}
           title={full}
           onClick={views.clear}
-          className="h-full rounded-l-md rounded-r-none px-2.5 text-[12.5px] font-medium text-accent-foreground hover:bg-accent/40 focus-visible:relative focus-visible:z-10 dark:hover:bg-accent/40"
+          className="h-full rounded-l-md rounded-r-none px-2.5 text-12-5 font-medium text-accent-foreground hover:bg-accent/40 focus-visible:relative focus-visible:z-10 dark:hover:bg-accent/40"
         >
           <SavedMark />
           <span className="max-w-48 truncate">{set.name}</span>

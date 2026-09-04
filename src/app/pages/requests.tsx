@@ -216,7 +216,7 @@ export function RequestsView(_props: PageProps) {
           />
           <FilterFacet label="Filters" count={hideHidden ? 1 : 0} icon={<Filter className="size-3.5" />}>
             <FacetSection title="Personal" note="only in this browser">
-              <Label className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
+              <Label className="flex items-center gap-2 py-1 text-12-5 font-normal">
                 <Checkbox checked={hideHidden} onCheckedChange={(v) => setHideHidden(!!v)} />
                 Hide hidden requesters
               </Label>
@@ -242,7 +242,7 @@ export function RequestsView(_props: PageProps) {
         {/* Same head as the browse list: the count on the left, the controls
             that act on it on the right. */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b bg-muted/25 px-6 py-2">
-          <span className="text-[12.5px] tabular-nums text-muted-foreground">
+          <span className="text-12-5 tabular-nums text-muted-foreground">
             {rows ? plural(found, 'request') : 'Loading…'}
           </span>
           <span className="ml-auto flex flex-wrap items-center gap-1.5">
@@ -292,10 +292,10 @@ export function RequestsView(_props: PageProps) {
                 <TableRow key={r.requesttime}>
                   <TableCell className="whitespace-normal">
                     <a href={requestUrl(r.requesttime)} className="grid gap-0.5">
-                      <span className="font-display text-[14px] font-medium leading-snug hover:underline">
+                      <span className="font-display text-14 font-medium leading-snug hover:underline">
                         {decodeEntities(r.title)}
                       </span>
-                      <span className="text-[12px] text-muted-foreground">
+                      <span className="text-12 text-muted-foreground">
                         {authors.length > 0 && <>by {authors.map((a) => a.name).join(', ')}</>}
                         {narrators.length > 0 && <> · read by {narrators.map((x) => x.name).join(', ')}</>}
                         {series.length > 0 && <> · {series.map((s) => s.name + (s.part ? ` #${s.part}` : '')).join(', ')}</>}
@@ -313,7 +313,7 @@ export function RequestsView(_props: PageProps) {
                       </span>
                     </a>
                   </TableCell>
-                  <TableCell className="text-right font-mono text-[13px] tabular-nums">{fmtInt(r.votes)}</TableCell>
+                  <TableCell className="text-right font-mono text-13 tabular-nums">{fmtInt(r.votes)}</TableCell>
                   <TableCell className="hidden md:table-cell">
                     {r.filled ? (
                       <Badge className="bg-ok/15 text-ok" variant="secondary">Filled</Badge>
@@ -321,7 +321,7 @@ export function RequestsView(_props: PageProps) {
                       <Badge variant="secondary">Open</Badge>
                     )}
                   </TableCell>
-                  <TableCell className="hidden text-right text-[12.5px] text-muted-foreground md:table-cell" title={utcTitle(stamp)}>
+                  <TableCell className="hidden text-right text-12-5 text-muted-foreground md:table-cell" title={utcTitle(stamp)}>
                     {localDate(stamp)}
                   </TableCell>
                 </TableRow>
@@ -332,7 +332,7 @@ export function RequestsView(_props: PageProps) {
       </Card>
 
       <div className="flex items-center justify-end gap-2">
-        <span className="mr-auto text-[12.5px] text-muted-foreground">
+        <span className="mr-auto text-12-5 text-muted-foreground">
           {rows ? `Showing ${fmtInt(found === 0 ? 0 : state.start + 1)}–${fmtInt(Math.min(found, state.start + rows.length))}` : ''}
           {hiddenCount > 0 && ` · ${fmtInt(hiddenCount)} hidden on this page`}
         </span>

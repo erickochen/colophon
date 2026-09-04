@@ -61,12 +61,12 @@ function Post({
       className="scroll-mt-18 gap-0 overflow-hidden py-0"
     >
       <div className="flex items-center justify-between gap-3 bg-muted/40 px-6 py-2.5">
-        <div className="flex min-w-0 items-baseline gap-2 text-[12.5px]">
-          <a href={p.permalink} className="font-mono text-[11px] text-muted-foreground hover:underline">#{p.pid}</a>
+        <div className="flex min-w-0 items-baseline gap-2 text-12-5">
+          <a href={p.permalink} className="font-mono text-11 text-muted-foreground hover:underline">#{p.pid}</a>
           {p.author && <a href={p.author.href} className="truncate font-semibold hover:underline">{p.author.name}</a>}
           {p.authorTitle && <span className="truncate text-muted-foreground">({p.authorTitle})</span>}
         </div>
-        <span className="shrink-0 text-[11.5px] text-muted-foreground" title={utcTitle(p.at)}>
+        <span className="shrink-0 text-11-5 text-muted-foreground" title={utcTitle(p.at)}>
           {p.rel ?? localDateTime(p.at)}
         </span>
       </div>
@@ -76,8 +76,8 @@ function Post({
             {p.avatar && <AvatarImage src={p.avatar} alt="" />}
             <AvatarFallback className="rounded-lg font-display text-lg">{initials(p.author?.name ?? '?')}</AvatarFallback>
           </Avatar>
-          {p.klass && <span className="text-[11.5px] font-medium">{p.klass}</span>}
-          <div className="font-mono text-[10.5px] leading-relaxed text-muted-foreground">
+          {p.klass && <span className="text-11-5 font-medium">{p.klass}</span>}
+          <div className="font-mono text-10-5 leading-relaxed text-muted-foreground">
             {p.stats.posts && <>{p.stats.posts} posts<br /></>}
             {p.stats.ratio && <>ratio {p.stats.ratio}<br /></>}
             {p.stats.ul && <>↑ {p.stats.ul}<br /></>}
@@ -90,11 +90,11 @@ function Post({
           ) : (
             <RichHtml html={p.bodyHtml} className={POST_SPACING} />
           )}
-          {!editing && p.edited && <p className="mt-3 text-[11px] italic text-muted-foreground">{p.edited}</p>}
+          {!editing && p.edited && <p className="mt-3 text-11 italic text-muted-foreground">{p.edited}</p>}
           {!editing && p.sigHtml && (
             <RichHtml
               html={p.sigHtml}
-              className={cn(POST_SPACING, 'mt-5 border-t pt-3 text-[12px] text-muted-foreground [&_img]:max-h-28')}
+              className={cn(POST_SPACING, 'mt-5 border-t pt-3 text-12 text-muted-foreground [&_img]:max-h-28')}
             />
           )}
           <div className={cn('mt-3 flex justify-end gap-1', editing && 'hidden')}>
@@ -192,7 +192,7 @@ function TopicPollCard({ poll }: { poll: TopicPoll }) {
         <CardTitle className="flex items-center gap-2"><Vote className="size-4 text-brand" /> Poll</CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4 px-6 py-4">
-        {poll.question && <p id={askId} className="text-[13.5px] font-medium">{poll.question}</p>}
+        {poll.question && <p id={askId} className="text-13-5 font-medium">{poll.question}</p>}
         {poll.options.length > 0 ? (
           <>
             <RadioGroup
@@ -202,14 +202,14 @@ function TopicPollCard({ poll }: { poll: TopicPoll }) {
               className="gap-2.5"
             >
               {poll.options.map((o) => (
-                <Label key={o.value} className="flex items-start gap-2.5 text-[13px] font-normal leading-snug">
+                <Label key={o.value} className="flex items-start gap-2.5 text-13 font-normal leading-snug">
                   <RadioGroupItem value={o.value} className="mt-0.5" />
                   <span className="min-w-0 break-words">{o.label}</span>
                 </Label>
               ))}
             </RadioGroup>
             <div className="flex justify-end">
-              <Button size="sm" className="h-8 text-[12.5px]" disabled={!choice || busy} onClick={vote}>
+              <Button size="sm" className="h-8 text-12-5" disabled={!choice || busy} onClick={vote}>
                 <Vote /> Vote
               </Button>
             </div>
@@ -218,12 +218,12 @@ function TopicPollCard({ poll }: { poll: TopicPoll }) {
           <div className="grid gap-3">
             {poll.results.map((r, i) => (
               <div key={i} className="grid gap-1.5">
-                <div className="flex items-baseline justify-between gap-3 text-[13px]">
+                <div className="flex items-baseline justify-between gap-3 text-13">
                   <span className="min-w-0 break-words">
                     {r.label}
                     {/* The same mark the shoutbox puts on your own line. */}
                     {r.mine && (
-                      <span className="ml-1.5 rounded bg-brand/15 px-1.5 py-px text-[9.5px] font-semibold uppercase tracking-wide text-brand">
+                      <span className="ml-1.5 rounded bg-brand/15 px-1.5 py-px text-9-5 font-semibold uppercase tracking-wide text-brand">
                         you
                       </span>
                     )}
@@ -233,7 +233,7 @@ function TopicPollCard({ poll }: { poll: TopicPoll }) {
                 <Progress value={r.percent} className={cn('h-2', r.mine && '[&>div]:bg-brand-fill')} />
               </div>
             ))}
-            {poll.votes && <p className="text-[12px] text-muted-foreground">{poll.votes} votes cast</p>}
+            {poll.votes && <p className="text-12 text-muted-foreground">{poll.votes} votes cast</p>}
           </div>
         ) : (
           poll.html && <RichHtml html={poll.html} className={POST_SPACING} />
@@ -447,11 +447,11 @@ export function ForumTopicView(props: PageProps) {
     <div className="grid gap-4">
       <Crumbs items={data.crumbs} />
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="font-display text-[24px] font-semibold leading-tight tracking-tight">{data.title}</h1>
+        <h1 className="font-display text-24 font-semibold leading-tight tracking-tight">{data.title}</h1>
         <Button
           variant={subscribed ? 'secondary' : 'outline'}
           size="sm"
-          className="h-8 text-[12.5px]"
+          className="h-8 text-12-5"
           onClick={subscribe}
           disabled={subBusy}
         >
@@ -506,7 +506,7 @@ export function ForumTopicView(props: PageProps) {
       {data.quickReply && (
         <Card id="quick-reply">
           <CardContent className="grid gap-2.5">
-            <h2 className="font-display text-[15px] font-semibold">Write a reply</h2>
+            <h2 className="font-display text-15 font-semibold">Write a reply</h2>
             <BBComposer ref={replyBox} value={reply} onChange={setReply} placeholder="Join the conversation…" />
             <div className="flex justify-end">
               <Button onClick={submitReply}><Send /> Post reply</Button>
@@ -515,7 +515,7 @@ export function ForumTopicView(props: PageProps) {
         </Card>
       )}
       {jump && (
-        <div className="flex items-center justify-end gap-2 pt-1 text-[12.5px] text-muted-foreground">
+        <div className="flex items-center justify-end gap-2 pt-1 text-12-5 text-muted-foreground">
           <span>Jump to forum</span>
           <Select onValueChange={(v) => v && location.assign(`/f/b/${v}`)}>
             <SelectTrigger size="sm" className="w-60"><SelectValue placeholder="Choose a forum…" /></SelectTrigger>

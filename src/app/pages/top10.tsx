@@ -222,7 +222,7 @@ export function Top10View(_props: PageProps) {
       {/* Only while it still holds: picking a week clears it, plus dropping the
           year makes the whole thing moot. */}
       {periodFailed && year !== 'all' && week === 'all' && (
-        <p className="text-[12.5px] text-muted-foreground">
+        <p className="text-12-5 text-muted-foreground">
           Could not read which weeks are on record in time, so this covers the whole year.
         </p>
       )}
@@ -259,9 +259,9 @@ export function Top10View(_props: PageProps) {
               <div className="grid max-h-72 grid-cols-2 gap-x-3 overflow-y-auto">
                 {(mainCat.length ? MAIN_CATS.filter((m) => mainCat.includes(m.id)) : MAIN_CATS).map((m) => (
                   <div key={m.id} className="pb-1.5">
-                    <div className="py-1 text-[11.5px] font-medium text-muted-foreground">{m.name}</div>
+                    <div className="py-1 text-11-5 font-medium text-muted-foreground">{m.name}</div>
                     {m.cats.map((c) => (
-                      <Label key={c.id} className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
+                      <Label key={c.id} className="flex items-center gap-2 py-1 text-12-5 font-normal">
                         <Checkbox
                           checked={cat.includes(c.id)}
                           onCheckedChange={() => apply({ cat: toggleValue(cat, c.id) })}
@@ -300,7 +300,7 @@ export function Top10View(_props: PageProps) {
               <Card className="py-3.5 transition-colors group-hover:border-brand/40">
                 <CardContent className="flex items-center gap-4">
                   <span
-                    className={'w-10 shrink-0 text-center font-display text-[28px] font-semibold tabular-nums ' + (i < 3 ? '' : 'text-muted-foreground')}
+                    className={'w-10 shrink-0 text-center font-display text-28 font-semibold tabular-nums ' + (i < 3 ? '' : 'text-muted-foreground')}
                     style={i < 3 ? { color: ['oklch(0.78 0.13 85)', 'oklch(0.62 0.02 260)', 'oklch(0.55 0.11 50)'][i] } : undefined}
                   >
                     {i + 1}
@@ -315,8 +315,8 @@ export function Top10View(_props: PageProps) {
                     className="w-18 shrink-0"
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-display text-[14.5px] font-medium group-hover:underline">{t.title}</div>
-                    <div className="truncate text-[12px] text-muted-foreground">
+                    <div className="truncate font-display text-14-5 font-medium group-hover:underline">{t.title}</div>
+                    <div className="truncate text-12 text-muted-foreground">
                       {authors.map((a) => a.name).join(', ')}{t.catname ? ` · ${t.catname}` : ''}
                     </div>
                     {/* With the title rather than beside the numbers, since the
@@ -331,7 +331,7 @@ export function Top10View(_props: PageProps) {
                     {t.vip === 1 && <Badge className="bg-brand-soft text-accent-foreground" variant="secondary">VIP</Badge>}
                     <Badge variant="outline" className="font-mono uppercase">{t.filetype?.split(' ')[0]}</Badge>
                   </div>
-                  <div className="w-24 shrink-0 text-right font-mono text-[12.5px] tabular-nums">
+                  <div className="w-24 shrink-0 text-right font-mono text-12-5 tabular-nums">
                     {metric === 'snatchedDesc' && <><b>{fmtInt(t.times_completed)}</b> <span className="text-muted-foreground">✓</span></>}
                     {metric === 'seedersDesc' && <><b className="text-ok">{fmtInt(t.seeders)}</b> <span className="text-muted-foreground">seed</span></>}
                     {metric === 'leechersDesc' && <><b className="text-warn">{fmtInt(t.leechers)}</b> <span className="text-muted-foreground">leech</span></>}

@@ -71,11 +71,11 @@ export function MemberPicker({
         <FilterSearch value={term} onChange={setTerm} onSubmit={run} placeholder="Member name…" autoFocus />
 
         {tooShort && (
-          <p className="text-[12px] text-muted-foreground">Type at least {MIN_TERM} letters.</p>
+          <p className="text-12 text-muted-foreground">Type at least {MIN_TERM} letters.</p>
         )}
 
         {loading && (
-          <div className="flex items-center justify-center gap-2 py-8 text-[13px] text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 py-8 text-13 text-muted-foreground">
             <Spinner className="size-4" /> Searching
           </div>
         )}
@@ -83,7 +83,7 @@ export function MemberPicker({
         {!loading && rows && (
           <div className="max-h-72 overflow-y-auto rounded-lg border">
             {rows.length === 0 ? (
-              <p className="px-4 py-8 text-center text-[13px] text-muted-foreground">No members match that name.</p>
+              <p className="px-4 py-8 text-center text-13 text-muted-foreground">No members match that name.</p>
             ) : (
               rows.map((u, i) => (
                 <Button
@@ -91,11 +91,11 @@ export function MemberPicker({
                   variant="ghost"
                   onClick={() => onPick(u)}
                   disabled={!u.uid}
-                  className="h-auto w-full justify-start gap-2.5 rounded-none border-b px-4 py-2.5 text-left text-[13px] font-normal last:border-b-0"
+                  className="h-auto w-full justify-start gap-2.5 rounded-none border-b px-4 py-2.5 text-left text-13 font-normal last:border-b-0"
                 >
                   <UserRound className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate font-medium">{u.name}</span>
-                  {u.className && <Badge variant="secondary" className="shrink-0 text-[10px]">{u.className}</Badge>}
+                  {u.className && <Badge variant="secondary" className="shrink-0 text-10">{u.className}</Badge>}
                 </Button>
               ))
             )}

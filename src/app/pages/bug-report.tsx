@@ -21,10 +21,10 @@ function Field({
 }: { icon: ComponentType<{ className?: string }>; label: string; hint?: string; children: ReactNode }) {
   return (
     <div className="grid gap-1.5">
-      <Label className="flex items-center gap-1.5 text-[13px] font-medium">
+      <Label className="flex items-center gap-1.5 text-13 font-medium">
         <Icon className="size-3.5 text-muted-foreground" /> {label}
       </Label>
-      {hint && <p className="-mt-0.5 text-[12px] text-muted-foreground">{hint}</p>}
+      {hint && <p className="-mt-0.5 text-12 text-muted-foreground">{hint}</p>}
       {children}
     </div>
   )
@@ -106,7 +106,7 @@ export function BugReportView(props: PageProps) {
           <ShineBorder shineColor={['var(--warn)', 'var(--brand)']} borderWidth={1} duration={12} />
           <CardContent className="flex gap-3">
             <TriangleAlert className="mt-0.5 size-5 shrink-0 text-warn" />
-            <div className="grid gap-1 text-[13px]">
+            <div className="grid gap-1 text-13">
               <p className="font-medium">Reproduce it with the remaster turned off first</p>
               <p className="text-muted-foreground">
                 Staff only accept bug reports made without userscripts, custom styles or extensions. This remaster is a userscript,
@@ -153,7 +153,7 @@ export function BugReportView(props: PageProps) {
       </Card>
 
       {f.userScriptFree && (
-        <Label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-card px-4 py-3.5 text-[13px] leading-snug has-data-checked:border-ok/50 has-data-checked:bg-ok/5">
+        <Label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-card px-4 py-3.5 text-13 leading-snug has-data-checked:border-ok/50 has-data-checked:bg-ok/5">
           <Checkbox checked={state.certified} onCheckedChange={(v) => setCertified(v === true)} className="mt-0.5" />
           <span className="flex items-center gap-1.5">
             <ShieldCheck className="size-4 shrink-0 text-ok" />

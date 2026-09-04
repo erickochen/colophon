@@ -50,14 +50,14 @@ export function UserMenu({ page }: { page: ShellData }) {
               <span className="grid flex-1 gap-0.5 leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="flex items-center gap-1.5">
                   <StatusDot page={page} />
-                  <span className="truncate text-[13px] font-semibold">{page.user.name}</span>
+                  <span className="truncate text-13 font-semibold">{page.user.name}</span>
                   {page.user.klass && (
-                    <span className="shrink-0 rounded bg-brand-soft px-1.5 py-px text-[10px] font-medium text-accent-foreground">
+                    <span className="shrink-0 rounded bg-brand-soft px-1.5 py-px text-10 font-medium text-accent-foreground">
                       {page.user.klass}
                     </span>
                   )}
                 </span>
-                <span className="flex items-center gap-1 truncate text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1 truncate text-11 text-muted-foreground">
                   <TrendingUp className="size-3 text-ok" />
                   <span className="tabular-nums">{fmtRatio(page.stats.ratio)}</span>
                   <span className="text-muted-foreground">ratio</span>
@@ -71,14 +71,14 @@ export function UserMenu({ page }: { page: ShellData }) {
               <div className="grid gap-0.5 px-2 py-2 leading-tight">
                 <span className="flex items-center gap-1.5">
                   <StatusDot page={page} />
-                  <span className="truncate text-[13px] font-semibold">{page.user.name}</span>
-                  {page.user.klass && <span className="text-[11px] font-normal text-muted-foreground">{page.user.klass}</span>}
+                  <span className="truncate text-13 font-semibold">{page.user.name}</span>
+                  {page.user.klass && <span className="text-11 font-normal text-muted-foreground">{page.user.klass}</span>}
                 </span>
-                <span className="truncate text-[11.5px] text-muted-foreground">
+                <span className="truncate text-11-5 text-muted-foreground">
                   ↑ {page.stats.uploaded ?? '–'} · ↓ {page.stats.downloaded ?? '–'}
                 </span>
                 {vipUntil && (
-                  <span className="flex items-center gap-1 truncate text-[11.5px] text-muted-foreground">
+                  <span className="flex items-center gap-1 truncate text-11-5 text-muted-foreground">
                     <Crown className="size-3 text-brand" />
                     VIP until {vipUntil}
                   </span>
@@ -93,8 +93,8 @@ export function UserMenu({ page }: { page: ShellData }) {
                 ['Ratio', fmtRatio(page.stats.ratio)],
               ].map(([label, value]) => (
                 <div key={label as string} className="rounded-md bg-muted/60 py-1.5">
-                  <div className="text-[12.5px] font-semibold tabular-nums">{value ?? '–'}</div>
-                  <div className="text-[10px] text-muted-foreground">{label}</div>
+                  <div className="text-12-5 font-semibold tabular-nums">{value ?? '–'}</div>
+                  <div className="text-10 text-muted-foreground">{label}</div>
                 </div>
               ))}
             </div>

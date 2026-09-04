@@ -40,9 +40,9 @@ export function HuntsView(props: PageProps) {
             <a key={h.href} href={h.href} className="flex items-center justify-between gap-4 px-6 py-3 transition-colors hover:bg-accent/50">
               <span className="flex min-w-0 items-center gap-2.5">
                 <Sparkles className="size-3.5 shrink-0 text-brand" />
-                <span className="truncate text-[13.5px] font-medium">{h.name}</span>
+                <span className="truncate text-13-5 font-medium">{h.name}</span>
               </span>
-              <span className="shrink-0 font-mono text-[12px] tabular-nums text-muted-foreground" title={utcTitle(h.date)}>
+              <span className="shrink-0 font-mono text-12 tabular-nums text-muted-foreground" title={utcTitle(h.date)}>
                 {localDateTime(h.date)}
               </span>
             </a>

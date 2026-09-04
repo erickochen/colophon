@@ -146,7 +146,7 @@ export function LottoView(props: PageProps) {
         <ShineBorder shineColor={['oklch(0.78 0.12 85)', 'oklch(0.55 0.16 25)']} duration={14} borderWidth={1.5} />
         <CardContent className="grid items-center gap-6 py-2 md:grid-cols-[minmax(0,1fr)_auto]">
           <div className="grid gap-1">
-            <span className="text-[12.5px] uppercase tracking-wide text-muted-foreground">In the pot</span>
+            <span className="text-12-5 uppercase tracking-wide text-muted-foreground">In the pot</span>
             <div className="flex items-baseline gap-2">
               <span className="font-display text-5xl font-semibold tabular-nums tracking-tight">
                 {data.potGiB > 0 ? <NumberRoll value={data.potGiB} /> : '0'}
@@ -154,7 +154,7 @@ export function LottoView(props: PageProps) {
               <span className="text-xl text-muted-foreground">GiB</span>
             </div>
             {(countdown || data.drawText) && (
-              <p className="mt-1 flex items-center gap-1.5 text-[13px] text-muted-foreground">
+              <p className="mt-1 flex items-center gap-1.5 text-13 text-muted-foreground">
                 <Clock className="size-3.5" />
                 {countdown ? <>Draw in <span className="font-mono font-medium text-foreground">{countdown}</span></> : data.drawText}
               </p>
@@ -171,12 +171,12 @@ export function LottoView(props: PageProps) {
                       {[1, 2, 3, 4, 5].map((n) => <SelectItem key={n} value={String(n)}>Sweeten +{n} GiB</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  <span className="whitespace-nowrap rounded-md bg-muted px-2.5 py-2 font-mono text-[13px] tabular-nums">−{cost} GiB</span>
+                  <span className="whitespace-nowrap rounded-md bg-muted px-2.5 py-2 font-mono text-13 tabular-nums">−{cost} GiB</span>
                 </div>
                 <Button size="lg" className="w-full" onClick={play}><Ticket /> Play the lotto</Button>
               </>
             ) : (
-              <div className="flex items-center gap-2 rounded-lg bg-ok/10 px-4 py-3 text-[13px] text-ok">
+              <div className="flex items-center gap-2 rounded-lg bg-ok/10 px-4 py-3 text-13 text-ok">
                 <PartyPopper className="size-4" /> You hold a ticket for this draw. Good luck!
               </div>
             )}
@@ -200,7 +200,7 @@ export function LottoView(props: PageProps) {
             {data.plays.length > 0 ? (
               <div className="-mr-2 grid max-h-[320px] grid-cols-1 gap-1.5 overflow-y-auto pr-2">
                 {data.plays.map((p, i) => (
-                  <div key={i} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-baseline gap-2 text-[12.5px]">
+                  <div key={i} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-baseline gap-2 text-12-5">
                     <span className="font-mono tabular-nums">{p.draw}</span>
                     <span className="tabular-nums text-muted-foreground">{p.played}</span>
                     <span
@@ -215,14 +215,14 @@ export function LottoView(props: PageProps) {
                 ))}
               </div>
             ) : (
-              <p className="text-[13px] text-muted-foreground">No tickets on record yet.</p>
+              <p className="text-13 text-muted-foreground">No tickets on record yet.</p>
             )}
             <Separator />
-            <div className="flex items-center justify-between text-[13px]">
+            <div className="flex items-center justify-between text-13">
               <span className="text-muted-foreground">Total played</span>
               <span className="font-mono font-medium tabular-nums">{data.totalPlayed ?? '0 GiB'}</span>
             </div>
-            <div className="flex items-center justify-between text-[13px]">
+            <div className="flex items-center justify-between text-13">
               <span className="text-muted-foreground">Total winnings</span>
               <span className="font-mono font-medium tabular-nums text-ok">{data.totalWon ?? '0 GiB'}</span>
             </div>
@@ -233,13 +233,13 @@ export function LottoView(props: PageProps) {
       <Card className="gap-0 py-0">
         <CardHeader className="!py-3.5">
           <CardTitle className="flex items-center gap-2">
-            Players in this draw <span className="text-[12px] font-normal text-muted-foreground">{fmtInt(data.players.length)}</span>
+            Players in this draw <span className="text-12 font-normal text-muted-foreground">{fmtInt(data.players.length)}</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-x-3 gap-y-1.5 py-4">
           {data.players.length > 0 ? (
             data.players.map((p, i) => (
-              <span key={i} className="text-[12.5px] font-medium" style={{ color: mutedUserColor(p.color) }}>{p.name}</span>
+              <span key={i} className="text-12-5 font-medium" style={{ color: mutedUserColor(p.color) }}>{p.name}</span>
             ))
           ) : (
             <p className="text-sm text-muted-foreground">No tickets bought yet. Be the first.</p>

@@ -78,7 +78,7 @@ function StatChip({
       {suffix}
     </>
   )
-  const base = 'hidden items-center gap-1.5 text-[12.5px] text-muted-foreground md:flex'
+  const base = 'hidden items-center gap-1.5 text-12-5 text-muted-foreground md:flex'
   if (!href) return <div className={base}>{body}</div>
   return (
     <Tooltip>
@@ -118,7 +118,7 @@ function NotifChips({ counts }: { counts: NotifCounts }) {
               <a
                 href={target.href}
                 aria-label={target.describe(counts[key])}
-                className="badge-pop flex items-center gap-1 rounded-full bg-brand-soft px-2 py-1 text-[12px] font-medium text-accent-foreground transition-colors hover:bg-accent"
+                className="badge-pop flex items-center gap-1 rounded-full bg-brand-soft px-2 py-1 text-12 font-medium text-accent-foreground transition-colors hover:bg-accent"
               >
                 <Icon className="size-3.5" />
                 <span className="tabular-nums">{counts[key]}</span>
@@ -148,7 +148,7 @@ function ClientChip({ client }: { client: ShellData['client'] }) {
         <a
           href="/userClientDetails.php"
           aria-label={`Client connectivity: IPv4 ${protocolWord(client.ipv4)}, IPv6 ${protocolWord(client.ipv6)}`}
-          className="hidden items-center gap-2 rounded-md px-1.5 py-1 text-[12.5px] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground md:flex"
+          className="hidden items-center gap-2 rounded-md px-1.5 py-1 text-12-5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground md:flex"
         >
           <span className="flex items-center gap-1.5">
             <span className={'size-1.5 rounded-full ' + dot(client.ipv4.connectable)} />
@@ -185,7 +185,7 @@ export function Topbar({ page, counts, onOpenSearch }: { page: ShellData; counts
       <Button
         variant="outline"
         onClick={onOpenSearch}
-        className="h-10 w-full min-w-0 max-w-sm shrink justify-start gap-2 bg-card px-3 text-[13px] font-normal text-muted-foreground"
+        className="h-10 w-full min-w-0 max-w-sm shrink justify-start gap-2 bg-card px-3 text-13 font-normal text-muted-foreground"
       >
         <Search className="size-3.5" />
         Search the catalog…
@@ -201,7 +201,7 @@ export function Topbar({ page, counts, onOpenSearch }: { page: ShellData; counts
           hint="Spend bonus points in the store"
           suffix={
             bonusDelta != null && (
-              <span className="animate-in fade-in slide-in-from-bottom-1 rounded-full bg-ok/15 px-1.5 py-px text-[11px] font-semibold tabular-nums text-ok motion-reduce:animate-none">
+              <span className="animate-in fade-in slide-in-from-bottom-1 rounded-full bg-ok/15 px-1.5 py-px text-11 font-semibold tabular-nums text-ok motion-reduce:animate-none">
                 +<NumberRoll value={bonusDelta} className="text-ok" />
               </span>
             )

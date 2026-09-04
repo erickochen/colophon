@@ -39,7 +39,7 @@ export function WizardSteps({
               title={compact ? name : undefined}
               onClick={() => onStep(i)}
               className={cn(
-                'flex items-center gap-2 rounded-full py-1 text-[12.5px] transition-colors',
+                'flex items-center gap-2 rounded-full py-1 text-12-5 transition-colors',
                 compact ? 'px-0.5' : 'pl-1 pr-3',
                 !compact && here && 'bg-brand-soft font-medium text-foreground',
                 !here && 'text-muted-foreground',
@@ -49,7 +49,7 @@ export function WizardSteps({
             >
               <span
                 className={cn(
-                  'flex size-5 items-center justify-center rounded-full text-[11px] font-semibold',
+                  'flex size-5 items-center justify-center rounded-full text-11 font-semibold',
                   here
                     ? 'bg-brand text-brand-foreground'
                     : done
@@ -88,7 +88,7 @@ export function WizardNav({
       <Button variant="ghost" size="sm" disabled={step === 0} onClick={onBack}>
         <ChevronLeft /> Back
       </Button>
-      <span className="text-[12px] text-muted-foreground">{hint ?? `Step ${step + 1} of ${count}`}</span>
+      <span className="text-12 text-muted-foreground">{hint ?? `Step ${step + 1} of ${count}`}</span>
       {children}
     </div>
   )

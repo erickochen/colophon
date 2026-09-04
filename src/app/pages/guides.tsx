@@ -49,7 +49,7 @@ function GuideRows({ guides }: { guides: Guide[] }) {
           <a
             key={g.href}
             href={g.href}
-            className="group flex items-start gap-2.5 rounded-md px-3 py-2.5 text-[13.5px] font-medium leading-snug transition-colors hover:bg-accent/50"
+            className="group flex items-start gap-2.5 rounded-md px-3 py-2.5 text-13-5 font-medium leading-snug transition-colors hover:bg-accent/50"
           >
             <BookOpen className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1">{g.title}</span>
@@ -82,10 +82,10 @@ export function GuidesView(props: PageProps) {
 
       {needle ? (
         <div className="grid max-w-3xl gap-6">
-          <p className="-mt-1 text-[12.5px] text-muted-foreground">{matchCount} match{matchCount === 1 ? '' : 'es'} for “{q.trim()}”</p>
+          <p className="-mt-1 text-12-5 text-muted-foreground">{matchCount} match{matchCount === 1 ? '' : 'es'} for “{q.trim()}”</p>
           {matches.map((c) => (
             <section key={c.key} className="grid gap-2.5">
-              <h2 className="font-display text-[16px] font-semibold tracking-tight">{c.name.trim()}</h2>
+              <h2 className="font-display text-16 font-semibold tracking-tight">{c.name.trim()}</h2>
               <GuideRows guides={c.guides} />
             </section>
           ))}
@@ -93,7 +93,7 @@ export function GuidesView(props: PageProps) {
             <Card><CardContent className="grid justify-items-center gap-1 py-12 text-center">
               <Search className="size-5 text-muted-foreground" />
               <p className="text-sm font-medium">No guide matches “{q.trim()}”</p>
-              <Button variant="link" onClick={() => setQ('')} className="h-auto p-0 text-[12.5px] text-brand">Clear search</Button>
+              <Button variant="link" onClick={() => setQ('')} className="h-auto p-0 text-12-5 text-brand">Clear search</Button>
             </CardContent></Card>
           )}
         </div>

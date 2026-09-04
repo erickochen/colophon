@@ -58,7 +58,7 @@ export function StaffView(props: PageProps) {
       />
       {groups.map((g) => (
         <section key={g.role} className="grid gap-3">
-          <h2 className="font-display flex items-center gap-2 text-[15px] font-semibold">
+          <h2 className="font-display flex items-center gap-2 text-15 font-semibold">
             <ShieldCheck className="size-4 text-brand" /> {g.role}
           </h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -67,12 +67,12 @@ export function StaffView(props: PageProps) {
                 <CardContent className="flex items-center gap-3 py-3.5">
                   <a href={`/u/${m.uid}`} className="shrink-0">
                     <Avatar className="size-10 rounded-lg">
-                      <AvatarFallback className="rounded-lg bg-brand-soft text-[12px] font-semibold text-accent-foreground">{initials(m.name)}</AvatarFallback>
+                      <AvatarFallback className="rounded-lg bg-brand-soft text-12 font-semibold text-accent-foreground">{initials(m.name)}</AvatarFallback>
                     </Avatar>
                   </a>
                   <div className="min-w-0 flex-1">
-                    <a href={`/u/${m.uid}`} className="block truncate text-[14px] font-semibold hover:underline">{m.name}</a>
-                    <span className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+                    <a href={`/u/${m.uid}`} className="block truncate text-14 font-semibold hover:underline">{m.name}</a>
+                    <span className="flex items-center gap-1.5 text-11-5 text-muted-foreground">
                       {m.flag && <img src={m.flag} alt={m.country ?? ''} className="h-3 rounded-[2px]" />}
                       {m.country}
                     </span>

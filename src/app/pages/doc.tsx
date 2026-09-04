@@ -56,14 +56,14 @@ function DocReader({ title, html }: { title: string; html: string }) {
             <div ref={bodyRef}>
               <RichHtml
                 html={html}
-                className="[&_.blockHead]:hidden [&_.blockFoot]:hidden [&_.hideMe]:hidden [&_h1]:font-display [&_h1]:my-3 [&_h1]:scroll-mt-20 [&_h1]:text-xl [&_h1]:font-semibold [&_h2]:my-2.5 [&_h2]:scroll-mt-20 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h3]:my-2 [&_h3]:scroll-mt-20 [&_h3]:text-[14.5px] [&_h3]:font-semibold [&_h4]:my-1.5 [&_h4]:font-semibold [&_summary]:cursor-pointer [&_summary]:py-1 [&_summary_h4]:inline"
+                className="[&_.blockHead]:hidden [&_.blockFoot]:hidden [&_.hideMe]:hidden [&_h1]:font-display [&_h1]:my-3 [&_h1]:scroll-mt-20 [&_h1]:text-xl [&_h1]:font-semibold [&_h2]:my-2.5 [&_h2]:scroll-mt-20 [&_h2]:text-16 [&_h2]:font-semibold [&_h3]:my-2 [&_h3]:scroll-mt-20 [&_h3]:text-14-5 [&_h3]:font-semibold [&_h4]:my-1.5 [&_h4]:font-semibold [&_summary]:cursor-pointer [&_summary]:py-1 [&_summary_h4]:inline"
               />
             </div>
           </CardContent>
         </Card>
         {hasToc && (
           <nav className="sticky top-20 hidden max-h-[calc(100vh-6rem)] overflow-y-auto pl-1 xl:block">
-            <div className="pb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">On this page</div>
+            <div className="pb-2 text-11 font-semibold uppercase tracking-wide text-muted-foreground">On this page</div>
             <div className="grid gap-0.5">
               {toc.map((t) => (
                 <a
@@ -74,7 +74,7 @@ function DocReader({ title, html }: { title: string; html: string }) {
                     scrollIntoView(bodyRef.current?.querySelector(`#${CSS.escape(t.id)}`), { block: 'start' })
                   }}
                   className={cn(
-                    'rounded-md px-2 py-1 text-[12px] leading-snug transition-colors hover:text-foreground',
+                    'rounded-md px-2 py-1 text-12 leading-snug transition-colors hover:text-foreground',
                     t.level === 1 ? 'pl-3 font-medium' : t.level === 2 ? 'pl-5' : 'pl-7',
                     active === t.id ? 'bg-brand-soft font-medium text-accent-foreground' : 'text-muted-foreground'
                   )}

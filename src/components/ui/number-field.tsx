@@ -33,7 +33,7 @@ function NumberField({
         <NumberFieldPrimitive.Input
           aria-label={label}
           className={cn(
-            "h-full w-14 min-w-0 border-x border-input-line bg-transparent px-1 text-center text-[12.5px] tabular-nums outline-none",
+            "h-full w-14 min-w-0 border-x border-input-line bg-transparent px-1 text-center text-12-5 tabular-nums outline-none",
             inputClassName
           )}
         />

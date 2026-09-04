@@ -132,7 +132,7 @@ export function NewMembersView(props: PageProps) {
   const bulkControls = run ? (
     <div role="status" className="flex items-center gap-2.5">
       <Progress value={((run.done + run.failed) / run.total) * 100} className="w-36" />
-      <span className="text-[12.5px] tabular-nums text-muted-foreground">{run.done} of {run.total} gifted</span>
+      <span className="text-12-5 tabular-nums text-muted-foreground">{run.done} of {run.total} gifted</span>
       <Button variant="outline" size="sm" className="h-8" onClick={() => { stopRef.current = true }}>Stop</Button>
     </div>
   ) : (
@@ -144,7 +144,7 @@ export function NewMembersView(props: PageProps) {
         max={BULK_GIFT_MAX}
         onValueChange={(v) => setAmount(v == null ? '' : String(v))}
       />
-      <span className="text-[12.5px] text-muted-foreground">pts</span>
+      <span className="text-12-5 text-muted-foreground">pts</span>
       <Button size="sm" className="h-8" disabled={targets.length === 0 || !amountValid} onClick={() => setConfirming(true)}>
         <Gift /> Gift {fmtInt(targets.length)} ungifted
       </Button>
@@ -160,7 +160,7 @@ export function NewMembersView(props: PageProps) {
       />
 
       <FilterSearch value={q} onChange={setQ} placeholder="Find a new member…" className="max-w-md" />
-      {needle && <p className="-mt-2 text-[12.5px] text-muted-foreground">{shown.length} of {members.length} match</p>}
+      {needle && <p className="-mt-2 text-12-5 text-muted-foreground">{shown.length} of {members.length} match</p>}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {shown.map((m) => (
@@ -168,17 +168,17 @@ export function NewMembersView(props: PageProps) {
             <CardContent className="flex items-center gap-3 py-3">
               <a href={m.href} className="shrink-0">
                 <Avatar className="size-10 rounded-lg">
-                  <AvatarFallback className="rounded-lg bg-brand-soft text-[12px] font-semibold text-accent-foreground">{initials(m.name)}</AvatarFallback>
+                  <AvatarFallback className="rounded-lg bg-brand-soft text-12 font-semibold text-accent-foreground">{initials(m.name)}</AvatarFallback>
                 </Avatar>
               </a>
               <a href={m.href} className="min-w-0 flex-1">
-                <span className="block truncate text-[13.5px] font-semibold hover:underline" style={{ color: mutedUserColor(m.color) }}>{m.name}</span>
+                <span className="block truncate text-13-5 font-semibold hover:underline" style={{ color: mutedUserColor(m.color) }}>{m.name}</span>
                 {isGifted(m.uid) ? (
-                  <span className="flex items-center gap-1 text-[11.5px] text-gifted" title="Already gifted">
+                  <span className="flex items-center gap-1 text-11-5 text-gifted" title="Already gifted">
                     <Gift className="size-3" /> gifted
                   </span>
                 ) : (
-                  <span className="flex items-center gap-1 text-[11.5px] text-muted-foreground"><UserPlus className="size-3" /> new mouse</span>
+                  <span className="flex items-center gap-1 text-11-5 text-muted-foreground"><UserPlus className="size-3" /> new mouse</span>
                 )}
               </a>
               <Button asChild size="icon" variant="ghost" className="size-8 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 pointer-coarse:opacity-100">

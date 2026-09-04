@@ -57,7 +57,7 @@ export function AmountPicker({
               variant={n === value ? 'default' : 'outline'}
               size="sm"
               disabled={disabled}
-              className="h-8 text-[12.5px] tabular-nums"
+              className="h-8 text-12-5 tabular-nums"
               onClick={() => onChange(n)}
             >
               {presetLabel(n, max)}
@@ -88,7 +88,7 @@ export function AmountPicker({
           step={step}
           disabled={disabled}
         />
-        <div className="flex items-baseline justify-between gap-3 text-[12px] text-muted-foreground">
+        <div className="flex items-baseline justify-between gap-3 text-12 text-muted-foreground">
           <span className="tabular-nums">{fmtInt(min)}</span>
           {/* The note belongs to the ceiling, so it reads as one phrase with it. */}
           <span className="tabular-nums">

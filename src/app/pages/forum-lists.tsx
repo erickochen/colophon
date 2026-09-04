@@ -102,9 +102,9 @@ function TopicRow({ t, selectable, checked, onToggle }: {
       <div className="min-w-0 flex-1">
         <a href={t.href} className="flex items-center gap-2">
           {t.isNew && <span className="size-2 shrink-0 rounded-full bg-brand-fill" title="New posts" />}
-          <span className="truncate text-[13.5px] font-medium hover:underline">{t.title}</span>
+          <span className="truncate text-13-5 font-medium hover:underline">{t.title}</span>
         </a>
-        <div className="flex flex-wrap items-center gap-x-2 pt-0.5 text-[12px] text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-2 pt-0.5 text-12 text-muted-foreground">
           {t.board && <a href={t.board.href} className="hover:underline">{t.board.name}</a>}
           {t.author && (
             <>
@@ -116,7 +116,7 @@ function TopicRow({ t, selectable, checked, onToggle }: {
         </div>
       </div>
       {t.views && (
-        <Badge variant="secondary" className="shrink-0 gap-1 text-[11px]">
+        <Badge variant="secondary" className="shrink-0 gap-1 text-11">
           <Eye className="size-3" /> {fmtInt(Number(t.views.replace(/,/g, '')))}
         </Badge>
       )}

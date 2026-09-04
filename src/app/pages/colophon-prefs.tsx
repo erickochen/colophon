@@ -46,7 +46,7 @@ function noteWithCredit(note: string, credit?: string): React.ReactNode {
   return (
     <>
       {note}
-      <span className="mt-0.5 block text-[11px] text-muted-foreground">Idea from {credit}</span>
+      <span className="mt-0.5 block text-11 text-muted-foreground">Idea from {credit}</span>
     </>
   )
 }
@@ -99,10 +99,10 @@ function AmountRow({
             setDraft(e.target.value)
             if (validOf(e.target.value)) setValue(e.target.value)
           }}
-          className="h-8 w-24 text-[12.5px]"
+          className="h-8 w-24 text-12-5"
         />
         {!valid && (
-          <span id={hintId} className="text-[11.5px] text-destructive">
+          <span id={hintId} className="text-11-5 text-destructive">
             {step ? `Steps of ${step} up to ${max.toLocaleString('en-US')} or max` : `A whole number up to ${max.toLocaleString('en-US')} or max`}
           </span>
         )}
@@ -118,7 +118,7 @@ function RatioFloorRow() {
       title="Minimum ratio"
       note="A download landing under this number locks. Clear the field to never lock."
     >
-      <RatioFloorInput disabled={!enabled} className="w-24 text-[12.5px]" />
+      <RatioFloorInput disabled={!enabled} className="w-24 text-12-5" />
     </SettingRow>
   )
 }
@@ -140,14 +140,14 @@ function SeriesBulkRow() {
   )
 }
 
-const APPEARANCE_ITEM = 'gap-1.5 text-[12.5px] data-pressed:bg-brand-soft'
+const APPEARANCE_ITEM = 'gap-1.5 text-12-5 data-pressed:bg-brand-soft'
 
 /** Title above the group instead of beside it: three scheme names never fit
  * next to a label on a phone. */
 function AppearanceRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid gap-1.5">
-      <div className="text-[13.5px] font-medium leading-snug">{label}</div>
+      <div className="text-13-5 font-medium leading-snug">{label}</div>
       {children}
     </div>
   )
@@ -180,7 +180,7 @@ function SchemePicker({ side }: { side: 'light' | 'dark' }) {
           role="combobox"
           aria-expanded={open}
           aria-label={side === 'light' ? 'Light scheme' : 'Dark scheme'}
-          className="h-8 w-full justify-start gap-2 px-2 text-[12.5px] font-normal"
+          className="h-8 w-full justify-start gap-2 px-2 text-12-5 font-normal"
         >
           <SchemeDot scheme={current?.scheme ?? ''} />
           <span className="truncate">{current?.label}</span>
@@ -209,7 +209,7 @@ function SchemePicker({ side }: { side: 'light' | 'dark' }) {
                 key={s.value}
                 value={s.value}
                 keywords={[s.label]}
-                className="h-8 gap-2 text-[12.5px]"
+                className="h-8 gap-2 text-12-5"
                 onSelect={(v) => {
                   chooseScheme(side, v)
                   setOpen(false)
@@ -280,19 +280,19 @@ function AppearanceCard() {
 function ReviewList({ title, empty, children }: { title: string; empty: string; children: React.ReactNode[] }) {
   return (
     <div className="rounded-lg bg-muted/40 px-4 py-3">
-      <div className="text-[12px] font-medium uppercase tracking-[0.06em] text-muted-foreground">{title}</div>
+      <div className="text-12 font-medium uppercase tracking-[0.06em] text-muted-foreground">{title}</div>
       {children.length > 0 ? (
         <div className="mt-1 divide-y divide-border/70">{children}</div>
       ) : (
-        <p className="mt-1.5 text-[12.5px] text-muted-foreground">{empty}</p>
+        <p className="mt-1.5 text-12-5 text-muted-foreground">{empty}</p>
       )}
     </div>
   )
 }
 
 const REVIEW_ROW = 'flex items-center justify-between gap-3 py-1.5'
-const REVIEW_LINK = 'min-w-0 truncate text-[13px] hover:text-brand'
-const REVIEW_BTN = 'h-7 px-2 text-[12px] text-muted-foreground hover:text-foreground'
+const REVIEW_LINK = 'min-w-0 truncate text-13 hover:text-brand'
+const REVIEW_BTN = 'h-7 px-2 text-12 text-muted-foreground hover:text-foreground'
 
 function IgnoredTorrentRows() {
   const ignored = useIgnoredTorrents()
@@ -374,7 +374,7 @@ function SummaryChips({ summary, auto }: { summary?: string; auto?: boolean }) {
         <Badge
           key={`${i}-${p}`}
           variant="outline"
-          className="max-w-full shrink-0 rounded-full px-2.5 py-[3px] text-[12px] font-normal text-muted-foreground"
+          className="max-w-full shrink-0 rounded-full px-2.5 py-[3px] text-12 font-normal text-muted-foreground"
         >
           <span className="truncate">{p}</span>
         </Badge>
@@ -456,10 +456,10 @@ function SavedFilterRow({ set, store }: { set: SavedSet; store: SavedFilters }) 
                 e.currentTarget.blur()
               }
             }}
-            className="h-7 min-w-0 flex-1 text-[13px]"
+            className="h-7 min-w-0 flex-1 text-13"
           />
         ) : (
-          <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{set.name}</span>
+          <span className="min-w-0 flex-1 truncate text-13 font-medium">{set.name}</span>
         )}
         {/* The pencil keeps its place while the field is open: a button that
             appears on blur would shift the pin plus Delete out from under a
@@ -591,25 +591,25 @@ function IntroCard() {
           <BookMarked className="size-5" />
         </span>
         <div className="min-w-0 flex-1 basis-48">
-          <div className="font-display text-[15px] font-semibold">
-            Colophon{version && <span className="ml-2 text-[12px] font-normal text-muted-foreground">v{version}</span>}
+          <div className="font-display text-15 font-semibold">
+            Colophon{version && <span className="ml-2 text-12 font-normal text-muted-foreground">v{version}</span>}
           </div>
-          <p className="text-[12.5px] leading-normal text-muted-foreground">
+          <p className="text-12-5 leading-normal text-muted-foreground">
             These settings apply immediately and live in this browser only, never on MAM's servers.
             Export saves everything here, your lists and notes included; it is your only backup.
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-8 text-[12.5px]" onClick={exportFile}>
+          <Button variant="outline" size="sm" className="h-8 text-12-5" onClick={exportFile}>
             <Download /> Export
           </Button>
-          <Button variant="outline" size="sm" className="h-8 text-[12.5px]" onClick={() => fileRef.current?.click()}>
+          <Button variant="outline" size="sm" className="h-8 text-12-5" onClick={() => fileRef.current?.click()}>
             <Upload /> Import
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 text-[12.5px] text-muted-foreground hover:text-destructive"
+            className="h-8 text-12-5 text-muted-foreground hover:text-destructive"
             onClick={() => setResetOpen(true)}
           >
             <RotateCcw /> Reset

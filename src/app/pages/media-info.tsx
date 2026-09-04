@@ -101,8 +101,8 @@ function typeIcon(type: string) {
 function Field({ k, v, raw }: { k: string; v: string; raw: string }) {
   return (
     <div className="min-w-0">
-      <div className="text-[10.5px] uppercase tracking-wide text-muted-foreground">{k}</div>
-      <div className="pt-0.5 font-mono text-[13px] tabular-nums [overflow-wrap:anywhere]" title={raw !== v ? raw : undefined}>{v}</div>
+      <div className="text-10-5 uppercase tracking-wide text-muted-foreground">{k}</div>
+      <div className="pt-0.5 font-mono text-13 tabular-nums [overflow-wrap:anywhere]" title={raw !== v ? raw : undefined}>{v}</div>
     </div>
   )
 }
@@ -119,14 +119,14 @@ function SectionCard({ s }: { s: Section }) {
       <CardHeader className="flex flex-row items-center gap-2.5 !py-3.5">
         <span className="flex size-8 items-center justify-center rounded-lg bg-brand-soft"><Icon className="size-4 text-accent-foreground" /></span>
         <CardTitle>{s.title}</CardTitle>
-        {s.fields.length > 0 && <span className="ml-auto text-[11px] text-muted-foreground">{s.fields.length} fields</span>}
+        {s.fields.length > 0 && <span className="ml-auto text-11 text-muted-foreground">{s.fields.length} fields</span>}
       </CardHeader>
       <CardContent className="px-6 py-4">
         {s.fields.length > 0 &&
           (dense ? (
             <div className="grid max-h-72 gap-x-6 gap-y-1.5 overflow-y-auto sm:grid-cols-2">
               {s.fields.map((f, i) => (
-                <div key={f.k + i} className="grid grid-cols-[minmax(96px,auto)_1fr] gap-x-3 text-[12.5px]">
+                <div key={f.k + i} className="grid grid-cols-[minmax(96px,auto)_1fr] gap-x-3 text-12-5">
                   <span className="text-muted-foreground">{f.k}</span>
                   <span className="font-mono tabular-nums [overflow-wrap:anywhere]" title={f.raw !== f.v ? f.raw : undefined}>{f.v}</span>
                 </div>
@@ -139,10 +139,10 @@ function SectionCard({ s }: { s: Section }) {
           ))}
         {s.extra.map((e, i) => (
           <div key={e.label + i} className={s.fields.length ? 'mt-4' : ''}>
-            <div className="text-[10.5px] uppercase tracking-wide text-brand">{prettyLabel(e.label)}</div>
+            <div className="text-10-5 uppercase tracking-wide text-brand">{prettyLabel(e.label)}</div>
             <div className="mt-1 max-h-64 overflow-y-auto rounded-lg bg-muted/40 p-2.5">
               {e.children.map((c, j) => (
-                <div key={c.label + j} className="grid grid-cols-[minmax(72px,auto)_1fr] gap-x-3 text-[12px] leading-relaxed">
+                <div key={c.label + j} className="grid grid-cols-[minmax(72px,auto)_1fr] gap-x-3 text-12 leading-relaxed">
                   <span className="text-muted-foreground">{prettyLabel(c.label)}</span>
                   <span className="font-mono [overflow-wrap:anywhere]">{nodeText(c) || '–'}</span>
                 </div>
@@ -179,13 +179,13 @@ export function MediaInfoPageView(props: PageProps) {
               <Info className="size-5 text-accent-foreground" />
             </span>
             <div className="grid gap-1">
-              <p className="font-display text-[17px]">No media info to show here</p>
-              <p className="text-[13px] leading-relaxed text-muted-foreground">
+              <p className="font-display text-17">No media info to show here</p>
+              <p className="text-13 leading-relaxed text-muted-foreground">
                 The complete MediaInfo is listed inline on the torrent page.
               </p>
             </div>
             {data.id && (
-              <a href={`/t/${data.id}`} className="inline-flex items-center gap-1 text-[13px] text-brand underline underline-offset-2">
+              <a href={`/t/${data.id}`} className="inline-flex items-center gap-1 text-13 text-brand underline underline-offset-2">
                 <ChevronLeft className="size-4" /> Back to the torrent
               </a>
             )}
@@ -199,7 +199,7 @@ export function MediaInfoPageView(props: PageProps) {
     <div className="mx-auto grid w-full max-w-4xl gap-5">
       <PageHeader title="Media info" sub={data.title ?? undefined} />
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-13">
         {data.id && (
           <a href={`/t/${data.id}`} className="inline-flex items-center gap-1 text-brand underline underline-offset-2">
             <ChevronLeft className="size-4" /> Back to the torrent
@@ -207,7 +207,7 @@ export function MediaInfoPageView(props: PageProps) {
         )}
         {data.fileRef && (
           <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-            <FileText className="size-3.5" /> <span className="font-mono text-[12px] [overflow-wrap:anywhere]">{data.fileRef}</span>
+            <FileText className="size-3.5" /> <span className="font-mono text-12 [overflow-wrap:anywhere]">{data.fileRef}</span>
           </span>
         )}
       </div>
@@ -217,7 +217,7 @@ export function MediaInfoPageView(props: PageProps) {
       </div>
 
       {data.meta.length > 0 && (
-        <p className="text-[11.5px] text-muted-foreground">
+        <p className="text-11-5 text-muted-foreground">
           {data.meta.map((m) => `${m.k}: ${m.v}`).join(' · ')}
         </p>
       )}

@@ -133,7 +133,7 @@ function EmojiPicker({ onPick }: { onPick: (code: string) => void }) {
         <TooltipContent>Smilies</TooltipContent>
       </Tooltip>
       <PopoverContent align="end" className="w-[19rem] p-0">
-        <div className="border-b px-3 py-2 text-[12px] font-medium">Smilies</div>
+        <div className="border-b px-3 py-2 text-12 font-medium">Smilies</div>
         <ScrollArea className="h-60">
           <div className="grid grid-cols-8 gap-0.5 p-2">
             {smilies.map((s, i) => (
@@ -149,7 +149,7 @@ function EmojiPicker({ onPick }: { onPick: (code: string) => void }) {
               </Button>
             ))}
             {smilies.length === 0 && (
-              <div className="col-span-8 py-10 text-center text-[12px] text-muted-foreground">Loading smilies…</div>
+              <div className="col-span-8 py-10 text-center text-12 text-muted-foreground">Loading smilies…</div>
             )}
           </div>
         </ScrollArea>
@@ -351,7 +351,7 @@ export function ShoutboxView(props: PageProps) {
             className="grid max-h-[min(64dvh,calc(100dvh-15rem))] min-h-[min(420px,calc(100dvh-15rem))] content-start gap-1.5 overflow-y-auto px-4 py-4 sm:px-6"
           >
             <div className="flex justify-center pb-1">
-              <Button variant="outline" size="sm" className="h-7 rounded-full text-[12px]" onClick={loadOlder}>
+              <Button variant="outline" size="sm" className="h-7 rounded-full text-12" onClick={loadOlder}>
                 <History /> Load older shouts
               </Button>
             </div>
@@ -364,7 +364,7 @@ export function ShoutboxView(props: PageProps) {
               const dayNode = showDay ? (
                 <div className="my-2 flex items-center gap-3 px-1">
                   <span className="h-px flex-1 bg-border" />
-                  <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{dayLabel(g.items[0].time)}</span>
+                  <span className="text-11 font-medium uppercase tracking-wide text-muted-foreground">{dayLabel(g.items[0].time)}</span>
                   <span className="h-px flex-1 bg-border" />
                 </div>
               ) : null
@@ -372,14 +372,14 @@ export function ShoutboxView(props: PageProps) {
                 return (
                   <div key={g.items[0].id}>
                     {dayNode}
-                    <div className="flex items-center gap-2 px-2 py-1 text-[12px] text-muted-foreground">
+                    <div className="flex items-center gap-2 px-2 py-1 text-12 text-muted-foreground">
                       <VolumeX aria-hidden="true" className="size-3.5 shrink-0" />
                       <span className="italic">
                         Muted: {g.user?.name} · {g.items.length === 1 ? '1 shout' : `${g.items.length} shouts`}
                       </span>
                       <Button
                         variant="link"
-                        className="h-auto p-0 text-[12px] text-brand"
+                        className="h-auto p-0 text-12 text-brand"
                         onClick={() => setRevealedMutes((s) => new Set(s).add(g.items[0].id))}
                       >
                         show
@@ -402,7 +402,7 @@ export function ShoutboxView(props: PageProps) {
                   >
                     <Avatar className={cn('mt-0.5 size-7 shrink-0 rounded-lg', g.own && 'ring-2 ring-brand/40', emphasize && 'ring-2 ring-brand/60')}>
                       <AvatarFallback
-                        className="rounded-lg text-[10.5px] font-medium"
+                        className="rounded-lg text-10-5 font-medium"
                         style={nameColor ? { color: nameColor } : g.user?.color ? { color: g.user.color } : undefined}
                       >
                         {initials(g.user?.name ?? 'SY')}
@@ -416,10 +416,10 @@ export function ShoutboxView(props: PageProps) {
                             href={g.user.uid ? `/u/${g.user.uid}` : null}
                             color={g.user.color}
                             exactColor={nameColor}
-                            className="text-[13px]"
+                            className="text-13"
                           />
                         ) : (
-                          <span className="text-[13px] font-medium text-muted-foreground">system</span>
+                          <span className="text-13 font-medium text-muted-foreground">system</span>
                         )}
                         {emphasize && <Star aria-label="Emphasized" className="size-3 shrink-0 self-center fill-brand text-brand" />}
                         {g.user?.country && (
@@ -431,8 +431,8 @@ export function ShoutboxView(props: PageProps) {
                             className="h-3 w-auto shrink-0 self-center rounded-[2px] opacity-70"
                           />
                         )}
-                        {g.own && <span className="rounded bg-brand/15 px-1.5 py-px text-[9.5px] font-semibold uppercase tracking-wide text-brand">you</span>}
-                        <span className="text-[10.5px] text-muted-foreground" title={utcTitle(g.items[0].time)}>{relTime(g.items[0].time)}</span>
+                        {g.own && <span className="rounded bg-brand/15 px-1.5 py-px text-9-5 font-semibold uppercase tracking-wide text-brand">you</span>}
+                        <span className="text-10-5 text-muted-foreground" title={utcTitle(g.items[0].time)}>{relTime(g.items[0].time)}</span>
                       </div>
                       <div className="grid gap-0.5">
                         {g.items.map((it) => {
@@ -448,7 +448,7 @@ export function ShoutboxView(props: PageProps) {
                             title={alerted ? ALERT_TITLE : undefined}
                             style={alerted && alerts?.mark ? { backgroundColor: alerts.mark.fill, borderColor: alerts.mark.edge } : undefined}
                             className={cn(
-                              'group flex items-baseline gap-2 text-[13.5px] pointer-coarse:flex-wrap',
+                              'group flex items-baseline gap-2 text-13-5 pointer-coarse:flex-wrap',
                               (alerted || mentioned) && '-mx-1.5 rounded-md px-1.5 py-0.5',
                               // Both say the same thing: this line is for you.
                               // An alert wins, since it carries the color the
@@ -461,7 +461,7 @@ export function ShoutboxView(props: PageProps) {
                             )}
                             <ShoutBody item={it} marked={alerted} />
                             <div className="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100">
-                              <span className="mr-1 font-mono text-[10px] text-muted-foreground" title={utcTitle(it.time)}>{localHm(it.time)}</span>
+                              <span className="mr-1 font-mono text-10 text-muted-foreground" title={utcTitle(it.time)}>{localHm(it.time)}</span>
                               {g.user?.uid && (
                                 <>
                                   <IconAction label="Quote" onClick={() => quoteShout(it, g.user)}><QuoteIcon className="size-3" /></IconAction>
@@ -525,7 +525,7 @@ export function ShoutboxView(props: PageProps) {
             <Button
               size="sm"
               onClick={scrollToLatest}
-              className="absolute bottom-24 left-1/2 -translate-x-1/2 gap-1.5 rounded-full text-[12px] shadow-lg transition-transform hover:scale-105"
+              className="absolute bottom-24 left-1/2 -translate-x-1/2 gap-1.5 rounded-full text-12 shadow-lg transition-transform hover:scale-105"
             >
               <ArrowDown className="size-3.5" /> Jump to latest
             </Button>
@@ -533,7 +533,7 @@ export function ShoutboxView(props: PageProps) {
 
           <div className="border-t bg-muted/30 px-4 py-3 sm:px-6">
             {quoting && (
-              <div className="mb-2 flex items-center gap-2 rounded-lg bg-brand-soft/40 py-1.5 pl-3 pr-2 text-[12px]">
+              <div className="mb-2 flex items-center gap-2 rounded-lg bg-brand-soft/40 py-1.5 pl-3 pr-2 text-12">
                 <QuoteIcon className="size-3 shrink-0 text-brand" />
                 <span className="min-w-0 flex-1 truncate text-muted-foreground">Replying to {quoting.label}</span>
                 <Button variant="ghost" size="icon" onClick={() => setQuoting(null)} className={cn(TAP_TARGET, 'size-5 shrink-0 text-muted-foreground')} title="Remove quote">
@@ -553,10 +553,10 @@ export function ShoutboxView(props: PageProps) {
                 placeholder="Say something nice…"
                 aria-label="Write a shout"
                 maxLength={1500}
-                className="h-full min-w-0 flex-1 bg-transparent text-[14px] outline-none placeholder:text-muted-foreground"
+                className="h-full min-w-0 flex-1 bg-transparent text-14 outline-none placeholder:text-muted-foreground"
               />
               {draft.length > 0 && (
-                <span className={cn('shrink-0 px-1 text-[11px] tabular-nums', draft.length > 1400 ? 'text-warn' : 'text-muted-foreground')}>
+                <span className={cn('shrink-0 px-1 text-11 tabular-nums', draft.length > 1400 ? 'text-warn' : 'text-muted-foreground')}>
                   {1500 - draft.length}
                 </span>
               )}

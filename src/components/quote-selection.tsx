@@ -83,7 +83,7 @@ export function SelectionQuote({
         top: found.top - LIFT,
         transform: 'translateX(-50%)',
       }}
-      className="z-50 h-7 text-[12px] shadow-lg"
+      className="z-50 h-7 text-12 shadow-lg"
       // Pressing the button must not take the highlight away before it is read.
       onMouseDown={(e) => e.preventDefault()}
       onClick={() => {

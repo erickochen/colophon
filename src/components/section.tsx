@@ -37,9 +37,9 @@ export function CollapsibleSection({
           className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-90')}
         />
         {icon && <span className="shrink-0 text-muted-foreground">{icon}</span>}
-        <span className="font-display truncate text-[14px] font-semibold tracking-tight">{title}</span>
+        <span className="font-display truncate text-14 font-semibold tracking-tight">{title}</span>
         {count != null && (
-          <span className="shrink-0 text-[12px] tabular-nums text-muted-foreground">{fmtInt(count)}</span>
+          <span className="shrink-0 text-12 tabular-nums text-muted-foreground">{fmtInt(count)}</span>
         )}
       </CollapsibleTrigger>
       <CollapsibleContent>{children}</CollapsibleContent>

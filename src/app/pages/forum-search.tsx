@@ -44,7 +44,7 @@ interface Row {
 
 /** Body-content typography for a search hit (matches RichHtml + MAM's .quote). */
 const HIT_BODY =
-  'text-[13px] leading-relaxed text-foreground-soft [&_.quote]:my-2 [&_.quote]:rounded-md [&_.quote]:bg-muted [&_.quote]:px-3 [&_.quote]:py-1.5 [&_.quote]:text-[12.5px] [&_.quote_span]:text-[11.5px] [&_.quote_span]:text-muted-foreground [&_hr]:my-2 [&_hr]:border-t [&_hr]:border-border'
+  'text-13 leading-relaxed text-foreground-soft [&_.quote]:my-2 [&_.quote]:rounded-md [&_.quote]:bg-muted [&_.quote]:px-3 [&_.quote]:py-1.5 [&_.quote]:text-12-5 [&_.quote_span]:text-11-5 [&_.quote_span]:text-muted-foreground [&_hr]:my-2 [&_hr]:border-t [&_hr]:border-border'
 
 const clean = (s: string | null | undefined) => s?.replace(/ /g, ' ').replace(/\s+/g, ' ').trim() ?? ''
 
@@ -109,9 +109,9 @@ function ResultCard({ r }: { r: Row }) {
   return (
     <div className="grid gap-2 px-6 py-4 transition-colors hover:bg-accent/30">
       <div className="min-w-0">
-        <a href={r.topic?.href ?? '#'} className="text-[14px] font-medium leading-snug hover:text-brand hover:underline">{r.topic?.name}</a>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pt-1 text-[12px] text-muted-foreground">
-          {r.board && <a href={r.board.href}><Badge variant="secondary" className="text-[10.5px] hover:bg-secondary/80">{r.board.name}</Badge></a>}
+        <a href={r.topic?.href ?? '#'} className="text-14 font-medium leading-snug hover:text-brand hover:underline">{r.topic?.name}</a>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pt-1 text-12 text-muted-foreground">
+          {r.board && <a href={r.board.href}><Badge variant="secondary" className="text-10-5 hover:bg-secondary/80">{r.board.name}</Badge></a>}
           {r.author && <span>by <span style={{ color: mutedUserColor(r.author.color) }}>{r.author.name}</span></span>}
           {r.at && <span title={utcTitle(r.at)}>· {relTime(r.at)}</span>}
         </div>
@@ -122,7 +122,7 @@ function ResultCard({ r }: { r: Row }) {
         </div>
       )}
       {r.truncated && (
-        <Button variant="link" onClick={() => setExpanded(!expanded)} className="h-auto w-fit gap-1 p-0 text-[12px] text-brand has-[>svg]:px-0">
+        <Button variant="link" onClick={() => setExpanded(!expanded)} className="h-auto w-fit gap-1 p-0 text-12 text-brand has-[>svg]:px-0">
           <ChevronsUpDown className="size-3.5" /> {expanded ? 'Show less' : 'Show more'}
         </Button>
       )}
@@ -281,17 +281,17 @@ export function ForumSearchView(props: PageProps) {
 
       {/* Results */}
       {loading && (
-        <div className="flex items-center justify-center gap-2 py-12 text-[13px] text-muted-foreground"><Spinner className="size-4" /> Searching…</div>
+        <div className="flex items-center justify-center gap-2 py-12 text-13 text-muted-foreground"><Spinner className="size-4" /> Searching…</div>
       )}
 
       {!loading && error && (
-        <Card><CardContent className="py-10 text-center text-[13px] text-muted-foreground">Something went wrong. Try again.</CardContent></Card>
+        <Card><CardContent className="py-10 text-center text-13 text-muted-foreground">Something went wrong. Try again.</CardContent></Card>
       )}
 
       {!loading && !error && rows && (
         rows.length > 0 ? (
           <div className="grid gap-3">
-            <p className="text-[12.5px] text-muted-foreground">
+            <p className="text-12-5 text-muted-foreground">
               {total != null ? `${total.toLocaleString('en-US')} results` : `${rows.length} results`}
             </p>
             <Card className="py-0">
@@ -301,7 +301,7 @@ export function ForumSearchView(props: PageProps) {
             </Card>
             {total != null && total > PAGE_SIZE && (
               <div className="flex items-center justify-between gap-3">
-                <span className="text-[12.5px] text-muted-foreground">
+                <span className="text-12-5 text-muted-foreground">
                   {start + 1}–{Math.min(start + PAGE_SIZE, total)} of {total.toLocaleString('en-US')}
                 </span>
                 <div className="flex gap-2">

@@ -209,13 +209,13 @@ function itemBadge(s: SnatchItem): { text: string; tone: BadgeTone } | null {
 
 function StatusBadge({ s }: { s: SnatchItem }) {
   const read = itemBadge(s)
-  if (!read) return <span className="text-[11px] text-muted-foreground">-</span>
+  if (!read) return <span className="text-11 text-muted-foreground">-</span>
   return <SnatchBadge text={read.text} tone={read.tone} />
 }
 
 function SnatchHeader({ sort, onSort }: { sort: SortState | null; onSort: (key: SortKey) => void }) {
   return (
-    <div className={cn('hidden border-b px-6 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground', SNATCH_COLS)}>
+    <div className={cn('hidden border-b px-6 py-2 text-10 font-medium uppercase tracking-wide text-muted-foreground', SNATCH_COLS)}>
       {SNATCH_HEADERS.map((h) => {
         if (!h.key) return <span key={h.label}>{h.label}</span>
         // Right-aligned columns carry the sort mark on the left, so the label
@@ -233,7 +233,7 @@ function SnatchHeader({ sort, onSort }: { sort: SortState | null; onSort: (key: 
             onClick={() => onSort(h.key!)}
             title={`Sort by ${h.label.toLowerCase()}`}
             className={cn(
-              'group/sort h-auto gap-1 rounded-sm p-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground hover:bg-transparent hover:text-foreground',
+              'group/sort h-auto gap-1 rounded-sm p-0 text-10 font-semibold uppercase tracking-wide text-muted-foreground hover:bg-transparent hover:text-foreground',
               h.align === 'right' && 'justify-end text-right',
               sort?.key === h.key && 'text-foreground'
             )}
@@ -251,7 +251,7 @@ function SnatchHeader({ sort, onSort }: { sort: SortState | null; onSort: (key: 
 
 /** Right-aligned numeric cell (desktop grid only). */
 function Num({ value, className }: { value: string; className?: string }) {
-  return <span className={cn('hidden text-right font-mono text-[12.5px] tabular-nums md:block', className)}>{value || '–'}</span>
+  return <span className={cn('hidden text-right font-mono text-12-5 tabular-nums md:block', className)}>{value || '–'}</span>
 }
 
 function SnatchRow({ s }: { s: SnatchItem }) {
@@ -261,17 +261,17 @@ function SnatchRow({ s }: { s: SnatchItem }) {
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           {s.href ? (
-            <a href={s.href} className="font-display text-[14px] font-medium leading-snug hover:text-brand hover:underline">{s.title}</a>
-          ) : <span className="font-display text-[14px] font-medium">{s.title}</span>}
-          {s.freeleech && <Badge className="h-4 bg-ok/15 px-1.5 text-[10px] font-medium text-ok">Freeleech</Badge>}
-          {s.vip && <Badge className="h-4 bg-brand-soft px-1.5 text-[10px] font-medium text-accent-foreground">VIP</Badge>}
+            <a href={s.href} className="font-display text-14 font-medium leading-snug hover:text-brand hover:underline">{s.title}</a>
+          ) : <span className="font-display text-14 font-medium">{s.title}</span>}
+          {s.freeleech && <Badge className="h-4 bg-ok/15 px-1.5 text-10 font-medium text-ok">Freeleech</Badge>}
+          {s.vip && <Badge className="h-4 bg-brand-soft px-1.5 text-10 font-medium text-accent-foreground">VIP</Badge>}
         </div>
-        <div className="line-clamp-2 pt-0.5 text-[12px] text-muted-foreground">
+        <div className="line-clamp-2 pt-0.5 text-12 text-muted-foreground">
           {s.authors.length > 0 && <>by {s.authors.map((a, i) => <span key={i}>{i > 0 && ', '}{a.href ? <a href={a.href} className="hover:text-foreground hover:underline">{a.name}</a> : a.name}</span>)}</>}
           <NameLinks prefix="Narrated by" items={s.narrators} />
           {s.series && <> · <a href={s.series.href ?? '#'} className="hover:text-foreground hover:underline">{s.series.name}</a>{s.series.part && ` (#${s.series.part})`}</>}
         </div>
-        {s.meta && <div className="line-clamp-2 pt-0.5 text-[11.5px] text-muted-foreground">{s.meta}</div>}
+        {s.meta && <div className="line-clamp-2 pt-0.5 text-11-5 text-muted-foreground">{s.meta}</div>}
       </div>
 
       {/* Desktop grid cells */}
@@ -280,22 +280,22 @@ function SnatchRow({ s }: { s: SnatchItem }) {
       <Num value={s.uploaded} className="text-ok" />
       <Num value={s.downloaded} className="text-destructive" />
       <Num value={s.seedtime} className={s.seedUnder ? 'text-warn' : 'text-muted-foreground'} />
-      <span className="hidden text-right text-[11.5px] tabular-nums text-muted-foreground md:block">
+      <span className="hidden text-right text-11-5 tabular-nums text-muted-foreground md:block">
         {s.seeders}/{s.leechers}
-        {s.snatched && <span className="block text-[10px] text-muted-foreground">{s.snatched} snatched</span>}
+        {s.snatched && <span className="block text-10 text-muted-foreground">{s.snatched} snatched</span>}
       </span>
       <span className="hidden md:flex md:justify-end">
         {s.downloadHref && <a href={s.downloadHref} title="Download .torrent" className="text-muted-foreground hover:text-brand"><Download className="size-4" /></a>}
       </span>
 
       {/* Mobile: labelled stat block */}
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] md:hidden">
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-12 md:hidden">
         <StatusBadge s={s} />
         {s.ratio && <span className="font-mono tabular-nums">R {s.ratio}</span>}
         {s.uploaded && <span className="font-mono tabular-nums text-ok">↑ {s.uploaded}</span>}
         {s.downloaded && <span className="font-mono tabular-nums text-destructive">↓ {s.downloaded}</span>}
         {s.seedtime && <span className={cn('font-mono tabular-nums', s.seedUnder ? 'text-warn' : 'text-muted-foreground')}>⏱ {s.seedtime}</span>}
-        <span className="flex items-center gap-1 text-[11px] text-muted-foreground"><Users className="size-3" /> {s.seeders}/{s.leechers}</span>
+        <span className="flex items-center gap-1 text-11 text-muted-foreground"><Users className="size-3" /> {s.seeders}/{s.leechers}</span>
         {s.downloadHref && <a href={s.downloadHref} title="Download .torrent" className="text-muted-foreground hover:text-brand"><Download className="size-4" /></a>}
       </div>
     </div>
@@ -385,10 +385,10 @@ function BucketRow({ b }: { b: Bucket }) {
   )
   const rowBody = (
     <>
-      <span className={cn('w-10 shrink-0 text-right font-display text-[16px] font-semibold tabular-nums', !b.count && 'text-muted-foreground')}>
+      <span className={cn('w-10 shrink-0 text-right font-display text-16 font-semibold tabular-nums', !b.count && 'text-muted-foreground')}>
         {b.count.toLocaleString('en-US')}
       </span>
-      <span className={cn('text-[13px]', !b.count && 'text-muted-foreground')}>{pileHeading(b.label).text}</span>
+      <span className={cn('text-13', !b.count && 'text-muted-foreground')}>{pileHeading(b.label).text}</span>
       {openable && (
         <ChevronDown className={cn('ml-auto size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
       )}
@@ -459,8 +459,8 @@ function QuotaCard({ used, limit, attention }: { used: number; limit: number | n
     <Card className="py-4">
       <CardContent className="grid gap-2">
         <div className="flex items-baseline justify-between gap-3">
-          <span className="text-[13px] font-medium">Still owing seed time</span>
-          <span className="font-display text-[15px] tabular-nums">
+          <span className="text-13 font-medium">Still owing seed time</span>
+          <span className="font-display text-15 tabular-nums">
             {used.toLocaleString('en-US')}
             {limit != null && <span className="text-muted-foreground"> of {limit.toLocaleString('en-US')}</span>}
           </span>
@@ -472,7 +472,7 @@ function QuotaCard({ used, limit, attention }: { used: number; limit: number | n
           aria-valuetext={limit != null ? `${used} of ${limit}` : String(used)}
           className={cn('h-1.5', tight && '[&>div]:bg-warn')}
         />
-        <p className="text-[12px] text-muted-foreground">
+        <p className="text-12 text-muted-foreground">
           {used === 0
             ? `Every torrent you hold has met its ${SEED_RULE}.`
             : attention > 0
@@ -500,15 +500,15 @@ function ZipMatrix({ groups }: { groups: ZipGroup[] }) {
         <CardTitle>Bulk download .torrents</CardTitle>
       </CardHeader>
       <CardContent className="overflow-x-auto px-6 py-3">
-        <table className="w-full text-[12.5px]">
-          <caption className="pb-2 text-left text-[12px] text-muted-foreground">
+        <table className="w-full text-12-5">
+          <caption className="pb-2 text-left text-12 text-muted-foreground">
             Each cell hands your browser a .zip of .torrent files for that pile.
           </caption>
           <thead>
             <tr>
               <td />
               {cols.map((c) => (
-                <th key={c} scope="col" className="w-[92px] px-1 pb-2 text-center text-[11px] font-medium text-muted-foreground">
+                <th key={c} scope="col" className="w-[92px] px-1 pb-2 text-center text-11 font-medium text-muted-foreground">
                   {c.replace(/\s*only$/i, '').replace(/\band\b/i, '+')}
                 </th>
               ))}
@@ -571,12 +571,12 @@ export function SnatchedView(props: PageProps) {
         {sections.map((s) => (
           <section key={s.key}>
             <h2 className="flex flex-wrap items-baseline gap-x-2.5 border-b bg-muted/25 px-6 py-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{s.title}</span>
-              {s.note && s.items.length > 0 && <span className="text-[11.5px] text-muted-foreground">{s.note}</span>}
+              <span className="text-11 font-semibold uppercase tracking-[0.08em] text-muted-foreground">{s.title}</span>
+              {s.note && s.items.length > 0 && <span className="text-11-5 text-muted-foreground">{s.note}</span>}
             </h2>
             <div className="divide-y divide-border/50">
               {s.items.length === 0 ? (
-                <p className="flex items-center gap-2.5 px-6 py-2.5 text-[13px] text-muted-foreground">
+                <p className="flex items-center gap-2.5 px-6 py-2.5 text-13 text-muted-foreground">
                   <CheckCircle2 className="size-4 text-ok" /> Nothing needs attention.
                 </p>
               ) : (

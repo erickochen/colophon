@@ -72,10 +72,10 @@ function CountUp({ value }: { value: number }) {
 function Stat({ label, value, count, title }: { label: string; value: string; count?: number; title?: string }) {
   return (
     <div>
-      <b className="block font-display text-[17px] font-semibold tabular-nums" title={title}>
+      <b className="block font-display text-17 font-semibold tabular-nums" title={title}>
         {count != null ? <CountUp value={count} /> : value}
       </b>
-      <span className="text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground">{label}</span>
+      <span className="text-10-5 uppercase tracking-[0.08em] text-muted-foreground">{label}</span>
     </div>
   )
 }
@@ -97,10 +97,10 @@ function DlHistoryBadge({ label }: { label: string }) {
 function KV({ label, full = false, children }: { label: string; full?: boolean; children: React.ReactNode }) {
   return (
     <div className={cn('py-2.5', !full && 'grid grid-cols-[88px_minmax(0,1fr)] gap-3')}>
-      <dt className={cn('text-[10px] font-semibold uppercase tracking-[0.11em] text-muted-foreground', full ? 'mb-1.5' : 'pt-[3px]')}>
+      <dt className={cn('text-10 font-semibold uppercase tracking-[0.11em] text-muted-foreground', full ? 'mb-1.5' : 'pt-[3px]')}>
         {label}
       </dt>
-      <dd className="min-w-0 text-[13px] leading-relaxed">{children}</dd>
+      <dd className="min-w-0 text-13 leading-relaxed">{children}</dd>
     </div>
   )
 }
@@ -108,7 +108,7 @@ function KV({ label, full = false, children }: { label: string; full?: boolean; 
 // Both footer entries run through Button, one as a button and one as a link, so
 // the size variant cannot indent one of them past the other.
 const FOOTER_LINK =
-  'h-auto gap-2 p-0 text-[12.5px] font-normal text-muted-foreground no-underline hover:text-brand has-[>svg]:px-0'
+  'h-auto gap-2 p-0 text-12-5 font-normal text-muted-foreground no-underline hover:text-brand has-[>svg]:px-0'
 
 /** Click a control in the hidden legacy DOM; MAM's own handler takes it from
  * there. The boolean says whether the control was found. */
@@ -145,15 +145,15 @@ function GuardSettings({ guard }: { guard: RatioGuard }) {
           <Settings2 className="size-3.5" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 text-[13px]">
-        <label className="flex items-center justify-between gap-3 text-[12px] font-semibold">
+      <PopoverContent className="w-72 text-13">
+        <label className="flex items-center justify-between gap-3 text-12 font-semibold">
           Ratio protection
           <Switch checked={guard.enabled} onCheckedChange={guard.setEnabled} />
         </label>
-        <p className="mt-1.5 text-[12px] leading-snug text-muted-foreground">
+        <p className="mt-1.5 text-12 leading-snug text-muted-foreground">
           Switched off, the note still shows but nothing locks.
         </p>
-        <label className="mb-1.5 mt-3 block text-[12px] font-semibold" htmlFor="ratio-floor">Minimum ratio</label>
+        <label className="mb-1.5 mt-3 block text-12 font-semibold" htmlFor="ratio-floor">Minimum ratio</label>
         <RatioFloorInput
           id="ratio-floor"
           align="start"
@@ -161,7 +161,7 @@ function GuardSettings({ guard }: { guard: RatioGuard }) {
           disabled={!guard.enabled}
           aria-describedby="ratio-floor-note"
         />
-        <p id="ratio-floor-note" className="mt-2 text-[12px] leading-snug text-muted-foreground">
+        <p id="ratio-floor-note" className="mt-2 text-12 leading-snug text-muted-foreground">
           A download landing under this number locks. Clear the field to never lock.
         </p>
       </PopoverContent>
@@ -179,7 +179,7 @@ function RatioNote({ guard }: { guard: RatioGuard }) {
   // minimum itself while the button sits locked next to it.
   const becomes = <b className="tabular-nums">{fmtRatio(Math.floor(next * 100) / 100)}</b>
   return (
-    <p className={cn('mt-2 text-[12px] leading-snug', RATIO_NOTE_TONE[level])}>
+    <p className={cn('mt-2 text-12 leading-snug', RATIO_NOTE_TONE[level])}>
       {current == null ? (
         <>First download: your ratio would start at {becomes}.</>
       ) : level === 'block' ? (
@@ -313,10 +313,10 @@ function DownloadDock({
       </div>
       {guard && !data.downloadBlocked && <RatioNote guard={guard} />}
       {data.downloadBlocked && (
-        <p className="mt-2 text-[12px] leading-snug text-muted-foreground">{data.downloadBlocked}</p>
+        <p className="mt-2 text-12 leading-snug text-muted-foreground">{data.downloadBlocked}</p>
       )}
       {spent && (
-        <p className="mt-2 text-[12px] leading-snug text-ok">This torrent is a personal freeleech now, so downloading it costs you nothing.</p>
+        <p className="mt-2 text-12 leading-snug text-ok">This torrent is a personal freeleech now, so downloading it costs you nothing.</p>
       )}
       {/* The confirm sits outside the menu: a menu unmounts its content on the
           click that opens the dialog. */}
@@ -421,13 +421,13 @@ function MiniHero({
         className="pt-3"
       >
         <Card className="flex-row items-center gap-3 px-3 py-2 shadow-card">
-          <span className="shrink-0 text-[6px]">
+          <span className="shrink-0 text-6">
             <Book poster={data.poster} title={data.title ?? ''} shape={shape} frame="square" frameClassName="size-8" plain size="row" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate font-display text-[15px] font-semibold leading-tight">{data.title}</span>
+            <span className="block truncate font-display text-15 font-semibold leading-tight">{data.title}</span>
             {data.authors.length > 0 && (
-              <span className="hidden truncate text-[12px] text-muted-foreground sm:block">
+              <span className="hidden truncate text-12 text-muted-foreground sm:block">
                 by {data.authors.map((a) => a.name).join(', ')}
               </span>
             )}
@@ -533,7 +533,7 @@ function ThankUploader({
 
   if (done) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ok">
+      <span className="inline-flex items-center gap-1.5 text-12 font-medium text-ok">
         <Heart className="size-3.5 fill-current" /> Thanked
       </span>
     )
@@ -544,13 +544,13 @@ function ThankUploader({
       <PopoverTrigger asChild>
         {/* p-0 leaves the size variant's has-[>svg] padding in place, so that
             one is reset alongside it. */}
-        <Button variant="link" className="h-auto gap-1.5 p-0 text-[12px] text-brand has-[>svg]:px-0">
+        <Button variant="link" className="h-auto gap-1.5 p-0 text-12 text-brand has-[>svg]:px-0">
           <Heart className="size-3.5" /> Thank
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72">
-        <p className="text-[13px] font-semibold">Thank {name}</p>
-        <p className="mt-1 text-[12px] leading-snug text-muted-foreground">
+        <p className="text-13 font-semibold">Thank {name}</p>
+        <p className="mt-1 text-12 leading-snug text-muted-foreground">
           {ceiling > 0
             ? 'Points come out of your balance. None is fine too.'
             : thanks.points
@@ -608,7 +608,7 @@ function CommentComposer({ tid, fallbackHref }: { tid: number; fallbackHref: str
 
   return (
     <div className="grid gap-2.5 border-t pt-5">
-      <label htmlFor={fieldId} className="text-[13px] font-semibold">Leave a comment</label>
+      <label htmlFor={fieldId} className="text-13 font-semibold">Leave a comment</label>
       <Textarea
         id={fieldId}
         value={text}
@@ -617,7 +617,7 @@ function CommentComposer({ tid, fallbackHref }: { tid: number; fallbackHref: str
         className="min-h-24"
       />
       <div className="flex flex-wrap items-center justify-end gap-3">
-        <p className="mr-auto text-[11.5px] text-muted-foreground">
+        <p className="mr-auto text-11-5 text-muted-foreground">
           Thanks, opinions plus recommendations. A reseed has its own request in the details.
         </p>
         <Button onClick={post} disabled={!text.trim() || busy}>
@@ -634,22 +634,22 @@ function Comment({ c }: { c: TorrentComment }) {
     <div className="flex gap-3 py-4">
       <Avatar className="size-9 shrink-0 rounded-lg">
         {c.avatar && !c.avatar.includes('default_avatar') && <AvatarImage src={c.avatar} alt="" />}
-        <AvatarFallback className="rounded-lg bg-primary text-[11px] font-semibold text-primary-foreground">
+        <AvatarFallback className="rounded-lg bg-primary text-11 font-semibold text-primary-foreground">
           {initials(c.author?.name ?? '?')}
         </AvatarFallback>
       </Avatar>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           {c.author && (
-            <a href={c.author.href} className="text-[13px] font-semibold hover:underline" style={{ color: mutedUserColor(c.author.color) }}>
+            <a href={c.author.href} className="text-13 font-semibold hover:underline" style={{ color: mutedUserColor(c.author.color) }}>
               {c.author.name}
             </a>
           )}
-          {c.authorClass && <span className="text-[11px] text-muted-foreground">({c.authorClass})</span>}
-          {c.donor && <span title="Donor" className="text-[11px] text-warn">★</span>}
-          <span className="ml-auto text-[11px] text-muted-foreground" title={utcTitle(c.at)}>{relTime(c.at)}</span>
+          {c.authorClass && <span className="text-11 text-muted-foreground">({c.authorClass})</span>}
+          {c.donor && <span title="Donor" className="text-11 text-warn">★</span>}
+          <span className="ml-auto text-11 text-muted-foreground" title={utcTitle(c.at)}>{relTime(c.at)}</span>
         </div>
-        <RichHtml html={c.bodyHtml} className="mt-1 text-[13.5px]" />
+        <RichHtml html={c.bodyHtml} className="mt-1 text-13-5" />
       </div>
     </div>
   )
@@ -668,7 +668,7 @@ function isNumbered(nodes: MediaNode[]): boolean {
  * whichever section it belongs to. */
 function MediaInfoRows({ nodes }: { nodes: MediaNode[] }) {
   return (
-    <dl className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-[12.5px] leading-relaxed sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)]">
+    <dl className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-12-5 leading-relaxed sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)]">
       {nodes.map((n, i) => (
         <Fragment key={n.label + i}>
           <dt className="text-muted-foreground">{mediaInfoLabel(n.label)}</dt>
@@ -681,7 +681,7 @@ function MediaInfoRows({ nodes }: { nodes: MediaNode[] }) {
 
 function ChapterList({ nodes }: { nodes: MediaNode[] }) {
   return (
-    <ol className="grid grid-cols-1 gap-1 text-[12.5px] leading-relaxed">
+    <ol className="grid grid-cols-1 gap-1 text-12-5 leading-relaxed">
       {nodes.map((n, i) => (
         <li key={n.label + i} className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3">
           <span className="text-right font-mono tabular-nums text-muted-foreground">{n.label}</span>
@@ -700,7 +700,7 @@ function MediaInfoSection({ node, parent }: { node: MediaNode; parent: string | 
   const long = node.children.length > MEDIA_LONG_SECTION
   return (
     <section>
-      <h3 className="text-[10px] font-semibold uppercase tracking-[0.11em] text-muted-foreground">
+      <h3 className="text-10 font-semibold uppercase tracking-[0.11em] text-muted-foreground">
         {mediaInfoGroupLabel(node.label, parent)}
       </h3>
       <div className={cn('mt-2', long && 'max-h-64 overflow-y-auto rounded-lg bg-muted/40 p-3')}>
@@ -794,14 +794,14 @@ function useRemoteData<T>(url: string | null, parse: (doc: Document) => T, fallb
 function PanelStatus({ state, url }: { state: Remote<unknown>; url: string }) {
   if (state.loading) {
     return (
-      <p role="status" className="flex items-center gap-2 py-3 text-[13px] text-muted-foreground">
+      <p role="status" className="flex items-center gap-2 py-3 text-13 text-muted-foreground">
         <Spinner className="size-4" /> Loading…
       </p>
     )
   }
   if (state.error) {
     return (
-      <p role="status" className="py-3 text-[13px] text-muted-foreground">
+      <p role="status" className="py-3 text-13 text-muted-foreground">
         Could not load this.{' '}
         <Button variant="link" className="h-auto p-0 text-brand" onClick={state.load}>Try again</Button>
         {' '}or <a className="text-brand underline" href={url}>open it directly</a>.
@@ -814,7 +814,7 @@ function PanelStatus({ state, url }: { state: Remote<unknown>; url: string }) {
 // Rows and headings line up with the card gutter, so the table has none of its
 // own horizontal padding on the outer columns.
 const CELL = 'px-2 first:pl-0 last:pr-0'
-const HEAD = `${CELL} h-8 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground`
+const HEAD = `${CELL} h-8 text-11 font-medium uppercase tracking-[0.08em] text-muted-foreground`
 
 const COPIED_FLASH_MS = 2000
 
@@ -839,7 +839,7 @@ function InfoHash({ hash }: { hash: string }) {
       variant="ghost"
       size="sm"
       aria-label="Copy the info hash"
-      className="h-8 gap-2 px-2 text-[12px] font-normal text-muted-foreground hover:text-foreground"
+      className="h-8 gap-2 px-2 text-12 font-normal text-muted-foreground hover:text-foreground"
       onClick={copy}
     >
       {copied ? <Check className="text-ok" /> : <Copy />}
@@ -869,7 +869,7 @@ function FilesPanel({ state, url }: { state: Remote<FileListData>; url: string }
   if (!state.data) return <PanelStatus state={state} url={url} />
   const { hash, name, files } = state.data
   if (files.length === 0) {
-    return <p className="text-[13px] text-muted-foreground">This torrent lists no files.</p>
+    return <p className="text-13 text-muted-foreground">This torrent lists no files.</p>
   }
   // One file carrying the torrent's own name lands loose. Anything else arrives
   // inside a folder of that name, which the rows themselves never show.
@@ -877,7 +877,7 @@ function FilesPanel({ state, url }: { state: Remote<FileListData>; url: string }
   return (
     <div className="grid grid-cols-1 gap-1">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <p className="text-[12.5px] text-muted-foreground">
+        <p className="text-12-5 text-muted-foreground">
           {plural(files.length, 'file')}
           {name != null && (folder
             ? <> · in folder <span className="font-mono [overflow-wrap:anywhere]">{folder}</span></>
@@ -885,7 +885,7 @@ function FilesPanel({ state, url }: { state: Remote<FileListData>; url: string }
         </p>
         {hash && <InfoHash hash={hash} />}
       </div>
-      <Table className="text-[12.5px]">
+      <Table className="text-12-5">
         <TableHeader>
           <TableRow>
             <TableHead scope="col" className={HEAD}>Filename</TableHead>
@@ -897,7 +897,7 @@ function FilesPanel({ state, url }: { state: Remote<FileListData>; url: string }
             <Fragment key={folder.path + fi}>
               {folder.path && (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={2} className={cn(CELL, 'pt-3 text-[11.5px] font-medium text-muted-foreground')}>
+                  <TableCell colSpan={2} className={cn(CELL, 'pt-3 text-11-5 font-medium text-muted-foreground')}>
                     {folder.path}
                   </TableCell>
                 </TableRow>
@@ -941,7 +941,7 @@ const CELL_TIME = `${CELL} text-right font-mono text-muted-foreground`
 
 function PeerTable({ rows }: { rows: PeerRow[] }) {
   return (
-    <Table className="text-[12.5px]">
+    <Table className="text-12-5">
       <TableHeader>
         <TableRow>
           <TableHead scope="col" className={HEAD}>Client</TableHead>
@@ -973,13 +973,13 @@ function PeerTable({ rows }: { rows: PeerRow[] }) {
 function PeerSection({ title, rows, empty }: { title: string; rows: PeerRow[]; empty: string }) {
   return (
     <section>
-      <h3 className="flex items-baseline gap-2 text-[10px] font-semibold uppercase tracking-[0.11em] text-muted-foreground">
+      <h3 className="flex items-baseline gap-2 text-10 font-semibold uppercase tracking-[0.11em] text-muted-foreground">
         {title}
-        <span className="font-mono text-[11px] tabular-nums tracking-normal">{fmtInt(rows.length)}</span>
+        <span className="font-mono text-11 tabular-nums tracking-normal">{fmtInt(rows.length)}</span>
       </h3>
       {rows.length > 0
         ? <PeerTable rows={rows} />
-        : <p className="mt-1.5 text-[12.5px] text-muted-foreground">{empty}</p>}
+        : <p className="mt-1.5 text-12-5 text-muted-foreground">{empty}</p>}
     </section>
   )
 }
@@ -998,7 +998,7 @@ function MediaPanel({ data }: { data: TorrentDetail }) {
   if (data.mediaInfo.length === 0) {
     return (
       <div
-        className="legacy-html text-[12.5px] leading-relaxed"
+        className="legacy-html text-12-5 leading-relaxed"
         dangerouslySetInnerHTML={{ __html: data.mediaInfoHtml ?? '' }}
       />
     )
@@ -1007,7 +1007,7 @@ function MediaPanel({ data }: { data: TorrentDetail }) {
     <div className="grid grid-cols-1 gap-5">
       <MediaInfoBody nodes={data.mediaInfo} parent={null} />
       {data.mediaInfoFullHref && (
-        <a href={data.mediaInfoFullHref} className="w-fit text-[12px] text-brand hover:underline">
+        <a href={data.mediaInfoFullHref} className="w-fit text-12 text-brand hover:underline">
           View the full media info
         </a>
       )}
@@ -1069,10 +1069,10 @@ function TorrentPanels({ data }: { data: TorrentDetail }) {
         <div className="border-b px-6 pt-3 pb-[5px]">
           <TabsList variant="line" className="gap-5 p-0">
             {tabs.map((t) => (
-              <TabsTrigger key={t.value} value={t.value} className="flex-none px-0 text-[13px]">
+              <TabsTrigger key={t.value} value={t.value} className="flex-none px-0 text-13">
                 {t.label}
                 {t.count != null && (
-                  <span className="font-mono text-[11px] tabular-nums text-muted-foreground">{fmtInt(t.count)}</span>
+                  <span className="font-mono text-11 tabular-nums text-muted-foreground">{fmtInt(t.count)}</span>
                 )}
               </TabsTrigger>
             ))}
@@ -1186,7 +1186,7 @@ function SeriesStrip({ data }: { data: TorrentDetail }) {
       <CardHeader>
         <CardTitle>In this series</CardTitle>
         <CardAction>
-          <a href={series.href} className="text-[12px] text-brand hover:underline">{series.name}</a>
+          <a href={series.href} className="text-12 text-brand hover:underline">{series.name}</a>
         </CardAction>
       </CardHeader>
       <CardContent>
@@ -1202,7 +1202,7 @@ function SeriesStrip({ data }: { data: TorrentDetail }) {
           itemClassName="shrink-0"
           arrowsClassName="mt-3"
           items={items.map((it) => (
-            <a key={it.id} href={it.href} title={it.title} className="group block w-[88px] text-[10px]">
+            <a key={it.id} href={it.href} title={it.title} className="group block w-[88px] text-10">
               <span className="block transition-[translate,box-shadow] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1 motion-reduce:transition-none">
                 <Book
                   poster={it.poster}
@@ -1215,7 +1215,7 @@ function SeriesStrip({ data }: { data: TorrentDetail }) {
               </span>
               {/* Every label takes one line of the same height, named or not, so
                   all the covers rest on one floor. */}
-              <span className={cn('mt-2 block h-4 font-mono text-[11px] leading-4 whitespace-nowrap tabular-nums', it.current ? 'font-semibold text-brand' : 'text-muted-foreground')}>
+              <span className={cn('mt-2 block h-4 font-mono text-11 leading-4 whitespace-nowrap tabular-nums', it.current ? 'font-semibold text-brand' : 'text-muted-foreground')}>
                 {it.part && `#${it.part}`}
                 {it.current && (it.part ? ' · this book' : 'this book')}
               </span>
@@ -1273,7 +1273,7 @@ function EditionsStrip({ data }: { data: TorrentDetail }) {
         <CardHeader className="!py-3.5">
           <CardTitle>Other editions</CardTitle>
           <CardAction>
-            <a href={browseHref} className="text-[12px] text-brand hover:underline">See all</a>
+            <a href={browseHref} className="text-12 text-brand hover:underline">See all</a>
           </CardAction>
         </CardHeader>
         <CardContent className="px-0 py-1">
@@ -1286,29 +1286,29 @@ function EditionsStrip({ data }: { data: TorrentDetail }) {
                   href={torrentUrl(t.id)}
                   className="group grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3.5 px-6 py-2.5 transition-colors hover:bg-foreground/[0.028]"
                 >
-                  <span className="text-[7px]">
+                  <span className="text-7">
                     <Book poster={t.poster_type ? coverUrl(t.id, t.poster_type) : null} title={t.title} shape={coverShape({ mediatype: t.mediatype, mainCat: t.main_cat })} size="row" plain />
                   </span>
                   <span className="min-w-0">
-                    <span className="block truncate text-[13.5px] font-medium leading-snug transition-colors group-hover:text-brand">
+                    <span className="block truncate text-13-5 font-medium leading-snug transition-colors group-hover:text-brand">
                       {t.title}
                     </span>
                     <span className="mt-1 flex flex-wrap items-center gap-1">
                       {t.filetype && (
-                        <Badge variant="outline" className="font-mono text-[10px] uppercase">{t.filetype.split(' ')[0]}</Badge>
+                        <Badge variant="outline" className="font-mono text-10 uppercase">{t.filetype.split(' ')[0]}</Badge>
                       )}
-                      {t.catname && <Badge variant="outline" className="text-[10.5px]">{t.catname}</Badge>}
+                      {t.catname && <Badge variant="outline" className="text-10-5">{t.catname}</Badge>}
                       {t.vip === 1 && <Badge className="bg-brand-soft text-accent-foreground" variant="secondary">VIP</Badge>}
                       {(t.free === 1 || t.personal_freeleech === 1) && (
                         <Badge className="bg-ok/15 text-ok" variant="secondary">Freeleech</Badge>
                       )}
                       {t.my_snatched === 1 && <Badge variant="secondary">Snatched</Badge>}
                       {authors.length > 0 && (
-                        <span className="text-[11.5px] text-muted-foreground">{authors.map((a) => a.name).join(', ')}</span>
+                        <span className="text-11-5 text-muted-foreground">{authors.map((a) => a.name).join(', ')}</span>
                       )}
                     </span>
                   </span>
-                  <span className="text-right font-mono text-[12px] tabular-nums text-muted-foreground" title="Seeders">
+                  <span className="text-right font-mono text-12 tabular-nums text-muted-foreground" title="Seeders">
                     {fmtInt(t.seeders)} <span className="text-ok">↑</span>
                   </span>
                 </a>
@@ -1316,7 +1316,7 @@ function EditionsStrip({ data }: { data: TorrentDetail }) {
             })}
           </div>
           {items.length > shown.length && (
-            <p className="px-6 py-2 text-[12px] text-muted-foreground">
+            <p className="px-6 py-2 text-12 text-muted-foreground">
               {fmtInt(items.length - shown.length)} more via See all.
             </p>
           )}
@@ -1478,7 +1478,7 @@ export function TorrentView(props: PageProps) {
           )}
           <div className="relative z-2 grid gap-8 p-6 sm:grid-cols-[252px_minmax(0,1fr)] sm:p-8">
             <AnimatedGroup variants={BOOK_ARRIVAL} className="mx-auto w-full max-w-[252px] sm:mx-0">
-              <Book3D poster={data.poster} title={data.title} shape={coverShape({ mediatype: mediaTypeFromHref(data.catIconHref) })} className="text-[15px]" />
+              <Book3D poster={data.poster} title={data.title} shape={coverShape({ mediatype: mediaTypeFromHref(data.catIconHref) })} className="text-15" />
             </AnimatedGroup>
 
             <div className="min-w-0">
@@ -1508,7 +1508,7 @@ export function TorrentView(props: PageProps) {
                 )}
 
                 {data.series.length > 0 && (
-                  <div key="series" className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-brand">
+                  <div key="series" className="mb-1.5 text-11 font-semibold uppercase tracking-[0.12em] text-brand">
                     {data.series.map((s, i) => (
                       <span key={s.href + i}>
                         {i > 0 && <span className="text-muted-foreground/60"> / </span>}
@@ -1529,14 +1529,14 @@ export function TorrentView(props: PageProps) {
                 variants={TITLE_ARRIVAL}
                 delay={TITLE_DELAY_S}
                 speedReveal={TITLE_REVEAL_SPEED}
-                className="font-display text-[31px] font-semibold leading-[1.15] tracking-[-0.018em] text-balance"
+                className="font-display text-31 font-semibold leading-[1.15] tracking-[-0.018em] text-balance"
               >
                 {data.title}
               </TextEffect>
 
               <AnimatedGroup variants={BODY_ARRIVAL}>
                 {(data.authors.length > 0 || data.narrators.length > 0) && (
-                  <p key="people" className="mt-2 text-[14px] text-muted-foreground">
+                  <p key="people" className="mt-2 text-14 text-muted-foreground">
                     {data.authors.length > 0 && <>by {people(data.authors)}</>}
                     {data.narrators.length > 0 && (
                       <>
@@ -1556,7 +1556,7 @@ export function TorrentView(props: PageProps) {
                 )}
 
                 {data.mediaInfoMicro && (
-                  <p key="micro" className="mt-3 font-mono text-[11.5px] tracking-wide text-muted-foreground">{data.mediaInfoMicro}</p>
+                  <p key="micro" className="mt-3 font-mono text-11-5 tracking-wide text-muted-foreground">{data.mediaInfoMicro}</p>
                 )}
 
                 <DownloadDock
@@ -1584,7 +1584,7 @@ export function TorrentView(props: PageProps) {
                 <CardHeader><CardTitle>Description</CardTitle></CardHeader>
                 <CardContent>
                   <div
-                    className="user-html prose-read prose-dropcap text-[14.5px] leading-[1.68] [&_a]:text-brand [&_a]:underline [&_p]:mb-3.5 [&_p:last-child]:mb-0"
+                    className="user-html prose-read prose-dropcap text-14-5 leading-[1.68] [&_a]:text-brand [&_a]:underline [&_p]:mb-3.5 [&_p:last-child]:mb-0"
                     dangerouslySetInnerHTML={{ __html: data.descriptionHtml }}
                   />
                 </CardContent>
@@ -1648,14 +1648,14 @@ export function TorrentView(props: PageProps) {
                     about the cost. A spent wedge makes those untrue. */}
                 {data.ratio?.note && !spent && (
                   <KV label="Freeleech" full>
-                    <div className="text-[12px] text-muted-foreground">{data.ratio.note}</div>
+                    <div className="text-12 text-muted-foreground">{data.ratio.note}</div>
                   </KV>
                 )}
 
                 {!data.ratio && !data.freeleech && !data.personalFreeleech && !spent && data.ratioHtml && (
                   <KV label="Ratio after" full>
                     <div
-                      className="text-[13px] leading-relaxed text-muted-foreground [&_a]:text-brand [&_a]:underline"
+                      className="text-13 leading-relaxed text-muted-foreground [&_a]:text-brand [&_a]:underline"
                       dangerouslySetInnerHTML={{ __html: data.ratioHtml }}
                     />
                   </KV>
@@ -1663,7 +1663,7 @@ export function TorrentView(props: PageProps) {
 
                 {data.reseed && (
                   <KV label="Reseed" full>
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-13">
                       {data.reseed.status && <span>{data.reseed.status}</span>}
                       {data.reseed.actionHref && (
                         <a href={data.reseed.actionHref} className="text-brand underline">Request reseed</a>
@@ -1671,11 +1671,11 @@ export function TorrentView(props: PageProps) {
                       {data.reseed.reason && (
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Button variant="link" className="h-auto gap-1 p-0 text-[12.5px] text-brand has-[>svg]:px-0">
+                            <Button variant="link" className="h-auto gap-1 p-0 text-12-5 text-brand has-[>svg]:px-0">
                               <Info className="size-3.5" /> Find out why
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-64 text-[13px] leading-relaxed">{data.reseed.reason}</PopoverContent>
+                          <PopoverContent className="w-64 text-13 leading-relaxed">{data.reseed.reason}</PopoverContent>
                         </Popover>
                       )}
                     </div>
@@ -1684,7 +1684,7 @@ export function TorrentView(props: PageProps) {
 
                 {data.downloadBlocked && (
                   <KV label="Access" full>
-                    <span className="text-[13px] leading-relaxed text-muted-foreground">
+                    <span className="text-13 leading-relaxed text-muted-foreground">
                       {data.downloadBlocked}{' '}
                       {data.blockedClassesHref && (
                         <a href={data.blockedClassesHref} className="text-brand underline">About the classes</a>

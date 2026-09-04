@@ -75,10 +75,10 @@ function ToastList() {
               <Icon className={cn("mt-0.5 size-4 shrink-0", TYPE_COLOR[t.type ?? ""])} />
             )}
             <div className="grid flex-1 gap-1">
-              <ToastPrimitive.Title className="text-[13.5px] leading-snug font-medium" />
-              <ToastPrimitive.Description className="text-[12.5px] leading-snug text-muted-foreground" />
+              <ToastPrimitive.Title className="text-13-5 leading-snug font-medium" />
+              <ToastPrimitive.Description className="text-12-5 leading-snug text-muted-foreground" />
               {t.actionProps && (
-                <ToastPrimitive.Action className="mt-1 h-7 w-fit rounded-md border px-2.5 text-[12px] font-medium transition-colors hover:bg-accent" />
+                <ToastPrimitive.Action className="mt-1 h-7 w-fit rounded-md border px-2.5 text-12 font-medium transition-colors hover:bg-accent" />
               )}
             </div>
             <ToastPrimitive.Close

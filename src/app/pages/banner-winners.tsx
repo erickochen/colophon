@@ -47,8 +47,8 @@ export function BannerWinnersView(props: PageProps) {
         <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
           <span className="flex size-12 items-center justify-center rounded-xl bg-brand-soft"><ImageIcon className="size-6 text-accent-foreground" /></span>
           <div>
-            <div className="font-display text-[15px] font-semibold">Heads up: lots of full-size images</div>
-            <p className="pt-0.5 text-[12.5px] text-muted-foreground">Each year's gallery loads a large number of banners. Open one only when your connection can spare the bandwidth.</p>
+            <div className="font-display text-15 font-semibold">Heads up: lots of full-size images</div>
+            <p className="pt-0.5 text-12-5 text-muted-foreground">Each year's gallery loads a large number of banners. Open one only when your connection can spare the bandwidth.</p>
           </div>
           <div className="flex flex-wrap justify-center gap-2">
             {data.links.length > 0 ? (

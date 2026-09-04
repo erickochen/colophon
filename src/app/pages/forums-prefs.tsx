@@ -111,10 +111,10 @@ function TermChips({ el, label }: { el: HTMLTextAreaElement; label: string }) {
 
   return (
     <div className="grid gap-1.5">
-      <span className="text-[13px] font-medium leading-snug">{label}</span>
+      <span className="text-13 font-medium leading-snug">{label}</span>
       <div className="flex min-h-10 flex-wrap items-center gap-1.5 rounded-lg bg-muted/70 px-2.5 py-2 shadow-xs transition-[box-shadow] focus-within:ring-[3px] focus-within:ring-ring">
         {terms.map((term) => (
-          <Badge key={term} variant="secondary" className="gap-1 pr-1 font-mono text-[11.5px]">
+          <Badge key={term} variant="secondary" className="gap-1 pr-1 font-mono text-11-5">
             {term}
             <Button
               variant="ghost"
@@ -143,7 +143,7 @@ function TermChips({ el, label }: { el: HTMLTextAreaElement; label: string }) {
               write(terms.slice(0, -1))
             }
           }}
-          className="min-w-28 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
+          className="min-w-28 flex-1 bg-transparent text-13 outline-none placeholder:text-muted-foreground"
         />
       </div>
     </div>

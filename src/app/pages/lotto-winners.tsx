@@ -66,13 +66,13 @@ export function LottoWinnersView(props: PageProps) {
               <div className="flex items-center gap-2.5">
                 {i < 3 ? <Medal className="size-6" style={{ color: MEDAL[i] }} /> : <Trophy className="size-5 text-muted-foreground" />}
                 <div>
-                  <div className="font-display text-[15px] font-semibold capitalize">{t.place.toLowerCase()}</div>
-                  {t.amount && <div className="font-mono text-[13px] font-medium text-ok">{t.amount}</div>}
+                  <div className="font-display text-15 font-semibold capitalize">{t.place.toLowerCase()}</div>
+                  {t.amount && <div className="font-mono text-13 font-medium text-ok">{t.amount}</div>}
                 </div>
               </div>
               <div className="flex flex-wrap gap-x-3 gap-y-1.5">
                 {t.winners.map((w, j) => (
-                  <a key={w.uid + j} href={`/u/${w.uid}`} className="text-[13px] font-medium hover:underline" style={{ color: mutedUserColor(w.color) }}>
+                  <a key={w.uid + j} href={`/u/${w.uid}`} className="text-13 font-medium hover:underline" style={{ color: mutedUserColor(w.color) }}>
                     {w.name}
                   </a>
                 ))}

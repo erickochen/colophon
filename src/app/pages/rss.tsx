@@ -91,7 +91,7 @@ export function RssView(props: PageProps) {
       <Card>
         <CardContent className="grid gap-4">
           <div className="grid gap-1.5">
-            <Label className="text-[13px]">Search text (optional)</Label>
+            <Label className="text-13">Search text (optional)</Label>
             <FilterSearch
               value={text}
               onChange={setText}
@@ -114,9 +114,9 @@ export function RssView(props: PageProps) {
                 <div className="grid max-h-80 grid-cols-2 gap-x-3 overflow-y-auto">
                   {MAIN_CATS.map((m) => (
                     <div key={m.id} className="pb-1.5">
-                      <div className="py-1 text-[11.5px] font-medium text-muted-foreground">{m.name}</div>
+                      <div className="py-1 text-11-5 font-medium text-muted-foreground">{m.name}</div>
                       {m.cats.map((c) => (
-                        <Label key={c.id} className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
+                        <Label key={c.id} className="flex items-center gap-2 py-1 text-12-5 font-normal">
                           <Checkbox checked={cats.includes(c.id)} onCheckedChange={() => setCats(toggleValue(cats, c.id))} />
                           {c.name}
                         </Label>
@@ -148,7 +148,7 @@ export function RssView(props: PageProps) {
               />
               <FacetSection title="Content flags">
                 {CONTENT_FLAGS.map((fl) => (
-                  <Label key={fl.bit} className="flex items-center gap-2 py-1 text-[12.5px] font-normal">
+                  <Label key={fl.bit} className="flex items-center gap-2 py-1 text-12-5 font-normal">
                     <Checkbox checked={flags.includes(fl.bit)} onCheckedChange={() => setFlags(toggleValue(flags, fl.bit))} /> {fl.name}
                   </Label>
                 ))}
@@ -158,7 +158,7 @@ export function RssView(props: PageProps) {
             <FilterFacet label="Advanced" count={advCount} width="w-80">
               <div className="grid gap-3 p-3">
                 <div className="grid gap-1.5">
-                  <Label className="text-[12px] text-muted-foreground">Uploaded between</Label>
+                  <Label className="text-12 text-muted-foreground">Uploaded between</Label>
                   <FilterDateRange
                     from={adv.startDate ?? ''}
                     to={adv.endDate ?? ''}
@@ -169,13 +169,13 @@ export function RssView(props: PageProps) {
                   />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label className="text-[12px] text-muted-foreground">Size</Label>
+                  <Label className="text-12 text-muted-foreground">Size</Label>
                   <div className="flex items-center gap-2">
-                    <Input placeholder="min" value={adv.minSize ?? ''} onChange={(e) => setAdv((a) => ({ ...a, minSize: e.target.value }))} className="h-8 text-[12.5px]" />
-                    <Input placeholder="max" value={adv.maxSize ?? ''} onChange={(e) => setAdv((a) => ({ ...a, maxSize: e.target.value }))} className="h-8 text-[12.5px]" />
+                    <Input placeholder="min" value={adv.minSize ?? ''} onChange={(e) => setAdv((a) => ({ ...a, minSize: e.target.value }))} className="h-8 text-12-5" />
+                    <Input placeholder="max" value={adv.maxSize ?? ''} onChange={(e) => setAdv((a) => ({ ...a, maxSize: e.target.value }))} className="h-8 text-12-5" />
                     {unitOpts.length > 0 && (
                       <Select value={adv.unit ?? unitOpts[0]?.value} onValueChange={(v) => setAdv((a) => ({ ...a, unit: v }))}>
-                        <SelectTrigger size="sm" className="h-8 w-20 text-[12px]"><SelectValue /></SelectTrigger>
+                        <SelectTrigger size="sm" className="h-8 w-20 text-12"><SelectValue /></SelectTrigger>
                         <SelectContent>{unitOpts.map((u) => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}</SelectContent>
                       </Select>
                     )}
@@ -183,10 +183,10 @@ export function RssView(props: PageProps) {
                 </div>
                 {([['Seeders', 'minSeeders', 'maxSeeders'], ['Leechers', 'minLeechers', 'maxLeechers'], ['Snatched', 'minSnatched', 'maxSnatched']] as const).map(([label, lo, hi]) => (
                   <div key={label} className="grid gap-1.5">
-                    <Label className="text-[12px] text-muted-foreground">{label}</Label>
+                    <Label className="text-12 text-muted-foreground">{label}</Label>
                     <div className="flex items-center gap-2">
-                      <Input placeholder="min" value={adv[lo] ?? ''} onChange={(e) => setAdv((a) => ({ ...a, [lo]: e.target.value }))} className="h-8 text-[12.5px]" />
-                      <Input placeholder="max" value={adv[hi] ?? ''} onChange={(e) => setAdv((a) => ({ ...a, [hi]: e.target.value }))} className="h-8 text-[12.5px]" />
+                      <Input placeholder="min" value={adv[lo] ?? ''} onChange={(e) => setAdv((a) => ({ ...a, [lo]: e.target.value }))} className="h-8 text-12-5" />
+                      <Input placeholder="max" value={adv[hi] ?? ''} onChange={(e) => setAdv((a) => ({ ...a, [hi]: e.target.value }))} className="h-8 text-12-5" />
                     </div>
                   </div>
                 ))}

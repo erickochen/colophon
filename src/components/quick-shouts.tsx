@@ -58,7 +58,7 @@ export function QuickShouts({ draft, onInsert }: { draft: string; onInsert: (tex
         <TooltipContent>Saved shouts</TooltipContent>
       </Tooltip>
       <PopoverContent align="end" className="w-[19rem] p-0">
-        <div className="border-b px-3 py-2 text-[12px] font-medium">Saved shouts</div>
+        <div className="border-b px-3 py-2 text-12 font-medium">Saved shouts</div>
         <div className="max-h-64 overflow-y-auto">
           <div className="grid p-1">
             {list.map((s) =>
@@ -74,7 +74,7 @@ export function QuickShouts({ draft, onInsert }: { draft: string; onInsert: (tex
                       if (e.key === 'Escape') setRenaming(null)
                     }}
                     aria-label={`New name for ${s.name}`}
-                    className="h-8 flex-1 text-[12.5px]"
+                    className="h-8 flex-1 text-12-5"
                   />
                   <Button type="button" variant="ghost" size="icon" aria-label="Keep this name" className="size-8" onClick={commitRename}>
                     <Check className="size-3.5" />
@@ -90,8 +90,8 @@ export function QuickShouts({ draft, onInsert }: { draft: string; onInsert: (tex
                     }}
                     className="h-auto min-w-0 flex-1 flex-col items-start gap-0 px-1.5 py-1.5 text-left font-normal hover:bg-transparent"
                   >
-                    <span className="block w-full truncate text-[12.5px] font-medium">{s.name}</span>
-                    <span className="block w-full truncate text-[11.5px] text-muted-foreground">{s.text}</span>
+                    <span className="block w-full truncate text-12-5 font-medium">{s.name}</span>
+                    <span className="block w-full truncate text-11-5 text-muted-foreground">{s.text}</span>
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger
@@ -113,7 +113,7 @@ export function QuickShouts({ draft, onInsert }: { draft: string; onInsert: (tex
               )
             )}
             {list.length === 0 && (
-              <p className="px-2.5 py-6 text-center text-[12px] text-muted-foreground">
+              <p className="px-2.5 py-6 text-center text-12 text-muted-foreground">
                 No saved shouts yet. Type a shout, then save it here. Saved shouts stay in this
                 browser; the settings export backs them up.
               </p>
@@ -129,9 +129,9 @@ export function QuickShouts({ draft, onInsert }: { draft: string; onInsert: (tex
             placeholder="Save current text as…"
             aria-label="Name for the current text"
             disabled={!draft.trim()}
-            className="h-8 flex-1 text-[12.5px]"
+            className="h-8 flex-1 text-12-5"
           />
-          <Button type="button" size="sm" className="h-8 text-[12.5px]" disabled={!draft.trim() || !saveName.trim()} onClick={saveCurrent}>
+          <Button type="button" size="sm" className="h-8 text-12-5" disabled={!draft.trim() || !saveName.trim()} onClick={saveCurrent}>
             Save
           </Button>
         </div>

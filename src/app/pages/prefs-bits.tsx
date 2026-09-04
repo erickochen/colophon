@@ -52,7 +52,7 @@ export function PrefCard({
       {(title || note) && (
         <CardHeader className="!py-3.5">
           {title && <CardTitle>{title}</CardTitle>}
-          {note && <p className="pt-0.5 text-[12px] leading-normal text-muted-foreground">{note}</p>}
+          {note && <p className="pt-0.5 text-12 leading-normal text-muted-foreground">{note}</p>}
         </CardHeader>
       )}
       {children ? <CardContent className={cn('grid gap-4 px-6 py-5', contentClassName)}>{children}</CardContent> : null}
@@ -75,8 +75,8 @@ export function SettingRow({
   return (
     <div className={cn('grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-8', dense ? 'py-1.5' : 'py-1')}>
       <div className="min-w-0">
-        {title && <div className="text-[13.5px] font-medium leading-snug">{title}</div>}
-        {note && <p id={noteId} className="pt-1 text-[12px] leading-normal text-muted-foreground">{note}</p>}
+        {title && <div className="text-13-5 font-medium leading-snug">{title}</div>}
+        {note && <p id={noteId} className="pt-1 text-12 leading-normal text-muted-foreground">{note}</p>}
       </div>
       <div className="flex shrink-0 justify-end">{control}</div>
     </div>
@@ -93,7 +93,7 @@ export function MirrorSelect({
     <NativeSelect
       size={size}
       value={v}
-      className={cn('text-[13px]', className)}
+      className={cn('text-13', className)}
       onChange={(e) => {
         setV(e.target.value)
         el.value = e.target.value

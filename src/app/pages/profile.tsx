@@ -34,10 +34,10 @@ const NUMERIC = /^[\d.,]+(\s*[A-Za-z]{1,3})?$/
  * later still shows, as the image it serves. */
 function NameMark({ mark }: { mark: ProfileMark }) {
   if (/^donor$/i.test(mark.label)) {
-    return <span role="img" aria-label="Donor" title="Donor" className="text-[18px] leading-none text-warn">★</span>
+    return <span role="img" aria-label="Donor" title="Donor" className="text-18 leading-none text-warn">★</span>
   }
   if (/^disabled$/i.test(mark.label)) {
-    return <Badge variant="outline" className="h-5 border-warn/40 px-2 text-[11px] text-warn">Disabled</Badge>
+    return <Badge variant="outline" className="h-5 border-warn/40 px-2 text-11 text-warn">Disabled</Badge>
   }
   return <img src={mark.src} alt={mark.label} title={mark.label} className="h-4.5" />
 }
@@ -63,7 +63,7 @@ function DonationsCard({ d }: { d: Donations }) {
           <HeartHandshake className="size-4 text-brand" /> Donations
         </CardTitle>
         {d.total && (
-          <CardAction className="self-center text-[13px] font-medium tabular-nums">
+          <CardAction className="self-center text-13 font-medium tabular-nums">
             {currency ? `${d.total} ${currency}` : d.total}
           </CardAction>
         )}
@@ -86,7 +86,7 @@ function DonationsCard({ d }: { d: Donations }) {
                   {r.map((c, j) => (
                     <TableCell
                       key={j}
-                      className={numeric[j] ? 'text-right text-[13px] tabular-nums' : 'text-[13px] tabular-nums'}
+                      className={numeric[j] ? 'text-right text-13 tabular-nums' : 'text-13 tabular-nums'}
                     >
                       {c}
                     </TableCell>
@@ -96,7 +96,7 @@ function DonationsCard({ d }: { d: Donations }) {
             </TableBody>
           </Table>
         ) : (
-          <p className="px-4 py-6 text-center text-[13px] text-muted-foreground">Nothing recorded yet.</p>
+          <p className="px-4 py-6 text-center text-13 text-muted-foreground">Nothing recorded yet.</p>
         )}
       </CollapsibleSection>
     </Card>
@@ -133,7 +133,7 @@ function NotesCard({ uid }: { uid: string }) {
         <CardTitle className="flex items-center gap-2">
           <NotebookPen className="size-4 text-brand" /> Your notes
         </CardTitle>
-        <CardAction className="self-center text-[11.5px] text-muted-foreground">
+        <CardAction className="self-center text-11-5 text-muted-foreground">
           {savedFlash ? 'Saved' : 'Private, stored in this browser'}
         </CardAction>
       </CardHeader>
@@ -191,7 +191,7 @@ function GiftHistoryCard({ uid, name }: { uid: string; name: string }) {
         <CardTitle className="flex items-center gap-2">
           <Gift className="size-4 text-brand" /> Gifts between you two
         </CardTitle>
-        <CardAction className="self-center text-[11.5px] text-muted-foreground">recent history</CardAction>
+        <CardAction className="self-center text-11-5 text-muted-foreground">recent history</CardAction>
       </CardHeader>
       <CollapsibleSection title={`With ${name}`} count={rows.length} open={open} onOpenChange={setOpen}>
         {rows.length > 0 ? (
@@ -206,18 +206,18 @@ function GiftHistoryCard({ uid, name }: { uid: string; name: string }) {
             <TableBody>
               {rows.map((r, i) => (
                 <TableRow key={i}>
-                  <TableCell className="text-[13px] tabular-nums" title={utcTitle(r.at)}>{localDateTime(r.at)}</TableCell>
-                  <TableCell className="text-[13px]">{r.sent ? `You gave ${name}` : `${name} gave you`}</TableCell>
-                  <TableCell className="text-right text-[13px] tabular-nums">{r.what}</TableCell>
+                  <TableCell className="text-13 tabular-nums" title={utcTitle(r.at)}>{localDateTime(r.at)}</TableCell>
+                  <TableCell className="text-13">{r.sent ? `You gave ${name}` : `${name} gave you`}</TableCell>
+                  <TableCell className="text-right text-13 tabular-nums">{r.what}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         ) : (
-          <p className="px-4 py-6 text-center text-[13px] text-muted-foreground">No gifts between you two yet.</p>
+          <p className="px-4 py-6 text-center text-13 text-muted-foreground">No gifts between you two yet.</p>
         )}
         {rows.length === BONUS_EVENT_CAP && (
-          <p className="px-4 pb-3 pt-2 text-[11.5px] text-muted-foreground">Only the newest {BONUS_EVENT_CAP} gifts come back from the site.</p>
+          <p className="px-4 pb-3 pt-2 text-11-5 text-muted-foreground">Only the newest {BONUS_EVENT_CAP} gifts come back from the site.</p>
         )}
       </CollapsibleSection>
     </Card>
@@ -246,12 +246,12 @@ export function ProfileView(props: PageProps) {
           <AvatarFallback className="rounded-xl font-display text-2xl">{initials(data.name)}</AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
-          <h1 className="flex items-center gap-2.5 font-display text-[26px] font-semibold tracking-tight">
+          <h1 className="flex items-center gap-2.5 font-display text-26 font-semibold tracking-tight">
             {data.name}
             {data.marks.map((m) => <NameMark key={m.label + m.src} mark={m} />)}
             {data.country && <img src={data.country.flag} alt={data.country.name} title={data.country.name} className="h-4 rounded-[3px]" />}
           </h1>
-          <p className="text-[13px] text-muted-foreground">
+          <p className="text-13 text-muted-foreground">
             {data.fields.find((f) => f.label === 'Class')?.text ?? 'Member'}
             {data.uid && <> · #{data.uid}</>}
           </p>
@@ -308,7 +308,7 @@ export function ProfileView(props: PageProps) {
       {data.bioHtml && (
         <Card className="border-brand/20 bg-brand-soft/20 py-0">
           <CardContent className="py-4">
-            <RichHtml html={data.bioHtml} className="font-display text-[15px] leading-relaxed" />
+            <RichHtml html={data.bioHtml} className="font-display text-15 leading-relaxed" />
           </CardContent>
         </Card>
       )}
@@ -326,9 +326,9 @@ export function ProfileView(props: PageProps) {
             </CardHeader>
             <CardContent className="px-0 py-1">
               {g.fields.map((f) => (
-                <div key={f.label} className="grid grid-cols-[140px_minmax(0,1fr)] gap-3 px-6 py-2 text-[13px]">
+                <div key={f.label} className="grid grid-cols-[140px_minmax(0,1fr)] gap-3 px-6 py-2 text-13">
                   <span className="text-muted-foreground">{f.label}</span>
-                  <RichHtml html={f.html} className="text-[13px] [&_a]:no-underline [&_a:hover]:underline" />
+                  <RichHtml html={f.html} className="text-13 [&_a]:no-underline [&_a:hover]:underline" />
                 </div>
               ))}
             </CardContent>

@@ -90,21 +90,21 @@ function PersonCard({ p }: { p: Person }) {
         <a href={`/u/${p.id}`} className="shrink-0">
           <Avatar className="size-12 rounded-lg">
             {p.avatar && <AvatarImage src={p.avatar} alt="" />}
-            <AvatarFallback className="rounded-lg text-[13px] font-semibold">{initials(p.name)}</AvatarFallback>
+            <AvatarFallback className="rounded-lg text-13 font-semibold">{initials(p.name)}</AvatarFallback>
           </Avatar>
         </a>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <a href={`/u/${p.id}`} className="truncate text-[14px] font-semibold hover:underline">{p.name}</a>
-            {p.donor && <span title="Donor" className="text-[12px] text-warn">★</span>}
+            <a href={`/u/${p.id}`} className="truncate text-14 font-semibold hover:underline">{p.name}</a>
+            {p.donor && <span title="Donor" className="text-12 text-warn">★</span>}
           </div>
           <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-            {p.klass && <Badge variant="secondary" className="text-[10.5px]">{p.klass}</Badge>}
-            {p.lastSeen && <span className="text-[11.5px] text-muted-foreground">Seen {p.lastSeen}</span>}
+            {p.klass && <Badge variant="secondary" className="text-10-5">{p.klass}</Badge>}
+            {p.lastSeen && <span className="text-11-5 text-muted-foreground">Seen {p.lastSeen}</span>}
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {p.actions.map((a) => (
-              <Button key={a.href} asChild size="sm" variant="outline" className="h-7 text-[12px]">
+              <Button key={a.href} asChild size="sm" variant="outline" className="h-7 text-12">
                 <a href={a.href}>{actionIcon(a.label)} {a.label}</a>
               </Button>
             ))}
@@ -124,10 +124,10 @@ export function FriendsView(props: PageProps) {
       <PageHeader title="Friends" sub="The people you follow and the ones you would rather not hear from." />
       {lists.map((list) => (
         <section key={list.title} className="grid gap-3">
-          <h2 className="font-display flex items-center gap-2 text-[15px] font-semibold">
+          <h2 className="font-display flex items-center gap-2 text-15 font-semibold">
             {list.blocked ? <UserX className="size-4 text-muted-foreground" /> : <Users className="size-4 text-brand" />}
             {list.blocked ? 'Blocked' : 'Friends'}
-            <span className="text-[13px] font-normal text-muted-foreground">{list.people.length}</span>
+            <span className="text-13 font-normal text-muted-foreground">{list.people.length}</span>
           </h2>
           {list.people.length > 0 ? (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

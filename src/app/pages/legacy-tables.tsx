@@ -54,7 +54,7 @@ const EDGE = '[&_th:first-child]:pl-6 [&_td:first-child]:pl-6 [&_th:last-child]:
 /** Cell styling, with a cap on MAM's own icons, which arrive without the sizing
  * their stylesheet gives them. Status dots are styled in index.css. */
 const CELL = [
-  'whitespace-normal align-top text-[13px] [&_a]:text-brand [&_a]:underline',
+  'whitespace-normal align-top text-13 [&_a]:text-brand [&_a]:underline',
   '[&_img]:inline [&_img]:h-[1.15em] [&_img]:w-auto',
 ].join(' ')
 
@@ -285,7 +285,7 @@ function ConfirmSubmit({ action, onClose }: { action: SubmitAction; onClose: () 
             This goes to MyAnonaMouse right away and the page reloads with the result.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <div className="rounded-lg bg-muted/50 px-3 py-2 text-left text-[13px] leading-snug">{action.label}</div>
+        <div className="rounded-lg bg-muted/50 px-3 py-2 text-left text-13 leading-snug">{action.label}</div>
         <AlertDialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button>
           <Button onClick={go} disabled={busy}>
@@ -328,9 +328,9 @@ const NOTHING = 'Nothing here right now.'
 function TableView({ p }: { p: TablePart }) {
   return (
     <>
-      {p.caption && <div className="border-b px-6 py-2.5 text-[13px] font-medium">{p.caption}</div>}
+      {p.caption && <div className="border-b px-6 py-2.5 text-13 font-medium">{p.caption}</div>}
       {p.rows.length === 0 ? (
-        <CardContent className="py-8 text-center text-[13px] text-muted-foreground">{NOTHING}</CardContent>
+        <CardContent className="py-8 text-center text-13 text-muted-foreground">{NOTHING}</CardContent>
       ) : (
         <Table className={EDGE}>
           {p.headers.some(Boolean) && (
@@ -367,7 +367,7 @@ function SectionCard({ s }: { s: Section }) {
             <TableView p={p} />
           ) : (
             <CardContent className="py-5">
-              <RichHtml html={p.html} className="text-[13px] [&_h1]:my-2 [&_h1]:font-display [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:my-2 [&_h2]:text-[15px] [&_h2]:font-semibold" />
+              <RichHtml html={p.html} className="text-13 [&_h1]:my-2 [&_h1]:font-display [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:my-2 [&_h2]:text-15 [&_h2]:font-semibold" />
             </CardContent>
           )}
         </div>

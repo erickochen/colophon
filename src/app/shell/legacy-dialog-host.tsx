@@ -52,7 +52,7 @@ export function LegacyDialogHost({ host }: { host: HTMLElement }) {
         <DialogHeader>
           <DialogTitle className="font-display">{state?.title || 'MyAnonaMouse'}</DialogTitle>
         </DialogHeader>
-        <div className="max-h-[60vh] overflow-y-auto text-[13.5px] leading-relaxed">
+        <div className="max-h-[60vh] overflow-y-auto text-13-5 leading-relaxed">
           {/* MAM's #dialog-message stays a light-DOM node so their jQuery keeps
            * finding it; we only provide the frame around it. */}
           <slot name={DIALOG_SLOT} />

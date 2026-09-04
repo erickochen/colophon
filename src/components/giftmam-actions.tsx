@@ -160,9 +160,9 @@ function Recipient({ name }: { name: string }) {
   return (
     <div className="flex items-center gap-2.5 rounded-lg bg-muted/50 px-3 py-2">
       <Avatar className="size-8 rounded-md">
-        <AvatarFallback className="rounded-md bg-brand-soft text-[11px] font-semibold text-accent-foreground">{initials(name)}</AvatarFallback>
+        <AvatarFallback className="rounded-md bg-brand-soft text-11 font-semibold text-accent-foreground">{initials(name)}</AvatarFallback>
       </Avatar>
-      <span className="min-w-0 truncate text-[13.5px] font-semibold">{name}</span>
+      <span className="min-w-0 truncate text-13-5 font-semibold">{name}</span>
     </div>
   )
 }
@@ -196,7 +196,7 @@ function PointsDialog({ name, balance, state, onSend }: {
         </DialogHeader>
         <Recipient name={name} />
         <div className="grid gap-2">
-          <Label className="text-[12.5px] text-muted-foreground">How many points</Label>
+          <Label className="text-12-5 text-muted-foreground">How many points</Label>
           <AmountPicker
             label="Points to gift"
             value={points}
@@ -207,7 +207,7 @@ function PointsDialog({ name, balance, state, onSend }: {
             exact
             disabled={busy}
           />
-          <p className={cn('text-[12px]', short ? 'text-warn' : 'text-muted-foreground')}>
+          <p className={cn('text-12', short ? 'text-warn' : 'text-muted-foreground')}>
             {state === 'waiting'
               ? 'Finishing the previous gift first.'
               : short

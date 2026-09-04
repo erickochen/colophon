@@ -60,7 +60,7 @@ export function RatioFloorInput({
         }}
       />
       {!ok && (
-        <span id={hintId} className="text-[11.5px] text-destructive">
+        <span id={hintId} className="text-11-5 text-destructive">
           A number above 0
         </span>
       )}

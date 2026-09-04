@@ -32,7 +32,7 @@ export function TagLinks({ raw, limit, full = false, chips = false, className }:
               <a
                 key={`${seg.text}-${i}`}
                 href={tagSearchHref(seg.text)}
-                className="rounded-full border px-2 py-[3px] text-[11.5px] leading-none text-muted-foreground transition-colors hover:border-brand/40 hover:text-brand"
+                className="rounded-full border px-2 py-[3px] text-11-5 leading-none text-muted-foreground transition-colors hover:border-brand/40 hover:text-brand"
               >
                 {seg.text}
               </a>
@@ -40,7 +40,7 @@ export function TagLinks({ raw, limit, full = false, chips = false, className }:
           </span>
         )}
         {facts.length > 0 && (
-          <span className={cn('block text-[12.5px] text-muted-foreground', tags.length > 0 && 'mt-2')}>
+          <span className={cn('block text-12-5 text-muted-foreground', tags.length > 0 && 'mt-2')}>
             {facts.map((s) => s.text).join(' · ')}
           </span>
         )}

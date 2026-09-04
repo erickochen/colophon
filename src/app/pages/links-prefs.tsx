@@ -71,7 +71,7 @@ function LinkRow({ link, onDelete }: { link: TinyLink; onDelete: (link: TinyLink
     <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-6 py-3.5">
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-1.5">
-          <a href={link.shortHref} className="truncate font-mono text-[13px] text-brand hover:underline" title={link.shortHref}>
+          <a href={link.shortHref} className="truncate font-mono text-13 text-brand hover:underline" title={link.shortHref}>
             {shown || link.code}
           </a>
           <Button
@@ -84,7 +84,7 @@ function LinkRow({ link, onDelete }: { link: TinyLink; onDelete: (link: TinyLink
             <Copy className="size-3.5" />
           </Button>
         </div>
-        <div className="truncate pt-0.5 text-[12px] text-muted-foreground" title={link.target}>
+        <div className="truncate pt-0.5 text-12 text-muted-foreground" title={link.target}>
           {link.target}
           {link.note && <span> · {link.note}</span>}
         </div>
@@ -148,8 +148,8 @@ function LinksForm({ d }: { d: LinksData }) {
         ) : (
           <div className="grid justify-items-center gap-1.5 px-6 py-10 text-center">
             <Link2 className="size-5 text-muted-foreground/60" />
-            <p className="text-[13.5px] font-medium">No tiny URLs yet</p>
-            <p className="max-w-sm text-[12.5px] leading-normal text-muted-foreground">
+            <p className="text-13-5 font-medium">No tiny URLs yet</p>
+            <p className="max-w-sm text-12-5 leading-normal text-muted-foreground">
               Turn a long link, like a saved search, into a short one you can paste anywhere.
             </p>
           </div>
@@ -159,7 +159,7 @@ function LinksForm({ d }: { d: LinksData }) {
       {(d.urlEl || d.noteEl) && (
         <PrefCard title={<span className="flex items-center gap-2"><Plus className="size-4" /> Add a link</span>}>
           <div className="grid gap-1.5">
-            <Label className="text-[13px]">Long link</Label>
+            <Label className="text-13">Long link</Label>
             <Input
               type="url"
               value={url}
@@ -168,7 +168,7 @@ function LinksForm({ d }: { d: LinksData }) {
             />
           </div>
           <div className="grid gap-1.5">
-            <Label className="text-[13px]">Note <span className="font-normal text-muted-foreground">(optional, max 100)</span></Label>
+            <Label className="text-13">Note <span className="font-normal text-muted-foreground">(optional, max 100)</span></Label>
             <Input
               type="text"
               maxLength={100}

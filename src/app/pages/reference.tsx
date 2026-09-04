@@ -70,13 +70,13 @@ function TagCard({ tag, copy, copied }: { tag: BbTag; copy: (t: string, w: strin
       <CardContent className="grid gap-3 py-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="font-display text-[15px] font-semibold">{tag.name}</div>
-            {tag.description && <p className="pt-0.5 text-[12.5px] leading-normal text-muted-foreground">{tag.description}</p>}
+            <div className="font-display text-15 font-semibold">{tag.name}</div>
+            {tag.description && <p className="pt-0.5 text-12-5 leading-normal text-muted-foreground">{tag.description}</p>}
           </div>
           <Button
             size="sm"
             variant="outline"
-            className="h-7 shrink-0 text-[12px]"
+            className="h-7 shrink-0 text-12"
             onClick={() => copy(tag.example || tag.syntax, tag.name)}
           >
             {isCopied ? <Check className="text-ok" /> : <Copy />} {isCopied ? 'Copied' : 'Copy'}
@@ -85,23 +85,23 @@ function TagCard({ tag, copy, copied }: { tag: BbTag; copy: (t: string, w: strin
 
         <div className="grid gap-2 sm:grid-cols-2">
           <div className="grid gap-1">
-            <span className="text-[10.5px] uppercase tracking-wide text-muted-foreground">You type</span>
-            <code className="block rounded-md bg-muted px-2.5 py-2 font-mono text-[12px] [overflow-wrap:anywhere]">
+            <span className="text-10-5 uppercase tracking-wide text-muted-foreground">You type</span>
+            <code className="block rounded-md bg-muted px-2.5 py-2 font-mono text-12 [overflow-wrap:anywhere]">
               {tag.example || tag.syntax}
             </code>
           </div>
           <div className="grid gap-1">
-            <span className="text-[10.5px] uppercase tracking-wide text-muted-foreground">You get</span>
+            <span className="text-10-5 uppercase tracking-wide text-muted-foreground">You get</span>
             {/* Rendered with the same BBCode renderer as the composer preview,
              * so what you see here is exactly what the editor will show. */}
             <div
-              className="rounded-md border px-2.5 py-2 text-[13px] [overflow-wrap:anywhere] [&_a]:text-brand [&_a]:underline [&_.quote]:rounded [&_.quote]:bg-muted [&_.quote]:px-2 [&_.quote]:py-1.5 [&_.quote>span]:mb-1 [&_.quote>span]:block [&_.quote>span]:text-[11.5px] [&_.quote>span]:font-semibold [&_.quote>span]:text-muted-foreground [&_img]:max-h-16 [&_li]:ml-4 [&_ol]:list-decimal [&_pre]:bg-muted [&_pre]:p-1.5 [&_pre]:font-mono [&_pre]:text-[11.5px] [&_ul]:list-disc"
+              className="rounded-md border px-2.5 py-2 text-13 [overflow-wrap:anywhere] [&_a]:text-brand [&_a]:underline [&_.quote]:rounded [&_.quote]:bg-muted [&_.quote]:px-2 [&_.quote]:py-1.5 [&_.quote>span]:mb-1 [&_.quote>span]:block [&_.quote>span]:text-11-5 [&_.quote>span]:font-semibold [&_.quote>span]:text-muted-foreground [&_img]:max-h-16 [&_li]:ml-4 [&_ol]:list-decimal [&_pre]:bg-muted [&_pre]:p-1.5 [&_pre]:font-mono [&_pre]:text-11-5 [&_ul]:list-disc"
               dangerouslySetInnerHTML={{ __html: bbToHtml(tag.example || tag.syntax) }}
             />
           </div>
         </div>
 
-        {tag.remarks && <p className="text-[11.5px] leading-normal text-muted-foreground">{tag.remarks}</p>}
+        {tag.remarks && <p className="text-11-5 leading-normal text-muted-foreground">{tag.remarks}</p>}
       </CardContent>
     </Card>
   )
@@ -179,7 +179,7 @@ export function SmiliesView(props: PageProps) {
       <PageHeader title="Smilies" sub={`${smilies.length} smilies. Click one to copy its code.`} />
 
       <FilterSearch value={q} onChange={setQ} placeholder="Search a smilie, like wave or party…" className="max-w-md" />
-      {needle && <p className="-mt-2 text-[12.5px] text-muted-foreground">{shown.length} of {smilies.length} match</p>}
+      {needle && <p className="-mt-2 text-12-5 text-muted-foreground">{shown.length} of {smilies.length} match</p>}
 
       {shown.length > 0 ? (
         <Card className="py-0">
@@ -198,7 +198,7 @@ export function SmiliesView(props: PageProps) {
                   )}
                 >
                   <img src={s.src} alt={s.code} loading="lazy" className="h-6 object-contain" />
-                  <span className={cn('truncate font-mono text-[10.5px]', isCopied ? 'text-ok' : 'text-muted-foreground')}>
+                  <span className={cn('truncate font-mono text-10-5', isCopied ? 'text-ok' : 'text-muted-foreground')}>
                     {isCopied ? 'copied' : s.code}
                   </span>
                 </Button>

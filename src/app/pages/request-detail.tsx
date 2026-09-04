@@ -132,17 +132,17 @@ export function RequestDetailView(props: PageProps) {
           {language && <Badge variant="outline">{language.text}</Badge>}
           {data.votes != null && <Badge className="bg-brand-soft text-accent-foreground" variant="secondary">{data.votes} votes</Badge>}
         </div>
-        <h1 className="font-display text-[28px] font-semibold leading-tight tracking-tight">
+        <h1 className="font-display text-28 font-semibold leading-tight tracking-tight">
           {title?.text || props.page.title}
         </h1>
         {/* MAM puts no separator between the author links, so use the names. */}
         {author && (
-          <p className="text-[14.5px] text-muted-foreground">
+          <p className="text-14-5 text-muted-foreground">
             by {data.authorNames.length > 0 ? data.authorNames.join(', ') : author.text}
           </p>
         )}
         {linksOn && searchTitle && (
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12.5px] text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-12-5 text-muted-foreground">
             <ExternalSearchLinks title={searchTitle} author={searchAuthor} />
           </div>
         )}
@@ -165,7 +165,7 @@ export function RequestDetailView(props: PageProps) {
       {desc && (
         <Card>
           <CardContent>
-            <h2 className="font-display pb-2 text-[15px] font-semibold">Description</h2>
+            <h2 className="font-display pb-2 text-15 font-semibold">Description</h2>
             <RichHtml html={desc.html} />
           </CardContent>
         </Card>
@@ -175,8 +175,8 @@ export function RequestDetailView(props: PageProps) {
         <Card>
           <CardContent className="grid gap-4">
             <div className="grid gap-1">
-              <h2 className="font-display text-[15px] font-semibold">Fill this request</h2>
-              <p className="text-[13px] text-muted-foreground">
+              <h2 className="font-display text-15 font-semibold">Fill this request</h2>
+              <p className="text-13 text-muted-foreground">
                 Add a torrent that satisfies this request or mark it filled if one already exists.
               </p>
             </div>
@@ -213,9 +213,9 @@ export function RequestDetailView(props: PageProps) {
       <Card className="py-0">
         <CardContent className="px-6 py-1">
           {rest.map((r, i) => (
-            <div key={i} className="grid grid-cols-[150px_minmax(0,1fr)] gap-3 py-2.5 text-[13.5px]">
+            <div key={i} className="grid grid-cols-[150px_minmax(0,1fr)] gap-3 py-2.5 text-13-5">
               <span className="text-muted-foreground">{r.label || '–'}</span>
-              <RichHtml html={r.html} className="text-[13.5px]" />
+              <RichHtml html={r.html} className="text-13-5" />
             </div>
           ))}
         </CardContent>

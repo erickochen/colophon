@@ -93,15 +93,15 @@ function PickCard({ p, pile }: { p: Pick; pile?: string | null }) {
           className="group-hover:shadow-book-lift"
         />
         {p.format && (
-          <span className="absolute right-1 top-1 z-3 rounded bg-black/55 px-1 py-0.5 font-mono text-[8.5px] font-semibold uppercase tracking-wide text-white backdrop-blur-[2px]">{p.format}</span>
+          <span className="absolute right-1 top-1 z-3 rounded bg-black/55 px-1 py-0.5 font-mono text-8-5 font-semibold uppercase tracking-wide text-white backdrop-blur-[2px]">{p.format}</span>
         )}
-        <span className="absolute bottom-1.5 left-1.5 z-3 flex items-center gap-1 rounded-full bg-card/90 px-1.5 py-0.5 text-[8.5px] font-semibold tracking-wide text-ok">
+        <span className="absolute bottom-1.5 left-1.5 z-3 flex items-center gap-1 rounded-full bg-card/90 px-1.5 py-0.5 text-8-5 font-semibold tracking-wide text-ok">
           <Sparkles className="size-2.5" /> FL
         </span>
       </span>
       <div className="grid gap-0.5">
-        <span className="font-display line-clamp-2 text-[13px] font-medium leading-snug group-hover:underline">{p.title}</span>
-        {p.author && <span className="line-clamp-1 text-[11px] text-muted-foreground">{p.author}</span>}
+        <span className="font-display line-clamp-2 text-13 font-medium leading-snug group-hover:underline">{p.title}</span>
+        {p.author && <span className="line-clamp-1 text-11 text-muted-foreground">{p.author}</span>}
         {/* A pick you already hold, since the point of this page is finding one
             you have not read. */}
         {snatchMarked(pile) && (
@@ -131,23 +131,23 @@ export function BookClubsView(props: PageProps) {
 
       {data.clubs.length > 0 && (
         <section className="grid gap-3">
-          <h2 className="font-display text-[15px] font-semibold">The clubs</h2>
+          <h2 className="font-display text-15 font-semibold">The clubs</h2>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {data.clubs.map((c, i) => (
               <BlurFade key={c.href ?? c.name} delay={0.03 * i} direction="up" offset={8}>
                 <Card className="h-full py-0 transition-colors hover:border-brand/40">
                   <CardContent className="flex h-full flex-col gap-1.5 py-5">
                     <div className="flex items-start justify-between gap-2">
-                      <a href={c.href ?? '#'} className="font-display text-[15px] font-semibold leading-snug hover:text-brand hover:underline">
+                      <a href={c.href ?? '#'} className="font-display text-15 font-semibold leading-snug hover:text-brand hover:underline">
                         {c.name}
                       </a>
                       {c.inactive ? (
-                        <Badge variant="outline" className="shrink-0 text-[10px] text-muted-foreground">inactive</Badge>
+                        <Badge variant="outline" className="shrink-0 text-10 text-muted-foreground">inactive</Badge>
                       ) : (
                         <ArrowUpRight className="size-4 shrink-0 text-muted-foreground" />
                       )}
                     </div>
-                    {c.desc && <p className="line-clamp-4 text-[12.5px] leading-normal text-muted-foreground">{c.desc}</p>}
+                    {c.desc && <p className="line-clamp-4 text-12-5 leading-normal text-muted-foreground">{c.desc}</p>}
                   </CardContent>
                 </Card>
               </BlurFade>
@@ -159,16 +159,16 @@ export function BookClubsView(props: PageProps) {
       {data.cats.length > 0 && (
         <section className="grid gap-4">
           <div className="flex flex-wrap items-end justify-between gap-2">
-            <h2 className="font-display text-[15px] font-semibold">This month's picks</h2>
+            <h2 className="font-display text-15 font-semibold">This month's picks</h2>
             {data.suggestHref && (
-              <a href={data.suggestHref} className="inline-flex items-center gap-1 text-[12.5px] font-medium text-brand hover:underline">
+              <a href={data.suggestHref} className="inline-flex items-center gap-1 text-12-5 font-medium text-brand hover:underline">
                 Suggestion &amp; discussion threads <ArrowUpRight className="size-3.5" />
               </a>
             )}
           </div>
           {data.cats.map((cat) => (
             <div key={cat.name} className="grid gap-2.5">
-              <h3 className="flex items-center gap-2 text-[13.5px] font-semibold text-muted-foreground">
+              <h3 className="flex items-center gap-2 text-13-5 font-semibold text-muted-foreground">
                 <BookOpen className="size-3.5" /> {cat.name}
               </h3>
               <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">

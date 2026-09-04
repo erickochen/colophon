@@ -99,7 +99,7 @@ export function ForumComposeView(props: PageProps) {
         <Card>
           <CardContent className="grid gap-4">
             <div className="grid gap-1.5">
-              <Label htmlFor="topic-subject" className="text-[12.5px] text-muted-foreground">Subject</Label>
+              <Label htmlFor="topic-subject" className="text-12-5 text-muted-foreground">Subject</Label>
               <Input
                 id="topic-subject"
                 value={subject}
@@ -111,9 +111,9 @@ export function ForumComposeView(props: PageProps) {
               />
             </div>
             <div className="grid gap-1.5">
-              <Label className="text-[12.5px] text-muted-foreground">Post</Label>
+              <Label className="text-12-5 text-muted-foreground">Post</Label>
               <BBComposer value={body} onChange={setBodySynced} placeholder="Write your first post…" minHeightClass="min-h-56" />
-              <div className="flex items-center gap-3 pt-0.5 text-[11.5px] text-muted-foreground">
+              <div className="flex items-center gap-3 pt-0.5 text-11-5 text-muted-foreground">
                 <a href="/tags.php" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-foreground"><Tag className="size-3" /> BBCode tags</a>
                 <a href="/smilies.php" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-foreground"><Smile className="size-3" /> Smilies</a>
               </div>
@@ -128,7 +128,7 @@ export function ForumComposeView(props: PageProps) {
       >
         {model.jumpOptions.length > 0 ? (
           <Select onValueChange={(v) => { if (v) location.href = `/f/b/${v}` }}>
-            <SelectTrigger size="sm" className="w-fit min-w-52 max-w-full text-[12.5px]">
+            <SelectTrigger size="sm" className="w-fit min-w-52 max-w-full text-12-5">
               <SelectValue placeholder="Jump to another forum…" />
             </SelectTrigger>
             <SelectContent className="max-h-72">

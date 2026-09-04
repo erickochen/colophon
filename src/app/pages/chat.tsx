@@ -39,8 +39,8 @@ export function ChatView({ page, host }: PageProps) {
             <CardContent className="grid justify-items-start gap-3">
               <span className="flex size-11 items-center justify-center rounded-lg bg-brand-soft"><MessageCircle className="size-5 text-accent-foreground" /></span>
               <div>
-                <div className="font-display text-[16px] font-semibold">#anonamouse.net</div>
-                <p className="pt-0.5 text-[12.5px] text-muted-foreground">The main channel for books, banter and everything in between.</p>
+                <div className="font-display text-16 font-semibold">#anonamouse.net</div>
+                <p className="pt-0.5 text-12-5 text-muted-foreground">The main channel for books, banter and everything in between.</p>
               </div>
               <Button onClick={() => join('anonamouse.net', '#anonamouse.net')}>Join the chat</Button>
             </CardContent>
@@ -49,8 +49,8 @@ export function ChatView({ page, host }: PageProps) {
             <CardContent className="grid justify-items-start gap-3">
               <span className="flex size-11 items-center justify-center rounded-lg bg-brand-soft"><LifeBuoy className="size-5 text-accent-foreground" /></span>
               <div>
-                <div className="font-display text-[16px] font-semibold">#help</div>
-                <p className="pt-0.5 text-[12.5px] text-muted-foreground">Stuck with your client or account? Staff hangs out here.</p>
+                <div className="font-display text-16 font-semibold">#help</div>
+                <p className="pt-0.5 text-12-5 text-muted-foreground">Stuck with your client or account? Staff hangs out here.</p>
               </div>
               <Button variant="outline" onClick={() => join('help', '#help')}>Get support</Button>
             </CardContent>
@@ -60,8 +60,8 @@ export function ChatView({ page, host }: PageProps) {
         <Card className="overflow-hidden py-0">
           <CardContent className="p-0">
             <div className="flex items-center justify-between bg-muted/40 px-4 py-2">
-              <span className="text-[13px] font-medium">{channel}</span>
-              <a href="/chathelp.php" className="text-[12px] text-brand underline">Use your own IRC client instead</a>
+              <span className="text-13 font-medium">{channel}</span>
+              <a href="/chathelp.php" className="text-12 text-brand underline">Use your own IRC client instead</a>
             </div>
             <slot name="irc" />
           </CardContent>

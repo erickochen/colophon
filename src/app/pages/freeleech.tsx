@@ -309,9 +309,9 @@ export function FreeleechView(props: PageProps) {
           )
         }
       />
-      {data.seedNote && <p className="text-[12.5px] text-muted-foreground">{data.seedNote}</p>}
+      {data.seedNote && <p className="text-12-5 text-muted-foreground">{data.seedNote}</p>}
       {checkFailed && (
-        <p className="text-[12.5px] text-muted-foreground">
+        <p className="text-12-5 text-muted-foreground">
           {have
             ? 'Could not refresh your snatch list, so these marks are the ones from last time.'
             : 'Could not read your snatch list, so the picks you already have are not marked.'}{' '}
@@ -337,7 +337,7 @@ export function FreeleechView(props: PageProps) {
             />
           )}
           {checking && (
-            <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+            <span className="flex items-center gap-1.5 text-12 text-muted-foreground">
               <Loader2 className="size-3.5 animate-spin" /> Checking your snatches
             </span>
           )}
@@ -363,11 +363,11 @@ export function FreeleechView(props: PageProps) {
           </FilterFacet>
           <FilterSelect value={groupBy} onChange={setGroupBy} options={GROUP_BY} ariaLabel="Group picks by" />
           <div className="ml-auto flex items-center gap-1">
-            <Button variant="ghost" size="sm" className="h-8 text-[12.5px]" onClick={toggleAll}>
+            <Button variant="ghost" size="sm" className="h-8 text-12-5" onClick={toggleAll}>
               {allOpen ? 'Collapse all' : 'Expand all'}
             </Button>
             {data.searchHref && (
-              <Button variant="ghost" size="sm" className="h-8 text-[12.5px]" asChild>
+              <Button variant="ghost" size="sm" className="h-8 text-12-5" asChild>
                 <a href={data.searchHref}>Open in search</a>
               </Button>
             )}
@@ -392,16 +392,16 @@ export function FreeleechView(props: PageProps) {
       {/* The count sits on the list it counts, the same head the other lists use. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-muted/25 px-6 py-2">
         {/* Filtering never reloads, so the count is what reports the outcome. */}
-        <span role="status" className="text-[12.5px] tabular-nums text-muted-foreground">
+        <span role="status" className="text-12-5 tabular-nums text-muted-foreground">
           {filtering
             ? `${matches.length.toLocaleString()} of ${total.toLocaleString()} picks`
             : `${total.toLocaleString()} picks in ${sections.length} ${sections.length === 1 ? 'group' : 'groups'}`}
         </span>
         {placements > matches.length && (
-          <span className="text-[12px] text-muted-foreground">A book with more than one genre sits under each of them.</span>
+          <span className="text-12 text-muted-foreground">A book with more than one genre sits under each of them.</span>
         )}
         {index?.partial && (
-          <span className="text-[12px] text-muted-foreground">Your snatch list is long, so its tail is unchecked.</span>
+          <span className="text-12 text-muted-foreground">Your snatch list is long, so its tail is unchecked.</span>
         )}
       </div>
       {sections.map((s) => (
@@ -422,18 +422,18 @@ export function FreeleechView(props: PageProps) {
                     pulling a thousand originals for one page. */}
                 <Book poster={coverThumbUrl(Number(i.tid))} title={i.title} shape={coverShape({ mediatype: i.mediaTypeId })} size="mini" plain className="w-12 shrink-0" />
                 <span className="min-w-0">
-                  <span className="font-display block truncate text-[13px] font-medium group-hover:underline">{i.title}</span>
+                  <span className="font-display block truncate text-13 font-medium group-hover:underline">{i.title}</span>
                   <span className="mt-0.5 flex flex-wrap items-center gap-1">
-                    {i.author && <span className="truncate text-[11.5px] text-muted-foreground">{i.author}</span>}
+                    {i.author && <span className="truncate text-11-5 text-muted-foreground">{i.author}</span>}
                     {(() => {
                       const pile = have?.get(Number(i.tid))
                       if (!pile) return null
                       const read = pileBadge(readPile(pile))
                       return <SnatchBadge text={read.text} tone={read.tone} title={pile} dense />
                     })()}
-                    {i.language && <Badge variant="outline" className="h-4 px-1 text-[9.5px]">{i.language}</Badge>}
+                    {i.language && <Badge variant="outline" className="h-4 px-1 text-9-5">{i.language}</Badge>}
                     {i.cats.slice(0, 2).map((c) => (
-                      <Badge key={c.name} variant="secondary" className="h-4 px-1 text-[9.5px] font-normal">{c.name}</Badge>
+                      <Badge key={c.name} variant="secondary" className="h-4 px-1 text-9-5 font-normal">{c.name}</Badge>
                     ))}
                   </span>
                 </span>

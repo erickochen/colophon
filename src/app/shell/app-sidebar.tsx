@@ -246,7 +246,7 @@ function Badge({ value, accent }: { value: NavItem['badge']; accent?: boolean })
     <SidebarMenuBadge
       key={String(value)}
       className={cn(
-        'badge-pop font-mono text-[11px] font-normal',
+        'badge-pop font-mono text-11 font-normal',
         accent ? 'rounded-full bg-brand-soft text-accent-foreground' : 'bg-transparent text-muted-foreground'
       )}
     >
@@ -268,7 +268,7 @@ function PeekPopover({ item, children }: { item: NavItem; children: ReactNode })
         {children}
       </PopoverTrigger>
       <PopoverContent side="right" align="start" sideOffset={10} className="w-72 p-1.5">
-        <div className="px-2 pt-1.5 pb-1 text-[10px] font-semibold tracking-[0.09em] text-muted-foreground uppercase">
+        <div className="px-2 pt-1.5 pb-1 text-10 font-semibold tracking-[0.09em] text-muted-foreground uppercase">
           {item.title}
         </div>
         {entries === null && (
@@ -278,16 +278,16 @@ function PeekPopover({ item, children }: { item: NavItem; children: ReactNode })
           </div>
         )}
         {entries === 'failed' && (
-          <p className="px-2 py-1.5 text-[12.5px] text-muted-foreground">The list did not load. The link still works.</p>
+          <p className="px-2 py-1.5 text-12-5 text-muted-foreground">The list did not load. The link still works.</p>
         )}
         {Array.isArray(entries) && entries.length === 0 && (
-          <p className="px-2 py-1.5 text-[12.5px] text-muted-foreground">Nothing new right now.</p>
+          <p className="px-2 py-1.5 text-12-5 text-muted-foreground">Nothing new right now.</p>
         )}
         {Array.isArray(entries) &&
           entries.map((e, i) => (
             <a key={i} href={e.href} className="grid gap-0.5 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/60">
-              <span className="truncate text-[13px]">{e.title}</span>
-              {e.sub && <span className="truncate text-[11.5px] text-muted-foreground">{e.sub}</span>}
+              <span className="truncate text-13">{e.title}</span>
+              {e.sub && <span className="truncate text-11-5 text-muted-foreground">{e.sub}</span>}
             </a>
           ))}
       </PopoverContent>
@@ -332,18 +332,18 @@ function GroupFlyout({ group }: { group: NavGroup }) {
         <ChevronRight className="size-3 text-sidebar-foreground/35 transition-[opacity,translate,color] duration-200 group-hover/head:translate-x-0.5 group-hover/head:text-brand" />
       </PopoverTrigger>
       <PopoverContent side="right" align="start" sideOffset={10} className="w-52 p-1.5">
-        <div className="px-2 pt-1.5 pb-1 text-[10px] font-semibold tracking-[0.09em] text-muted-foreground uppercase">
+        <div className="px-2 pt-1.5 pb-1 text-10 font-semibold tracking-[0.09em] text-muted-foreground uppercase">
           More in {group.label}
         </div>
         {group.more.map((item) => (
           <a
             key={item.href}
             href={item.href}
-            className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors hover:bg-accent/60"
+            className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-13 transition-colors hover:bg-accent/60"
           >
             {item.title}
             {item.badge != null && item.badge !== 0 && (
-              <span className="font-mono text-[11px] text-muted-foreground">{item.badge}</span>
+              <span className="font-mono text-11 text-muted-foreground">{item.badge}</span>
             )}
           </a>
         ))}
@@ -418,13 +418,13 @@ export function AppSidebar({ page, counts }: { page: ShellData; counts: NotifCou
         >
           {/* 16px slot keeps the wordmark on the nav label rail; the 24px mark overhangs it, centered on the icon axis. */}
           <span className="flex size-4 shrink-0 items-center justify-center">
-            <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary font-display text-[13px] font-bold text-primary-foreground">M</span>
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary font-display text-13 font-bold text-primary-foreground">M</span>
           </span>
           <span className="grid leading-tight group-data-[collapsible=icon]:hidden">
-            <span className="font-display text-[15px] font-semibold">MyAnonaMouse</span>
-            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <span className="font-display text-15 font-semibold">MyAnonaMouse</span>
+            <span className="flex items-center gap-1 text-11 text-muted-foreground">
               Colophon
-              <span className="rounded bg-brand-soft px-1 py-px text-[8.5px] font-semibold uppercase leading-none tracking-wide text-accent-foreground">beta</span>
+              <span className="rounded bg-brand-soft px-1 py-px text-8-5 font-semibold uppercase leading-none tracking-wide text-accent-foreground">beta</span>
             </span>
           </span>
         </a>

@@ -37,10 +37,10 @@ function Field({
 }: { icon: ComponentType<{ className?: string }>; label: string; hint?: string; htmlFor?: string; children: ReactNode }) {
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor={htmlFor} className="flex items-center gap-1.5 text-[13px] font-medium">
+      <Label htmlFor={htmlFor} className="flex items-center gap-1.5 text-13 font-medium">
         <Icon className="size-3.5 text-muted-foreground" /> {label}
       </Label>
-      {hint && <p className="-mt-0.5 text-[12px] leading-snug text-muted-foreground">{hint}</p>}
+      {hint && <p className="-mt-0.5 text-12 leading-snug text-muted-foreground">{hint}</p>}
       {children}
     </div>
   )
@@ -76,7 +76,7 @@ export function InvitesView(props: PageProps) {
         <Card className="border-ok/40 bg-ok/5">
           <CardContent className="flex gap-3">
             <CircleCheck className="mt-0.5 size-5 shrink-0 text-ok" />
-            <p className="text-[13px] leading-snug">{data.sentNote}</p>
+            <p className="text-13 leading-snug">{data.sentNote}</p>
           </CardContent>
         </Card>
       )}
@@ -96,8 +96,8 @@ export function InvitesView(props: PageProps) {
             <TableBody>
               {data.unstarted.map((r, i) => (
                 <TableRow key={i}>
-                  <TableCell className="text-[13px] tabular-nums" title={utcTitle(r.added)}>{localDate(r.added)}</TableCell>
-                  <TableCell className="text-[13px] tabular-nums" title={utcTitle(r.expires)}>{localDate(r.expires)}</TableCell>
+                  <TableCell className="text-13 tabular-nums" title={utcTitle(r.added)}>{localDate(r.added)}</TableCell>
+                  <TableCell className="text-13 tabular-nums" title={utcTitle(r.expires)}>{localDate(r.expires)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -128,7 +128,7 @@ export function InvitesView(props: PageProps) {
                     // like dates, which would otherwise break at their hyphens.
                     <TableCell
                       key={j}
-                      className={j === 0 ? 'w-full whitespace-normal align-top text-[13px]' : 'align-top text-[13px] tabular-nums'}
+                      className={j === 0 ? 'w-full whitespace-normal align-top text-13' : 'align-top text-13 tabular-nums'}
                     >
                       {c}
                     </TableCell>
@@ -173,8 +173,8 @@ function SendConfirm({
         {/* min-w-0 gives the nowrap address a floor to truncate against; a grid
             item otherwise sizes to its min-content. */}
         <div className="min-w-0 rounded-lg bg-muted/50 px-3 py-2 text-left">
-          <p className="truncate text-[13.5px] font-semibold" title={email}>{email}</p>
-          <p className="mt-0.5 text-[12px] text-muted-foreground">
+          <p className="truncate text-13-5 font-semibold" title={email}>{email}</p>
+          <p className="mt-0.5 text-12 text-muted-foreground">
             {hasMessage ? 'With your message' : 'No message'}
             {stock != null && <>{' · '}{plural(stock, 'invite')}, {stock - 1} after this</>}
           </p>
@@ -200,7 +200,7 @@ function NoForm(props: PageProps) {
       <Card>
         <CardContent>
           {html ? (
-            <RichHtml html={html} className="text-[13px]" />
+            <RichHtml html={html} className="text-13" />
           ) : (
             <Empty>
               <EmptyHeader>
@@ -294,7 +294,7 @@ export function SendInviteView(props: PageProps) {
           <Card className="border-warn/40 bg-warn/5">
             <CardContent className="flex gap-3">
               <TriangleAlert className="mt-0.5 size-5 shrink-0 text-warn" />
-              <p className="text-[13px] leading-snug text-muted-foreground">{model.ipWarning}</p>
+              <p className="text-13 leading-snug text-muted-foreground">{model.ipWarning}</p>
             </CardContent>
           </Card>
         )}
@@ -303,7 +303,7 @@ export function SendInviteView(props: PageProps) {
           ref={bottomDockRef}
           className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-background/95 px-4 py-2.5 shadow-lg backdrop-blur"
         >
-          <span className="text-[12px] text-muted-foreground">You confirm before anything is sent</span>
+          <span className="text-12 text-muted-foreground">You confirm before anything is sent</span>
           <Button type="submit" size="sm" disabled={!valid}><Send /> Send invite</Button>
         </div>
       </form>

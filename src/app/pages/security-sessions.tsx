@@ -246,32 +246,32 @@ function ManagePanel({ s, m }: { s: Session; m: ManageData }) {
     <div className="grid gap-4 rounded-lg bg-muted/40 px-4 py-3.5">
       {asnLocked ? (
         <div className="grid gap-1.5">
-          <span className="text-[12.5px] font-medium">Locked to these providers</span>
+          <span className="text-12-5 font-medium">Locked to these providers</span>
           <div className="flex flex-wrap gap-1.5">
             {asnList.length > 0 ? (
               asnList.map((asn) => (
-                <Badge key={asn} variant="secondary" className="font-mono text-[11px]">AS{asn}</Badge>
+                <Badge key={asn} variant="secondary" className="font-mono text-11">AS{asn}</Badge>
               ))
             ) : (
-              <span className="text-[12px] text-muted-foreground">Provider list unavailable</span>
+              <span className="text-12 text-muted-foreground">Provider list unavailable</span>
             )}
           </div>
-          <Label className="pt-2 text-[12.5px]">Add another provider via an IP address</Label>
+          <Label className="pt-2 text-12-5">Add another provider via an IP address</Label>
           <Input
             value={addIp}
             onChange={(e) => setAddIp(e.target.value)}
             placeholder="10.2.3.4"
-            className="h-8 max-w-48 font-mono text-[13px]"
+            className="h-8 max-w-48 font-mono text-13"
           />
-          <p className="text-[11.5px] leading-normal text-muted-foreground">
+          <p className="text-11-5 leading-normal text-muted-foreground">
             The provider that owns this address is added to the session.
           </p>
         </div>
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-2">
           <div className="min-w-0">
-            <div className="text-[12.5px] font-medium">Switch to ASN lock</div>
-            <p className="pt-0.5 text-[11.5px] leading-normal text-muted-foreground">
+            <div className="text-12-5 font-medium">Switch to ASN lock</div>
+            <p className="pt-0.5 text-11-5 leading-normal text-muted-foreground">
               Now locked to {m.ip ?? s.ip ?? 'one address'}. An ASN lock follows the whole provider instead.
             </p>
           </div>
@@ -281,8 +281,8 @@ function ManagePanel({ s, m }: { s: Session; m: ManageData }) {
 
       <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-2">
         <div className="min-w-0">
-          <div className="text-[12.5px] font-medium">May set the dynamic seedbox IP</div>
-          <p className="pt-0.5 text-[11.5px] leading-normal text-muted-foreground">
+          <div className="text-12-5 font-medium">May set the dynamic seedbox IP</div>
+          <p className="pt-0.5 text-11-5 leading-normal text-muted-foreground">
             Lets this session move your seedbox to a new address through the API.
           </p>
         </div>
@@ -308,16 +308,16 @@ function SessionCard({ s, d }: { s: Session; d: SecData }) {
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[14px] font-semibold" title={s.ua ?? undefined}>{s.browser}</span>
-          {s.os && s.os !== 'unknown' && <span className="text-[12.5px] text-muted-foreground">on {s.os}</span>}
-          {s.canLogout && <Badge className="bg-ok/15 text-[10.5px] text-ok" variant="secondary">This session</Badge>}
-          {s.isApi && <Badge variant="secondary" className="text-[10.5px]">API</Badge>}
+          <span className="text-14 font-semibold" title={s.ua ?? undefined}>{s.browser}</span>
+          {s.os && s.os !== 'unknown' && <span className="text-12-5 text-muted-foreground">on {s.os}</span>}
+          {s.canLogout && <Badge className="bg-ok/15 text-10-5 text-ok" variant="secondary">This session</Badge>}
+          {s.isApi && <Badge variant="secondary" className="text-10-5">API</Badge>}
           {s.info.filter((t) => !/^API/i.test(t)).map((t) => (
-            <Badge key={t} variant="outline" className="text-[10.5px] text-muted-foreground">{t}</Badge>
+            <Badge key={t} variant="outline" className="text-10-5 text-muted-foreground">{t}</Badge>
           ))}
-          {s.note && <Badge className="bg-brand-soft text-[10.5px] text-accent-foreground" variant="secondary">{s.note}</Badge>}
+          {s.note && <Badge className="bg-brand-soft text-10-5 text-accent-foreground" variant="secondary">{s.note}</Badge>}
         </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-0.5 pt-1 text-[12px] text-muted-foreground">
+        <div className="flex flex-wrap gap-x-4 gap-y-0.5 pt-1 text-12 text-muted-foreground">
           {s.ip && <span className="flex items-center gap-1"><Globe className="size-3" /> {s.ip}</span>}
           {s.created && <span title={utcTitle(s.created)}>Signed in {relTime(s.created)}</span>}
           {s.lastAccess && <span title={utcTitle(s.lastAccess)}>Active {relTime(s.lastAccess)}</span>}
@@ -326,7 +326,7 @@ function SessionCard({ s, d }: { s: Session; d: SecData }) {
         <div className="mt-2.5 flex flex-wrap gap-1.5">
           {s.canLogout && (
             <ConfirmAction
-              trigger={<Button size="sm" variant="outline" className="h-7 text-[12px] text-destructive hover:text-destructive"><LogOut /> Log out</Button>}
+              trigger={<Button size="sm" variant="outline" className="h-7 text-12 text-destructive hover:text-destructive"><LogOut /> Log out</Button>}
               title="Log out of this session?"
               description="This is the session you are using right now, so you land back on the sign-in page."
               session={s}
@@ -337,7 +337,7 @@ function SessionCard({ s, d }: { s: Session; d: SecData }) {
           )}
           {s.canRemove && (
             <ConfirmAction
-              trigger={<Button size="sm" variant="outline" className="h-7 text-[12px] text-destructive hover:text-destructive"><Trash2 /> Remove</Button>}
+              trigger={<Button size="sm" variant="outline" className="h-7 text-12 text-destructive hover:text-destructive"><Trash2 /> Remove</Button>}
               title="Remove this session?"
               description="That system or browser is signed out right away and has to sign in again."
               session={s}
@@ -348,7 +348,7 @@ function SessionCard({ s, d }: { s: Session; d: SecData }) {
           )}
           {s.canTravel && (
             <ConfirmAction
-              trigger={<Button size="sm" variant="outline" className="h-7 text-[12px]"><Plane /> Allow ISP travel</Button>}
+              trigger={<Button size="sm" variant="outline" className="h-7 text-12"><Plane /> Allow ISP travel</Button>}
               title="Let this session travel across ISPs?"
               description="The session then survives provider changes, like a VPN going on or off. That makes it less locked down."
               session={s}
@@ -358,7 +358,7 @@ function SessionCard({ s, d }: { s: Session; d: SecData }) {
           )}
           {s.canViewCookie && (
             <ConfirmAction
-              trigger={<Button size="sm" variant="outline" className="h-7 text-[12px]"><KeyRound /> View cookie</Button>}
+              trigger={<Button size="sm" variant="outline" className="h-7 text-12"><KeyRound /> View cookie</Button>}
               title="Show the session cookie?"
               description="The page reloads and prints the cookie this session uses."
               session={s}
@@ -370,7 +370,7 @@ function SessionCard({ s, d }: { s: Session; d: SecData }) {
 
         {s.manage && (
           <Collapsible open={open} onOpenChange={setOpen} className="mt-2.5">
-            <CollapsibleTrigger className="group flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none">
+            <CollapsibleTrigger className="group flex items-center gap-1.5 rounded-md px-1.5 py-1 text-12 font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none">
               <ChevronRight className={cn('size-3.5 transition-transform', open && 'rotate-90')} />
               <Settings2 className="size-3.5" /> Manage session
             </CollapsibleTrigger>
@@ -405,19 +405,19 @@ function CreateSession({ c, form }: { c: NonNullable<SecData['create']>; form: H
         <CardTitle className="flex items-center gap-2"><Plus className="size-4" /> Create a session</CardTitle>
       </CardHeader>
       <CardContent className="grid gap-5 px-6 py-5">
-        <p className="text-[12.5px] leading-normal text-muted-foreground">
+        <p className="text-12-5 leading-normal text-muted-foreground">
           Sessions let scripts and seedboxes download .torrent files or call API endpoints without your password.
           Seeing “Unrecognized Host/passkey”? Create a session here, then call the dynamic seedbox API with it to authorize the new IP.
         </p>
 
         <div className="grid gap-1.5">
-          <Label className="text-[13px]">Initial IP address</Label>
+          <Label className="text-13">Initial IP address</Label>
           <Input value={ip} onChange={(e) => setIp(e.target.value)} placeholder="10.2.3.4" className="max-w-56 font-mono" />
-          {c.help.ip && <p className="max-w-xl text-[11.5px] leading-normal text-muted-foreground">{c.help.ip}</p>}
+          {c.help.ip && <p className="max-w-xl text-11-5 leading-normal text-muted-foreground">{c.help.ip}</p>}
         </div>
 
         <div className="grid gap-1.5">
-          <Label className="text-[13px]">Lock the session to</Label>
+          <Label className="text-13">Lock the session to</Label>
           <ToggleGroup
             type="single"
             variant="outline"
@@ -429,14 +429,14 @@ function CreateSession({ c, form }: { c: NonNullable<SecData['create']>; form: H
             }}
             className="justify-start"
           >
-            <ToggleGroupItem value="no" className="px-3 text-[12.5px]">This IP only</ToggleGroupItem>
-            <ToggleGroupItem value="yes" className="px-3 text-[12.5px]">The whole provider (ASN)</ToggleGroupItem>
+            <ToggleGroupItem value="no" className="px-3 text-12-5">This IP only</ToggleGroupItem>
+            <ToggleGroupItem value="yes" className="px-3 text-12-5">The whole provider (ASN)</ToggleGroupItem>
           </ToggleGroup>
-          {c.help.asn && <p className="max-w-xl text-[11.5px] leading-normal text-muted-foreground">{c.help.asn}</p>}
+          {c.help.asn && <p className="max-w-xl text-11-5 leading-normal text-muted-foreground">{c.help.asn}</p>}
         </div>
 
         <div className="grid gap-1.5">
-          <Label className="flex items-center justify-between gap-3 text-[13px]">
+          <Label className="flex items-center justify-between gap-3 text-13">
             Allow this session to set the dynamic seedbox IP
             <Switch
               checked={dynOn}
@@ -446,12 +446,12 @@ function CreateSession({ c, form }: { c: NonNullable<SecData['create']>; form: H
               }}
             />
           </Label>
-          {c.help.dyn && <p className="max-w-xl text-[11.5px] leading-normal text-muted-foreground">{c.help.dyn}</p>}
+          {c.help.dyn && <p className="max-w-xl text-11-5 leading-normal text-muted-foreground">{c.help.dyn}</p>}
         </div>
 
         {c.labelEl && (
           <div className="grid gap-1.5">
-            <Label className="text-[13px]">Label / note <span className="font-normal text-muted-foreground">(optional, max 150)</span></Label>
+            <Label className="text-13">Label / note <span className="font-normal text-muted-foreground">(optional, max 150)</span></Label>
             <Textarea
               defaultValue={c.labelEl.value}
               maxLength={150}
@@ -477,7 +477,7 @@ export function SecuritySessions(props: PageProps) {
   return (
     <div className="grid gap-4">
       {data.warning && (
-        <div className="flex items-start gap-2.5 rounded-lg bg-warn/15 px-4 py-3 text-[13px]">
+        <div className="flex items-start gap-2.5 rounded-lg bg-warn/15 px-4 py-3 text-13">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" />
           <span>{data.warning}</span>
         </div>
@@ -486,7 +486,7 @@ export function SecuritySessions(props: PageProps) {
       <Card className="gap-0 py-0">
         <CardHeader className="!py-3.5">
           <CardTitle>
-            Active sessions <span className="text-[12px] font-normal text-muted-foreground">{data.sessions.length}</span>
+            Active sessions <span className="text-12 font-normal text-muted-foreground">{data.sessions.length}</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="px-0 py-0">

@@ -15,9 +15,9 @@ import { cn } from '@/lib/utils'
 import { scrollIntoView } from '@/lib/motion'
 
 const RICH =
-  'text-[13.5px] leading-relaxed text-foreground-soft [overflow-wrap:anywhere] [&_a]:text-brand [&_a]:underline [&_h1]:my-2 [&_h1]:font-display [&_h1]:text-base [&_h1]:font-semibold [&_h2]:my-2 [&_h2]:font-semibold [&_li]:ml-4 [&_ol]:list-decimal [&_ol]:my-2 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_table]:my-2 [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-1 [&_ul]:list-disc [&_ul]:my-2 ' +
+  'text-13-5 leading-relaxed text-foreground-soft [overflow-wrap:anywhere] [&_a]:text-brand [&_a]:underline [&_h1]:my-2 [&_h1]:font-display [&_h1]:text-base [&_h1]:font-semibold [&_h2]:my-2 [&_h2]:font-semibold [&_li]:ml-4 [&_ol]:list-decimal [&_ol]:my-2 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_table]:my-2 [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-1 [&_ul]:list-disc [&_ul]:my-2 ' +
   // An answer can hold its own <details> walkthroughs (e.g. per torrent client).
-  '[&_details]:my-2 [&_details]:rounded-lg [&_details]:border [&_details]:border-border/70 [&_details]:px-3 [&_details]:py-2 [&_summary]:cursor-pointer [&_summary_h4]:inline [&_summary_h4]:text-[13.5px] [&_summary_h4]:font-semibold'
+  '[&_details]:my-2 [&_details]:rounded-lg [&_details]:border [&_details]:border-border/70 [&_details]:px-3 [&_details]:py-2 [&_summary]:cursor-pointer [&_summary_h4]:inline [&_summary_h4]:text-13-5 [&_summary_h4]:font-semibold'
 
 interface KbItemK { key: string; title: string; bodyHtml: string; meta: string | null; updated: boolean; text: string }
 interface KbSectionK { key: string; title: string; items: KbItemK[] }
@@ -79,11 +79,11 @@ function SectionBody({ section, mode, needle }: { section: KbSectionK; mode: 'do
           {section.items.map((it) => (
             <article key={it.key} id={it.key} className="scroll-mt-24 py-5 first:pt-6 last:pb-6">
               <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                <h3 className="text-[14.5px] font-semibold leading-snug"><Highlight text={it.title} needle={needle} /></h3>
+                <h3 className="text-14-5 font-semibold leading-snug"><Highlight text={it.title} needle={needle} /></h3>
                 {it.updated && (
-                  <Badge className="gap-1 bg-brand-soft text-[10px] text-accent-foreground" variant="secondary"><Sparkles className="size-2.5" /> updated</Badge>
+                  <Badge className="gap-1 bg-brand-soft text-10 text-accent-foreground" variant="secondary"><Sparkles className="size-2.5" /> updated</Badge>
                 )}
-                {it.meta && <span className="text-[11px] text-muted-foreground">· updated {it.meta}</span>}
+                {it.meta && <span className="text-11 text-muted-foreground">· updated {it.meta}</span>}
               </div>
               <RichHtml html={it.bodyHtml} className={RICH} />
             </article>
@@ -98,7 +98,7 @@ function SectionBody({ section, mode, needle }: { section: KbSectionK; mode: 'do
         <Accordion className="w-full" defaultValue={needle && section.items[0] ? [section.items[0].key] : undefined}>
           {section.items.map((it) => (
             <AccordionItem key={it.key} value={it.key} id={it.key} className="scroll-mt-24">
-              <AccordionTrigger className="py-4 text-left text-[14px] font-medium hover:no-underline">
+              <AccordionTrigger className="py-4 text-left text-14 font-medium hover:no-underline">
                 <Highlight text={it.title} needle={needle} />
               </AccordionTrigger>
               <AccordionContent><RichHtml html={it.bodyHtml} className={RICH} /></AccordionContent>
@@ -166,7 +166,7 @@ function KnowledgeBase({ title, sub, sections: raw, mode }: { title: string; sub
       />
 
       {!needle && updated.length > 0 && (
-        <div className="-mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
+        <div className="-mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-12">
           <span className="flex items-center gap-1 font-medium text-brand"><Sparkles className="size-3.5" /> Recently updated</span>
           {updated.map(({ sec, it }) => (
             <Button key={it.key} variant="link" onClick={() => openUpdated(sec, it.key)} className="h-auto p-0 text-left font-normal text-muted-foreground hover:text-foreground">{it.title}</Button>
@@ -176,10 +176,10 @@ function KnowledgeBase({ title, sub, sections: raw, mode }: { title: string; sub
 
       {needle ? (
         <div className="grid gap-6">
-          <p className="-mt-1 text-[12.5px] text-muted-foreground">{totalMatches} match{totalMatches === 1 ? '' : 'es'} for “{q.trim()}”</p>
+          <p className="-mt-1 text-12-5 text-muted-foreground">{totalMatches} match{totalMatches === 1 ? '' : 'es'} for “{q.trim()}”</p>
           {filtered.map((s) => (
             <section key={s.key} className="grid gap-2.5">
-              <h2 className="font-display text-[16px] font-semibold tracking-tight">{s.title}</h2>
+              <h2 className="font-display text-16 font-semibold tracking-tight">{s.title}</h2>
               <SectionBody section={s} mode={mode} needle={needle} />
             </section>
           ))}
@@ -187,7 +187,7 @@ function KnowledgeBase({ title, sub, sections: raw, mode }: { title: string; sub
             <Card><CardContent className="grid justify-items-center gap-1 py-12 text-center">
               <Search className="size-5 text-muted-foreground" />
               <p className="text-sm font-medium">Nothing matches “{q.trim()}”</p>
-              <Button variant="link" onClick={() => setQ('')} className="h-auto p-0 text-[12.5px] text-brand">Clear search</Button>
+              <Button variant="link" onClick={() => setQ('')} className="h-auto p-0 text-12-5 text-brand">Clear search</Button>
             </CardContent></Card>
           )}
         </div>
@@ -212,8 +212,8 @@ function KnowledgeBase({ title, sub, sections: raw, mode }: { title: string; sub
           {sections.map((s) => (
             <TabsContent key={s.key} value={s.key} className="mt-0 min-w-0">
               <div className="mb-3 flex items-baseline gap-2">
-                <h2 className="font-display text-[18px] font-semibold tracking-tight">{s.title}</h2>
-                <span className="text-[12px] tabular-nums text-muted-foreground">{s.items.length}</span>
+                <h2 className="font-display text-18 font-semibold tracking-tight">{s.title}</h2>
+                <span className="text-12 tabular-nums text-muted-foreground">{s.items.length}</span>
               </div>
               <SectionBody section={s} mode={mode} needle="" />
             </TabsContent>

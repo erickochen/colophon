@@ -100,10 +100,10 @@ export function TicketRow({ t }: { t: Ticket }) {
     <>
       <ItemContent className="gap-0">
         <ItemTitle className="max-w-full gap-2">
-          <span className="font-display truncate text-[14.5px] font-semibold">{leaf}</span>
-          {parents && <span className="truncate text-[11.5px] font-normal text-muted-foreground">{parents}</span>}
+          <span className="font-display truncate text-14-5 font-semibold">{leaf}</span>
+          {parents && <span className="truncate text-11-5 font-normal text-muted-foreground">{parents}</span>}
         </ItemTitle>
-        <ItemDescription className="pt-1 text-[12px]">
+        <ItemDescription className="pt-1 text-12">
           {t.added && (
             <>opened <span title={utcTitle(t.added)}>{relTime(t.added)}</span></>
           )}
@@ -141,7 +141,7 @@ export function TicketsView(props: PageProps) {
   const total = sections.reduce((n, s) => n + s.tickets.length, 0)
   const filled = sections.filter((s) => s.tickets.length > 0)
   const newTicket = (
-    <Button asChild size="sm" className="h-8 text-[12.5px]">
+    <Button asChild size="sm" className="h-8 text-12-5">
       <a href="/ticket.php/newTicket"><TicketPlus /> New ticket</a>
     </Button>
   )
@@ -172,7 +172,7 @@ export function TicketsView(props: PageProps) {
             filled.map((s) => (
               <div key={s.title} className="grid divide-y">
                 {filled.length > 1 && (
-                  <div className="flex items-center gap-2 border-b bg-muted/40 px-6 py-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                  <div className="flex items-center gap-2 border-b bg-muted/40 px-6 py-2 text-11 font-semibold tracking-wide text-muted-foreground uppercase">
                     {s.title}
                     <span className="font-normal tabular-nums">{s.tickets.length}</span>
                   </div>
@@ -275,14 +275,14 @@ export function TicketDetailView(props: PageProps) {
         title={leaf}
         sub={parents || undefined}
         action={
-          <Button asChild variant="outline" size="sm" className="h-8 text-[12.5px]">
+          <Button asChild variant="outline" size="sm" className="h-8 text-12-5">
             <a href="/ticket.php/myTickets"><ArrowLeft /> All tickets</a>
           </Button>
         }
       />
 
       {data.statusNote && (
-        <div className="flex items-start gap-2.5 text-[12.5px]">
+        <div className="flex items-start gap-2.5 text-12-5">
           <span aria-hidden className="mt-[6px] size-2 shrink-0 rounded-full bg-warn" />
           <span className="text-muted-foreground">{data.statusNote}</span>
         </div>
@@ -299,9 +299,9 @@ export function TicketDetailView(props: PageProps) {
             navKey={`m${i}`}
             position={i + 1}
             total={data.messages.length}
-            badge={!isMine(m) && <Badge variant="secondary" className="text-[9.5px]">staff</Badge>}
+            badge={!isMine(m) && <Badge variant="secondary" className="text-9-5">staff</Badge>}
           >
-            <RichHtml html={m.bodyHtml} className="text-[13.5px]" />
+            <RichHtml html={m.bodyHtml} className="text-13-5" />
           </ConversationBubble>
         ))}
       </Conversation>
@@ -309,7 +309,7 @@ export function TicketDetailView(props: PageProps) {
       {data.reply ? (
         <Card className="py-0">
           <CardContent className="grid gap-2.5 py-4">
-            {data.addNote && <p className="text-[12px] text-muted-foreground">{data.addNote}</p>}
+            {data.addNote && <p className="text-12 text-muted-foreground">{data.addNote}</p>}
             <Textarea
               ref={boxRef}
               value={draft}
@@ -317,7 +317,7 @@ export function TicketDetailView(props: PageProps) {
               disabled={sending}
               aria-label="Your reply"
               placeholder="Anything else staff should know."
-              className="min-h-40 text-[13.5px]"
+              className="min-h-40 text-13-5"
             />
             <div className="flex justify-end">
               <Button onClick={send} disabled={sending}>

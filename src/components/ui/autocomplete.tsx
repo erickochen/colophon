@@ -58,7 +58,7 @@ function AutocompleteItem({ className, ...props }: AutocompletePrimitive.Item.Pr
     <AutocompletePrimitive.Item
       data-slot="autocomplete-item"
       className={cn(
-        "relative flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-[13px] outline-hidden select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground",
+        "relative flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-13 outline-hidden select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground",
         className
       )}
       {...props}

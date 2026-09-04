@@ -17,8 +17,8 @@ export function SeriesHeader({ name, groups, total }: { name: string; groups: Se
     <Card>
       <CardContent className="grid gap-2 px-6">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <h2 className="font-display text-[17px] font-semibold tracking-tight">{name}</h2>
-          <span className="text-[12.5px] tabular-nums text-muted-foreground">
+          <h2 className="font-display text-17 font-semibold tracking-tight">{name}</h2>
+          <span className="text-12-5 tabular-nums text-muted-foreground">
             {fmtInt(p.snatched)} of {fmtInt(p.parts)} parts on MAM snatched · {fmtInt(total)} torrents
           </span>
         </div>
@@ -28,7 +28,7 @@ export function SeriesHeader({ name, groups, total }: { name: string; groups: Se
           className="bg-brand-soft [&>div]:bg-brand"
         />
         {p.gaps.length > 0 && (
-          <p className="text-[12px] text-muted-foreground">
+          <p className="text-12 text-muted-foreground">
             No upload for {plural(p.missingCount, 'part')}: {shownGaps.join(', ')}
             {p.gaps.length > shownGaps.length && ' plus further gaps'}
           </p>

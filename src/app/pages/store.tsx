@@ -105,11 +105,11 @@ function ConfirmPurchase({ purchase, onClose }: { purchase: Purchase; onClose: (
 function BlockHead({ icon, title, rate }: { icon: React.ReactNode; title: string; rate?: string | null }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-      <h2 className="flex items-center gap-2 font-display text-[17px] font-semibold">
+      <h2 className="flex items-center gap-2 font-display text-17 font-semibold">
         <span className="text-muted-foreground">{icon}</span>
         {title}
       </h2>
-      {rate && <span className="text-[12.5px] tabular-nums text-muted-foreground">{rate}</span>}
+      {rate && <span className="text-12-5 tabular-nums text-muted-foreground">{rate}</span>}
     </div>
   )
 }
@@ -135,7 +135,7 @@ function StepRow({
         max={offers.length - 1}
         step={1}
       />
-      <div className="flex items-baseline justify-between gap-1 text-[11.5px] tabular-nums">
+      <div className="flex items-baseline justify-between gap-1 text-11-5 tabular-nums">
         {offers.map((o, i) => {
           const reach = o.points == null || balance == null || o.points <= balance
           return (
@@ -199,11 +199,11 @@ function StepBlock({
       <CardContent className="grid gap-4">
         <BlockHead icon={icon} title={title} rate={rate} />
         {section.descHtml && (
-          <RichHtml html={section.descHtml} className="text-[12.5px] leading-relaxed text-muted-foreground" />
+          <RichHtml html={section.descHtml} className="text-12-5 leading-relaxed text-muted-foreground" />
         )}
         <StepRow offers={section.offers} index={index} onIndex={setIndex} balance={balance} />
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="text-[12.5px] text-muted-foreground">
+          <span className="text-12-5 text-muted-foreground">
             {priceLabel(picked)}
             {wait && <span className="text-warn"> · {wait}</span>}
           </span>
@@ -241,7 +241,7 @@ function WedgeBlock({
       <CardContent className="grid gap-4">
         <BlockHead icon={<Ticket className="size-4" />} title="Freeleech wedges" />
         {section.descHtml && (
-          <RichHtml html={section.descHtml} className="text-[12.5px] leading-relaxed text-muted-foreground" />
+          <RichHtml html={section.descHtml} className="text-12-5 leading-relaxed text-muted-foreground" />
         )}
         <div className="grid gap-2 sm:grid-cols-2">
           {section.offers.map((o) => {
@@ -264,8 +264,8 @@ function WedgeBlock({
                   })
                 }
               >
-                <span className="text-[13.5px] font-semibold">{o.cost}</span>
-                <span className="text-[11.5px] font-normal text-muted-foreground">
+                <span className="text-13-5 font-semibold">{o.cost}</span>
+                <span className="text-11-5 font-normal text-muted-foreground">
                   {afford ? o.label : wait ? `out of reach, ${wait}` : 'out of reach'}
                 </span>
               </Button>
@@ -304,7 +304,7 @@ function SeedtimeBlock({
       <CardContent className="grid gap-4">
         <BlockHead icon={<Timer className="size-4" />} title="Seedtime fix" rate={priceLabel(offer)} />
         {section.descHtml && (
-          <RichHtml html={section.descHtml} className="text-[12.5px] leading-relaxed text-muted-foreground" />
+          <RichHtml html={section.descHtml} className="text-12-5 leading-relaxed text-muted-foreground" />
         )}
         <div className="flex flex-wrap items-center gap-2">
           <Input
@@ -328,9 +328,9 @@ function SeedtimeBlock({
             {afford ? 'Apply' : 'Not enough points'}
           </Button>
           {raw.trim() && !tid && (
-            <span className="text-[12px] text-destructive">That is not a torrent id.</span>
+            <span className="text-12 text-destructive">That is not a torrent id.</span>
           )}
-          {wait && <span className="text-[12px] text-warn">{wait}</span>}
+          {wait && <span className="text-12 text-warn">{wait}</span>}
         </div>
       </CardContent>
     </Card>
@@ -355,7 +355,7 @@ function TitleBlock({
       <CardContent className="grid gap-4">
         <BlockHead icon={<Type className="size-4" />} title="Custom title" rate={priceLabel(offer)} />
         {section.descHtml && (
-          <RichHtml html={section.descHtml} className="text-[12.5px] leading-relaxed text-muted-foreground" />
+          <RichHtml html={section.descHtml} className="text-12-5 leading-relaxed text-muted-foreground" />
         )}
         <div className="flex flex-wrap items-center gap-2">
           <Input
@@ -381,7 +381,7 @@ function TitleBlock({
           >
             Request it
           </Button>
-          <span className="text-[11.5px] text-muted-foreground">
+          <span className="text-11-5 text-muted-foreground">
             {TITLE_MAX_LENGTH - text.trim().length} characters left
           </span>
         </div>
@@ -418,7 +418,7 @@ function PlainBlock({ section }: { section: StoreSection }) {
       <CardContent className="grid gap-4">
         <BlockHead icon={<ShoppingBag className="size-4" />} title={section.title} />
         {section.descHtml && (
-          <RichHtml html={section.descHtml} className="text-[12.5px] leading-relaxed text-muted-foreground" />
+          <RichHtml html={section.descHtml} className="text-12-5 leading-relaxed text-muted-foreground" />
         )}
         {section.inputs.map((inp) => (
           <Input
@@ -437,8 +437,8 @@ function PlainBlock({ section }: { section: StoreSection }) {
               className="h-auto flex-col items-start gap-0.5 px-3.5 py-2"
               onClick={() => buy(o.buttonSelector)}
             >
-              <span className="text-[13px] font-semibold">{o.label}</span>
-              <span className="text-[11px] font-normal text-muted-foreground">{o.cost}</span>
+              <span className="text-13 font-semibold">{o.label}</span>
+              <span className="text-11 font-normal text-muted-foreground">{o.cost}</span>
             </Button>
           ))}
         </div>
@@ -478,7 +478,7 @@ export function StoreView(props: PageProps) {
         <CardContent className="grid gap-2">
           {/* The balance as a sentence: the figures are the point, the words
               around them keep it readable at a glance. */}
-          <p className="font-display text-[21px] leading-snug">
+          <p className="font-display text-21 leading-snug">
             You have{' '}
             <b className="font-semibold tabular-nums">
               {balance != null ? <NumberRoll value={balance} /> : (data.points ?? '–')}
@@ -489,7 +489,7 @@ export function StoreView(props: PageProps) {
           {/* MAM writes six lines here, four of which repeat the sentence above.
               What is left is the state of your seeding plus when it was counted. */}
           {data.earning ? (
-            <p className="text-[12.5px] text-muted-foreground">
+            <p className="text-12-5 text-muted-foreground">
               {[
                 wedges != null && `${fmtInt(wedges)} freeleech wedges in hand`,
                 data.earning.satisfied != null && `${fmtInt(data.earning.satisfied)} torrents earning`,
@@ -501,7 +501,7 @@ export function StoreView(props: PageProps) {
                 .join(' · ')}
             </p>
           ) : (
-            data.earningHtml && <RichHtml html={data.earningHtml} className="text-[12.5px] text-muted-foreground" />
+            data.earningHtml && <RichHtml html={data.earningHtml} className="text-12-5 text-muted-foreground" />
           )}
         </CardContent>
       </Card>

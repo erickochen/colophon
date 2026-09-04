@@ -48,8 +48,8 @@ function readDraft(): Draft | null {
 function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <div className="grid gap-1.5">
-      <Label className="text-[13px] font-medium">{label}</Label>
-      {hint && <p className="-mt-0.5 text-[12px] text-muted-foreground">{hint}</p>}
+      <Label className="text-13 font-medium">{label}</Label>
+      {hint && <p className="-mt-0.5 text-12 text-muted-foreground">{hint}</p>}
       {children}
     </div>
   )
@@ -98,7 +98,7 @@ function ExtraControl({
           }}
         />
       </Field>
-      {invalid && <p className="text-[12px] text-destructive">{invalid}</p>}
+      {invalid && <p className="text-12 text-destructive">{invalid}</p>}
     </div>
   )
 }
@@ -248,7 +248,7 @@ export function TicketNewView(props: PageProps) {
         title="New ticket"
         sub="Staff read every ticket. Pick the closest topic, then tell them what happened."
         action={
-          <Button asChild variant="outline" size="sm" className="h-8 text-[12.5px]">
+          <Button asChild variant="outline" size="sm" className="h-8 text-12-5">
             <a href="/ticket.php/myTickets"><ArrowLeft /> All tickets</a>
           </Button>
         }
@@ -260,7 +260,7 @@ export function TicketNewView(props: PageProps) {
             <CardTitle>
               You already have {openAll.length === 1 ? '1 ticket' : `${openAll.length} tickets`} open
             </CardTitle>
-            <p className="pt-0.5 text-[12px] text-muted-foreground">
+            <p className="pt-0.5 text-12 text-muted-foreground">
               Adding to an open ticket is faster than starting a second one.
             </p>
           </CardHeader>
@@ -268,7 +268,7 @@ export function TicketNewView(props: PageProps) {
             {open.map((t: Ticket, i: number) => <TicketRow key={i} t={t} />)}
           </CardContent>
           {openAll.length > open.length && (
-            <a href="/ticket.php/myTickets" className="border-t px-6 py-2.5 text-[12px] text-brand hover:underline">
+            <a href="/ticket.php/myTickets" className="border-t px-6 py-2.5 text-12 text-brand hover:underline">
               See all {openAll.length} tickets
             </a>
           )}
@@ -276,12 +276,12 @@ export function TicketNewView(props: PageProps) {
       )}
 
       {restored && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/50 px-4 py-2.5 text-[12.5px]">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/50 px-4 py-2.5 text-12-5">
           <span>Picked up where you left off.</span>
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 text-[12px]"
+            className="h-7 text-12"
             onClick={() => {
               setMessage('')
               setRestored(false)
@@ -297,13 +297,13 @@ export function TicketNewView(props: PageProps) {
         <Card className="py-0">
           <CardContent className="flex flex-wrap items-center gap-3 px-6 py-3.5">
             <div className="min-w-0 flex-1">
-              <div className="truncate text-[12px] text-muted-foreground">{picked.cat} › {picked.sub}</div>
-              <div className="truncate text-[14px] font-semibold leading-snug">{picked.leaf}</div>
+              <div className="truncate text-12 text-muted-foreground">{picked.cat} › {picked.sub}</div>
+              <div className="truncate text-14 font-semibold leading-snug">{picked.leaf}</div>
             </div>
             <Button
               variant="outline"
               size="sm"
-              className="h-8 text-[12.5px]"
+              className="h-8 text-12-5"
               onClick={() => { setPicked(null); setLive('') }}
             >
               Change topic
@@ -314,7 +314,7 @@ export function TicketNewView(props: PageProps) {
         <Card className="gap-0 py-0">
           <CardHeader className="!py-3.5">
             <CardTitle>What is this about?</CardTitle>
-            <p className="pt-0.5 text-[12px] text-muted-foreground">
+            <p className="pt-0.5 text-12 text-muted-foreground">
               Staff route tickets by topic, so the closest match gets the fastest answer.
             </p>
           </CardHeader>
@@ -333,7 +333,7 @@ export function TicketNewView(props: PageProps) {
                 onValueChange={setQuery}
                 placeholder="Search topics, like seedbox, passkey or duplicate"
                 aria-label="Search ticket topics"
-                className="text-[13px]"
+                className="text-13"
               />
               {words.length === 0 && (
                 <Tabs value={cat} onValueChange={setCat}>
@@ -358,15 +358,15 @@ export function TicketNewView(props: PageProps) {
                         onSelect={() => choose(t)}
                         className="flex-col items-start gap-0.5 px-6 py-2 sm:flex-row sm:items-center sm:gap-2"
                       >
-                        <span className="truncate text-[13px]">{t.leaf}</span>
+                        <span className="truncate text-13">{t.leaf}</span>
                         <span className="flex items-center gap-2 sm:ml-auto">
                           {t.redirect && (
-                            <Badge variant="secondary" className="bg-warn/15 text-[10px] text-warn">Read first</Badge>
+                            <Badge variant="secondary" className="bg-warn/15 text-10 text-warn">Read first</Badge>
                           )}
                           {/* The group heading already carries the path while
                               browsing, so it only shows itself once a search
                               mixes the groups. It stays readable either way. */}
-                          <span className={cn('truncate text-[11.5px] text-muted-foreground', words.length === 0 && 'sr-only')}>
+                          <span className={cn('truncate text-11-5 text-muted-foreground', words.length === 0 && 'sr-only')}>
                             {t.cat} › {t.sub}
                           </span>
                         </span>
@@ -381,15 +381,15 @@ export function TicketNewView(props: PageProps) {
       )}
 
       {picked && extra.warningHtml && (
-        <div className="flex items-start gap-2.5 rounded-lg bg-warn/15 px-4 py-3 text-[13px]">
+        <div className="flex items-start gap-2.5 rounded-lg bg-warn/15 px-4 py-3 text-13">
           <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warn" />
           <div className="grid gap-1.5">
             <p className="font-medium">The bug report forum is usually the right place</p>
             <RichHtml
               html={extra.warningHtml}
-              className="text-[13px] leading-normal text-muted-foreground [&_a]:text-brand [&_h1]:text-[13px] [&_h1]:font-normal [&_h3]:text-[13px] [&_h3]:font-normal"
+              className="text-13 leading-normal text-muted-foreground [&_a]:text-brand [&_h1]:text-13 [&_h1]:font-normal [&_h3]:text-13 [&_h3]:font-normal"
             />
-            <Button asChild variant="outline" size="sm" className="h-8 w-fit text-[12.5px]">
+            <Button asChild variant="outline" size="sm" className="h-8 w-fit text-12-5">
               <a href={BUG_FORUM} target="_blank" rel="noopener">Open the bug report forum</a>
             </Button>
           </div>
@@ -405,11 +405,11 @@ export function TicketNewView(props: PageProps) {
             {extra.helperHtml ? (
               <RichHtml
                 html={extra.helperHtml}
-                className="pt-0.5 text-[12px] leading-normal text-muted-foreground [&_a]:text-brand [&_h1]:text-[12px] [&_h1]:font-normal [&_h2]:text-[12px] [&_h2]:font-normal [&_h3]:text-[12px] [&_h3]:font-normal"
+                className="pt-0.5 text-12 leading-normal text-muted-foreground [&_a]:text-brand [&_h1]:text-12 [&_h1]:font-normal [&_h2]:text-12 [&_h2]:font-normal [&_h3]:text-12 [&_h3]:font-normal"
               />
             ) : (
               extra.fields.every((f) => f.required) && (
-                <p className="pt-0.5 text-[12px] text-muted-foreground">
+                <p className="pt-0.5 text-12 text-muted-foreground">
                   The ticket cannot be sent without these.
                 </p>
               )
@@ -441,9 +441,9 @@ export function TicketNewView(props: PageProps) {
             <CardContent className="grid gap-2 pb-5">
               {/* Wording that came with fields already sits on those fields. */}
               {extra.helperHtml && extra.fields.length === 0 ? (
-                <RichHtml html={extra.helperHtml} className="text-[12px] leading-normal text-muted-foreground [&_a]:text-brand" />
+                <RichHtml html={extra.helperHtml} className="text-12 leading-normal text-muted-foreground [&_a]:text-brand" />
               ) : (
-                <p className="text-[12px] text-muted-foreground">
+                <p className="text-12 text-muted-foreground">
                   What happened, when it started plus anything you already tried.
                 </p>
               )}
@@ -454,7 +454,7 @@ export function TicketNewView(props: PageProps) {
                 disabled={sending}
                 aria-label="Your message"
                 placeholder="Staff cannot see your screen, so dates, links plus exact error text save a round trip."
-                className="min-h-48 text-[13.5px]"
+                className="min-h-48 text-13-5"
               />
             </CardContent>
           </Card>

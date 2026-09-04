@@ -34,7 +34,7 @@ class ViewBoundary extends Component<{ children: ReactNode }, { error: Error | n
         </CardHeader>
         <CardContent className="grid gap-2 text-sm text-muted-foreground">
           <p>The rest of the site keeps working. Reloading may help; if it keeps happening the page layout on MAM's side has probably changed.</p>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-3 font-mono text-[11.5px] text-foreground">{String(this.state.error)}</pre>
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 font-mono text-11-5 text-foreground">{String(this.state.error)}</pre>
         </CardContent>
       </Card>
     )
@@ -60,7 +60,7 @@ export function App({ page, host }: { page: ShellData; host: HTMLElement }) {
           {/* Keyboard users would otherwise tab the whole sidebar on every page. */}
           <a
             href="#colophon-main"
-            className="sr-only rounded-md bg-card px-3 py-2 text-[13px] font-medium ring-[3px] ring-ring focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-50"
+            className="sr-only rounded-md bg-card px-3 py-2 text-13 font-medium ring-[3px] ring-ring focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-50"
           >
             Skip to content
           </a>

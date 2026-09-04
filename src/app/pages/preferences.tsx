@@ -195,7 +195,7 @@ export function PreferencesView(props: PageProps) {
             }}
             aria-current={isActive ? 'page' : undefined}
             className={cn(
-              'flex shrink-0 items-center whitespace-nowrap rounded-md px-3 py-1.5 text-[13px] transition-colors',
+              'flex shrink-0 items-center whitespace-nowrap rounded-md px-3 py-1.5 text-13 transition-colors',
               'xl:py-2',
               isActive
                 ? 'bg-brand-soft font-medium text-accent-foreground'
@@ -217,7 +217,7 @@ export function PreferencesView(props: PageProps) {
         {nav}
         <div className="min-w-0 max-w-3xl">
           {rejected.length > 0 && (
-            <div className="mb-4 flex items-start gap-2.5 rounded-lg bg-destructive/10 px-4 py-3 text-[13px]">
+            <div className="mb-4 flex items-start gap-2.5 rounded-lg bg-destructive/10 px-4 py-3 text-13">
               <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
               <div className="grid gap-1">
                 <span className="font-medium">These changes were not saved</span>
@@ -234,19 +234,19 @@ export function PreferencesView(props: PageProps) {
           ) : rejected.length > 0 && !form ? (
             <a
               href={`/preferences/index.php?view=${active}`}
-              className="inline-flex h-8 items-center rounded-md bg-brand-soft px-3 text-[12.5px] font-medium text-accent-foreground transition-colors hover:opacity-90"
+              className="inline-flex h-8 items-center rounded-md bg-brand-soft px-3 text-12-5 font-medium text-accent-foreground transition-colors hover:opacity-90"
             >
               Back to {TABS.find((t) => t.view === active)?.label ?? 'settings'}
             </a>
           ) : notice ? (
             <div className="grid justify-items-start gap-4">
-              <div className="flex items-start gap-2.5 rounded-lg bg-ok/15 px-4 py-3 text-[13px]">
+              <div className="flex items-start gap-2.5 rounded-lg bg-ok/15 px-4 py-3 text-13">
                 <Check className="mt-0.5 size-4 shrink-0 text-ok" />
                 <span className="leading-normal">{notice}</span>
               </div>
               <a
                 href={`/preferences/index.php?view=${active}`}
-                className="inline-flex h-8 items-center rounded-md bg-brand-soft px-3 text-[12.5px] font-medium text-accent-foreground transition-colors hover:opacity-90"
+                className="inline-flex h-8 items-center rounded-md bg-brand-soft px-3 text-12-5 font-medium text-accent-foreground transition-colors hover:opacity-90"
               >
                 Back to {TABS.find((t) => t.view === active)?.label ?? 'settings'}
               </a>

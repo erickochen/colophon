@@ -108,18 +108,18 @@ function Blurb({ t, withCover, poster }: { t: SearchTorrent; withCover: boolean;
             </span>
           )}
           <span className="min-w-0 flex-1">
-            <span className="font-display block text-[14.5px] font-medium leading-[1.3]">{t.title}</span>
-            {authors && <span className="mt-1 block text-[11.5px] leading-snug text-muted-foreground">{authors}</span>}
+            <span className="font-display block text-14-5 font-medium leading-[1.3]">{t.title}</span>
+            {authors && <span className="mt-1 block text-11-5 leading-snug text-muted-foreground">{authors}</span>}
           </span>
         </div>
 
         <div
           ref={body}
           className={cn(
-            'mt-3 max-h-52 overflow-hidden text-[12.5px] leading-[1.6]',
+            'mt-3 max-h-52 overflow-hidden text-12-5 leading-[1.6]',
             // A picture in a card this size is noise. A dead one from the image
             // gateway is worse. The page carries the whole blurb.
-            '[&_img]:hidden [&_table]:text-[11.5px]'
+            '[&_img]:hidden [&_table]:text-11-5'
           )}
           style={clipped ? { maskImage: CLIP_FADE, WebkitMaskImage: CLIP_FADE } : undefined}
         >

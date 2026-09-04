@@ -96,7 +96,7 @@ export function ComposeMessageView(props: PageProps) {
       <Card>
         <CardContent className="grid gap-4">
           <div className="grid gap-1.5">
-            <Label htmlFor="pm-subject" className="text-[12.5px] text-muted-foreground">Subject</Label>
+            <Label htmlFor="pm-subject" className="text-12-5 text-muted-foreground">Subject</Label>
             <Input
               id="pm-subject"
               value={subject}
@@ -107,7 +107,7 @@ export function ComposeMessageView(props: PageProps) {
             />
           </div>
           <div className="grid gap-1.5">
-            <Label className="text-[12.5px] text-muted-foreground">Message</Label>
+            <Label className="text-12-5 text-muted-foreground">Message</Label>
             <BBComposer value={body} onChange={setBodySynced} placeholder={`Write to ${recipientName}…`} minHeightClass="min-h-48" />
           </div>
         </CardContent>
@@ -117,7 +117,7 @@ export function ComposeMessageView(props: PageProps) {
         ref={bottomDockRef}
         className="sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-xl bg-background/95 px-4 py-2.5 shadow-lg backdrop-blur"
       >
-        <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+        <span className="flex items-center gap-1.5 text-12 text-muted-foreground">
           <Mail className="size-3.5" /> A copy stays in your Sentbox
         </span>
         <Button size="sm" onClick={submit}><Send /> Send message</Button>
