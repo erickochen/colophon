@@ -80,3 +80,15 @@ function tameTables(body: HTMLElement): void {
     lane.appendChild(table)
   }
 }
+
+/** Whether a fragment opens on a letter. `::first-letter` takes any leading
+ * punctuation with it, so a description starting on a quote would set that mark
+ * three lines tall instead of the word behind it. Reads the first paragraph the
+ * way the rule selects it, since a fragment can carry loose text or a quote
+ * ahead of that. Parsed rather than read off the page, since a detached element
+ * would fetch every image in the fragment. */
+export function opensOnLetter(html: string): boolean {
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const opening = doc.body.querySelector(':scope > p')?.textContent?.trim() ?? ''
+  return /^\p{L}/u.test(opening)
+}

@@ -803,28 +803,38 @@
 .prose-read q {
   hanging-punctuation: first;
 }
-/* The opening letter as a float, which every browser draws. Sized off the
- * paragraph, so it follows the text size: at a cap height of 0.70 em the letter
- * reaches from the top of line one to the baseline of line three. A box just
- * under three lines leaves exactly three of them beside it. */
-.prose-read.prose-dropcap > p:first-of-type::first-letter {
-  float: left;
-  font-size: 5.8em;
-  line-height: 0.85;
-  font-family: var(--font-serif);
-  font-weight: 600;
-  color: var(--brand);
-  /* Off the root, because the two branches carry a different font size while
-   * the gap to the text is the same either way. */
-  margin-right: 0.625rem;
+/* The opening letter needs a column to sit beside. Below this the three lines
+ * next to it fall to about a dozen characters, so the letter steps aside and
+ * the paragraph opens plainly. Measured on the column itself instead of the
+ * window, in rem, so a larger text size moves the threshold along with the
+ * letter it sizes. */
+.prose-dropcap {
+  container-type: inline-size;
 }
-@supports (initial-letter: 2) or (-webkit-initial-letter: 2) {
+@container (min-width: 16rem) {
+  /* The opening letter as a float, which every browser draws. Sized off the
+   * paragraph: at a cap height of 0.70 em the letter reaches from the top of
+   * line one to the baseline of line three. A box just under three lines leaves
+   * exactly three of them beside it. */
   .prose-read.prose-dropcap > p:first-of-type::first-letter {
-    -webkit-initial-letter: 3 3;
-    initial-letter: 3 3;
-    float: none;
-    font-size: inherit;
-    line-height: inherit;
+    float: left;
+    font-size: 5.8em;
+    line-height: 0.85;
+    font-family: var(--font-serif);
+    font-weight: 600;
+    color: var(--brand);
+    /* Off the root, because the two branches carry a different font size while
+     * the gap to the text is the same either way. */
+    margin-right: 0.625rem;
+  }
+  @supports (initial-letter: 2) or (-webkit-initial-letter: 2) {
+    .prose-read.prose-dropcap > p:first-of-type::first-letter {
+      -webkit-initial-letter: 3 3;
+      initial-letter: 3 3;
+      float: none;
+      font-size: inherit;
+      line-height: inherit;
+    }
   }
 }
 

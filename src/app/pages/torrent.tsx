@@ -16,6 +16,7 @@ import { seriesEntry } from '@/lib/series'
 import { remPx } from '@/lib/theme'
 import { markSeenTorrent, readDefaultAmount, readFeature, readNewSince, resolveAmount, useFeature } from '@/lib/settings'
 import { useRatioGuard, worthNoting, type RatioGuard, type RatioLevel } from '@/lib/ratio-protect'
+import { opensOnLetter } from '@/lib/user-html'
 import { cn } from '@/lib/utils'
 import { AmountPicker } from '@/components/amount-picker'
 import { QuickieAction } from '@/components/quickie-action'
@@ -1592,7 +1593,10 @@ export function TorrentView(props: PageProps) {
                 <CardHeader><CardTitle>Description</CardTitle></CardHeader>
                 <CardContent>
                   <div
-                    className="user-html prose-read prose-dropcap text-14-5 leading-[1.68] [&_a]:text-brand [&_a]:underline [&_p]:mb-3.5 [&_p:last-child]:mb-0"
+                    className={cn(
+                      'user-html prose-read text-14-5 leading-[1.68] [&_a]:text-brand [&_a]:underline [&_p]:mb-3.5 [&_p:last-child]:mb-0',
+                      opensOnLetter(data.descriptionHtml) && 'prose-dropcap'
+                    )}
                     dangerouslySetInnerHTML={{ __html: data.descriptionHtml }}
                   />
                 </CardContent>
