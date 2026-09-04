@@ -48,6 +48,11 @@ const FILL_IN_NAME: Record<string, string> = {
 
 const EMPTY_EXTRA: RequestQuery['extra'] = { com: {}, req: {} }
 
+/** The list this page shows when nothing is picked. Switching a set off puts
+ * this back, applying one lays the set on top of it plus the pill reads the
+ * same way, so a set always stands for the whole view. */
+const OPEN_WITH = { text: '', ...REQUEST_DEFAULTS, extra: EMPTY_EXTRA }
+
 /** What a saved set holds here: the query without the page it stopped on. */
 const savedOf = (q: Required<RequestQuery>) => ({
   text: q.text,
@@ -169,20 +174,23 @@ export function RequestsView(_props: PageProps) {
   const views = useSavedViews({
     page: REQUESTS_PAGE,
     state: savedOf(state),
+    opening: OPEN_WITH,
     name: savedName,
     filtered: savedName.length > 0,
     onApply: (saved) => {
-      const patch = patchFromSaved(saved)
+      // On the opening list rather than on what is up now, so a set stands for
+      // the whole view and the pill that lights up is the one just clicked.
+      const patch = { ...OPEN_WITH, ...patchFromSaved(saved) }
       // The box holds its own value, so a set has to land there too. Without
       // it the next filter click would send the old text along.
-      setText(patch.text ?? '')
+      setText(patch.text)
       apply(patch)
     },
     // The blob fields go too: no control on this bar names them, so leaving
     // them behind would keep narrowing the list from nowhere.
     onClear: () => {
-      setText('')
-      apply({ text: '', ...REQUEST_DEFAULTS, extra: EMPTY_EXTRA })
+      setText(OPEN_WITH.text)
+      apply(OPEN_WITH)
     },
   })
 

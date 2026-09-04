@@ -196,6 +196,7 @@ export function Top10View(_props: PageProps) {
   const views = useSavedViews({
     page: TOP10_PAGE,
     state: { year, week, metric, mainCat, cat },
+    opening: { ...OPEN_WITH },
     name: savedName,
     // A set at the opening values would light up again the moment it is switched
     // off, so Save waits until something here is actually picked.

@@ -5,7 +5,7 @@ import { Bookmark, Calendar as CalendarIcon, ChevronDown, Pin, Search, X } from 
 
 import { cn } from '@/lib/utils'
 import { fmtInt } from '@/lib/format'
-import { PILL_LIMIT, sameState, shortName, useSavedFilters, type SavedSet } from '@/lib/saved-filters'
+import { PILL_LIMIT, shortName, useSavedFilters, type SavedSet } from '@/lib/saved-filters'
 import { toast } from '@/components/ui/toast'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -780,6 +780,7 @@ export interface SavedViews {
 export function useSavedViews({
   page,
   state,
+  opening,
   name,
   filtered,
   onApply,
@@ -787,6 +788,10 @@ export function useSavedViews({
 }: {
   page: string
   state: Record<string, unknown>
+  /** What this page shows when nothing is picked, normally the same values
+   * onClear puts back. A set from before a filter existed takes these for it,
+   * so it still reads as the one that is on. */
+  opening?: Record<string, unknown>
   /** Suggested name, normally the chips joined together. */
   name: string
   /** Whether anything is filtered right now, which is what Save asks about. */
@@ -807,7 +812,10 @@ export function useSavedViews({
     lastPick.current = { id, at: now }
     return false
   }
-  const active = store.sets.find((s) => sameState(s.state, state)) ?? null
+  // Where two sets describe the same list, the one just applied answers for it.
+  // At the first paint nothing has been applied, so the pinned set does: that is
+  // the one this page opened with.
+  const active = store.matching(state, opening, loadedId ?? store.pinned?.id)
   const activeId = active?.id ?? null
   React.useEffect(() => {
     if (activeId) setLoadedId(activeId)
@@ -894,7 +902,7 @@ function SavedPill({ set, active, views }: { set: SavedSet; active: boolean; vie
       >
         <SavedMark />
         <span className="max-w-48 truncate">{set.name}</span>
-        {set.pinned && <Pin aria-hidden className="size-3 text-muted-foreground" />}
+        {set.pinned && <Pin aria-hidden className="size-3 fill-muted-foreground text-muted-foreground" />}
       </Button>
     )
   }
@@ -929,7 +937,9 @@ function SavedPill({ set, active, views }: { set: SavedSet; active: boolean; vie
         title="Open this page with these filters"
         className="h-full min-w-0 rounded-l-none rounded-r-md px-2 hover:bg-accent/40 focus-visible:relative focus-visible:z-10 data-pressed:bg-transparent dark:hover:bg-accent/40"
       >
-        <Pin className={cn('size-3.5', set.pinned ? 'text-brand' : 'text-muted-foreground')} />
+        {/* Filled as well as colored: a difference made of color alone is no
+            difference for every reader. */}
+        <Pin className={cn('size-3.5', set.pinned ? 'fill-brand text-brand' : 'text-muted-foreground')} />
       </Toggle>
     </div>
   )
@@ -1013,8 +1023,10 @@ export function FilterSaved({ views, className }: { views: SavedViews; className
               <CommandEmpty>Nothing by that name.</CommandEmpty>
               <CommandGroup>
                 {rest.map((s) => (
-                  <CommandItem key={s.id} value={s.id} keywords={[s.name]} onSelect={() => views.apply(s)}>
-                    {s.pinned && <Pin aria-hidden className="size-3 text-muted-foreground" />}
+                  // The pin is decoration here, so the row says out loud what it
+                  // stands for, the way the pills above already do.
+                  <CommandItem key={s.id} value={s.id} keywords={[s.name]} aria-label={savedLabel(s)} onSelect={() => views.apply(s)}>
+                    {s.pinned && <Pin aria-hidden className="size-3 fill-muted-foreground text-muted-foreground" />}
                     <span className="truncate">{s.name}</span>
                   </CommandItem>
                 ))}

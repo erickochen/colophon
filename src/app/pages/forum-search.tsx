@@ -77,6 +77,10 @@ function filtersFrom(raw: Record<string, unknown> | undefined, form: ReturnType<
   }
 }
 
+/** The form this page shows when nothing has been searched for, which is also
+ * what switching a set off puts back. */
+const OPEN_WITH: RunOver = filtersFrom(undefined, null)
+
 function parseResults(html: string): { rows: Row[]; total: number | null } {
   const doc = new DOMParser().parseFromString(html, 'text/html')
   const total = Number((doc.body.textContent?.match(/out of\s+([\d,]+)/) ?? [])[1]?.replace(/,/g, '')) || null
@@ -153,7 +157,7 @@ export function ForumSearchView(props: PageProps) {
 
   // A set stands for a search that ran, so the name plus the comparison both
   // read from the last query rather than from the box.
-  const asked = queried ?? { text: '', searchIn, order, forums: [] as string[] }
+  const asked = queried ?? { ...OPEN_WITH, searchIn, order }
   const savedName = [
     asked.text.trim(),
     form?.searchIn.find((o) => o.value === asked.searchIn)?.label,
@@ -170,6 +174,7 @@ export function ForumSearchView(props: PageProps) {
   const views = useSavedViews({
     page: FORUM_SEARCH_PAGE,
     state: { ...asked },
+    opening: { ...OPEN_WITH },
     name: savedName,
     filtered: asked.text.trim().length > 0,
     onApply: (saved) => {
@@ -187,10 +192,10 @@ export function ForumSearchView(props: PageProps) {
       reqId.current += 1
       setLoading(false)
       setError(false)
-      setText('')
-      setSearchIn('1')
-      setOrder('default')
-      setForums([])
+      setText(OPEN_WITH.text)
+      setSearchIn(OPEN_WITH.searchIn)
+      setOrder(OPEN_WITH.order)
+      setForums([...OPEN_WITH.forums])
       setQueried(null)
       setRows(null)
       setTotal(null)

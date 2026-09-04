@@ -259,6 +259,7 @@ export function FreeleechView(props: PageProps) {
   const views = useSavedViews({
     page: FREELEECH_PAGE,
     state: current,
+    opening: { ...OPEN_WITH },
     name: savedName,
     filtered: savedName.length > 0,
     onApply: (saved) => {

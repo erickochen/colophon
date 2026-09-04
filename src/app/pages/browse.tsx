@@ -629,6 +629,12 @@ const SAVED_DEFAULTS: Partial<BrowseState> = {
  * A link naming the slot itself beats it. */
 const openingSnatched = (): SnatchedFilter => (readFeature('hideSnatched') ? 'not' : 'all')
 
+/** The list this page shows when nothing is picked. Switching a set off puts
+ * this back, applying one lays the set on top of it plus the pill reads the
+ * same way, so a set always stands for the whole view rather than for a patch
+ * over whatever happened to be on. */
+const openWith = (): Partial<BrowseState> => ({ ...SAVED_DEFAULTS, snatched: openingSnatched() })
+
 const asIds = (v: unknown): number[] | undefined =>
   Array.isArray(v) ? v.map(Number).filter((n) => Number.isFinite(n) && n > 0) : undefined
 const asText = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined)
@@ -2199,10 +2205,13 @@ export function BrowseView(props: PageProps) {
   const views = useSavedViews({
     page: BROWSE_PAGE,
     state: savedOf(searched),
+    // Page size is a preference rather than part of a set, so it takes whatever
+    // the list is on instead of a value of its own.
+    opening: { ...openWith(), perpage: searched.perpage },
     name: savedName,
     filtered: savedName.length > 0,
-    onApply: (saved) => apply(patchFromSaved(saved)),
-    onClear: () => apply({ ...SAVED_DEFAULTS, snatched: openingSnatched() }),
+    onApply: (saved) => apply({ ...openWith(), ...patchFromSaved(saved) }),
+    onClear: () => apply(openWith()),
   })
 
   return (

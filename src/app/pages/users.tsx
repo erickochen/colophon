@@ -19,6 +19,10 @@ const USERS_PAGE = 'users'
 
 const ANY_CLASS: ClassOption = { value: '-', label: 'Any class' }
 
+/** The list this page shows when nothing is picked, which is also what
+ * switching a set off puts back. */
+const OPEN_WITH = { text: '', cls: ANY_CLASS.value }
+
 /** A stored set read back. A class the select does not offer reads as any class,
  * so a set only ever searches on a value this page can show. While the options
  * are still unknown the stored class stands, so the same set behaves the same
@@ -95,6 +99,7 @@ export function UsersView(props: PageProps) {
   const views = useSavedViews({
     page: USERS_PAGE,
     state: { ...asked },
+    opening: OPEN_WITH,
     name: savedName,
     filtered: savedName.length > 0,
     onApply: (saved) => {
@@ -104,9 +109,9 @@ export function UsersView(props: PageProps) {
       void run(next.text, next.cls)
     },
     onClear: () => {
-      setText('')
-      setCls('-')
-      void run('', '-')
+      setText(OPEN_WITH.text)
+      setCls(OPEN_WITH.cls)
+      void run(OPEN_WITH.text, OPEN_WITH.cls)
     },
   })
 

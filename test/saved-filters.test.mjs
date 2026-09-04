@@ -229,6 +229,53 @@ test('a matching state is found for an update', () => {
   assert.equal(matchingSet('browse', { text: 'dune', cats: [3] }), null)
 })
 
+test('a set saved before a field existed still matches', () => {
+  // The set predates the snatched filter, so it carries no value for it while
+  // the page always does.
+  stub()
+  const a = saveSet('browse', 'A', { text: 'sci-fi', mainCat: [1] }).set
+  const opening = { text: '', mainCat: [], snatched: 'all' }
+  const onScreen = { text: 'sci-fi', mainCat: [1], snatched: 'all' }
+  assert.equal(matchingSet('browse', onScreen), null)
+  assert.equal(matchingSet('browse', onScreen, opening).id, a.id)
+})
+
+test('a set stops matching once a filter it never carried is changed', () => {
+  stub()
+  saveSet('browse', 'A', { text: 'sci-fi', mainCat: [1] })
+  const opening = { text: '', mainCat: [], snatched: 'all' }
+  assert.equal(matchingSet('browse', { text: 'sci-fi', mainCat: [1], snatched: 'not' }, opening), null)
+})
+
+test('what a set does carry beats the opening value', () => {
+  stub()
+  const a = saveSet('browse', 'A', { text: 'sci-fi', snatched: 'not' }).set
+  const opening = { text: '', snatched: 'all' }
+  assert.equal(matchingSet('browse', { text: 'sci-fi', snatched: 'not' }, opening).id, a.id)
+  assert.equal(matchingSet('browse', { text: 'sci-fi', snatched: 'all' }, opening), null)
+})
+
+test('the set just applied answers for a list two sets describe', () => {
+  // One set leaves the field out, the other stores it at the opening value, so
+  // both ask for the same list.
+  stub()
+  const first = saveSet('browse', 'First', { text: 'sci-fi' }).set
+  const second = saveSet('browse', 'Second', { text: 'sci-fi', snatched: 'all' }).set
+  const opening = { text: '', snatched: 'all' }
+  const onScreen = { text: 'sci-fi', snatched: 'all' }
+  assert.equal(matchingSet('browse', onScreen, opening, second.id).id, second.id)
+  assert.equal(matchingSet('browse', onScreen, opening, first.id).id, first.id)
+  // Nothing applied yet, so the stored order decides.
+  assert.equal(matchingSet('browse', onScreen, opening).id, first.id)
+})
+
+test('a preferred set that does not match is ignored', () => {
+  stub()
+  const a = saveSet('browse', 'A', { text: 'sci-fi' }).set
+  const b = saveSet('browse', 'B', { text: 'fantasy' }).set
+  assert.equal(matchingSet('browse', { text: 'sci-fi' }, undefined, b.id).id, a.id)
+})
+
 test('a field outside the page state is kept', () => {
   stub({ value: stored({ browse: [{ id: 'a', name: 'A', state: { old: 7, cats: [1] }, created: 1 }] }) })
   assert.deepEqual(readSets('browse')[0].state, { old: 7, cats: [1] })

@@ -217,9 +217,22 @@ export function pinnedSet(page: string): SavedSet | null {
   return readSets(page).find((s) => s.pinned) ?? null
 }
 
-/** The set holding these exact filters, for offering an update over a copy. */
-export function matchingSet(page: string, state: unknown): SavedSet | null {
-  return readSets(page).find((s) => sameState(s.state, state)) ?? null
+/** The set the page is on, if any. `opening` holds the values a fresh page
+ * shows: a set from before a filter existed takes those for it, so it lights up
+ * again instead of never matching. What the set does carry always wins.
+ *
+ * Two sets can describe one state, since a set that leaves a filter out asks
+ * for the same list as one that stores it at its opening value. `prefer` names
+ * the set that was just applied, so the pill that answers a click is the one
+ * that was clicked. */
+export function matchingSet(
+  page: string,
+  state: unknown,
+  opening?: Record<string, unknown>,
+  prefer?: string | null
+): SavedSet | null {
+  const hits = readSets(page).filter((s) => sameState({ ...opening, ...s.state }, state))
+  return hits.find((s) => s.id === prefer) ?? hits[0] ?? null
 }
 
 function put(page: string, sets: SavedSet[]): boolean {
@@ -327,7 +340,7 @@ export interface SavedFilters {
   remove: (id: string) => { ok: boolean; set: SavedSet | null; at: number }
   restore: (set: SavedSet, at: number) => boolean
   pin: (id: string, pinned: boolean) => boolean
-  matching: (state: unknown) => SavedSet | null
+  matching: (state: unknown, opening?: Record<string, unknown>, prefer?: string | null) => SavedSet | null
 }
 
 export function useSavedFilters(page: string): SavedFilters {
@@ -344,7 +357,7 @@ export function useSavedFilters(page: string): SavedFilters {
     remove: useCallback((id) => removeSet(page, id), [page]),
     restore: useCallback((set, at) => restoreSet(page, set, at), [page]),
     pin: useCallback((id, pinned) => setPinned(page, id, pinned), [page]),
-    matching: useCallback((state) => matchingSet(page, state), [page]),
+    matching: useCallback((state, opening, prefer) => matchingSet(page, state, opening, prefer), [page]),
   }
 }
 
