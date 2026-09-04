@@ -1,14 +1,17 @@
-// Theme preference and the page backgrounds. Kept free of imports so the
-// boot guard can use it as the very first module in the bundle.
+// Theme preference and the page backgrounds. Kept light on imports so the boot
+// guard can use it as the very first module in the bundle.
+import { applyContrast } from '@/lib/contrast-mode'
 
 export type Theme = 'light' | 'dark' | 'auto'
+export type Contrast = 'auto' | 'standard' | 'high'
 
 export const THEME_KEY = 'colophon:theme'
 export const SCHEME_LIGHT_KEY = 'colophon:scheme-light'
 export const SCHEME_DARK_KEY = 'colophon:scheme-dark'
+export const CONTRAST_KEY = 'colophon:contrast'
 
-// One-time rename from the old prefix. This module loads first and stays
-// import-free, so it migrates its own keys inline before the first read.
+// One-time rename from the old prefix. This module loads first, so it migrates
+// its own keys inline before the first read.
 try {
   for (const [oldKey, newKey] of [
     ['mam-remaster:theme', THEME_KEY],
@@ -89,11 +92,23 @@ export const PAGE_BG = {
 } as const
 
 const systemDark = () => window.matchMedia('(prefers-color-scheme: dark)')
+const systemContrast = () => window.matchMedia('(prefers-contrast: more)')
 
 /** Stored preference. Anything unrecognized counts as auto. */
 export function getTheme(): Theme {
   const stored = localStorage.getItem(THEME_KEY)
   return stored === 'light' || stored === 'dark' ? stored : 'auto'
+}
+
+/** Stored preference. Anything unrecognized counts as auto. */
+export function getContrast(): Contrast {
+  const stored = localStorage.getItem(CONTRAST_KEY)
+  return stored === 'standard' || stored === 'high' ? stored : 'auto'
+}
+
+/** Whether the pass runs right now. On auto that is what the system asks for. */
+export function contrastOn(pref: Contrast = getContrast()): boolean {
+  return pref === 'high' || (pref === 'auto' && systemContrast().matches)
 }
 
 /** Stored scheme per side. Anything unrecognized counts as default. */
@@ -143,6 +158,7 @@ export function previewScheme(rootEl: HTMLElement, side: 'light' | 'dark', schem
   rootEl.classList.toggle('dark', side === 'dark')
   rootEl.classList.remove(...SCHEME_CLASSES)
   if (scheme !== 'default') rootEl.classList.add(`scheme-${scheme}`)
+  applyContrast(rootEl, contrastOn())
   const bg = scheme === 'default' ? PAGE_BG[side] : PAGE_BG[scheme as keyof typeof PAGE_BG]
   document.documentElement.style.setProperty('background-color', bg, 'important')
 }
@@ -161,9 +177,15 @@ export function applyTheme(rootEl: HTMLElement, theme?: Theme) {
   const scheme = dark ? getDarkScheme() : getLightScheme()
   rootEl.classList.remove(...SCHEME_CLASSES)
   if (scheme !== 'default') rootEl.classList.add(`scheme-${scheme}`)
+  applyContrast(rootEl, contrastOn())
   // The canvas behind #mam-root: overscroll and anything reaching below the host
   // shows it, so it carries the page color instead of the default white.
   document.documentElement.style.setProperty('background-color', pageBg(), 'important')
+}
+
+export function setContrast(rootEl: HTMLElement, next: Contrast) {
+  store(CONTRAST_KEY, next)
+  applyTheme(rootEl)
 }
 
 export function setLightScheme(rootEl: HTMLElement, scheme: LightScheme) {
@@ -180,5 +202,8 @@ export function setDarkScheme(rootEl: HTMLElement, scheme: DarkScheme) {
 export function watchSystemTheme(rootEl: HTMLElement): void {
   systemDark().addEventListener('change', () => {
     if (getTheme() === 'auto') applyTheme(rootEl)
+  })
+  systemContrast().addEventListener('change', () => {
+    if (getContrast() === 'auto') applyTheme(rootEl)
   })
 }

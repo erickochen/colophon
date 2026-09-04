@@ -3,9 +3,9 @@
 // every subscribed surface follows a change from any of them.
 import { useSyncExternalStore } from 'react'
 import {
-  applyTheme, clearPreview, getDarkScheme, getLightScheme, getTheme, isDark, previewScheme,
-  setDarkScheme, setLightScheme,
-  type DarkScheme, type LightScheme, type Theme,
+  applyTheme, clearPreview, getContrast, getDarkScheme, getLightScheme, getTheme, isDark, previewScheme,
+  setContrast, setDarkScheme, setLightScheme,
+  type Contrast, type DarkScheme, type LightScheme, type Theme,
 } from '@/lib/theme'
 import { GEN_SCHEME_ITEMS } from '@/lib/schemes.gen'
 import { notifySettings, settingsRevision, subscribeSettings } from '@/lib/settings'
@@ -55,8 +55,17 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
   if (getTheme() === 'auto') notifySettings()
 })
 
+window.matchMedia('(prefers-contrast: more)').addEventListener('change', () => {
+  if (getContrast() === 'auto') notifySettings()
+})
+
 export function chooseTheme(next: Theme): void {
   applyTheme(getPortalContainer(), next)
+  notifySettings()
+}
+
+export function chooseContrast(next: Contrast): void {
+  setContrast(getPortalContainer(), next)
   notifySettings()
 }
 
@@ -90,8 +99,14 @@ export function chooseScheme(side: 'light' | 'dark', value: string): void {
   chooseTheme(side)
 }
 
-export function useAppearance(): { theme: Theme; lightScheme: LightScheme; darkScheme: DarkScheme; dark: boolean } {
+export function useAppearance(): {
+  theme: Theme
+  contrast: Contrast
+  lightScheme: LightScheme
+  darkScheme: DarkScheme
+  dark: boolean
+} {
   useSyncExternalStore(subscribeSettings, settingsRevision)
   const theme = getTheme()
-  return { theme, lightScheme: getLightScheme(), darkScheme: getDarkScheme(), dark: isDark(theme) }
+  return { theme, contrast: getContrast(), lightScheme: getLightScheme(), darkScheme: getDarkScheme(), dark: isDark(theme) }
 }

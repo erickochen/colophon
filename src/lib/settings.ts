@@ -3,7 +3,7 @@
 // preferences tab and in-place controls stay in sync.
 import { useCallback, useMemo, useSyncExternalStore } from 'react'
 import {
-  applyTheme, DARK_SCHEMES, LIGHT_SCHEMES, SCHEME_DARK_KEY, SCHEME_LIGHT_KEY, THEME_KEY,
+  applyTheme, CONTRAST_KEY, DARK_SCHEMES, LIGHT_SCHEMES, SCHEME_DARK_KEY, SCHEME_LIGHT_KEY, THEME_KEY,
 } from '@/lib/theme'
 import { getPortalContainer } from '@/lib/portals'
 import { BROWSE_COLS_KEY, BROWSE_FILTERS_KEY, BROWSE_GROUP_KEY, BROWSE_VIEW_KEY } from '@/lib/browse-sticky'
@@ -536,6 +536,7 @@ const VALUE_KEYS: Record<string, (raw: string) => boolean> = {
   [THEME_KEY]: (raw) => raw === 'light' || raw === 'dark' || raw === 'auto',
   [SCHEME_LIGHT_KEY]: (raw) => (LIGHT_SCHEMES as readonly string[]).includes(raw),
   [SCHEME_DARK_KEY]: (raw) => (DARK_SCHEMES as readonly string[]).includes(raw),
+  [CONTRAST_KEY]: (raw) => raw === 'auto' || raw === 'standard' || raw === 'high',
   [BROWSE_VIEW_KEY]: (raw) => raw === 'list' || raw === 'grid',
   [BROWSE_COLS_KEY]: (raw) => parses(raw, validStringList),
   [BROWSE_GROUP_KEY]: (raw) => raw === 'series' || raw === 'none',
@@ -545,7 +546,7 @@ const VALUE_KEYS: Record<string, (raw: string) => boolean> = {
 }
 
 // Theme writes need a repaint on top of the store notify.
-const THEME_KEYS: ReadonlySet<string> = new Set([THEME_KEY, SCHEME_LIGHT_KEY, SCHEME_DARK_KEY])
+const THEME_KEYS: ReadonlySet<string> = new Set([THEME_KEY, SCHEME_LIGHT_KEY, SCHEME_DARK_KEY, CONTRAST_KEY])
 
 function parses(raw: string, validate: (v: unknown) => unknown | null): boolean {
   try {

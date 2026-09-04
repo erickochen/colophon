@@ -1,7 +1,7 @@
 let ctx: CanvasRenderingContext2D | null | undefined
 
-// Spread hashed hues far enough apart that neighbouring uids stay tellable.
-const HASH_HUE_STEPS = 24
+// Spread hashed hues far enough apart that neighboring uids stay tellable.
+export const HASH_HUE_STEPS = 24
 
 /** Steady per-user tint from the uid alone, same on every visit. Lightness and
  * chroma come from theme tokens so both sides stay readable. */

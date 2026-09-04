@@ -2,11 +2,11 @@
 // write the settings store directly and apply immediately, so there is no form
 // and no save bar.
 import { useEffect, useRef, useState } from 'react'
-import { BookMarked, Check, ChevronsUpDown, Download, Moon, Pencil, Pin, RotateCcw, Sun, SunMoon, Upload } from 'lucide-react'
+import { BookMarked, Check, ChevronsUpDown, Circle, Contrast, Download, Monitor, Moon, Pencil, Pin, RotateCcw, Sun, SunMoon, Upload } from 'lucide-react'
 import type { PageProps } from '@/app/router'
-import type { Theme } from '@/lib/theme'
+import type { Contrast as ContrastPref, Theme } from '@/lib/theme'
 import {
-  chooseScheme, chooseTheme, DARK_SCHEME_ITEMS, dropSchemePreview,
+  chooseContrast, chooseScheme, chooseTheme, DARK_SCHEME_ITEMS, dropSchemePreview,
   LIGHT_SCHEME_ITEMS, previewSchemeChoice, SchemeDot, useAppearance,
 } from '@/components/appearance'
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -228,7 +228,7 @@ function SchemePicker({ side }: { side: 'light' | 'dark' }) {
 }
 
 function AppearanceCard() {
-  const { theme } = useAppearance()
+  const { theme, contrast } = useAppearance()
   return (
     <PrefCard
       title="Appearance"
@@ -247,6 +247,21 @@ function AppearanceCard() {
           <ToggleGroupItem value="light" className={APPEARANCE_ITEM}><Sun className="size-3.5" /> Light</ToggleGroupItem>
           <ToggleGroupItem value="dark" className={APPEARANCE_ITEM}><Moon className="size-3.5" /> Dark</ToggleGroupItem>
           <ToggleGroupItem value="auto" className={APPEARANCE_ITEM}><SunMoon className="size-3.5" /> Auto</ToggleGroupItem>
+        </ToggleGroup>
+      </AppearanceRow>
+      <AppearanceRow label="Contrast">
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          value={contrast}
+          onValueChange={(v) => v && chooseContrast(v as ContrastPref)}
+          className="flex-wrap"
+          aria-label="Contrast"
+        >
+          <ToggleGroupItem value="auto" className={APPEARANCE_ITEM}><Monitor className="size-3.5" /> Auto</ToggleGroupItem>
+          <ToggleGroupItem value="standard" className={APPEARANCE_ITEM}><Circle className="size-3.5" /> Standard</ToggleGroupItem>
+          <ToggleGroupItem value="high" className={APPEARANCE_ITEM}><Contrast className="size-3.5" /> High</ToggleGroupItem>
         </ToggleGroup>
       </AppearanceRow>
       <div className="grid gap-4 sm:grid-cols-2">
