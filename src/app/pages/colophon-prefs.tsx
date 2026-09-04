@@ -760,7 +760,7 @@ export function ColophonPrefsView(_props: PageProps) {
         <FeatureRow
           feature="externalLinks"
           title="External search links"
-          note="Adds Goodreads, Audible and StoryGraph searches to torrent and request pages."
+          note="Adds Goodreads, Audible, StoryGraph and Hardcover searches to torrent and request pages."
           credit="MAM+ by GardenShade"
         />
         <FeatureRow

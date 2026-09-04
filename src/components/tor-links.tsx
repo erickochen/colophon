@@ -24,6 +24,12 @@ function searchTargets(title: string, author: string | null): { label: string; h
       label: 'StoryGraph',
       href: `https://app.thestorygraph.com/browse?search_term=${encodeURIComponent(both)}`,
     },
+    // Hardcover ranks on the title text alone, so an author name here lifts
+    // companions and study guides above the book itself.
+    {
+      label: 'Hardcover',
+      href: `https://hardcover.app/search?q=${encodeURIComponent(title)}`,
+    },
   ]
 }
 
