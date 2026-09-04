@@ -180,14 +180,24 @@ const ROW_ACTION_SIZE = 34
 const ROW_ACTION_GAP = 6
 const actionLane = (slots: number) => `${slots * ROW_ACTION_SIZE + (slots - 1) * ROW_ACTION_GAP}px`
 
+/** Every action slot a list shows, filled by a given row or not. Bookmark plus
+ * download are always there. The header sizes its lane the same way, so a label
+ * stands above the column it names. */
+const actionSlots = (freeleech: boolean, ignore: boolean, quickie: boolean) =>
+  2 + (freeleech ? 1 : 0) + (ignore ? 1 : 0) + (quickie ? 1 : 0)
+
 // Gallery shelf: --shelf is the tallest a frame gets, so a row of frames shares
 // one floor plus the titles under them line up. Narrow columns shrink the frame
 // rather than the cover inside it.
 // The row gap is zero because a tile is a subgrid: a gap here would land
 // between its cover and its title too. The space between rows of tiles is the
 // padding the tile carries at its foot.
+// A column arrives where a tile can carry the frame its shelf asks for, read
+// off the width of the card the way the rows are.
 const GALLERY_GRID =
-  'grid grid-cols-3 gap-x-[22px] gap-y-0 px-6 pt-6 [--shelf:150px] sm:grid-cols-4 sm:[--shelf:180px] lg:grid-cols-6 lg:[--shelf:210px]'
+  'grid grid-cols-3 gap-x-[22px] gap-y-0 px-6 pt-6 [--shelf:150px] ' +
+  '@[calc(546px+3rem)]:grid-cols-4 @[calc(546px+3rem)]:[--shelf:180px] ' +
+  '@[calc(950px+3rem)]:grid-cols-6 @[calc(950px+3rem)]:[--shelf:210px]'
 
 /** The bar that names a group of rows, shared by the series view plus the runs
  * a grouped list draws. */
@@ -834,7 +844,7 @@ function RowCover({ t, blurb }: { t: SearchTorrent; blurb: boolean }) {
         href={torrentUrl(t.id)}
         tabIndex={-1}
         aria-hidden
-        className="flex h-[var(--cover-h)] items-center justify-center self-center text-9 md:h-[var(--cover-h-lg)]"
+        className="flex h-[var(--cover-h)] items-center justify-center self-center text-9 @[calc(876px+3rem)]:h-[var(--cover-h-lg)]"
         style={{ '--cover-h': `${ROW_COVER_H_SM}px`, '--cover-h-lg': `${ROW_COVER_H}px` } as CSSProperties}
       >
         <Book
@@ -936,10 +946,15 @@ function WedgeNotNeeded() {
   )
 }
 
+/** The least a title gets once the columns are on, so the numbers plus the
+ * actions cannot claim their width first. The container query that turns those
+ * columns on carries this plus the widest set of fixed tracks. */
+const ROW_TITLE_MIN = 96
+
 /** Column tracks for one list, shared by the header and every row so nothing
- * shifts. Only from md up: narrow rows stack instead. */
+ * shifts. Only where the row has the width for them: narrow rows stack. */
 function rowTracks(stats: number, lane: string, selectable?: boolean): string {
-  return [selectable ? '28px' : '', '132px', 'minmax(0,1fr)', stats ? 'auto' : '', lane].filter(Boolean).join(' ')
+  return [selectable ? '28px' : '', '132px', `minmax(${ROW_TITLE_MIN}px,1fr)`, stats ? 'auto' : '', lane].filter(Boolean).join(' ')
 }
 
 /** Sort values behind a column header. Sorting lives where the numbers are, so
@@ -999,7 +1014,7 @@ function ListHeader({ cols, lane, selectable, sort, onSort }: {
   return (
     <div
       style={{ gridTemplateColumns: rowTracks(stats.length, lane, selectable) }}
-      className="hidden gap-x-[18px] border-b bg-card px-6 py-1.5 text-10 font-semibold uppercase tracking-[0.08em] text-muted-foreground md:grid"
+      className="hidden gap-x-[18px] border-b bg-card px-6 py-1.5 text-10 font-semibold uppercase tracking-[0.08em] text-muted-foreground @[calc(876px+3rem)]:grid"
     >
       {selectable && <span />}
       <span />
@@ -1058,11 +1073,10 @@ function TorrentRow({ t, cols, blurb, onBookmark, onRemoved, onFreeleech, onIgno
   const series = cols.includes('series') ? parsePeople(t.series_info) : []
   const stats = LIST_COLUMNS.filter((c) => c.track && cols.includes(c.key))
   const quickie = useQuickie()
-  // Every action this list can show gets a slot, whether or not this row uses it.
-  const actionSlots = 2 + (onFreeleech ? 1 : 0) + (onIgnore ? 1 : 0) + (quickie ? 1 : 0)
-  const lane = actionLane(actionSlots)
-  // Narrow, a row is a cover beside a title with the numbers folded underneath;
-  // the full set of columns only fits from md up.
+  const slots = actionSlots(!!onFreeleech, !!onIgnore, quickie)
+  const lane = actionLane(slots)
+  // Narrow, a row is a cover beside a title with the numbers folded underneath.
+  // The full set of columns arrives once the list itself is wide enough.
   const wide = rowTracks(stats.length, 'var(--lane)', selectable)
   return (
     <div
@@ -1070,7 +1084,7 @@ function TorrentRow({ t, cols, blurb, onBookmark, onRemoved, onFreeleech, onIgno
       className={cn(
         'group grid items-start gap-x-[18px] gap-y-2.5 px-6 py-3.5 transition-colors hover:bg-brand-soft/25',
         selectable ? 'grid-cols-[28px_96px_minmax(0,1fr)]' : 'grid-cols-[96px_minmax(0,1fr)]',
-        'md:[grid-template-columns:var(--row-cols)]',
+        '@[calc(876px+3rem)]:[grid-template-columns:var(--row-cols)]',
         hiddenReason && 'opacity-60'
       )}
     >
@@ -1121,7 +1135,7 @@ function TorrentRow({ t, cols, blurb, onBookmark, onRemoved, onFreeleech, onIgno
         <div
           /* pt lands the numbers on the title's cap line, so a row reads as one
              horizontal line instead of a block floating below the title. */
-          className="col-span-full flex flex-wrap items-baseline gap-x-4 gap-y-1 tabular-nums md:col-span-1 md:grid md:gap-x-[18px] md:pt-[3px] md:text-right"
+          className="col-span-full flex flex-wrap items-baseline gap-x-4 gap-y-1 tabular-nums @[calc(876px+3rem)]:col-span-1 @[calc(876px+3rem)]:grid @[calc(876px+3rem)]:gap-x-[18px] @[calc(876px+3rem)]:pt-[3px] @[calc(876px+3rem)]:text-right"
           style={{ gridTemplateColumns: stats.map((c) => c.track).join(' ') }}
         >
           {cols.includes('filetype') && (
@@ -1149,7 +1163,7 @@ function TorrentRow({ t, cols, blurb, onBookmark, onRemoved, onFreeleech, onIgno
         </div>
       )}
       {hiddenReason === 'ignored' && onUnignore ? (
-        <div className="col-span-full flex items-center justify-end gap-1.5 md:col-span-1">
+        <div className="col-span-full flex items-center justify-end gap-1.5 @[calc(876px+3rem)]:col-span-1">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -1168,7 +1182,7 @@ function TorrentRow({ t, cols, blurb, onBookmark, onRemoved, onFreeleech, onIgno
       ) : (
         /* One cell per action the list can show, so an icon keeps its place
            down the column even where a row has nothing to put in it. */
-        <div className="col-span-full grid justify-end gap-1.5 md:col-span-1" style={{ gridTemplateColumns: `repeat(${actionSlots}, ${ROW_ACTION_SIZE}px)` }}>
+        <div className="col-span-full grid justify-end gap-1.5 @[calc(876px+3rem)]:col-span-1" style={{ gridTemplateColumns: `repeat(${slots}, ${ROW_ACTION_SIZE}px)` }}>
           <RowBookmark t={t} onBookmark={onBookmark} onRemoved={onRemoved} />
           <Tooltip>
             <TooltipTrigger asChild>
@@ -1598,6 +1612,8 @@ export function BrowseView(props: PageProps) {
   const [onlyNew, setOnlyNew] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [ignoreOn] = useFeature('ignoreAction')
+  // The header needs the same slot count the rows reach on their own.
+  const quickie = useQuickie()
   const [blurbOn] = useFeature('coverBlurb')
   const [seriesViewOn] = useFeature('seriesView')
   const [seriesBulkOn] = useFeature('seriesBulk')
@@ -2052,6 +2068,17 @@ export function BrowseView(props: PageProps) {
         ? ` · ${fmtInt(runCount)} series in the first ${fmtInt(items.length)}`
         : ` · ${fmtInt(runCount)} series grouped`
 
+  // What a row in this list can do. The header reads the same object for its
+  // lane, so a label always stands above the column it names.
+  const rowActions = {
+    onBookmark: setBookmarked,
+    onRemoved: dropOnUnbookmark,
+    onFreeleech: setPersonalFreeleech,
+    onIgnore: ignoreOn ? ignoreTorrent : undefined,
+    onUnignore: ignored.remove,
+  }
+  const headerLane = actionLane(actionSlots(!!rowActions.onFreeleech, !!rowActions.onIgnore, quickie))
+
   // One row, drawn the same whether it sits in a run or straight in the list.
   const listRow = (t: SearchTorrent) => (
     <TorrentRow
@@ -2059,11 +2086,7 @@ export function BrowseView(props: PageProps) {
       t={t}
       cols={cols}
       blurb={blurbOn}
-      onBookmark={setBookmarked}
-      onRemoved={dropOnUnbookmark}
-      onFreeleech={setPersonalFreeleech}
-      onIgnore={ignoreOn ? ignoreTorrent : undefined}
-      onUnignore={ignored.remove}
+      {...rowActions}
       hiddenReason={showHidden ? hiddenReason(t) : null}
       isNew={isNewRow(t)}
       pile={pileOf(t.id)}
@@ -2405,7 +2428,11 @@ export function BrowseView(props: PageProps) {
         <SeriesHeader name={seriesName ?? 'This series'} groups={seriesGroups} total={found} />
       )}
 
-      <Card className="overflow-hidden py-0">
+      {/* The rows switch on the width of this card rather than the window, since
+          an open sidebar leaves a narrow list on a wide screen. The threshold is
+          what the heaviest row needs: 876px of fixed tracks plus title floor,
+          plus the 3rem of row padding that follows the text size. */}
+      <Card className="@container overflow-hidden py-0">
         {/* The head of the list: what you are looking at, then how you look at
             it. Filter chips stay above with the filters they undo. */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b bg-muted/25 px-6 py-2">
@@ -2506,8 +2533,8 @@ export function BrowseView(props: PageProps) {
         {loading && view === 'list' && (
           <div className="divide-y divide-border">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="grid grid-cols-[96px_1fr] items-center gap-[18px] px-6 py-3.5 md:grid-cols-[132px_1fr]">
-                <Skeleton className="mx-auto h-[96px] w-[64px] rounded-[4px_7px_7px_4px] md:h-[132px] md:w-[88px]" />
+              <div key={i} className="grid grid-cols-[96px_1fr] items-center gap-[18px] px-6 py-3.5 @[calc(876px+3rem)]:grid-cols-[132px_1fr]">
+                <Skeleton className="mx-auto h-[96px] w-[64px] rounded-[4px_7px_7px_4px] @[calc(876px+3rem)]:h-[132px] @[calc(876px+3rem)]:w-[88px]" />
                 <div className="min-w-0">
                   <Skeleton className="h-4 w-2/3" />
                   <Skeleton className="mt-2 h-3 w-2/5" />
@@ -2554,7 +2581,7 @@ export function BrowseView(props: PageProps) {
         )}
         {!loading && shownItems.length > 0 && (!state.seriesID || !seriesViewOn) && view === 'list' && (
           <div className="divide-y divide-border">
-            <ListHeader cols={cols} lane={actionLane(3 + (ignoreOn ? 1 : 0))} sort={effectiveSort} onSort={(v) => apply({ sort: v })} />
+            <ListHeader cols={cols} lane={headerLane} sort={effectiveSort} onSort={(v) => apply({ sort: v })} />
             {grouping
               ? seriesRuns.map((r) => (
                   <div key={r.key}>
@@ -2596,11 +2623,7 @@ export function BrowseView(props: PageProps) {
                       t={t}
                       cols={cols}
                       blurb={blurbOn}
-                      onBookmark={setBookmarked}
-                      onRemoved={dropOnUnbookmark}
-                      onFreeleech={setPersonalFreeleech}
-                      onIgnore={ignoreOn ? ignoreTorrent : undefined}
-                      onUnignore={ignored.remove}
+                      {...rowActions}
                       hiddenReason={showHidden ? hiddenReason(t) : null}
                       isNew={isNewRow(t)}
                       pile={pileOf(t.id)}

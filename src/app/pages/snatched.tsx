@@ -162,10 +162,12 @@ function NameLinks({ prefix, items }: { prefix: string; items: NamedLink[] }) {
 }
 
 // Fixed column tracks so every row aligns on the same vertical grid (auto/1fr
-// per-row would drift). Title flexes; the numeric columns are fixed-width and
-// right-aligned. Below md the row stacks into a labelled block instead.
+// per-row would drift). The title flexes over a floor, the numbers are
+// fixed-width plus right-aligned. Narrower, the row stacks into a labeled block.
+// The switch reads the card rather than the window: 52.25rem is 36rem of
+// tracks, 5.25rem of gaps, 3rem of padding plus the floor.
 const SNATCH_COLS =
-  'md:grid md:grid-cols-[minmax(0,1fr)_6.5rem_4.5rem_5rem_5.5rem_5.5rem_7.5rem_1.5rem] md:items-center md:gap-x-3'
+  '@[52.25rem]:grid @[52.25rem]:grid-cols-[minmax(8rem,1fr)_6.5rem_4.5rem_5rem_5.5rem_5.5rem_7.5rem_1.5rem] @[52.25rem]:items-center @[52.25rem]:gap-x-3'
 
 /** Sort keys MAM's own list understands (a[data-udsorttype] in the loaded
  * table); sorting proxies a click on that header so the site reorders the
@@ -251,7 +253,7 @@ function SnatchHeader({ sort, onSort }: { sort: SortState | null; onSort: (key: 
 
 /** Right-aligned numeric cell (desktop grid only). */
 function Num({ value, className }: { value: string; className?: string }) {
-  return <span className={cn('hidden text-right font-mono text-12-5 tabular-nums md:block', className)}>{value || '–'}</span>
+  return <span className={cn('hidden text-right font-mono text-12-5 tabular-nums @[52.25rem]:block', className)}>{value || '–'}</span>
 }
 
 function SnatchRow({ s }: { s: SnatchItem }) {
@@ -275,21 +277,21 @@ function SnatchRow({ s }: { s: SnatchItem }) {
       </div>
 
       {/* Desktop grid cells */}
-      <span className="hidden md:block"><StatusBadge s={s} /></span>
+      <span className="hidden @[52.25rem]:block"><StatusBadge s={s} /></span>
       <Num value={s.ratio} />
       <Num value={s.uploaded} className="text-ok" />
       <Num value={s.downloaded} className="text-destructive" />
       <Num value={s.seedtime} className={s.seedUnder ? 'text-warn' : 'text-muted-foreground'} />
-      <span className="hidden text-right text-11-5 tabular-nums text-muted-foreground md:block">
+      <span className="hidden text-right text-11-5 tabular-nums text-muted-foreground @[52.25rem]:block">
         {s.seeders}/{s.leechers}
         {s.snatched && <span className="block text-10 text-muted-foreground">{s.snatched} snatched</span>}
       </span>
-      <span className="hidden md:flex md:justify-end">
+      <span className="hidden @[52.25rem]:flex @[52.25rem]:justify-end">
         {s.downloadHref && <a href={s.downloadHref} title="Download .torrent" className="text-muted-foreground hover:text-brand"><Download className="size-4" /></a>}
       </span>
 
-      {/* Mobile: labelled stat block */}
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-12 md:hidden">
+      {/* Mobile: labeled stat block */}
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-12 @[52.25rem]:hidden">
         <StatusBadge s={s} />
         {s.ratio && <span className="font-mono tabular-nums">R {s.ratio}</span>}
         {s.uploaded && <span className="font-mono tabular-nums text-ok">↑ {s.uploaded}</span>}
@@ -427,7 +429,7 @@ function BucketRow({ b }: { b: Bucket }) {
             <p className="px-6 py-5 text-sm text-muted-foreground">Nothing here.</p>
           ) : (
             <div className="divide-y divide-border/60">
-              <div className="border-b px-6 py-2 md:hidden">
+              <div className="border-b px-6 py-2 @[52.25rem]:hidden">
                 <FilterSelect
                   ariaLabel="Sort this list"
                   value={sort ? `${sort.key}:${sort.dir}` : 'unsorted'}
@@ -567,7 +569,7 @@ export function SnatchedView(props: PageProps) {
     <div className="grid gap-4">
       <PageHeader title="My snatched" sub="Where your downloads stand against the seeding rules" />
       {quota && <QuotaCard used={quota.count} limit={limit} attention={attentionCount} />}
-      <Card className="gap-0 overflow-hidden py-0">
+      <Card className="@container gap-0 overflow-hidden py-0">
         {sections.map((s) => (
           <section key={s.key}>
             <h2 className="flex flex-wrap items-baseline gap-x-2.5 border-b bg-muted/25 px-6 py-1.5">
