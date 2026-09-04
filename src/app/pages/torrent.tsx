@@ -13,6 +13,7 @@ import { mediaInfoGroupLabel, mediaInfoLabel } from '@/lib/media-info'
 import { bookmarkOne, searchTorrents, parsePeople, coverUrl, downloadUrl, torrentUrl, thankUploader, THANK_STEP, type SearchTorrent } from '@/lib/mam-api'
 import { coverShape, mediaTypeFromHref, type CoverShape } from '@/lib/cover-shape'
 import { seriesEntry } from '@/lib/series'
+import { remPx } from '@/lib/theme'
 import { markSeenTorrent, readDefaultAmount, readFeature, readNewSince, resolveAmount, useFeature } from '@/lib/settings'
 import { useRatioGuard, worthNoting, type RatioGuard, type RatioLevel } from '@/lib/ratio-protect'
 import { cn } from '@/lib/utils'
@@ -380,8 +381,10 @@ function MoreActions({
   )
 }
 
-// The topbar the strip has to clear; it is h-14 before it condenses.
-const TOPBAR_HEIGHT_PX = 56
+// The topbar the strip has to clear; it is h-14 before it condenses. In rem
+// because that class is, so the Text size setting moves both together;
+// rootMargin takes no other unit than px, hence the conversion at mount.
+const TOPBAR_HEIGHT_REM = 3.5
 // The watch root reaches this far below the viewport, so only a button row
 // that scrolled up past the topbar counts as gone. One still below the fold
 // on a narrow screen does not.
@@ -404,7 +407,11 @@ function MiniHero({
   onSpent: () => void
   watch: RefObject<HTMLElement | null>
 }) {
-  const dockInView = useInView(watch, { margin: `-${TOPBAR_HEIGHT_PX}px 0px ${WATCH_BELOW_PX}px 0px`, initial: true })
+  // Once per mount: the setting that moves it lives on another page, so it
+  // cannot change while this one is open. Negative, since the margin pulls the
+  // top of the watch root down by the height of the bar.
+  const topOffset = useMemo(() => -Math.round(remPx(TOPBAR_HEIGHT_REM)), [])
+  const dockInView = useInView(watch, { margin: `${topOffset}px 0px ${WATCH_BELOW_PX}px 0px`, initial: true })
   const level = guard?.impact.level ?? 'none'
   const shape = coverShape({ mediatype: mediaTypeFromHref(data.catIconHref) })
   const download = <DownloadButton data={data} level={level} size="sm" />
@@ -1107,8 +1114,9 @@ function partWeight(part: string | null | undefined): number {
   return Number.isNaN(n) ? STRIP_NO_ENTRY_WEIGHT : n
 }
 
-// A cover slot plus the gap after it, so one press of an arrow lands on a cover
-// edge instead of halfway through one.
+// A cover slot (w-[88px]) plus the gap after it (gap-[20px]), so one press of an
+// arrow lands on a cover edge instead of halfway through one. Both are px like
+// the gallery covers, which keeps this step true at any text size.
 const SERIES_COVER_PITCH_PX = 108
 const SERIES_STEP_PX = SERIES_COVER_PITCH_PX * 3
 // Faster than the carousel's own default: these covers are small and there can
@@ -1198,7 +1206,7 @@ function SeriesStrip({ data }: { data: TorrentDetail }) {
           // A box that scrolls sideways clips the other axis too, so the room a
           // hovered cover rises into has to be inside it.
           viewportClassName="items-end pt-2 pb-1"
-          rowClassName="items-end gap-5"
+          rowClassName="items-end gap-[20px]"
           itemClassName="shrink-0"
           arrowsClassName="mt-3"
           items={items.map((it) => (

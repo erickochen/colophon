@@ -2,11 +2,11 @@
 // write the settings store directly and apply immediately, so there is no form
 // and no save bar.
 import { useEffect, useRef, useState } from 'react'
-import { BookMarked, Check, ChevronsUpDown, Circle, Contrast, Download, Monitor, Moon, Pencil, Pin, RotateCcw, Sun, SunMoon, Upload } from 'lucide-react'
+import { BookMarked, Check, ChevronsUpDown, Circle, Contrast, Download, Monitor, Moon, Pencil, Pin, RotateCcw, Sun, SunMoon, Type, Upload } from 'lucide-react'
 import type { PageProps } from '@/app/router'
-import type { Contrast as ContrastPref, Theme } from '@/lib/theme'
+import type { Contrast as ContrastPref, TextSize, Theme } from '@/lib/theme'
 import {
-  chooseContrast, chooseScheme, chooseTheme, DARK_SCHEME_ITEMS, dropSchemePreview,
+  chooseContrast, chooseScheme, chooseTextSize, chooseTheme, DARK_SCHEME_ITEMS, dropSchemePreview,
   LIGHT_SCHEME_ITEMS, previewSchemeChoice, SchemeDot, useAppearance,
 } from '@/components/appearance'
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -228,7 +228,7 @@ function SchemePicker({ side }: { side: 'light' | 'dark' }) {
 }
 
 function AppearanceCard() {
-  const { theme, contrast } = useAppearance()
+  const { theme, contrast, textSize } = useAppearance()
   return (
     <PrefCard
       title="Appearance"
@@ -262,6 +262,22 @@ function AppearanceCard() {
           <ToggleGroupItem value="auto" className={APPEARANCE_ITEM}><Monitor className="size-3.5" /> Auto</ToggleGroupItem>
           <ToggleGroupItem value="standard" className={APPEARANCE_ITEM}><Circle className="size-3.5" /> Standard</ToggleGroupItem>
           <ToggleGroupItem value="high" className={APPEARANCE_ITEM}><Contrast className="size-3.5" /> High</ToggleGroupItem>
+        </ToggleGroup>
+      </AppearanceRow>
+      <AppearanceRow label="Text size">
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          value={textSize}
+          onValueChange={(v) => v && chooseTextSize(v as TextSize)}
+          className="flex-wrap"
+          aria-label="Text size"
+        >
+          {/* The glyph carries the step, so each one wears the size it stands for. */}
+          <ToggleGroupItem value="default" className={APPEARANCE_ITEM}><Type className="size-3.5" /> Default</ToggleGroupItem>
+          <ToggleGroupItem value="large" className={APPEARANCE_ITEM}><Type className="size-4" /> Large</ToggleGroupItem>
+          <ToggleGroupItem value="larger" className={APPEARANCE_ITEM}><Type className="size-4.5" /> Larger</ToggleGroupItem>
         </ToggleGroup>
       </AppearanceRow>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -599,7 +615,9 @@ function IntroCard() {
             Export saves everything here, your lists and notes included; it is your only backup.
           </p>
         </div>
-        <div className="flex gap-2">
+        {/* Wraps for the same reason the row above it does: three buttons plus a
+            larger text size outgrow a phone-width card. */}
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" className="h-8 text-12-5" onClick={exportFile}>
             <Download /> Export
           </Button>

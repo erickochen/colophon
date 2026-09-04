@@ -519,7 +519,9 @@
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
-  font-size: 14px;
+  /* The size everything without a class of its own inherits, which is most of
+   * the shell. In rem, like the scale, so the Text size setting reaches it. */
+  font-size: 0.875rem;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
@@ -729,8 +731,9 @@
   content: '\201d';
   float: left;
   font-family: var(--font-serif);
-  /* 2em of the 13px quote body, stated in px so both variants match. */
-  font-size: 26px;
+  /* Twice the 13px quote body, off the root so both variants match and the
+   * Text size setting reaches it. */
+  font-size: 1.625rem;
   line-height: 0.9;
   margin-right: 0.28em;
   color: color-mix(in oklab, var(--brand) 80%, transparent);

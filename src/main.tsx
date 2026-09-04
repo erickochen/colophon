@@ -10,7 +10,7 @@ import { capturePage } from '@/lib/extract/shell'
 import { cacheWysiwygPref } from '@/components/bb-composer'
 import { preventWysiwyg } from '@/lib/wysiwyg'
 import { preventLegacyAutoSearch } from '@/lib/quiet-search'
-import { applyTheme, watchSystemTheme } from '@/lib/theme'
+import { applyTheme, TEXT_SCALE_PROP, watchSystemTheme } from '@/lib/theme'
 import { applyMobileViewport, removeMobileViewport } from '@/lib/viewport'
 import { migrateLegacyKeys } from '@/lib/settings'
 import { registerSheetProps, registerShadowProps } from '@/lib/tw-props'
@@ -33,33 +33,35 @@ migrateLegacyKeys()
 
 /* MAM's dialog body stays a light-DOM node, so these rules live in document.head
  * while the colors come from the shadow tree: a slotted element inherits custom
- * properties from the slot's parent, so the tokens follow the active scheme. */
+ * properties from the slot's parent, so the tokens follow the active scheme.
+ * Sizes are rem for the same reason the shadow sheet uses them: they hang off
+ * the root, which is where the Text size setting reaches. */
 const DIALOG_BODY_CSS = `
 #dialog-message{display:none}
 /* A manager that runs us in its own sandbox cannot replace MAM's dialog layer,
    so their jQuery-UI box opens instead of ours. Hand its body back there. */
 .ui-dialog #dialog-message{display:block!important}
-#dialog-message[slot]{display:block!important;font:400 13.5px/1.6 ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--foreground);background:none!important;border:0!important;padding:0!important;margin:0!important}
+#dialog-message[slot]{display:block!important;font:400 0.84375rem/1.6 ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--foreground);background:none!important;border:0!important;padding:0!important;margin:0!important}
 #dialog-message[slot] *{font-family:inherit!important;background:none!important;border-color:transparent!important;box-shadow:none!important;max-width:100%}
-#dialog-message[slot] h1,#dialog-message[slot] h2,#dialog-message[slot] h3{font-size:14px;font-weight:600;margin:.6em 0 .3em}
+#dialog-message[slot] h1,#dialog-message[slot] h2,#dialog-message[slot] h3{font-size:0.875rem;font-weight:600;margin:.6em 0 .3em}
 #dialog-message[slot] a{color:var(--brand);text-decoration:underline}
-#dialog-message[slot] pre{white-space:pre-wrap;word-break:break-word;font:400 11.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--muted)!important;padding:8px;border-radius:8px}
+#dialog-message[slot] pre{white-space:pre-wrap;word-break:break-word;font:400 0.71875rem/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--muted)!important;padding:8px;border-radius:8px}
 #dialog-message[slot] table{width:100%;border-collapse:collapse}
 #dialog-message[slot] td,#dialog-message[slot] th{padding:4px 8px 4px 0;text-align:left;vertical-align:top}
 #dialog-message[slot] input[type=text],#dialog-message[slot] input[type=number],#dialog-message[slot] input[type=password],#dialog-message[slot] select,#dialog-message[slot] textarea{
   font:inherit;color:inherit;background:var(--muted)!important;border-radius:8px;padding:6px 10px;margin:2px 0;min-height:32px}
 #dialog-message[slot] input[type=button],#dialog-message[slot] input[type=submit],#dialog-message[slot] button{
-  font:500 13px/1 inherit;color:var(--primary-foreground);background:var(--primary)!important;border-radius:8px;padding:9px 14px;cursor:pointer;margin:2px 0}
+  font:500 0.8125rem/1 inherit;color:var(--primary-foreground);background:var(--primary)!important;border-radius:8px;padding:9px 14px;cursor:pointer;margin:2px 0}
 #dialog-message[slot] input[type=file]{font:inherit;color:inherit;display:block;margin:6px 0}
-#dialog-message[slot] input[type=file]::file-selector-button{font:500 12.5px/1 inherit;color:inherit;background:var(--muted)!important;border:0;border-radius:8px;padding:8px 12px;margin-right:10px;cursor:pointer}
+#dialog-message[slot] input[type=file]::file-selector-button{font:500 0.78125rem/1 inherit;color:inherit;background:var(--muted)!important;border:0;border-radius:8px;padding:8px 12px;margin-right:10px;cursor:pointer}
 #dialog-message[slot] label{display:inline-flex;align-items:center;gap:6px}
 
 /* MAM writes the two-factor QR code and its verify button into #addTOTParea and
  * binds handlers by id, so the node is slotted into our card as it is. */
-#addTOTParea[slot]{display:block;font:400 13px/1.6 ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--foreground)}
+#addTOTParea[slot]{display:block;font:400 0.8125rem/1.6 ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--foreground)}
 #addTOTParea[slot] img{height:200px;width:auto;border-radius:10px;background:#fff;padding:8px;margin:2px 0 8px}
 #addTOTParea[slot] input{font:inherit;color:inherit;background:var(--muted);border:1px solid var(--border);border-radius:8px;padding:6px 10px;min-height:32px;margin:6px 8px 6px 0}
-#addTOTParea[slot] button{font:500 13px/1 inherit;color:var(--primary-foreground);background:var(--primary);border:0;border-radius:8px;padding:9px 14px;cursor:pointer;margin:2px 0}
+#addTOTParea[slot] button{font:500 0.8125rem/1 inherit;color:var(--primary-foreground);background:var(--primary);border:0;border-radius:8px;padding:9px 14px;cursor:pointer;margin:2px 0}
 `.trim()
 
 function abort() {
@@ -68,6 +70,7 @@ function abort() {
   document.getElementById(HOST_ID)?.remove()
   document.getElementById('colophon-hide')?.remove()
   document.documentElement.style.removeProperty('background-color')
+  document.documentElement.style.removeProperty(TEXT_SCALE_PROP)
   document.querySelectorAll(`[${LEGACY_ATTR}]`).forEach((el) => el.removeAttribute(LEGACY_ATTR))
 }
 
@@ -152,7 +155,9 @@ function boot() {
       'body > ul.ui-autocomplete,body > .ui-helper-hidden-accessible,body > #ui-datepicker-div,body > .ui-tooltip,body > .tox-silver-sink{display:none!important}',
       // MAM's CSS sets scrollbar-gutter:stable both-edges on <html>, which reserves
       // an 11px strip on both sides, the empty strip left of our sidebar. Reset it.
-      'html{font-size:16px!important;margin:0!important;padding:0!important;border:0!important;width:auto!important;min-width:0!important;max-width:none!important;background:none!important;scrollbar-gutter:auto!important;height:auto!important;min-height:0!important}',
+      // The font size is a share rather than a length, so the reader's own browser
+      // setting reaches the page and the Text size step multiplies it.
+      `html{font-size:var(${TEXT_SCALE_PROP},100%)!important;margin:0!important;padding:0!important;border:0!important;width:auto!important;min-width:0!important;max-width:none!important;background:none!important;scrollbar-gutter:auto!important;height:auto!important;min-height:0!important}`,
       // MAM sizes <body> to its own full-page layout of about 1750px and that
       // persists once their content is hidden. Pin body to the viewport instead;
       // #mam-root carries the real fill. Height stays free so an open popup can

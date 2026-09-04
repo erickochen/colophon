@@ -58,6 +58,32 @@ test('every size a class uses is on the scale', () => {
   assert.deepEqual([...missing], [], 'add these to the scale in index.css')
 })
 
+// Three places hold the rem base the whole scale hangs from: the html rule that
+// neutralizes MAM's own 12px, the size #mam-root hands to everything without a
+// class of its own plus the steps themselves. A length in any of them makes the
+// setting a no-op for most of the shell. In the steps it also throws away the
+// reader's own browser setting.
+test('nothing pins the rem base to a length', () => {
+  const main = readFileSync(path.join(SRC, 'main.tsx'), 'utf8')
+  // Count them: two rules of equal weight in one sheet leave the later one in
+  // charge, so a pin added below would win while a first-match check passes.
+  const htmlRules = main.split('\n').filter((l) => l.includes('html{font-size:'))
+  assert.equal(htmlRules.length, 1, 'more than one rule sets the html font size')
+  assert.match(htmlRules[0], /html\{font-size:var\(\$\{TEXT_SCALE_PROP},100%\)!important/)
+
+  const css = readFileSync(path.join(SRC, 'index.css'), 'utf8')
+  const root = css.slice(css.indexOf('#mam-root {'))
+  const size = /font-size: ([^;]+);/.exec(root.slice(0, root.indexOf('}')))
+  assert.ok(size, '#mam-root has no font size')
+  assert.match(size[1], /rem$/, `#mam-root sits on ${size[1]}`)
+
+  const theme = readFileSync(path.join(SRC, 'lib', 'theme.ts'), 'utf8')
+  const steps = theme.slice(theme.indexOf('const TEXT_SCALE'))
+  const values = [...steps.slice(0, steps.indexOf('}')).matchAll(/: '([^']+)'/g)].map(([, v]) => v)
+  assert.equal(values.length, 3, `expected three steps, found ${values.length}`)
+  for (const value of values) assert.match(value, /%$/, `the ${value} step is a length`)
+})
+
 // A dot in the class name is the trap this scale was renamed to avoid: the
 // selector comes out with a double backslash, so nothing matches it.
 test('no half step is written with a dot', () => {

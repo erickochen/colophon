@@ -4,11 +4,25 @@ import { applyContrast } from '@/lib/contrast-mode'
 
 export type Theme = 'light' | 'dark' | 'auto'
 export type Contrast = 'auto' | 'standard' | 'high'
+export type TextSize = 'default' | 'large' | 'larger'
 
 export const THEME_KEY = 'colophon:theme'
 export const SCHEME_LIGHT_KEY = 'colophon:scheme-light'
 export const SCHEME_DARK_KEY = 'colophon:scheme-dark'
 export const CONTRAST_KEY = 'colophon:contrast'
+export const TEXT_SIZE_KEY = 'colophon:text-size'
+
+/** Custom property the html rule in main.tsx reads for its font size. */
+export const TEXT_SCALE_PROP = '--colophon-text-scale'
+
+/** Root font size per step, as a share of the reader's own browser setting so
+ * both reach the page. Round steps, which keeps every size on the scale a whole
+ * pixel at the usual 16px base. */
+const TEXT_SCALE: Record<TextSize, string> = {
+  default: '100%',
+  large: '112.5%',
+  larger: '125%',
+}
 
 // One-time rename from the old prefix. This module loads first, so it migrates
 // its own keys inline before the first read.
@@ -121,6 +135,24 @@ export function contrastOn(pref: Contrast = getContrast()): boolean {
   return pref === 'high' || (pref === 'auto' && systemContrast().matches)
 }
 
+/** Stored preference. Anything unrecognized counts as default. */
+export function getTextSize(): TextSize {
+  const held = stored(TEXT_SIZE_KEY)
+  return held === 'large' || held === 'larger' ? held : 'default'
+}
+
+/** Moves the rem base the whole text scale hangs from. Spacing, radius and icon
+ * sizes are rem as well, so the shell grows with the letters. */
+export function applyTextSize(size: TextSize = getTextSize()): void {
+  document.documentElement.style.setProperty(TEXT_SCALE_PROP, TEXT_SCALE[size])
+}
+
+/** What a rem is worth right now, for the few APIs that take a bare pixel
+ * number and no unit at all, such as IntersectionObserver's rootMargin. */
+export function remPx(rem: number): number {
+  return rem * Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
+}
+
 /** Stored scheme per side. Anything unrecognized counts as default. */
 export function getLightScheme(): LightScheme {
   const held = stored(SCHEME_LIGHT_KEY) as LightScheme | null
@@ -181,6 +213,7 @@ export function clearPreview(rootEl: HTMLElement): void {
 
 export function applyTheme(rootEl: HTMLElement, theme?: Theme) {
   previewing = false
+  applyTextSize()
   if (theme) store(THEME_KEY, theme)
   const dark = isDark(theme ?? getTheme())
   rootEl.classList.toggle('dark', dark)
@@ -195,6 +228,11 @@ export function applyTheme(rootEl: HTMLElement, theme?: Theme) {
 
 export function setContrast(rootEl: HTMLElement, next: Contrast) {
   store(CONTRAST_KEY, next)
+  applyTheme(rootEl)
+}
+
+export function setTextSize(rootEl: HTMLElement, next: TextSize) {
+  store(TEXT_SIZE_KEY, next)
   applyTheme(rootEl)
 }
 

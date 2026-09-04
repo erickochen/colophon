@@ -3,9 +3,9 @@
 // every subscribed surface follows a change from any of them.
 import { useSyncExternalStore } from 'react'
 import {
-  applyTheme, clearPreview, getContrast, getDarkScheme, getLightScheme, getTheme, isDark, previewScheme,
-  setContrast, setDarkScheme, setLightScheme,
-  type Contrast, type DarkScheme, type LightScheme, type Theme,
+  applyTheme, clearPreview, getContrast, getDarkScheme, getLightScheme, getTextSize, getTheme, isDark, previewScheme,
+  setContrast, setDarkScheme, setLightScheme, setTextSize,
+  type Contrast, type DarkScheme, type LightScheme, type TextSize, type Theme,
 } from '@/lib/theme'
 import { GEN_SCHEME_ITEMS } from '@/lib/schemes.gen'
 import { notifySettings, settingsRevision, subscribeSettings } from '@/lib/settings'
@@ -69,6 +69,11 @@ export function chooseContrast(next: Contrast): void {
   notifySettings()
 }
 
+export function chooseTextSize(next: TextSize): void {
+  setTextSize(getPortalContainer(), next)
+  notifySettings()
+}
+
 // Debounce for the full-UI preview, so scanning the list does not strobe.
 export const PREVIEW_DELAY_MS = 150
 
@@ -102,11 +107,19 @@ export function chooseScheme(side: 'light' | 'dark', value: string): void {
 export function useAppearance(): {
   theme: Theme
   contrast: Contrast
+  textSize: TextSize
   lightScheme: LightScheme
   darkScheme: DarkScheme
   dark: boolean
 } {
   useSyncExternalStore(subscribeSettings, settingsRevision)
   const theme = getTheme()
-  return { theme, contrast: getContrast(), lightScheme: getLightScheme(), darkScheme: getDarkScheme(), dark: isDark(theme) }
+  return {
+    theme,
+    contrast: getContrast(),
+    textSize: getTextSize(),
+    lightScheme: getLightScheme(),
+    darkScheme: getDarkScheme(),
+    dark: isDark(theme),
+  }
 }
