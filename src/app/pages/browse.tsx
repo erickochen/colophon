@@ -183,8 +183,11 @@ const actionLane = (slots: number) => `${slots * ROW_ACTION_SIZE + (slots - 1) *
 // Gallery shelf: --shelf is the tallest a frame gets, so a row of frames shares
 // one floor plus the titles under them line up. Narrow columns shrink the frame
 // rather than the cover inside it.
+// The row gap is zero because a tile is a subgrid: a gap here would land
+// between its cover and its title too. The space between rows of tiles is the
+// padding the tile carries at its foot.
 const GALLERY_GRID =
-  'grid grid-cols-3 gap-x-[22px] gap-y-7 p-6 [--shelf:150px] sm:grid-cols-4 sm:[--shelf:180px] lg:grid-cols-6 lg:[--shelf:210px]'
+  'grid grid-cols-3 gap-x-[22px] gap-y-0 px-6 pt-6 [--shelf:150px] sm:grid-cols-4 sm:[--shelf:180px] lg:grid-cols-6 lg:[--shelf:210px]'
 
 /** The bar that names a group of rows, shared by the series view plus the runs
  * a grouped list draws. */
@@ -1208,12 +1211,16 @@ function TorrentRow({ t, cols, blurb, onBookmark, onRemoved, onFreeleech, onIgno
   )
 }
 
+/** One tile takes four rows of the gallery grid: cover, title, the author line
+ * plus whatever a reseed adds. The rows are shared with every tile beside it,
+ * so a row of one-line titles costs one line rather than the two the longest
+ * title anywhere in the list would otherwise reserve for all of them. */
 function GalleryItem({ t, blurb, hiddenReason, onUnignore, isNew, pile }: { t: SearchTorrent; blurb: boolean; hiddenReason?: HiddenReason | null; onUnignore?: (id: number) => void; isNew?: boolean; pile?: string | null }) {
   const authors = parsePeople(t.author_info)
   const authorsText = authors.map((a) => a.name).join(', ')
   return (
-    <span className={cn('relative block', hiddenReason && 'opacity-60')}>
-      <a href={torrentUrl(t.id)} className="group block">
+    <span className={cn('relative row-span-4 grid grid-rows-subgrid pb-7', hiddenReason && 'opacity-60')}>
+      <a href={torrentUrl(t.id)} className="group row-span-3 grid grid-rows-subgrid">
         {/* One shelf line: every frame is the same book shape, so the covers
             rest on one floor and every title starts level. Whatever shape a
             cover turns out to be, it keeps it and takes the room it needs. */}
@@ -1241,18 +1248,22 @@ function GalleryItem({ t, blurb, hiddenReason, onUnignore, isNew, pile }: { t: S
           </Book>
         </span>
         </CoverPreview>
-        <span className="font-display mt-2.5 line-clamp-2 min-h-[2.7em] text-13 font-medium leading-[1.35]">
+        <span className="font-display mt-2.5 line-clamp-2 text-13 font-medium leading-[1.35]">
           {isNew && <NewDot />}
           {t.title}
         </span>
-        {authorsText && <span className="mt-0.5 line-clamp-1 text-11-5 text-muted-foreground">{authorsText}</span>}
-        {/* A tile has no room for a row of badges, so only this one: whether the
-            book is already yours is what a reader scans a shelf for. */}
-        {snatchMarked(pile, t.my_snatched === 1) && (
-          <span className="mt-1 flex">
-            <SnatchMark pile={pile} snatched={t.my_snatched === 1} dense />
-          </span>
-        )}
+        {/* Author plus mark share one row of the subgrid, so a tile always has
+            the same four rows however much it carries. */}
+        <span className="mt-0.5 block">
+          {authorsText && <span className="line-clamp-1 text-11-5 text-muted-foreground">{authorsText}</span>}
+          {/* A tile has no room for a row of badges, so only this one: whether
+              the book is already yours is what a reader scans a shelf for. */}
+          {snatchMarked(pile, t.my_snatched === 1) && (
+            <span className="mt-1 flex">
+              <SnatchMark pile={pile} snatched={t.my_snatched === 1} dense />
+            </span>
+          )}
+        </span>
       </a>
       {/* Outside the tile link, since it carries a link of its own. The reader
           keeps whichever view they last used, so the reseed lists have to say
@@ -1469,9 +1480,22 @@ function ResultActions({
 
 /** Names the series a run holds, with how many of it are here. A stretch of
  * single titles carries no heading, so the list only breaks where that means
- * something. */
-function RunHead({ run }: { run: SeriesRun }) {
+ * something.
+ *
+ * A list row is the width of the page, so there the name gets the band it needs
+ * to read as a divider. A gallery run is usually two to four covers wide. A
+ * band across the whole page over that only points at the space where the rest
+ * of the series is not, so there the name is a line above its own covers. */
+function RunHead({ run, view }: { run: SeriesRun; view: ViewMode }) {
   if (run.name == null) return null
+  if (view === 'grid') {
+    return (
+      <h3 className="flex items-baseline gap-2 px-6 pt-7 font-mono text-11 font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+        <span className="truncate">{run.name}</span>
+        <span className="shrink-0 tabular-nums opacity-70">{run.rows.length}</span>
+      </h3>
+    )
+  }
   return (
     <h3 className={GROUP_HEAD}>
       <span className="truncate">{run.name}</span>
@@ -2485,7 +2509,9 @@ export function BrowseView(props: PageProps) {
           </div>
         )}
         {loading && view === 'grid' && (
-          <div className={cn(GALLERY_GRID)}>
+          // A placeholder is one box rather than a subgrid, so the row gap the
+          // real tiles carry at their foot comes back here.
+          <div className={cn(GALLERY_GRID, 'gap-y-7 pb-6')}>
             {Array.from({ length: 12 }).map((_, i) => (
               <div key={i}>
                 <Skeleton className="mx-auto aspect-[3/4.5] w-[min(100%,calc(var(--shelf)*2/3))] rounded-[4px_7px_7px_4px]" />
@@ -2523,7 +2549,7 @@ export function BrowseView(props: PageProps) {
             {grouping
               ? seriesRuns.map((r) => (
                   <div key={r.key}>
-                    <RunHead run={r} />
+                    <RunHead run={r} view="list" />
                     <div className="divide-y divide-border">{r.rows.map(listRow)}</div>
                   </div>
                 ))
@@ -2535,8 +2561,10 @@ export function BrowseView(props: PageProps) {
             <div>
               {seriesRuns.map((r) => (
                 <div key={r.key}>
-                  <RunHead run={r} />
-                  <div className={cn(GALLERY_GRID)}>{r.rows.map(galleryItem)}</div>
+                  <RunHead run={r} view="grid" />
+                  {/* The heading brings its own space above, so a named run
+                      keeps its covers close to the name that holds them. */}
+                  <div className={cn(GALLERY_GRID, r.name != null && 'pt-2')}>{r.rows.map(galleryItem)}</div>
                 </div>
               ))}
             </div>
