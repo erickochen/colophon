@@ -483,7 +483,9 @@
   --tw-ring-offset-color: var(--background);
   /* Resolved here for the same reason as the line above: the scheme class sits
    * on this element, so a var() written on the host would freeze at the Reading
-   * Room tone for every other scheme. */
+   * Room tone for every other scheme. The pass writes the real value onto this
+   * element too, which means a subtree wearing another scheme class draws its
+   * control outlines from the root rather than from that scheme. */
   --input-line: var(--input);
   background: var(--background);
   color: var(--foreground);
@@ -659,6 +661,21 @@
   }
   #mam-root .animate-spin {
     animation: spin 1.6s linear infinite !important;
+  }
+}
+
+/* A Windows theme replaces every color an author wrote plus drops box shadows,
+ * which is where our focus ring lives. An outline in a system color survives
+ * both. The reachability dots keep their own paint: their fill, their hollow
+ * ring plus their bar are drawn with shadows that would vanish, taking the
+ * difference between reachable and unknown with them. */
+@media (forced-colors: active) {
+  #mam-root *:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+  #mam-root [data-conn] {
+    forced-color-adjust: none;
   }
 }
 

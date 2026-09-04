@@ -2,7 +2,7 @@
 // every later one is covered by the same pass.
 // A relative path with its extension, so a test can import this module straight
 // from node the way it imports the modules beside it.
-import { HASH_HUE_STEPS, contrast, parseColor, readable, type Rgb } from './contrast.ts'
+import { BLACK, HASH_HUE_STEPS, WHITE, contrast, parseColor, readable, type Rgb } from './contrast.ts'
 
 // WCAG AAA for small text (SC 1.4.6).
 export const TEXT_MIN = 7
@@ -78,9 +78,15 @@ export const HIGH_CLASS = 'contrast-high'
 
 const toCss = (c: Rgb) => `rgb(${c.r} ${c.g} ${c.b})`
 
+/** Whether a surface leaves room for the threshold at all. Paper that neither
+ * black nor white reads on asks the impossible, so it does not get a vote. */
+const canReach = (bg: Rgb, min: number) => Math.max(contrast(BLACK, bg), contrast(WHITE, bg)) >= min
+
 /** Walks one token onto every surface it appears on, keeping the shade the
  * heaviest surface asks for. Two surfaces on opposite sides of mid lightness
- * pull in opposite directions, so the walk repeats until nothing moves. */
+ * pull in opposite directions, so the walk repeats until nothing moves. A walk
+ * that ends up satisfying none of them hands back the scheme's own value: a
+ * half-corrected color changes the look without buying anything. */
 function lifted(start: Rgb, grounds: Rgb[], min: number): Rgb {
   let out = start
   for (let round = 0; round < grounds.length; round += 1) {
@@ -93,7 +99,8 @@ function lifted(start: Rgb, grounds: Rgb[], min: number): Rgb {
     }
     if (!moved) break
   }
-  return out
+  const holds = grounds.every((bg) => !canReach(bg, min) || contrast(out, bg) >= min)
+  return holds ? out : start
 }
 
 /** Answers already found, keyed by what the search depends on. Browsing the
@@ -129,8 +136,9 @@ function searchLightness(chroma: number, grounds: Rgb[], darkSide: boolean): num
   for (let i = 0; i < LIGHTNESS_STEPS; i += 1) {
     const mid = (lo + hi) / 2
     const ok = reads(mid)
-    // A light scheme walks its ceiling down to the last shade that still reads,
-    // a dark one walks its floor down to the first.
+    // Both sides narrow from above: a light scheme keeps the highest lightness
+    // that still reads, a dark one the lowest. So hi comes down on a shade that
+    // reads for dark plus on one that fails for light.
     if (darkSide ? ok : !ok) hi = mid
     else lo = mid
   }

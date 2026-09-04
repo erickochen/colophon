@@ -49,7 +49,15 @@ function schemeBlocks() {
       if (tokens.foreground && tokens.card) out.push({ file, sel: m[2].trim(), tokens })
     }
   }
-  return out
+  // A scheme block only carries what it overrides; the browser fills the rest in
+  // from the root plus the dark side. Measuring the block on its own would judge
+  // a scheme against fewer surfaces than the page actually paints it on.
+  const base = out.find((b) => b.sel.includes(':root'))?.tokens ?? {}
+  const dark = out.find((b) => b.sel === '.dark')?.tokens ?? {}
+  return out.map((block) => ({
+    ...block,
+    tokens: { ...base, ...(block.sel.includes('.dark') ? dark : {}), ...block.tokens },
+  }))
 }
 
 function* sources(dir) {
