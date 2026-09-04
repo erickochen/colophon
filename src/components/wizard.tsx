@@ -51,7 +51,9 @@ export function WizardSteps({
                 className={cn(
                   'flex size-5 items-center justify-center rounded-full text-11 font-semibold',
                   here
-                    ? 'bg-brand text-brand-foreground'
+                    // No token names the text on a brand fill, so the number
+                    // borrows the one that sits on the other filled control.
+                    ? 'bg-brand text-primary-foreground'
                     : done
                       ? 'bg-brand/15 text-brand'
                       : 'bg-muted text-muted-foreground'

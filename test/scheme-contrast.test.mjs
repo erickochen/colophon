@@ -234,3 +234,21 @@ test('high contrast reaches its threshold on every scheme', () => {
   }
   assert.deepEqual(offenders, [], `high contrast under target: ${offenders.join(', ')}`)
 })
+
+// A class can name a token that does not exist without anything saying so: the
+// property just falls back to what it inherits. Every token in this codebase
+// that carries text ends in -foreground, which makes that family the one worth
+// holding to its own names.
+test('every -foreground class names a token that exists', () => {
+  const css = readFileSync(path.join(ROOT, 'src', 'index.css'), 'utf8')
+  const declared = new Set([...css.matchAll(/--([\w-]*foreground):/g)].map(([, name]) => name))
+  assert.ok(declared.size > 6, `expected the foreground tokens, found ${declared.size}`)
+  const missing = new Set()
+  for (const file of sources(SRC)) {
+    const text = readFileSync(file, 'utf8')
+    for (const [, name] of text.matchAll(/\b(?:text|bg|border|ring|fill|stroke|decoration|caret|divide|outline|accent|shadow)-([\w-]*foreground)\b/g)) {
+      if (!declared.has(name)) missing.add(`${name} (${path.relative(SRC, file)})`)
+    }
+  }
+  assert.deepEqual([...missing], [], 'these name no token in index.css')
+})
