@@ -556,6 +556,25 @@
   border-style: solid;
 }
 
+/* Headings in member markup, which preflight flattens to body text while the
+ * tags stay in the DOM for a screen reader to announce. The sizes are relative
+ * so a fragment inside a quote scales with it, under the page's own heading. */
+#mam-root .user-html :is(h1, h2, h3, h4, h5, h6) {
+  font-weight: 600;
+}
+
+#mam-root .user-html h1 {
+  font-size: 1.35em;
+}
+
+#mam-root .user-html h2 {
+  font-size: 1.2em;
+}
+
+#mam-root .user-html :is(h3, h4, h5, h6) {
+  font-size: 1.1em;
+}
+
 /* Reachability dots, put in place of MAM's thumb icons by lib/status-dots.ts.
  * Same reading as the client dots in the top bar: filled is reachable, hollow
  * is unknown and a barred ring is unreachable, so each state has its own shape
