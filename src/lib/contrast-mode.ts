@@ -1,7 +1,8 @@
 // High contrast is derived from whichever scheme is on, so every scheme plus
 // every later one is covered by the same pass.
-import { HASH_HUE_STEPS } from '@/lib/colors'
-import { contrast, parseColor, readable, type Rgb } from '@/lib/contrast'
+// A relative path with its extension, so a test can import this module straight
+// from node the way it imports the modules beside it.
+import { HASH_HUE_STEPS, contrast, parseColor, readable, type Rgb } from './contrast.ts'
 
 // WCAG AAA for small text (SC 1.4.6).
 export const TEXT_MIN = 7
@@ -12,8 +13,9 @@ export const SHAPE_MIN = 3
 const LIGHTNESS_STEPS = 8
 // Halfway between the two sides, which is where a scheme stops being light.
 const MID_LIGHTNESS = 0.5
-// Decimals the lightness is written with, matching the scheme blocks.
-const LIGHTNESS_DECIMALS = 3
+// Steps per unit of lightness, which puts the value on three decimals like the
+// scheme blocks write it.
+const LIGHTNESS_SCALE = 1000
 
 /** Every text token the pass rewrites, with the surfaces it has to read on.
  * The heaviest requirement wins, so a color that lands on both a card and the
@@ -64,9 +66,23 @@ function lifted(start: Rgb, grounds: Rgb[], min: number): Rgb {
   return out
 }
 
+/** Answers already found, keyed by what the search depends on. Browsing the
+ * scheme picker repaints on every arrow key while a search costs two hundred
+ * canvas readbacks. One entry per scheme, so it stays small. */
+const searched = new Map<string, number | null>()
+
 /** The lightness at which every hashed hue reads on both surfaces. A name is
  * hashed to a hue we do not know in advance, so the worst one sets the value. */
 function hashLightness(chroma: number, grounds: Rgb[], darkSide: boolean): number | null {
+  const key = `${chroma}|${darkSide}|${grounds.map((c) => `${c.r},${c.g},${c.b}`).join('|')}`
+  const held = searched.get(key)
+  if (held !== undefined) return held
+  const answer = searchLightness(chroma, grounds, darkSide)
+  searched.set(key, answer)
+  return answer
+}
+
+function searchLightness(chroma: number, grounds: Rgb[], darkSide: boolean): number | null {
   const hues = Array.from({ length: HASH_HUE_STEPS }, (_, i) => (i * 360) / HASH_HUE_STEPS)
   const reads = (l: number) =>
     hues.every((hue) => {
@@ -85,7 +101,10 @@ function hashLightness(chroma: number, grounds: Rgb[], darkSide: boolean): numbe
     if (darkSide ? ok : !ok) hi = mid
     else lo = mid
   }
-  return Number((darkSide ? hi : lo).toFixed(LIGHTNESS_DECIMALS))
+  // Rounded away from the boundary the search just found: to nearest would move
+  // the answer a step past the last shade that reads.
+  const found = (darkSide ? hi : lo) * LIGHTNESS_SCALE
+  return (darkSide ? Math.ceil(found) : Math.floor(found)) / LIGHTNESS_SCALE
 }
 
 /** Rewrites the tokens of the scheme in force onto the root as inline values.
@@ -99,11 +118,17 @@ export function applyContrast(rootEl: HTMLElement, on: boolean): void {
 
   const style = getComputedStyle(rootEl)
   const raw = (name: string) => style.getPropertyValue(`--${name}`).trim()
+  // Held per pass, since twenty tokens name the same handful of surfaces plus
+  // every parse costs a canvas readback.
+  const seen = new Map<string, Rgb | null>()
   // A value the canvas cannot read paints nothing, which comes back as
   // transparent black. Taking that for a surface would walk every word to white.
   const read = (name: string): Rgb | null => {
-    const color = parseColor(raw(name))
-    return color && color.a >= 1 ? color : null
+    if (!seen.has(name)) {
+      const color = parseColor(raw(name))
+      seen.set(name, color && color.a >= 1 ? color : null)
+    }
+    return seen.get(name) ?? null
   }
 
   for (const [pairs, min] of [

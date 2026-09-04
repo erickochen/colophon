@@ -4,6 +4,8 @@ import path from 'node:path'
 import test from 'node:test'
 import { converter, parse, wcagContrast } from 'culori'
 
+import { readable } from '../src/lib/contrast.ts'
+import { SHAPE_MIN, SHAPE_TOKENS, TEXT_MIN, TEXT_TOKENS } from '../src/lib/contrast-mode.ts'
 import { readShoutAlerts } from '../src/lib/shout-alerts.ts'
 
 const ROOT = path.join(import.meta.dirname, '..')
@@ -151,4 +153,47 @@ test('an alert fill keeps its row readable and still shows', () => {
   }
   assert.deepEqual(unreadable, [], `alert fill under ${AA}: ${unreadable.join(', ')}`)
   assert.deepEqual(invisible, [], `alert fill under ${FILL_MIN_GAP}/255 from the card: ${invisible.join(', ')}`)
+})
+
+// The high contrast pass derives its values from whichever scheme is on, so the
+// promise it makes has to hold for every one of them. The pass itself does the
+// walking; culori measures where it lands, which keeps the check independent of
+// the color parser the browser hands the pass.
+const bytes = (token) => {
+  const c = painted(token)
+  return { r: Math.round(c.r * 255), g: Math.round(c.g * 255), b: Math.round(c.b * 255), a: 1 }
+}
+const asToken = (c) => ({ mode: 'rgb', r: c.r / 255, g: c.g / 255, b: c.b / 255 })
+
+/** Whether a surface leaves any room at all: paper that neither black nor white
+ * reads on keeps its color, which the pass allows on purpose. */
+function reachable(ground, min) {
+  return Math.max(contrast('#000', ground), contrast('#fff', ground)) >= min
+}
+
+test('high contrast reaches its threshold on every scheme', () => {
+  const blocks = schemeBlocks()
+  assert.ok(blocks.length > 40, `expected every scheme block, found ${blocks.length}`)
+  const offenders = []
+  for (const { sel, tokens } of blocks) {
+    for (const [pairs, min] of [
+      [TEXT_TOKENS, TEXT_MIN],
+      [SHAPE_TOKENS, SHAPE_MIN],
+    ]) {
+      for (const [token, surfaces] of pairs) {
+        if (!tokens[token]) continue
+        const grounds = surfaces.filter((s) => tokens[s]).map((s) => [s, bytes(tokens[s])])
+        if (grounds.length === 0) continue
+        let value = bytes(tokens[token])
+        for (const [, bg] of grounds) value = readable(value, bg, min) ?? value
+        for (const [name, bg] of grounds) {
+          const ratio = contrast(asToken(value), asToken(bg))
+          if (ratio < min && reachable(asToken(bg), min)) {
+            offenders.push(`${sel} --${token} on --${name}: ${ratio.toFixed(2)}`)
+          }
+        }
+      }
+    }
+  }
+  assert.deepEqual(offenders, [], `high contrast under target: ${offenders.join(', ')}`)
 })

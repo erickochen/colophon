@@ -5,6 +5,11 @@
 // within a thousandth of the blend, far below what an eye can tell apart.
 const CORRECTION_STEPS = 12
 
+/** Hues a hashed name can land on, spread far enough apart that neighboring
+ * uids stay tellable. Lives here because the name colors plus the pass that
+ * keeps them readable both have to walk the same set. */
+export const HASH_HUE_STEPS = 24
+
 export interface Rgb {
   r: number
   g: number
