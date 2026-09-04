@@ -5,12 +5,33 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { pileBadge, readPile, type BadgeTone } from '@/lib/snatch-status'
 
+export type { BadgeTone }
+
 // The quiet tone keeps its outline: beside a category or a language badge, which
 // carry the same fill and no border, that line is what marks it as a state.
 const TONES: Record<BadgeTone, string> = {
   ok: 'bg-ok/15 text-ok',
   warn: 'border-warn/40 text-warn',
   muted: 'border-border text-muted-foreground',
+}
+
+// A state standing on its own needs no outline to be told apart, so it carries
+// a fill. That fill is neutral: a tint of the tone's own hue sits under the word
+// and costs it up to half a point of contrast on the darker palettes.
+const STATE_TONES: Record<BadgeTone, string> = {
+  ok: 'bg-muted text-ok',
+  warn: 'bg-muted text-warn',
+  muted: 'bg-muted text-muted-foreground',
+}
+
+/** A state named in the site's own words: a ticket status, a topic tag. The
+ * wording always shows, so the tone is a hint rather than the message. */
+export function StateBadge({ text, tone, title }: { text: string; tone: BadgeTone; title?: string }) {
+  return (
+    <Badge variant="secondary" className={cn('font-medium', STATE_TONES[tone])} title={title}>
+      {text}
+    </Badge>
+  )
 }
 
 /** `dense` is the h-4 size the freeleech rows use beside language plus

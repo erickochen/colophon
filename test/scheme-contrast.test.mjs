@@ -86,6 +86,23 @@ test('every scheme carries a readable --foreground-soft', () => {
   assert.deepEqual(offenders, [], `--foreground-soft under ${AA}: ${offenders.join(', ')}`)
 })
 
+// A state badge paints its word in a tone on a neutral pill. The checks above
+// hold --ok and --warn against a card, so the fill they land on needs a line of
+// its own: a tint of the tone's own hue reads up to half a point lower.
+test('every scheme keeps a state badge readable on its fill', () => {
+  const blocks = schemeBlocks()
+  assert.ok(blocks.length > 40, `expected every scheme block, found ${blocks.length}`)
+  const offenders = []
+  for (const { sel, tokens } of blocks) {
+    for (const tone of ['ok', 'warn', 'muted-foreground']) {
+      if (!tokens[tone] || !tokens.muted) continue
+      const ratio = contrast(tokens[tone], tokens.muted)
+      if (ratio < AA) offenders.push(`${sel} --${tone} on --muted: ${ratio.toFixed(2)}`)
+    }
+  }
+  assert.deepEqual(offenders, [], `state badge under ${AA}: ${offenders.join(', ')}`)
+})
+
 // Marks with no contrast bar of their own: WCAG asks nothing of a glyph that
 // carries no information. Each of these sits beside text saying the same thing.
 // Anything not listed here has to reach the bar with a whole token.

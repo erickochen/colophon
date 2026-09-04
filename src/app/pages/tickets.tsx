@@ -9,6 +9,7 @@ import { submitGuarded } from '@/lib/form-submit'
 import { findSubmitter } from '@/lib/form-mirror'
 import { clearTicketDraft } from '@/lib/tickets'
 import { Badge } from '@/components/ui/badge'
+import { StateBadge, type BadgeTone } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import { Conversation, ConversationBubble } from '@/components/conversation'
 import { Card, CardContent } from '@/components/ui/card'
@@ -17,7 +18,6 @@ import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '@/co
 import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/toast'
-import { cn } from '@/lib/utils'
 
 export interface Ticket {
   category: string[]
@@ -32,11 +32,11 @@ export interface TicketSection { title: string; tickets: Ticket[] }
 
 /** Badge tone for a status. MAM's own wording is always what shows, so only the
  * color is a guess and an unknown status keeps a neutral one. */
-function statusTone(status: string): string {
+function statusTone(status: string): BadgeTone {
   const s = status.toLowerCase()
-  if (/^open/.test(s)) return 'bg-ok/15 text-ok'
-  if (/pending|waiting|respond/.test(s)) return 'bg-warn/15 text-warn'
-  return 'bg-muted text-muted-foreground'
+  if (/^open/.test(s)) return 'ok'
+  if (/pending|waiting|respond/.test(s)) return 'warn'
+  return 'muted'
 }
 
 /** MAM writes a status as a state plus what it wants from you, split by a
@@ -116,9 +116,7 @@ export function TicketRow({ t }: { t: Ticket }) {
         </ItemDescription>
       </ItemContent>
       <ItemActions>
-        <Badge variant="secondary" className={cn('font-medium', statusTone(t.status))} title={t.status}>
-          {state}
-        </Badge>
+        <StateBadge text={state} tone={statusTone(t.status)} title={t.status} />
         <ChevronRight className="size-4 text-muted-foreground/60 transition-transform group-hover/item:translate-x-0.5" />
       </ItemActions>
     </>
