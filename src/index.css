@@ -627,9 +627,11 @@
   background-color: color-mix(in oklab, var(--accent) 45%, transparent);
 }
 
+/* Inset, since the trigger fills its own row. The token goes in whole: it is
+   raised to read against the surface, which a part strength gives back. */
 #mam-root .user-html .spoiler-trigger:focus-visible {
   outline: none;
-  box-shadow: inset 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+  box-shadow: inset 0 0 0 3px var(--ring);
 }
 
 #mam-root .user-html .spoiler[data-open='true'] > .spoiler-trigger {

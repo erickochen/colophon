@@ -20,7 +20,7 @@ function NumberField({
     <NumberFieldPrimitive.Root data-slot="number-field" {...props}>
       <NumberFieldPrimitive.Group
         className={cn(
-          "flex h-8 items-center rounded-md border border-input-line bg-transparent shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 has-[input:disabled]:opacity-50",
+          "flex h-8 items-center rounded-md border border-input-line bg-transparent shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring has-[input:disabled]:opacity-50",
           className
         )}
       >
