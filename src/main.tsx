@@ -50,10 +50,13 @@ const DIALOG_BODY_CSS = `
 #dialog-message[slot] td,#dialog-message[slot] th{padding:4px 8px 4px 0;text-align:left;vertical-align:top}
 #dialog-message[slot] input[type=text],#dialog-message[slot] input[type=number],#dialog-message[slot] input[type=password],#dialog-message[slot] select,#dialog-message[slot] textarea{
   font:inherit;color:inherit;background:var(--muted)!important;border-radius:8px;padding:6px 10px;margin:2px 0;min-height:32px}
+/* Written out rather than as a font shorthand: that shorthand has no slot for a
+   CSS-wide keyword, so a family of inherit drops the whole declaration along
+   with the size. */
 #dialog-message[slot] input[type=button],#dialog-message[slot] input[type=submit],#dialog-message[slot] button{
-  font:500 0.8125rem/1 inherit;color:var(--primary-foreground);background:var(--primary)!important;border-radius:8px;padding:9px 14px;cursor:pointer;margin:2px 0}
+  font-family:inherit;font-weight:500;font-size:0.8125rem;line-height:1;color:var(--primary-foreground);background:var(--primary)!important;border-radius:8px;padding:9px 14px;cursor:pointer;margin:2px 0}
 #dialog-message[slot] input[type=file]{font:inherit;color:inherit;display:block;margin:6px 0}
-#dialog-message[slot] input[type=file]::file-selector-button{font:500 0.78125rem/1 inherit;color:inherit;background:var(--muted)!important;border:0;border-radius:8px;padding:8px 12px;margin-right:10px;cursor:pointer}
+#dialog-message[slot] input[type=file]::file-selector-button{font-family:inherit;font-weight:500;font-size:0.78125rem;line-height:1;color:inherit;background:var(--muted)!important;border:0;border-radius:8px;padding:8px 12px;margin-right:10px;cursor:pointer}
 #dialog-message[slot] label{display:inline-flex;align-items:center;gap:6px}
 
 /* MAM writes the two-factor QR code and its verify button into #addTOTParea and
@@ -61,7 +64,7 @@ const DIALOG_BODY_CSS = `
 #addTOTParea[slot]{display:block;font:400 0.8125rem/1.6 ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--foreground)}
 #addTOTParea[slot] img{height:200px;width:auto;border-radius:10px;background:#fff;padding:8px;margin:2px 0 8px}
 #addTOTParea[slot] input{font:inherit;color:inherit;background:var(--muted);border:1px solid var(--border);border-radius:8px;padding:6px 10px;min-height:32px;margin:6px 8px 6px 0}
-#addTOTParea[slot] button{font:500 0.8125rem/1 inherit;color:var(--primary-foreground);background:var(--primary);border:0;border-radius:8px;padding:9px 14px;cursor:pointer;margin:2px 0}
+#addTOTParea[slot] button{font-family:inherit;font-weight:500;font-size:0.8125rem;line-height:1;color:var(--primary-foreground);background:var(--primary);border:0;border-radius:8px;padding:9px 14px;cursor:pointer;margin:2px 0}
 `.trim()
 
 function abort() {
