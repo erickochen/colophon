@@ -293,3 +293,28 @@ test('a set without the parts it needs is skipped', () => {
   })
   assert.deepEqual(readSets('browse').map((s) => s.id), ['a'])
 })
+
+test('a set that lands on the opening values never answers for the page', () => {
+  // Saving cannot make one of these. An imported file can carry one that would
+  // otherwise read as active on a page nobody has touched.
+  stub({
+    value: stored({
+      browse: [
+        { id: 'empty', name: 'Empty', state: {}, created: 1 },
+        { id: 'blank', name: 'Blank', state: { text: '' }, created: 2 },
+        { id: 'neutral', name: 'Neutral', state: { snatched: 'all' }, created: 3 },
+        { id: 'zero', name: 'Zero', state: { flagsMode: 0 }, created: 4 },
+        { id: 'real', name: 'Real', state: { text: 'dune' }, created: 5 },
+      ],
+    }),
+  })
+  const opening = { text: '', snatched: 'all', flagsMode: 0 }
+  assert.equal(matchingSet('browse', opening, opening), null)
+  assert.equal(matchingSet('browse', { ...opening, text: 'dune' }, opening).id, 'real')
+})
+
+test('a set that clears a field the page opens with still answers', () => {
+  stub({ value: stored({ browse: [{ id: 'scope', name: 'Scope', state: { srchIn: [] }, created: 1 }] }) })
+  const opening = { srchIn: ['title'], text: '' }
+  assert.equal(matchingSet('browse', { srchIn: [], text: '' }, opening).id, 'scope')
+})

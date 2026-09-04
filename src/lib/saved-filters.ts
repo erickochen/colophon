@@ -231,7 +231,15 @@ export function matchingSet(
   opening?: Record<string, unknown>,
   prefer?: string | null
 ): SavedSet | null {
-  const hits = readSets(page).filter((s) => sameState({ ...opening, ...s.state }, state))
+  const wanted = JSON.stringify(canonical(state))
+  // A set that lands back on the opening values describes an untouched page,
+  // where it would read as active with no control to turn it off. The spread
+  // matters: without opening values the comparison stringifies to undefined.
+  const opened = JSON.stringify(canonical({ ...opening }))
+  const hits = readSets(page).filter((s) => {
+    const merged = JSON.stringify(canonical({ ...opening, ...s.state }))
+    return merged !== opened && merged === wanted
+  })
   return hits.find((s) => s.id === prefer) ?? hits[0] ?? null
 }
 
