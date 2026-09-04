@@ -72,6 +72,8 @@ export function extractForumIndex(doc: Document): ForumCategory[] {
 
 export interface BoardTopic {
   title: string
+  /** The state staff gave this topic, on the boards that track one. */
+  tag: string | null
   href: string
   sticky: boolean
   locked: boolean
@@ -97,6 +99,18 @@ function postsPerPage(rows: { replies: number; pages: number }[]): number | null
     hi = Math.min(hi, Math.floor((r.replies - 1) / (r.pages - 1)))
   }
   return hi !== Infinity && lo <= hi ? lo : null
+}
+
+/** The boards that track one open a topic row with a bracketed state, as loose
+ * text before the link, where a sticky row also puts its icon. Reading up to the
+ * link leaves a title that opens with brackets alone, since that sits inside. */
+function tagBefore(cell: Element, link: Element): string | null {
+  let text = ''
+  for (const node of cell.childNodes) {
+    if (node.contains(link)) break
+    text += node.textContent ?? ''
+  }
+  return text.match(/^\s*\[([^\]]+)\]/)?.[1].trim() || null
 }
 
 export interface BoardData {
@@ -153,6 +167,7 @@ export function extractBoard(doc: Document): BoardData | null {
     const lastGo = tds[5]?.querySelector<HTMLAnchorElement>('a[href*="#"]')
     topics.push({
       title: txt(titleA) ?? '',
+      tag: tagBefore(tds[1], titleA),
       href: titleA.getAttribute('href') ?? '#',
       sticky: !!tds[1]?.querySelector('img[alt="sticky"]'),
       locked: /\/locked/.test(statusSrc),
