@@ -1,24 +1,16 @@
 // Live notification counts for the sidebar. MAM serves its header counters
 // empty and fills them from a poll, so polling is the only way to show them.
 import { useEffect, useState } from 'react'
-import { pushCounters } from '@/lib/bonus'
 import { requestsUrl } from '@/lib/mam-api'
+import { COUNTER_KEYS, NOTIF_POLL_URL, notifPollBody, parseNotifPoll, type NotifCounts } from '@/lib/notif-poll'
 import { readFeature, subscribeSettings } from '@/lib/settings'
 import { toast } from '@/components/ui/toast'
 import { mamFetch } from '@/lib/mam-fetch'
 
+export type { NotifCounts } from '@/lib/notif-poll'
+
 /** How often the badges refresh. MAM's own header polls every second. */
 const POLL_MS = 60_000
-
-/** The counters MAM's header shows, from /jsonLoad.php?notif. */
-export interface NotifCounts {
-  pms: number
-  topics: number
-  tickets: number
-  requests: number
-}
-
-const COUNTER_KEYS = ['pms', 'topics', 'tickets', 'requests'] as const
 
 /** Last polled counts, kept for the next page. They seed the arrival baseline,
  * and the mailbox needs the PM count: serving it marks the messages read. */
@@ -65,31 +57,31 @@ function writeSnapshot(counts: NotifCounts): void {
   }
 }
 
-const num = (v: unknown): number => (typeof v === 'number' ? v : 0)
+/** The shoutbox version site.js sets on every page. The poll has to send it. */
+function shoutboxVersion(): number | null {
+  const v = (window as unknown as { vid?: unknown }).vid
+  return typeof v === 'number' && Number.isFinite(v) ? v : null
+}
 
-const figure = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+/** Set once the server refuses this page's poll. The shoutbox version only
+ * refreshes with a reload, so polling on would fail the same way. */
+let pollRefused = false
 
-/** Counts from the endpoint MAM's own header polls. The pages behind the
- * counters drop them from the DOM, so this endpoint is the only source. The
- * same answer carries the points plus wedge balances, which go to the counter
- * store on the way past: they are figures there rather than header text. */
+/** Counts from the poll MAM's own header runs. The pages behind the counters
+ * drop them from the DOM, so this poll is the only source. */
 export async function fetchNotifCounts(): Promise<NotifCounts | null> {
+  const vid = shoutboxVersion()
+  if (vid == null || pollRefused) return null
   try {
-    const res = await mamFetch('/jsonLoad.php?notif', { credentials: 'same-origin' })
+    const res = await mamFetch(NOTIF_POLL_URL, { method: 'POST', credentials: 'include', body: notifPollBody(vid) })
     if (!res.ok) return null
-    const data = (await res.json()) as {
-      notifs?: Partial<Record<keyof NotifCounts, unknown>>
-      seedbonus?: unknown
-      wedges?: unknown
+    const poll = parseNotifPoll(await res.json())
+    if (poll == null) return null
+    if ('refused' in poll) {
+      pollRefused = true
+      return null
     }
-    pushCounters({ bonus: figure(data.seedbonus), wedges: figure(data.wedges) })
-    if (!data.notifs) return null
-    return {
-      pms: num(data.notifs.pms),
-      topics: num(data.notifs.topics),
-      tickets: num(data.notifs.tickets),
-      requests: num(data.notifs.requests),
-    }
+    return poll.counts
   } catch {
     return null
   }

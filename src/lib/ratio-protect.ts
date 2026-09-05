@@ -1,9 +1,7 @@
 // Ratio impact of a download: what it costs and how close it brings you to the
-// floor. Exact byte totals come from /jsonLoad.php; the torrent size from the
-// page.
-import { useEffect, useState } from 'react'
+// floor. The transfer totals come from MAM's header strip; the torrent size
+// from the page.
 import { useFeature, useRatioFloor } from '@/lib/settings'
-import { mamFetch } from '@/lib/mam-fetch'
 
 // One line does the work: the minimum ratio the reader set. A download landing
 // under it locks. The softer levels sit at a multiple of that same line.
@@ -34,11 +32,12 @@ const SIZE_UNITS: Record<string, number> = {
   mib: 1024 ** 2,
   gib: 1024 ** 3,
   tib: 1024 ** 4,
+  pib: 1024 ** 5,
 }
 
 /** "38.87 GiB" to bytes; null when the text does not name a size. */
 export function parseSizeBytes(text: string | null | undefined): number | null {
-  const m = text?.match(/([\d,.]+)\s*(bytes|[kmgt]?i?b)/i)
+  const m = text?.match(/([\d,.]+)\s*(bytes|[kmgtp]?i?b)/i)
   if (!m) return null
   const value = Number(m[1].replace(/,/g, ''))
   const unit = SIZE_UNITS[m[2].toLowerCase()]
@@ -83,57 +82,42 @@ export function worthNoting(impact: RatioImpact): boolean {
   return impact.level !== 'none' || impact.share == null || impact.share > TRIVIAL_SHARE
 }
 
+// The header strip cells that carry the totals, rounded to two decimals.
+const UPLOADED_ID = 'uploadedTD'
+const DOWNLOADED_ID = 'downloadedTD'
+
 interface ByteTotals {
   uploaded: number
   downloaded: number
-  wedges: number | null
 }
 
-/** Exact transfer totals; null while loading or when the fetch fails. */
-function useByteTotals(wanted: boolean): ByteTotals | null {
-  const [totals, setTotals] = useState<ByteTotals | null>(null)
-  useEffect(() => {
-    if (!wanted) return
-    let live = true
-    mamFetch('/jsonLoad.php', { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((u: { uploaded_bytes?: number; downloaded_bytes?: number; wedges?: number } | null) => {
-        if (!live || u == null) return
-        if (typeof u.uploaded_bytes !== 'number' || typeof u.downloaded_bytes !== 'number') return
-        setTotals({
-          uploaded: u.uploaded_bytes,
-          downloaded: u.downloaded_bytes,
-          wedges: typeof u.wedges === 'number' ? u.wedges : null,
-        })
-      })
-      .catch(() => {
-        // without totals the download button simply stays plain
-      })
-    return () => {
-      live = false
-    }
-  }, [wanted])
-  return totals
+/** Transfer totals as the header strip shows them; null where the strip is
+ * missing. Two decimals in the unit shown is precision enough for margins. */
+function readByteTotals(): ByteTotals | null {
+  const uploaded = parseSizeBytes(document.getElementById(UPLOADED_ID)?.textContent)
+  const downloaded = parseSizeBytes(document.getElementById(DOWNLOADED_ID)?.textContent)
+  if (uploaded == null || downloaded == null) return null
+  return { uploaded, downloaded }
 }
 
 export interface RatioGuard {
   impact: RatioImpact
-  wedges: number | null
   floor: number | null
   enabled: boolean
   setEnabled: (v: boolean) => void
 }
 
 /** Ratio guard for one torrent. Pass null size to skip (freeleech, VIP,
- * already snatched); the result stays null until the totals arrive. Switched
- * off it keeps reporting the impact but never escalates past 'none'. */
+ * already snatched); the result stays null without totals. Switched off it
+ * keeps reporting the impact but never escalates past 'none'. */
 export function useRatioGuard(sizeText: string | null): RatioGuard | null {
   const sizeBytes = parseSizeBytes(sizeText)
-  const totals = useByteTotals(sizeBytes != null)
   const [floor] = useRatioFloor()
   const [enabled, setEnabled] = useFeature('ratioProtect')
-  if (sizeBytes == null || totals == null) return null
+  if (sizeBytes == null) return null
+  const totals = readByteTotals()
+  if (totals == null) return null
   const impact = assessRatio(totals.uploaded, totals.downloaded, sizeBytes, floor)
   if (!enabled) impact.level = 'none'
-  return { impact, wedges: totals.wedges, floor, enabled, setEnabled }
+  return { impact, floor, enabled, setEnabled }
 }

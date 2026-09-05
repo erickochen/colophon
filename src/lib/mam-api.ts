@@ -583,26 +583,6 @@ export async function searchAllTorrents2(q: Search2Query, cap = SERIES_FETCH_MAX
   return { ...first, data: rows.slice(0, cap), start: 0 }
 }
 
-export interface UserLive {
-  username: string
-  uid: string
-  classname: string
-  ratio: string
-  uploaded: string
-  downloaded: string
-  uploaded_bytes?: number
-  downloaded_bytes?: number
-  seedbonus?: number
-  wedges?: number
-  notifs?: unknown[]
-}
-
-export async function loadUserData(withNotifs = true): Promise<UserLive> {
-  const res = await mamFetch(`/jsonLoad.php${withNotifs ? '?notif' : ''}`, { credentials: 'include' })
-  if (!res.ok) throw new Error(`jsonLoad failed: ${res.status}`)
-  return res.json()
-}
-
 /** Single bookmark toggle. Answers {success:true,action:"add"} and is idempotent. */
 export async function bookmarkOne(id: number, action: 'add' | 'delete'): Promise<void> {
   const res = await mamFetch(`/tor/json/bookmark.php?action=${action}&tid=${id}`, { credentials: 'include' })

@@ -34,7 +34,7 @@ function menuEntry(label: RegExp): HTMLElement | null {
 }
 
 /** "FL Wedges: 3" to "3". A node holding anything but a plain count says
- * nothing, so the other node or the polled balance decides instead. */
+ * nothing, so the other node decides instead. */
 function numberFrom(raw: string | null | undefined): string | null {
   const n = counterValue(raw)
   return n == null ? null : n.toLocaleString('en-US')
@@ -84,28 +84,12 @@ function watch(store: Store) {
   const nodes = store.nodes()
   if (!nodes.length) return
   for (const el of nodes) store.seen.set(el, store.readNode(el))
-  // Nodes that read as nothing leave a polled balance standing.
+  // Nodes that read as nothing leave the earlier value standing.
   store.value = nodes.map(store.readNode).find((v) => v != null) ?? store.value
   store.observer = new MutationObserver(() => sync(store, nodes))
   for (const el of nodes) {
     store.observer.observe(el, { childList: true, characterData: true, subtree: true, attributes: true })
   }
-}
-
-function push(store: Store, value: number | null | undefined) {
-  if (value == null) return
-  const next = value.toLocaleString('en-US')
-  if (next === store.value) return
-  store.value = next
-  store.listeners.forEach((fn) => fn())
-}
-
-/** Balances as MAM's own poll endpoint reports them. The header nodes move the
- * moment something is spent, so they stay the quick source; this one settles
- * what they say, including where another userscript wrote into them. */
-export function pushCounters(counters: { bonus?: number | null; wedges?: number | null }): void {
-  push(bonusStore, counters.bonus)
-  push(wedgeStore, counters.wedges)
 }
 
 const subscribeBonus = (fn: Listener) => {
