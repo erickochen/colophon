@@ -7,18 +7,9 @@ import { Crumbs, PageHeader, Pager, UserLink } from '@/app/shell/bits'
 import { fmtInt, relTime, utcTitle } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { StateBadge, type BadgeTone } from '@/components/status-badge'
+import { StateBadge } from '@/components/status-badge'
+import { tagLabel, tagTone } from '@/lib/forum-tags'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-
-/** Badge tone for a topic tag. Staff writes the wording, so only the color is a
- * guess: done carries one plus a tag that waits on you warns. Whole boards are
- * tagged, so everything else stays quiet rather than tinting every row. */
-function tagTone(tag: string): BadgeTone {
-  const t = tag.toLowerCase()
-  if (/^implemented|^fixed/.test(t)) return 'ok'
-  if (/required/.test(t)) return 'warn'
-  return 'muted'
-}
 
 /** Long threads keep the row to one line: the first two pages plus the last,
  * so the newest posts stay one click away. */
@@ -38,7 +29,7 @@ function TopicRow({ t }: { t: NonNullable<ReturnType<typeof extractBoard>>['topi
             <div className="flex flex-wrap items-center gap-1.5">
               {t.sticky && <Pin className="size-3.5 shrink-0 text-brand" />}
               {t.locked && <Lock className="size-3.5 shrink-0 text-muted-foreground" />}
-              {t.tag && <StateBadge text={t.tag} tone={tagTone(t.tag)} />}
+              {t.tag && <StateBadge text={tagLabel(t.tag)} tone={tagTone(t.tag)} />}
               <a href={t.href} className="font-display text-14 font-medium leading-snug hover:underline">{t.title}</a>
             </div>
             {(t.author || t.pages.length > 0) && (
