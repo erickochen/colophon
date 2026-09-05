@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Activity, AlertTriangle, BookOpen, CheckCircle2, Globe, Radio, RefreshCcw, Server, ShieldCheck } from 'lucide-react'
 import type { PageProps } from '@/app/router'
 import { cleanHtml } from '@/lib/sanitize'
@@ -15,8 +15,25 @@ import { Spinner } from '@/components/ui/spinner'
 // unanswered.
 const TEST_TIMEOUT_MS = 30_000
 
+type Family = 'IPv4' | 'IPv6'
+
+// The column heads MAM writes above each client table. The IPv6 table has no
+// mean announce column, so a row is read by its head rather than by position.
+const COLUMNS = {
+  ip: /ip address/i,
+  agent: /^agent/i,
+  torrents: /# tor/i,
+  tls: /tls/i,
+  connectable: /^connectable/i,
+  tested: /last tested/i,
+  test: /test connectivity/i,
+  announce: /mean announce/i,
+} as const
+type ColumnKey = keyof typeof COLUMNS
+
 interface Client {
-  ip: string | null
+  family: Family
+  ip: string
   port: string | null
   agent: string | null
   torrents: string | null
@@ -52,36 +69,64 @@ const lines = (td: Element | null | undefined): string[] => {
   return (clone.textContent ?? '').split('\n').map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean)
 }
 
+function columnIndex(table: Element): Partial<Record<ColumnKey, number>> {
+  const index: Partial<Record<ColumnKey, number>> = {}
+  table.querySelectorAll(':scope > thead td, :scope > thead th').forEach((td, i) => {
+    const label = (td.textContent ?? '').replace(/\s+/g, ' ').trim()
+    for (const key of Object.keys(COLUMNS) as ColumnKey[]) {
+      if (index[key] == null && COLUMNS[key].test(label)) index[key] = i
+    }
+  })
+  return index
+}
+
 function extract(doc: Document): ClientData | null {
   const main = doc.querySelector('#mainBody')
-  const table = main?.querySelector('table.main')
-  if (!main || !table) return null
+  const tables = main ? [...main.querySelectorAll('table.main')] : []
+  if (!main || tables.length === 0) return null
 
+  // One table per address family, each in its own block. MAM names the IPv6
+  // block in its heading; the address itself says the same.
   const clients: Client[] = []
-  for (const tr of table.querySelectorAll(':scope > tr, :scope > tbody > tr')) {
-    const tds = [...tr.querySelectorAll(':scope > td')]
-    if (tds.length < 8 || tr.closest('thead')) continue
-    const [ipL, agentL, torL, tlsL, conL, testedL, testL, annL] = tds
-    const [ip, port] = lines(ipL)
-    const torLines = lines(torL)
-    const conLines = lines(conL)
-    const testedLines = lines(testedL)
-    clients.push({
-      ip: ip ?? null,
-      port: port ?? null,
-      agent: lines(agentL)[0] ?? null,
-      torrents: torL?.querySelector('a')?.textContent?.trim() ?? torLines[0] ?? null,
-      peersHref: torL?.querySelector('a')?.getAttribute('href') ?? null,
-      uptime: torLines[1] ?? null,
-      tls: lines(tlsL)[0] ?? null,
-      connectable: conLines[0] ?? null,
-      connectResponse: conL?.querySelector('.important')?.textContent?.trim() ?? null,
-      connectDetail: conL?.querySelector('.important')?.getAttribute('title') ?? null,
-      lastTested: testedLines[0] ?? null,
-      responseMs: testedL?.querySelector('.important')?.textContent?.trim() ?? null,
-      meanAnnounce: lines(annL)[0] ?? null,
-      testEl: testL?.querySelector<HTMLAnchorElement>('a[href^="javascript:LoadTest"]') ?? null,
-    })
+  for (const table of tables) {
+    const index = columnIndex(table)
+    // A head without an address column is a shape this reader does not know,
+    // so MAM's own page shows instead of an empty list.
+    if (index.ip == null) return null
+    const blockHead = table.closest('.blockCon')?.querySelector('h4')?.textContent ?? ''
+    for (const tr of table.querySelectorAll(':scope > tr, :scope > tbody > tr')) {
+      if (tr.closest('thead')) continue
+      const tds = [...tr.querySelectorAll(':scope > td')]
+      const cell = (key: ColumnKey) => {
+        const i = index[key]
+        return i == null ? null : (tds[i] ?? null)
+      }
+      const [ip, port] = lines(cell('ip'))
+      if (!ip) continue
+      const torL = cell('torrents')
+      const conL = cell('connectable')
+      const testedL = cell('tested')
+      const torLines = lines(torL)
+      const responseMs = testedL?.querySelector('.important')?.textContent?.trim() ?? null
+      clients.push({
+        family: /ipv6/i.test(blockHead) || ip.includes(':') ? 'IPv6' : 'IPv4',
+        ip,
+        port: port ?? null,
+        agent: lines(cell('agent'))[0] ?? null,
+        torrents: torL?.querySelector('a')?.textContent?.trim() ?? torLines[0] ?? null,
+        peersHref: torL?.querySelector('a')?.getAttribute('href') ?? null,
+        uptime: torLines[1] ?? null,
+        tls: lines(cell('tls'))[0] ?? null,
+        connectable: lines(conL)[0] ?? null,
+        connectResponse: conL?.querySelector('.important')?.textContent?.trim() || null,
+        connectDetail: conL?.querySelector('.important')?.getAttribute('title')?.trim() || null,
+        lastTested: lines(testedL)[0] ?? null,
+        // An untested row carries a zero here, which is no measurement.
+        responseMs: responseMs && Number(responseMs) > 0 ? responseMs : null,
+        meanAnnounce: lines(cell('announce'))[0] ?? null,
+        testEl: cell('test')?.querySelector<HTMLAnchorElement>('a[href^="javascript:LoadTest"]') ?? null,
+      })
+    }
   }
 
   // The block the page opens with, one named address per line. Reading it as
@@ -105,13 +150,17 @@ function extract(doc: Document): ClientData | null {
   }
 }
 
+// A break opportunity after each group, so an IPv6 address wraps between its
+// groups (never inside a "::") while an IPv4 address stays whole where it fits.
+function breakable(address: string): ReactNode {
+  return address.split(':').map((part, i) => (i === 0 ? part : part ? <Fragment key={i}>:<wbr />{part}</Fragment> : ':'))
+}
+
 function Stat({ label, value, sub, href }: { label: string; value: ReactNode; sub?: string | null; href?: string | null }) {
   const inner = (
     <>
       <div className="text-10-5 uppercase tracking-wide text-muted-foreground">{label}</div>
-      {/* break-all so an IPv6 address wraps inside its column instead of
-          widening the row. */}
-      <div className="pt-0.5 font-mono text-13-5 font-medium break-all tabular-nums">{value ?? '–'}</div>
+      <div className="pt-0.5 font-mono text-13-5 font-medium wrap-break-word tabular-nums">{value ?? '–'}</div>
       {sub && <div className="text-11 text-muted-foreground">{sub}</div>}
     </>
   )
@@ -174,31 +223,40 @@ function ClientCard({
 }) {
   const ok = /accepts incoming/i.test(c.connectable ?? '') || /^connect$/i.test(c.connectResponse ?? '')
   return (
-    <Card className="gap-0 py-0">
+    <Card className="@container gap-0 py-0">
       <CardHeader className="flex flex-row flex-wrap items-center gap-2.5 !py-3.5">
         <span className={cn('flex size-9 items-center justify-center rounded-lg', ok ? 'bg-ok/15' : 'bg-warn/15')}>
           <Server className={cn('size-4.5', ok ? 'text-ok' : 'text-warn')} />
         </span>
-        <div className="min-w-0 flex-1">
-          <CardTitle>{c.agent ?? 'Torrent client'}</CardTitle>
+        {/* The basis keeps the title readable on a narrow card: the actions
+            wrap under it instead of squeezing it. */}
+        <div className="min-w-0 flex-1 basis-48">
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle>{c.agent ?? 'Torrent client'}</CardTitle>
+            <Badge variant="outline" className="text-10-5">{c.family}</Badge>
+          </div>
           <p className="pt-0.5 text-11-5 text-muted-foreground">{c.connectable}</p>
         </div>
-        <Badge variant="secondary" className={cn('text-10-5', ok ? 'bg-ok/15 text-ok' : 'bg-warn/15 text-warn')} title={c.connectDetail ?? undefined}>
-          {c.connectResponse ?? (ok ? 'Connectable' : 'Unknown')}
-        </Badge>
-        {c.testEl && (
-          <Button size="sm" variant="outline" className="h-7 text-12" disabled={busy} onClick={() => onTest(c.testEl!)}>
-            {testing ? <><Spinner /> Testing…</> : <><RefreshCcw /> Test now</>}
-          </Button>
-        )}
+        <div className="ml-auto flex items-center gap-2.5">
+          <Badge variant="secondary" className={cn('text-10-5', ok ? 'bg-ok/15 text-ok' : 'bg-warn/15 text-warn')} title={c.connectDetail ?? undefined}>
+            {c.connectResponse ?? (ok ? 'Connectable' : 'Unknown')}
+          </Badge>
+          {c.testEl && (
+            <Button size="sm" variant="outline" className="h-7 text-12" disabled={busy} onClick={() => onTest(c.testEl!)}>
+              {testing ? <><Spinner /> Testing…</> : <><RefreshCcw /> Test now</>}
+            </Button>
+          )}
+        </div>
       </CardHeader>
-      <CardContent className="grid grid-cols-2 gap-x-6 gap-y-3 px-6 py-4 sm:grid-cols-3 lg:grid-cols-6">
-        <Stat label="Address" value={c.ip} sub={c.port ? `port ${c.port}` : null} />
+      {/* Columns follow the card's own width, so a mono address keeps a column
+          it fits in whether the sidebar is open or not. */}
+      <CardContent className="grid grid-cols-2 gap-x-6 gap-y-3 px-6 py-4 @lg:grid-cols-3 @5xl:grid-cols-6">
+        <Stat label="Address" value={breakable(c.ip)} sub={c.port ? `port ${c.port}` : null} />
         <Stat label="Seeding" value={c.torrents} sub="torrents" href={c.peersHref} />
         <Stat label="Uptime" value={c.uptime} />
         <Stat label="TLS" value={c.tls} />
         <Stat label="Last test" value={c.lastTested} sub={c.responseMs ? `${c.responseMs} ms` : null} />
-        <Stat label="Announce" value={c.meanAnnounce} sub="mean interval" />
+        {c.meanAnnounce != null && <Stat label="Announce" value={c.meanAnnounce} sub="mean interval" />}
       </CardContent>
       {outcome && (
         <CardContent className="px-6 pb-4">
@@ -306,9 +364,7 @@ export function ClientStatusView(props: PageProps) {
               <CardContent className="flex items-center gap-3">
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-soft"><Icon className="size-5 text-accent-foreground" /></span>
                 <div className="min-w-0">
-                  {/* An IPv6 address outruns its card, so it wraps rather than
-                      pushing the row sideways. */}
-                  <div className="font-mono text-lg font-semibold break-all tabular-nums">{a.value}</div>
+                  <div className="font-mono text-lg font-semibold wrap-break-word tabular-nums">{breakable(a.value)}</div>
                   <div className="text-11-5 text-muted-foreground">{/^ip$/i.test(a.label) ? 'Your IP' : a.label}</div>
                 </div>
               </CardContent>

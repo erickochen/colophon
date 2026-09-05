@@ -2,6 +2,7 @@
 import { Fragment, useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { ProtocolStatus } from '@/lib/extract/shell'
+import type { ClientState } from '@/lib/status-dots'
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
@@ -28,9 +29,15 @@ export function PageHeader({ title, sub, action }: { title: ReactNode; sub?: Rea
   )
 }
 
+const STATE_WORDS: Record<ClientState, string> = {
+  connectable: 'connectable',
+  unconnectable: 'not connectable',
+  offline: 'offline',
+}
+
 /** One word for a protocol's connectability, for places too tight for a sentence. */
 export function protocolWord(p: ProtocolStatus): string {
-  return p.connectable == null ? 'unknown' : p.connectable ? 'connectable' : 'offline'
+  return p.state ? STATE_WORDS[p.state] : 'unknown'
 }
 
 /** MAM's own label for the state, which says it is the torrent client being described. */

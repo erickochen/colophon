@@ -1,6 +1,7 @@
 // Reads the server-rendered MAM shell into typed data. A missing element
 // returns null, never a guess.
 import { counterValue } from '@/lib/counters'
+import { CLIENT_STATES, type ClientState } from '@/lib/status-dots'
 
 /** A notice MAM prints above the news ticker. */
 export interface SiteAlert {
@@ -12,6 +13,7 @@ export interface SiteAlert {
 /** Connectability of one protocol, with MAM's own wording for that state. */
 export interface ProtocolStatus {
   connectable: boolean | null
+  state: ClientState | null
   note: string | null
 }
 
@@ -184,10 +186,14 @@ export function capturePage(doc: Document): ShellData {
   // MAM names each protocol's state on the image itself, so the wording a
   // member reads is his, not ours.
   const clientImgs = doc.querySelectorAll<HTMLImageElement>('#tmCo img')
-  const clientStatus = (img: HTMLImageElement | undefined): ProtocolStatus => ({
-    connectable: img ? img.classList.contains('connectable') : null,
-    note: img?.getAttribute('title')?.trim() || img?.getAttribute('alt')?.trim() || null,
-  })
+  const clientStatus = (img: HTMLImageElement | undefined): ProtocolStatus => {
+    const state = img ? CLIENT_STATES.find((s) => img.classList.contains(s)) ?? null : null
+    return {
+      connectable: state == null ? null : state === 'connectable',
+      state,
+      note: img?.getAttribute('title')?.trim() || img?.getAttribute('alt')?.trim() || null,
+    }
+  }
 
   const newsLinks = new Map<string, string>()
   for (const a of doc.querySelectorAll<HTMLAnchorElement>(
