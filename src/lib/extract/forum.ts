@@ -249,6 +249,8 @@ export interface TopicPoll {
 export interface TopicData {
   crumbs: { name: string; href: string | null }[]
   title: string
+  /** The state staff gave this topic, on the boards that track one. */
+  state: string | null
   pages: { label: string; href: string; current: boolean }[]
   prevHref: string | null
   nextHref: string | null
@@ -256,6 +258,15 @@ export interface TopicData {
   posts: TopicPost[]
   topicId: string | null
   quickReply: boolean
+}
+
+/** A board that tracks a state prints it right under the topic title, in its
+ * own words: "This Feature Request is currently: Declined". Only the sibling of
+ * the h1 counts, so an h3 a member writes in a post is never read as a state. */
+function topicState(h1: Element | null | undefined): string | null {
+  const next = h1?.nextElementSibling
+  if (!next?.matches('h3')) return null
+  return txt(next)?.match(/is currently:\s*(.+)$/i)?.[1].trim() || null
 }
 
 /** An option's text sits loose after its radio, up to the next line break. The
@@ -424,6 +435,7 @@ export function extractTopic(doc: Document): TopicData | null {
   return {
     crumbs,
     title,
+    state: topicState(h1),
     pages,
     prevHref,
     nextHref,

@@ -4,6 +4,8 @@ import type { PageProps } from '@/app/router'
 import { extractTopic, type TopicPoll, type TopicPost } from '@/lib/extract/forum'
 import { LegacyView } from '@/app/pages/legacy'
 import { Crumbs, Pager, POST_SPACING, RichHtml } from '@/app/shell/bits'
+import { StateBadge } from '@/components/status-badge'
+import { tagLabel, tagTone } from '@/lib/forum-tags'
 import { initials, localDateTime, utcTitle } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import {
@@ -447,7 +449,10 @@ export function ForumTopicView(props: PageProps) {
     <div className="grid gap-4">
       <Crumbs items={data.crumbs} />
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="font-display text-24 font-semibold leading-tight tracking-tight">{data.title}</h1>
+        <div className="grid gap-2">
+          {data.state && <StateBadge text={tagLabel(data.state)} tone={tagTone(data.state)} />}
+          <h1 className="font-display text-24 font-semibold leading-tight tracking-tight">{data.title}</h1>
+        </div>
         <Button
           variant={subscribed ? 'secondary' : 'outline'}
           size="sm"
