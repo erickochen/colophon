@@ -19,6 +19,7 @@ export type FeatureKey =
   | 'externalLinks'
   | 'forumSnippet'
   | 'localTime'
+  | 'utcClock'
   | 'bonusDelta'
   | 'hideSnatched'
   | 'ignoreAction'
@@ -54,6 +55,7 @@ export const FEATURES: Record<FeatureKey, FeatureDef> = {
   externalLinks: { key: 'colophon:external-links', enabledByDefault: true },
   forumSnippet: { key: 'colophon:forum-snippet', enabledByDefault: true },
   localTime: { key: 'colophon:local-time', enabledByDefault: true },
+  utcClock: { key: 'colophon:utc-clock', enabledByDefault: false },
   bonusDelta: { key: 'colophon:bonus-delta', enabledByDefault: true },
   hideSnatched: { key: 'colophon:hide-snatched', enabledByDefault: false },
   ignoreAction: { key: 'colophon:ignore-action', enabledByDefault: true },

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronRight, Eye, Headset, Mail, Moon, PackageCheck, Palette, Search, Settings2, Sun, SunMoon } from 'lucide-react'
 import type { ShellData } from '@/lib/extract/shell'
 import type { Theme } from '@/lib/theme'
@@ -6,7 +6,8 @@ import { chooseTheme, DARK_SCHEME_ITEMS, LIGHT_SCHEME_ITEMS, useAppearance } fro
 import { protocolNote, protocolWord } from '@/app/shell/bits'
 import { NOTIF_TARGETS, type NotifCounts } from '@/lib/notify'
 import { useLiveBonus, useLiveWedges } from '@/lib/bonus'
-import { readFeature } from '@/lib/settings'
+import { readFeature, useFeature } from '@/lib/settings'
+import { stampMs, utcClockParts } from '@/lib/format'
 import { counterValue } from '@/lib/counters'
 import { NumberRoll } from '@/components/ui/number-roll'
 import { Button } from '@/components/ui/button'
@@ -27,6 +28,11 @@ import { Kbd } from '@/components/ui/kbd'
 const BONUS_SEEN_KEY = 'colophon:bonus-seen'
 // The gain marker leaves again after this long, so the bar stays quiet.
 const DELTA_VISIBLE_MS = 6000
+// MAM's own ticker moves once a second, so ours keeps step with it.
+const CLOCK_TICK_MS = 1000
+// A gap under this is the page's own load time rather than a browser clock that
+// is really wrong, so below it the browser reading is the better of the two.
+const CLOCK_DRIFT_MIN_MS = 30000
 
 /** Points gained since the previous page in this tab, shown once per load. */
 function useBonusDelta(current: string | null): number | null {
@@ -56,7 +62,7 @@ function useBonusDelta(current: string | null): number | null {
 function StatChip({
   label, value, tone, href, hint, suffix,
 }: {
-  label: string
+  label: React.ReactNode
   value: string | number | null
   tone?: 'ok' | 'warn'
   href?: string
@@ -92,6 +98,37 @@ function StatChip({
       </TooltipTrigger>
       <TooltipContent>{hint}</TooltipContent>
     </Tooltip>
+  )
+}
+
+/** The site clock, in its own component so a tick redraws nothing around it.
+ * It is the widest chip in the row, so it carries its own breakpoints: the
+ * clock from xl, the date from 2xl. */
+function UtcClock({ serverDate, longForm }: { serverDate: string | null; longForm: boolean }) {
+  const [on] = useFeature('utcClock')
+  const [, tick] = useState(0)
+  const offset = useMemo(() => {
+    const base = stampMs(serverDate)
+    if (base == null) return null
+    const gap = Date.now() - base
+    return Math.abs(gap) < CLOCK_DRIFT_MIN_MS ? 0 : gap
+  }, [serverDate])
+  useEffect(() => {
+    if (!on || offset == null) return
+    const timer = window.setInterval(() => tick((n) => n + 1), CLOCK_TICK_MS)
+    return () => window.clearInterval(timer)
+  }, [on, offset])
+  if (!on || offset == null) return null
+  const at = utcClockParts(new Date(Date.now() - offset), longForm)
+  if (!at) return null
+  return (
+    <div className="hidden xl:block">
+      <StatChip
+        label={<span className="hidden whitespace-nowrap 2xl:inline">{at.date}</span>}
+        value={at.time}
+        suffix="UTC"
+      />
+    </div>
   )
 }
 
@@ -192,6 +229,7 @@ export function Topbar({ page, counts, onOpenSearch }: { page: ShellData; counts
         <Kbd className="ml-auto">⌘K</Kbd>
       </Button>
       <div className="ml-auto flex items-center gap-4">
+        <UtcClock serverDate={page.serverDate} longForm={page.clockLongForm} />
         <NotifChips counts={counts} />
         <ClientChip client={page.client} />
         <StatChip

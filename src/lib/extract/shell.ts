@@ -37,6 +37,8 @@ export interface ShellData {
   pmCount: number
   donationPct: string | null
   serverDate: string | null
+  /** MAM's ticker style: the long form on 1, the short one otherwise. */
+  clockLongForm: boolean
   uploadHref: string | null
   mainContent: HTMLElement | null
   title: string
@@ -211,6 +213,10 @@ export function capturePage(doc: Document): ShellData {
 
   const donationRaw = text(doc.querySelector('li.mmDonBox > a'))
 
+  // The clock strip carries the exact server time plus the shape this account
+  // picked for it in the style preferences.
+  const clock = doc.querySelector('#preNav .tP')
+
   // Avatar only present when the user enabled the header-avatar preference.
   const avatar =
     doc.querySelector<HTMLImageElement>('#userMenu img.avatar, li.mmUserStats img[src*="avatar"], #userStat img[src*="avatar"]')?.getAttribute('src') ?? null
@@ -241,7 +247,8 @@ export function capturePage(doc: Document): ShellData {
     alerts: readAlerts(doc),
     pmCount,
     donationPct: donationRaw?.match(/([\d.]+%)/)?.[1] ?? null,
-    serverDate: doc.querySelector('#preNav .tP')?.getAttribute('data-basedate') ?? null,
+    serverDate: clock?.getAttribute('data-basedate') ?? null,
+    clockLongForm: clock?.getAttribute('data-dtype') === '1',
     uploadHref: readUploadHref(doc),
     mainContent: doc.querySelector<HTMLElement>('#mainBody') ?? doc.querySelector<HTMLElement>('main'),
     title: doc.title.replace(/\s*\|\s*My Anonamouse\s*$/, ''),

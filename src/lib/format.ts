@@ -84,6 +84,14 @@ export function utcTitle(iso: string | null | undefined): string {
   return iso ? `${iso} UTC` : ''
 }
 
+/** MAM's two ticker shapes, split into the date and the clock time. Long form is
+ * `data-dtype` 1 and the short one anything else, the same test site.js makes. */
+export function utcClockParts(at: Date, longForm: boolean): { date: string; time: string } | null {
+  const raw = longForm ? at.toUTCString() : at.toISOString().replace('T', ' ')
+  const m = raw.match(/^(.+?) (\d{2}:\d{2}:\d{2})/)
+  return m ? { date: m[1], time: m[2] } : null
+}
+
 const NAMED_ENTITIES: Record<string, string> = {
   amp: '&',
   lt: '<',

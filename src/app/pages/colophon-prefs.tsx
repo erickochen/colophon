@@ -845,6 +845,11 @@ export function ColophonPrefsView(_props: PageProps) {
           credit="MAM Time change script by Lemonade"
         />
         <FeatureRow
+          feature="utcClock"
+          title="UTC clock"
+          note="Shows MAM's own UTC clock in the top bar, ticking every second. Useful with Local timezone on, since everything else then shows your own time."
+        />
+        <FeatureRow
           feature="bonusDelta"
           title="Bonus delta"
           note="Shows how many bonus points arrived since your last page."
